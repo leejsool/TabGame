@@ -24,7 +24,7 @@ class FcMetrics {
     colY = topY + ch + w * 0.4;
     final avail = view.height - colY - pad;
     final n = max(2, maxColumnLength);
-    off = ((avail - ch) / (n - 1)).clamp(ch * 0.13, ch * 0.3);
+    off = ((avail - ch) / (n - 1)).clamp(ch * 0.13, ch * 0.36);
   }
 
   final Size view;

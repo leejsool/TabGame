@@ -24,7 +24,7 @@ class SolMetrics {
     colY = topY + ch + w * 0.38;
     final avail = view.height - colY - pad;
     final n = max(10.0, stackWeight);
-    offU = ((avail - ch) / n).clamp(ch * 0.12, ch * 0.28);
+    offU = ((avail - ch) / n).clamp(ch * 0.12, ch * 0.36);
     offD = offU * 0.38;
     fanOff = cw * 0.3;
   }

@@ -91,8 +91,8 @@ void drawSuit(Canvas canvas, int suit, Rect r, Paint paint) {
   }
 }
 
-/// 숫자 카드(2~10)의 무늬 자리: (가로 비율, 세로 0~1). 세로 0이 위쪽, 1이 아래쪽.
-const double _l = 0.29, _c = 0.5, _r = 0.71;
+/// 숫자 카드(2~10)의 무늬 자리: (가로 0~1, 세로 0~1). 가로는 무늬 영역 안의 왼쪽/가운데/오른쪽 줄, 세로 0이 위쪽.
+const double _l = 0.0, _c = 0.5, _r = 1.0;
 const List<List<(double, double)>> kPipLayouts = [
   [(_c, 0), (_c, 1)], // 2
   [(_c, 0), (_c, 0.5), (_c, 1)], // 3
@@ -131,7 +131,8 @@ class _TextCache {
   }
 }
 
-/// 카드 한 장 그리기. 여러 장이 겹쳐 쌓여도 맨 위 한 줄(왼쪽 위 숫자+무늬)만으로 읽히게 한다.
+/// 카드 한 장 그리기 (발라트로 스타일): 왼쪽 위에 숫자, 그 바로 아래에 작은 무늬.
+/// 여러 장이 겹쳐 쌓여도 맨 위 한 줄(숫자)만으로 읽힌다. 오른쪽 아래의 뒤집힌 숫자는 없다.
 void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth = 3}) {
   final w = size.width, h = size.height;
   final rank = rankOf(card), suit = suitOf(card);
@@ -157,24 +158,27 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
   );
 
   final label = kRankLabels[rank];
-  final isFace = rank >= 10;
 
-  // 왼쪽 위 숫자 + 작은 무늬
-  final idxSize = w * (label.length > 1 ? 0.27 : 0.31);
+  // 왼쪽 위 숫자 + 그 아래 작은 무늬 (가운데 맞춤)
+  final idxSize = w * (label.length > 1 ? 0.22 : 0.33);
   final tp = _TextCache.get(label, idxSize, color, FontWeight.w800);
-  tp.paint(canvas, Offset(w * 0.07, h * 0.035));
-  final suitSize = w * 0.22;
+  final idxW = max(tp.width, w * 0.2);
+  final idxCx = w * 0.07 + idxW / 2;
+  tp.paint(canvas, Offset(idxCx - tp.width / 2, h * 0.03));
+  final suitSize = w * 0.2;
   drawSuit(
     canvas,
     suit,
-    Rect.fromLTWH(w * 0.07 + tp.width + w * 0.03, h * 0.035 + (tp.height - suitSize) / 2, suitSize, suitSize),
+    Rect.fromLTWH(idxCx - suitSize / 2, h * 0.03 + tp.height + h * 0.008, suitSize, suitSize),
     Paint()..color = color,
   );
 
-  // 가운데
-  if (isFace) {
+  // 무늬 영역: 숫자 줄을 뺀 오른쪽 부분
+  final areaL = w * 0.31, areaR = w * 0.94;
+  final cxMid = (areaL + areaR) / 2;
+  if (rank >= 10) {
     final band = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.14, h * 0.3, w * 0.72, h * 0.5),
+      Rect.fromLTRB(w * 0.3, h * 0.1, w * 0.94, h * 0.9),
       Radius.circular(w * 0.1),
     );
     canvas.drawRRect(band, Paint()..color = color.withValues(alpha: 0.10));
@@ -186,39 +190,22 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
         ..color = color.withValues(alpha: 0.35),
     );
     final big = _TextCache.get(label, w * 0.5, color, FontWeight.w900);
-    big.paint(canvas, Offset((w - big.width) / 2, h * 0.34));
+    big.paint(canvas, Offset(cxMid - big.width / 2, h * 0.3));
     final s = w * 0.3;
-    drawSuit(canvas, suit, Rect.fromLTWH((w - s) / 2, h * 0.34 + big.height + h * 0.01, s, s), Paint()..color = color);
+    drawSuit(canvas, suit, Rect.fromLTWH(cxMid - s / 2, h * 0.3 + big.height + h * 0.02, s, s), Paint()..color = color);
   } else if (rank == 0) {
     final s = w * 0.5;
-    drawSuit(canvas, suit, Rect.fromLTWH((w - s) / 2, h * 0.38, s, s), Paint()..color = color);
+    drawSuit(canvas, suit, Rect.fromLTWH(cxMid - s / 2, h * 0.5 - s / 2, s, s), Paint()..color = color);
   } else {
-    // 2~10: 숫자만큼 작은 무늬를 트럼프처럼 배치한다 (아래쪽 절반은 뒤집어서)
-    final s = w * (rank <= 5 ? 0.25 : rank <= 7 ? 0.22 : 0.19); // 무늬가 많을수록 작게
+    // 2~10: 숫자만큼 작은 무늬를 정해진 자리에 (모두 똑바로)
+    final s = w * (rank <= 3 ? 0.27 : rank <= 5 ? 0.24 : rank <= 8 ? 0.2 : 0.17);
     final paint = Paint()..color = color;
+    final xHalf = (areaR - areaL) / 2 - s / 2;
     for (final (cx, ty) in kPipLayouts[rank - 1]) {
-      final c = Offset(w * cx, h * (0.30 + 0.40 * ty));
-      final r = Rect.fromCenter(center: c, width: s, height: s);
-      if (ty > 0.5) {
-        canvas.save();
-        canvas.translate(c.dx, c.dy);
-        canvas.rotate(pi);
-        canvas.translate(-c.dx, -c.dy);
-        drawSuit(canvas, suit, r, paint);
-        canvas.restore();
-      } else {
-        drawSuit(canvas, suit, r, paint);
-      }
+      final c = Offset(cxMid + (cx - 0.5) * 2 * xHalf, h * (0.2 + 0.6 * ty));
+      drawSuit(canvas, suit, Rect.fromCenter(center: c, width: s, height: s), paint);
     }
   }
-
-  // 오른쪽 아래 (뒤집힌) 숫자
-  canvas.save();
-  canvas.translate(w, h);
-  canvas.rotate(pi);
-  final tp2 = _TextCache.get(label, idxSize * 0.8, color, FontWeight.w800);
-  tp2.paint(canvas, Offset(w * 0.07, h * 0.035));
-  canvas.restore();
 
   if (glow != null) {
     canvas.drawRRect(
