@@ -4,6 +4,7 @@ import '../games/freecell/ui/freecell_records_tab.dart';
 import '../games/goblet/ui/goblet_records_tab.dart';
 import '../games/jigsaw/ui/jigsaw_records_tab.dart';
 import '../games/sudoku/ui/sudoku_records_tab.dart';
+import '../games/uttt/ui/uttt_records_tab.dart';
 
 /// 게임별 기록 보드 모음. 새 게임이 기록을 갖게 되면 [_boards]에 한 줄만 추가하면 된다.
 class RecordsScreen extends StatelessWidget {
@@ -16,6 +17,7 @@ class RecordsScreen extends StatelessWidget {
     (id: 'sudoku', title: '스도쿠', icon: Icons.grid_on_rounded, tab: (_) => const SudokuRecordsTab()),
     (id: 'freecell', title: '프리셀', icon: Icons.view_column_rounded, tab: (_) => const FreecellRecordsTab()),
     (id: 'jigsaw', title: '직소퍼즐', icon: Icons.extension_rounded, tab: (_) => const JigsawRecordsTab()),
+    (id: 'ultimate_tictactoe', title: '얼티밋 틱택토', icon: Icons.tag_rounded, tab: (_) => const UtttRecordsTab()),
     (id: 'goblet_gobblers', title: '고블렛', icon: Icons.layers_rounded, tab: (_) => const GobbletRecordsTab()),
   ];
 

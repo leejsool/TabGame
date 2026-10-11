@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../games/freecell/freecell_entry.dart';
 import '../games/goblet/goblet_entry.dart';
+import '../games/uttt/uttt_entry.dart';
 import '../games/jigsaw/jigsaw_entry.dart';
 import '../games/sudoku/sudoku_entry.dart';
 import 'game_info.dart';
@@ -71,6 +72,7 @@ const List<GameInfo> allGames = [
     icon: Icons.tag_rounded,
     color: Color(0xFFD1495B),
     modes: [PlayMode.local2p, PlayMode.vsCpu],
+    builder: buildUttt,
   ),
   GameInfo(
     id: 'goblet_gobblers',

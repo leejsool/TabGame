@@ -1,17 +1,27 @@
-# tabgame
+# TabGame
 
-A new Flutter project.
+안드로이드 태블릿용 게임 모음 앱 (Flutter). 혼자 놀기와 함께 놀기 게임을 한 앱에 담아요.
 
-## Getting Started
+## 게임
 
-This project is a starting point for a Flutter application.
+| 구분 | 게임 | 상태 |
+| --- | --- | --- |
+| 혼자 | 스도쿠 (3단계 난이도, 메모/빠른 입력, 논리 힌트, 자동 완성) | 완성 |
+| 혼자 | 프리셀 (번호 판, 풀이 힌트, 난이도) | 완성 |
+| 혼자 | 직소퍼즐 (갤러리 사진/샘플 그림) | 완성 |
+| 혼자 | 지뢰찾기, 솔리테어, 핀볼 | 준비 중 |
+| 함께 | 얼티밋 틱택토 (2인 / CPU 3단계) | 완성 |
+| 함께 | 고블렛 고블러스 (2인 / CPU 3단계) | 완성 |
 
-A few resources to get you started if this is your first Flutter project:
+게임마다 기록 보드(전적/최고 기록)가 있고, 스도쿠·프리셀·직소퍼즐은 했던 판을 다시 플레이할 수 있어요.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 개발
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+flutter pub get
+flutter test
+flutter build apk --release
+```
+
+구조: `lib/core`(공통), `lib/hub`(첫 화면), `lib/records`(기록), `lib/games/<게임>/{core,game,ui,data}`.
+규칙 엔진은 순수 Dart로 분리되어 있어 화면 없이 테스트돼요.

@@ -57,7 +57,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('2인 게임은 모드 선택 후 준비 중 화면으로 간다', (tester) async {
+  testWidgets('2인 게임은 모드 선택 후 설정 화면으로 간다', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
@@ -65,12 +65,26 @@ void main() {
     final settings = await Settings.load();
     await tester.pumpWidget(TabGameApp(settings: settings));
 
-    // 아직 만들지 않은 2인 게임으로 모드 선택 → 준비 중 화면 흐름을 확인한다
     await tester.tap(find.text('얼티밋 틱택토'));
     await tester.pumpAndSettle();
     expect(find.text('CPU와 대결'), findsOneWidget);
 
     await tester.tap(find.text('CPU와 대결'));
+    await tester.pumpAndSettle();
+    expect(find.text('내 표시'), findsOneWidget);
+    expect(find.text('CPU 난이도'), findsOneWidget);
+  });
+
+  testWidgets('아직 만들지 않은 게임은 준비 중 화면으로 간다', (tester) async {
+    tester.view.physicalSize = const Size(1600, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+
+    final settings = await Settings.load();
+    await tester.pumpWidget(TabGameApp(settings: settings));
+
+    await tester.ensureVisible(find.text('핀볼'));
+    await tester.tap(find.text('핀볼'));
     await tester.pumpAndSettle();
     expect(find.textContaining('아직 만드는 중'), findsOneWidget);
   });
