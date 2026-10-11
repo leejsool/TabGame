@@ -4,6 +4,7 @@ import '../games/freecell/freecell_entry.dart';
 import '../games/goblet/goblet_entry.dart';
 import '../games/uttt/uttt_entry.dart';
 import '../games/jigsaw/jigsaw_entry.dart';
+import '../games/minesweeper/minesweeper_entry.dart';
 import '../games/solitaire/solitaire_entry.dart';
 import '../games/sudoku/sudoku_entry.dart';
 import 'game_info.dart';
@@ -29,6 +30,7 @@ const List<GameInfo> allGames = [
     icon: Icons.flag_rounded,
     color: Color(0xFFC8553D),
     modes: [PlayMode.solo],
+    builder: buildMinesweeper,
   ),
   GameInfo(
     id: 'solitaire',
