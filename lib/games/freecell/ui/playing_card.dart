@@ -42,27 +42,22 @@ void drawSuit(Canvas canvas, int suit, Rect r, Paint paint) {
           ..close(),
         paint,
       );
-    case 3: // ♠
+    case 3: // ♠ (발라트로처럼 갸름하게: 뾰족한 윗부분, 작은 양쪽 둥근 부분, 넓게 퍼지는 받침)
+      Path spade = Path()..moveTo(p(0.5, 0.0).dx, p(0.5, 0.0).dy);
+      void c(double x1, double y1, double x2, double y2, double x3, double y3) =>
+          spade.cubicTo(p(x1, y1).dx, p(x1, y1).dy, p(x2, y2).dx, p(x2, y2).dy, p(x3, y3).dx, p(x3, y3).dy);
+      c(0.46, 0.16, 0.07, 0.36, 0.07, 0.6); // 왼쪽 윗부분 → 왼쪽 옆
+      c(0.07, 0.8, 0.36, 0.86, 0.5, 0.68); // 왼쪽 아래 둥근 부분 → 가운데 홈
+      c(0.64, 0.86, 0.93, 0.8, 0.93, 0.6); // 오른쪽 아래 둥근 부분
+      c(0.93, 0.36, 0.54, 0.16, 0.5, 0.0); // 오른쪽 옆 → 윗부분
+      spade.close();
+      canvas.drawPath(spade, paint);
       canvas.drawPath(
         Path()
-          ..moveTo(p(0.5, 0.02).dx, p(0.5, 0.02).dy)
-          ..cubicTo(p(0.98, 0.34).dx, p(0.98, 0.34).dy, p(1.04, 0.62).dx, p(1.04, 0.62).dy,
-              p(0.83, 0.78).dx, p(0.83, 0.78).dy)
-          ..cubicTo(p(0.67, 0.9).dx, p(0.67, 0.9).dy, p(0.53, 0.84).dx, p(0.53, 0.84).dy,
-              p(0.5, 0.68).dx, p(0.5, 0.68).dy)
-          ..cubicTo(p(0.47, 0.84).dx, p(0.47, 0.84).dy, p(0.33, 0.9).dx, p(0.33, 0.9).dy,
-              p(0.17, 0.78).dx, p(0.17, 0.78).dy)
-          ..cubicTo(p(-0.04, 0.62).dx, p(-0.04, 0.62).dy, p(0.02, 0.34).dx, p(0.02, 0.34).dy,
-              p(0.5, 0.02).dx, p(0.5, 0.02).dy)
-          ..close(),
-        paint,
-      );
-      canvas.drawPath(
-        Path()
-          ..moveTo(p(0.5, 0.55).dx, p(0.5, 0.55).dy)
-          ..quadraticBezierTo(p(0.5, 0.8).dx, p(0.5, 0.8).dy, p(0.36, 1.0).dx, p(0.36, 1.0).dy)
-          ..lineTo(p(0.64, 1.0).dx, p(0.64, 1.0).dy)
-          ..quadraticBezierTo(p(0.5, 0.8).dx, p(0.5, 0.8).dy, p(0.5, 0.55).dx, p(0.5, 0.55).dy)
+          ..moveTo(p(0.5, 0.58).dx, p(0.5, 0.58).dy)
+          ..quadraticBezierTo(p(0.5, 0.86).dx, p(0.5, 0.86).dy, p(0.31, 1.0).dx, p(0.31, 1.0).dy)
+          ..lineTo(p(0.69, 1.0).dx, p(0.69, 1.0).dy)
+          ..quadraticBezierTo(p(0.5, 0.86).dx, p(0.5, 0.86).dy, p(0.5, 0.58).dx, p(0.5, 0.58).dy)
           ..close(),
         paint,
       );
@@ -101,10 +96,10 @@ const List<List<(double, double)>> kPipLayouts = [
   [(_l, 0), (_r, 0), (_l, 0.5), (_r, 0.5), (_l, 1), (_r, 1)], // 6
   [(_l, 0), (_r, 0), (_c, 0.25), (_l, 0.5), (_r, 0.5), (_l, 1), (_r, 1)], // 7
   [(_l, 0), (_r, 0), (_c, 0.25), (_l, 0.5), (_r, 0.5), (_c, 0.75), (_l, 1), (_r, 1)], // 8
-  [(_l, 0), (_r, 0), (_c, 0.185), (_l, 0.37), (_r, 0.37), (_l, 0.63), (_r, 0.63), (_l, 1), (_r, 1)], // 9
+  [(_l, 0), (_r, 0), (_c, 0.165), (_l, 0.33), (_r, 0.33), (_l, 0.67), (_r, 0.67), (_l, 1), (_r, 1)], // 9
   [
-    (_l, 0), (_r, 0), (_c, 0.185), (_l, 0.37), (_r, 0.37), //
-    (_l, 0.63), (_r, 0.63), (_c, 0.815), (_l, 1), (_r, 1), // 10
+    (_l, 0), (_r, 0), (_c, 0.165), (_l, 0.33), (_r, 0.33), //
+    (_l, 0.67), (_r, 0.67), (_c, 0.835), (_l, 1), (_r, 1), // 10
   ],
 ];
 
@@ -200,7 +195,8 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
     drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.5 - s / 2, s, s), Paint()..color = color);
   } else {
     // 2~10: 숫자만큼 무늬를 배치한다. 아래쪽 절반의 무늬는 발라트로처럼 위아래를 뒤집는다.
-    final s = w * (rank <= 3 ? 0.26 : rank <= 5 ? 0.22 : rank <= 8 ? 0.19 : 0.17);
+    // rank는 0부터 센다: 무늬 개수 = rank + 1
+    final s = w * (rank <= 2 ? 0.26 : rank <= 4 ? 0.22 : rank <= 7 ? 0.19 : 0.15);
     final paint = Paint()..color = color;
     final xHalf = w * 0.16;
     for (final (cx, ty) in kPipLayouts[rank - 1]) {

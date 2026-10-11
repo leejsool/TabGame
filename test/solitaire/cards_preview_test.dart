@@ -1,4 +1,4 @@
-// 카드 앞면 전체(무늬 4 × 13장)를 그림으로 뽑아보는 도구. SOLITAIRE_PREVIEW_DIR 가 있을 때만 실행.
+// 카드 앞면 전체(무늬 4 × 13장)를 그림으로 뽑아보는 도구. SOLITAIRE_PREVIEW_DIR 가 있을 때만 실행. BIG_CARDS=1 이면 스페이드 몇 장만 크게.
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -18,6 +18,7 @@ void main() {
     }
     await loader.load();
     await tester.binding.setSurfaceSize(const Size(1400, 700));
+    final big = Platform.environment['BIG_CARDS'] != null;
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final key = GlobalKey();
     await tester.pumpWidget(
@@ -30,11 +31,11 @@ void main() {
           padding: const EdgeInsets.all(10),
           child: Column(
             children: [
-              for (final suit in [3, 2, 0, 1])
+              for (final suit in big ? [3, 3] : [3, 2, 0, 1])
                 Expanded(
                   child: Row(
                     children: [
-                      for (var rank = 0; rank < 13; rank++)
+                      for (var rank in (big ? const [0, 5, 8, 9] : List<int>.generate(13, (i) => i)))
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.all(3),
