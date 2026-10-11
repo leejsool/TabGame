@@ -9,8 +9,23 @@ const Color kCardBlack = Color(0xFF1E2430);
 
 Color suitColor(int suit) => isRedSuit(suit) ? kCardRed : kCardBlack;
 
+/// 무늬마다 모양이 달라 같은 칸에 그리면 크기가 달라 보인다 (클로버가 크고 다이아가 작다).
+/// 실제로 칠해진 면적이 비슷해지도록 무늬별로 크기와 세로 위치를 보정한다. (♣ ♦ ♥ ♠)
+const List<double> _suitScale = [0.9, 1.0, 0.88, 0.93];
+const List<double> _suitDy = [-0.02, 0.0, -0.03, 0.0];
+
 /// 무늬 하나를 [r] 안에 그린다 (♣=0, ♦=1, ♥=2, ♠=3). 폰트에 의존하지 않는다.
 void drawSuit(Canvas canvas, int suit, Rect r, Paint paint) {
+  final f = _suitScale[suit];
+  _drawSuitRaw(
+    canvas,
+    suit,
+    Rect.fromCenter(center: r.center + Offset(0, _suitDy[suit] * r.height), width: r.width * f, height: r.height * f),
+    paint,
+  );
+}
+
+void _drawSuitRaw(Canvas canvas, int suit, Rect r, Paint paint) {
   Offset p(double x, double y) => Offset(r.left + x * r.width, r.top + y * r.height);
 
   Path heart({bool flip = false}) {
@@ -35,10 +50,10 @@ void drawSuit(Canvas canvas, int suit, Rect r, Paint paint) {
       canvas.drawPath(
         Path()
           ..moveTo(p(0.5, 0.0).dx, p(0.5, 0.0).dy)
-          ..quadraticBezierTo(p(0.62, 0.34).dx, p(0.62, 0.34).dy, p(0.92, 0.5).dx, p(0.92, 0.5).dy)
-          ..quadraticBezierTo(p(0.62, 0.66).dx, p(0.62, 0.66).dy, p(0.5, 1.0).dx, p(0.5, 1.0).dy)
-          ..quadraticBezierTo(p(0.38, 0.66).dx, p(0.38, 0.66).dy, p(0.08, 0.5).dx, p(0.08, 0.5).dy)
-          ..quadraticBezierTo(p(0.38, 0.34).dx, p(0.38, 0.34).dy, p(0.5, 0.0).dx, p(0.5, 0.0).dy)
+          ..quadraticBezierTo(p(0.66, 0.32).dx, p(0.66, 0.32).dy, p(0.95, 0.5).dx, p(0.95, 0.5).dy)
+          ..quadraticBezierTo(p(0.66, 0.68).dx, p(0.66, 0.68).dy, p(0.5, 1.0).dx, p(0.5, 1.0).dy)
+          ..quadraticBezierTo(p(0.34, 0.68).dx, p(0.34, 0.68).dy, p(0.05, 0.5).dx, p(0.05, 0.5).dy)
+          ..quadraticBezierTo(p(0.34, 0.32).dx, p(0.34, 0.32).dy, p(0.5, 0.0).dx, p(0.5, 0.0).dy)
           ..close(),
         paint,
       );
@@ -106,8 +121,8 @@ const List<List<(double, double)>> kPipLayouts = [
 class _TextCache {
   static final Map<int, TextPainter> _m = {};
 
-  static TextPainter get(String s, double size, Color color, FontWeight w) {
-    final key = Object.hash(s, size.round(), color.toARGB32(), w.value);
+  static TextPainter get(String s, double size, Color color, FontWeight w, {bool tight = false}) {
+    final key = Object.hash(s, size.round(), color.toARGB32(), w.value, tight);
     return _m.putIfAbsent(key, () {
       return TextPainter(
         text: TextSpan(
@@ -118,6 +133,7 @@ class _TextCache {
             color: color,
             fontWeight: w,
             height: 1.0,
+            letterSpacing: tight ? -size * 0.1 : null,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -156,7 +172,7 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
   final label = kRankLabels[rank];
 
   // 모서리 숫자: 작게 줄여서 가운데 무늬와 여백을 둔다. 아래쪽에는 180도 돌려서 한 번 더.
-  final tp = _TextCache.get(label, w * (label.length > 1 ? 0.15 : 0.22), color, FontWeight.w800);
+  final tp = _TextCache.get(label, w * 0.22, color, FontWeight.w800, tight: label.length > 1); // 모든 숫자·글자를 같은 크기로
   final idxCx = w * 0.05 + max(tp.width, w * 0.13) / 2;
   void index() {
     tp.paint(canvas, Offset(idxCx - tp.width / 2, h * 0.03));
@@ -196,7 +212,7 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
   } else {
     // 2~10: 숫자만큼 무늬를 배치한다. 아래쪽 절반의 무늬는 발라트로처럼 위아래를 뒤집는다.
     // rank는 0부터 센다: 무늬 개수 = rank + 1
-    final s = w * (rank <= 2 ? 0.26 : rank <= 4 ? 0.22 : rank <= 7 ? 0.19 : 0.15);
+    final s = w * 1.08 * (rank <= 2 ? 0.26 : rank <= 4 ? 0.22 : rank <= 7 ? 0.19 : 0.15);
     final paint = Paint()..color = color;
     final xHalf = w * 0.16;
     for (final (cx, ty) in kPipLayouts[rank - 1]) {

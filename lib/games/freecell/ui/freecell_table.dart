@@ -63,9 +63,12 @@ class _Drag {
 
 /// 프리셀 판: 카드 그리기, 끌기, 탭 이동, 힌트 표시, 완성 연출.
 class FreecellTable extends StatefulWidget {
-  const FreecellTable({super.key, required this.controller});
+  const FreecellTable({super.key, required this.controller, this.onCelebrationTap});
 
   final FreecellController controller;
+
+  /// 완성 연출 중에 화면을 눌렀을 때 (연출을 건너뛰고 결과를 보여주려고).
+  final VoidCallback? onCelebrationTap;
 
   @override
   State<FreecellTable> createState() => _FreecellTableState();
@@ -365,7 +368,9 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
         for (final e in entries) e.$2,
         if (_celebrating && _show != null)
           Positioned.fill(
-            child: IgnorePointer(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onCelebrationTap,
               child: CustomPaint(painter: WinCelebrationPainter(_show!, _winTick)),
             ),
           ),

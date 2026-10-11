@@ -37,6 +37,7 @@ class _Flyer {
   final _Mode mode;
   final double spin;
   double rot = 0, scale = 1, alpha = 1, age = 0;
+  double? lastStampX, lastStampY;
   bool launched = false, gone = false;
 
   /// 잔상: (가운데 x, 가운데 y, 크기, 회전)
@@ -83,9 +84,10 @@ class WinCelebration {
     for (var rank = 12; rank >= 0; rank--) {
       for (var suit = 0; suit < 4; suit++) {
         final p = foundationPositions[suit];
-        final mode = switch (order % 5) {
-          2 => _Mode.burst,
-          4 => _Mode.zoom,
+        // 대부분은 윈도우처럼 튀는 카드. 솟구쳐 터지는 카드는 가끔, 화면으로 날아오는 카드는 아주 드물게.
+        final mode = switch (order) {
+          6 || 19 || 32 || 45 => _Mode.zoom,
+          _ when order % 6 == 3 => _Mode.burst,
           _ => _Mode.bounce,
         };
         final dir = _rng.nextBool() ? 1.0 : -1.0;
@@ -95,16 +97,16 @@ class WinCelebration {
           x: p.dx,
           y: p.dy,
           vx: switch (mode) {
-            _Mode.bounce => dir * cw * (2.2 + _rng.nextDouble() * 3.6),
-            _Mode.burst => dir * cw * (0.3 + _rng.nextDouble() * 1.6),
+            _Mode.bounce => dir * cw * (1.0 + _rng.nextDouble() * 1.5),
+            _Mode.burst => dir * cw * (0.3 + _rng.nextDouble() * 1.2),
             _Mode.zoom => 0,
           },
           vy: switch (mode) {
-            _Mode.bounce => -ch * (1.5 + _rng.nextDouble() * 2.8),
-            _Mode.burst => -ch * (4.2 + _rng.nextDouble() * 2.0),
+            _Mode.bounce => -ch * (1.0 + _rng.nextDouble() * 1.7),
+            _Mode.burst => -ch * (3.0 + _rng.nextDouble() * 1.4),
             _Mode.zoom => 0,
           },
-          launchAt: 0.25 + order * 0.085,
+          launchAt: 0.3 + order * 0.28,
           mode: mode,
           spin: dir * (0.5 + _rng.nextDouble() * 2.5),
         ));
@@ -126,6 +128,19 @@ class WinCelebration {
   double time = 0;
   double _flash = 0.6;
 
+  /// 윈도우처럼 지워지지 않는 잔상: 튀는 카드를 지나간 자리마다 카드를 도장처럼 찍어 한 장의 그림에 쌓는다.
+  ui.Image? _acc;
+  bool _accOk = true;
+  final List<(int, double, double)> _stamps = [];
+  static const _accScale = 0.6;
+  late final TextPainter _skipHint = TextPainter(
+    text: const TextSpan(
+      text: '화면을 누르면 계속해요',
+      style: TextStyle(fontFamily: 'NanumGothic', fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+
   static const _confettiColors = [
     Color(0xFFFFD84D),
     Color(0xFFFF5C7A),
@@ -137,7 +152,7 @@ class WinCelebration {
   ];
 
   /// 연출이 끝났는가 (모든 카드와 잔상이 사라지고 시간이 충분히 지났다).
-  bool get finished => time > 7 && _flyers.isEmpty && _particles.isEmpty;
+  bool get finished => time > 8 && _flyers.isEmpty && _particles.isEmpty;
 
   // ── 카드 그림을 미리 한 번씩만 그려 둔다 (잔상 때문에 매 프레임 많이 그리므로) ──
 
@@ -160,6 +175,8 @@ class WinCelebration {
   }
 
   void dispose() {
+    _acc?.dispose();
+    _acc = null;
     for (final i in _images.values) {
       i.dispose();
     }
@@ -199,7 +216,8 @@ class WinCelebration {
     time += dt;
     final cw = cardSize.width, ch = cardSize.height;
     final floor = view.height - ch;
-    final g = ch * 9.0;
+    final g = ch * 3.6; // 윈도우처럼 느릿한 포물선
+    final gBurst = ch * 6.0;
     if (_flash > 0) _flash = max(0, _flash - dt * 1.6);
 
     for (final f in List.of(_flyers)) {
@@ -223,16 +241,16 @@ class WinCelebration {
           f.vy += g * dt;
           f.x += f.vx * dt;
           f.y += f.vy * dt;
-          f.rot += f.spin * dt * 0.35;
           if (f.y > floor) {
             f.y = floor;
-            f.vy = -f.vy * 0.78;
-            if (f.vy.abs() < ch * 0.6) f.vy = -ch * 1.2;
-            _sparkle(f.x + cw / 2, f.y + ch, suitOf(f.card), 7, 0.45, upward: true);
+            f.vy = -f.vy * 0.82;
+            if (f.vy.abs() < ch * 0.5) f.vy = -ch * 0.95;
+            _sparkle(f.x + cw / 2, f.y + ch, suitOf(f.card), 4, 0.35, upward: true);
           }
+          if (_accOk) _stampAlong(f);
           if (f.x < -cw * 1.5 || f.x > view.width + cw * 0.5) f.gone = true;
         case _Mode.burst:
-          f.vy += g * dt;
+          f.vy += gBurst * dt;
           f.x += f.vx * dt;
           f.y += f.vy * dt;
           f.rot += f.spin * dt;
@@ -258,13 +276,16 @@ class WinCelebration {
             f.gone = true;
           }
       }
-      f.trail.add((f.x + cw / 2, f.y + ch / 2, f.scale, f.rot));
-      if (f.trail.length > (f.mode == _Mode.bounce ? 22 : 12)) f.trail.removeAt(0);
+      if (!_accOk || f.mode != _Mode.bounce) {
+        f.trail.add((f.x + cw / 2, f.y + ch / 2, f.scale, f.rot));
+        if (f.trail.length > (f.mode == _Mode.bounce ? 22 : 12)) f.trail.removeAt(0);
+      }
     }
+    _flushStamps();
 
     // 색종이 비
-    if (time < 5.5) {
-      final n = (200 * dt).round() + (_rng.nextDouble() < 200 * dt - (200 * dt).floor() ? 1 : 0);
+    if (time < 12) {
+      final n = (110 * dt).floor() + (_rng.nextDouble() < 110 * dt - (110 * dt).floor() ? 1 : 0);
       for (var i = 0; i < n && _particles.length < 900; i++) {
         _particles.add(_Particle(
           _rng.nextDouble() * view.width,
@@ -292,6 +313,69 @@ class WinCelebration {
     for (final r in List.of(_rings)) {
       r.age += dt;
       if (r.age > 0.55) _rings.remove(r);
+    }
+  }
+
+  /// 지난 위치에서 지금 위치까지 촘촘하게 카드를 찍는다 (프레임이 느려도 끊기지 않게).
+  void _stampAlong(_Flyer f) {
+    final step = cardSize.width * 0.1;
+    final lx = f.lastStampX, ly = f.lastStampY;
+    if (lx == null || ly == null) {
+      _stamps.add((f.card, f.x, f.y));
+    } else {
+      final d = sqrt((f.x - lx) * (f.x - lx) + (f.y - ly) * (f.y - ly));
+      final n = min(40, (d / step).floor());
+      for (var i = 1; i <= n; i++) {
+        final t = i / n;
+        _stamps.add((f.card, lx + (f.x - lx) * t, ly + (f.y - ly) * t));
+      }
+      if (n == 0) return; // 아직 한 칸도 안 움직였으면 다음에
+    }
+    f.lastStampX = f.x;
+    f.lastStampY = f.y;
+  }
+
+  void _flushStamps() {
+    if (!_accOk || _stamps.isEmpty) return;
+    try {
+      final w = (view.width * _accScale).ceil(), h = (view.height * _accScale).ceil();
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.scale(w / view.width, h / view.height);
+      final old = _acc;
+      if (old != null) {
+        canvas.drawImageRect(
+          old,
+          Rect.fromLTWH(0, 0, old.width.toDouble(), old.height.toDouble()),
+          Offset.zero & view,
+          Paint(),
+        );
+      }
+      for (final (card, x, y) in _stamps) {
+        canvas.save();
+        canvas.translate(x, y);
+        final image = _images[card];
+        if (image != null) {
+          canvas.drawImageRect(
+            image,
+            Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+            Offset.zero & cardSize,
+            Paint()..filterQuality = FilterQuality.low,
+          );
+        } else {
+          drawCard(canvas, card, cardSize);
+        }
+        canvas.restore();
+      }
+      _stamps.clear();
+      final picture = recorder.endRecording();
+      final image = picture.toImageSync(w, h);
+      picture.dispose();
+      old?.dispose();
+      _acc = image;
+    } catch (_) {
+      _accOk = false; // 누적 그림을 못 만들면 짧은 잔상으로 대신한다
+      _stamps.clear();
     }
   }
 
@@ -345,7 +429,18 @@ class WinCelebration {
   void paint(Canvas canvas, Size size) {
     final cw = cardSize.width, ch = cardSize.height;
 
-    // 카드와 잔상
+    // 지워지지 않는 잔상 (튀는 카드가 지나간 자리)
+    final acc = _acc;
+    if (acc != null) {
+      canvas.drawImageRect(
+        acc,
+        Rect.fromLTWH(0, 0, acc.width.toDouble(), acc.height.toDouble()),
+        Offset.zero & view,
+        Paint()..filterQuality = FilterQuality.low,
+      );
+    }
+
+    // 카드와 짧은 잔상
     for (final f in _flyers) {
       if (!f.launched) continue;
       for (var i = 0; i < f.trail.length; i++) {
@@ -424,6 +519,23 @@ class WinCelebration {
       final off = Offset(-outline.width / 2, -outline.height / 2);
       outline.paint(canvas, off);
       fill.paint(canvas, off);
+      canvas.restore();
+    }
+
+    // 눌러서 건너뛸 수 있다는 안내
+    final ht = ((time - 4) / 1.0).clamp(0.0, 1.0);
+    if (ht > 0) {
+      final pill = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(size.width / 2, size.height - 34),
+          width: _skipHint.width + 32,
+          height: _skipHint.height + 16,
+        ),
+        const Radius.circular(20),
+      );
+      canvas.drawRRect(pill, Paint()..color = Colors.black.withValues(alpha: 0.5 * ht));
+      canvas.saveLayer(pill.outerRect, Paint()..color = Colors.white.withValues(alpha: ht));
+      _skipHint.paint(canvas, Offset(pill.left + 16, pill.top + 8));
       canvas.restore();
     }
   }

@@ -20,7 +20,7 @@ void main() {
     final show = make();
     final canvasSize = const Size(820, 1300);
     var frames = 0;
-    while (!show.finished && frames < 60 * 30) {
+    while (!show.finished && frames < 60 * 60) {
       show.update(1 / 60);
       // 그리기도 해서 예외가 없는지 확인한다
       final recorder = ui.PictureRecorder();
@@ -28,15 +28,15 @@ void main() {
       recorder.endRecording().dispose();
       frames++;
     }
-    expect(show.finished, isTrue, reason: '30초 안에 끝나야 한다 (frames=$frames)');
-    expect(frames, greaterThan(60 * 7)); // 최소 7초는 보여준다
-    expect(frames, lessThan(60 * 20));
+    expect(show.finished, isTrue, reason: '60초 안에 끝나야 한다 (frames=$frames)');
+    expect(frames, greaterThan(60 * 12)); // 최소 12초는 보여준다
+    expect(frames, lessThan(60 * 45));
     show.dispose();
   });
 
   testWidgets('좁은 화면(폰)에서도 예외 없이 돌아간다', (tester) async {
     final show = make(view: const Size(360, 640));
-    for (var i = 0; i < 60 * 12; i++) {
+    for (var i = 0; i < 60 * 40; i++) {
       show.update(1 / 60);
       final recorder = ui.PictureRecorder();
       show.paint(Canvas(recorder), const Size(360, 640));
@@ -72,10 +72,10 @@ void main() {
       ),
     ));
     var shot = 0;
-    for (var frame = 0; frame < 60 * 6; frame++) {
+    for (var frame = 0; frame < 60 * 17; frame++) {
       show.update(1 / 60);
       tick.value++;
-      if (frame == 90 || frame == 180 || frame == 300) {
+      if (frame == 300 || frame == 600 || frame == 960) {
         await tester.pump();
         await tester.runAsync(() async {
           final b = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;

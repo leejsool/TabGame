@@ -102,9 +102,12 @@ class _Loc {
 
 /// 솔리테어 판: 카드 그리기, 끌기, 탭 이동, 힌트 표시, 완성 연출.
 class SolitaireTable extends StatefulWidget {
-  const SolitaireTable({super.key, required this.controller});
+  const SolitaireTable({super.key, required this.controller, this.onCelebrationTap});
 
   final SolitaireController controller;
+
+  /// 완성 연출 중에 화면을 눌렀을 때 (연출을 건너뛰고 결과를 보여주려고).
+  final VoidCallback? onCelebrationTap;
 
   @override
   State<SolitaireTable> createState() => _SolitaireTableState();
@@ -445,7 +448,9 @@ class _SolitaireTableState extends State<SolitaireTable> with TickerProviderStat
         if (s.stock.isNotEmpty) _stockCount(m),
         if (_celebrating && _show != null)
           Positioned.fill(
-            child: IgnorePointer(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onCelebrationTap,
               child: CustomPaint(painter: WinCelebrationPainter(_show!, _winTick)),
             ),
           ),

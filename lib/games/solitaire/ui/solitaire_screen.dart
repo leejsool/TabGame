@@ -34,6 +34,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
   Timer? _ticker;
   Timer? _saveDebounce;
   bool _noMovesShown = false;
+  final Completer<void> _skipCelebration = Completer<void>();
 
   SolitaireController _create() {
     final autoMove =
@@ -107,7 +108,8 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
       seconds: seconds,
       moves: moves,
     ));
-    await Future<void>.delayed(const Duration(milliseconds: 6500));
+    // 연출을 보여주다가, 화면을 누르면 바로 (아니면 14초 뒤에) 결과를 보여준다
+    await Future.any([Future<void>.delayed(const Duration(seconds: 14)), _skipCelebration.future]);
     if (!mounted) return;
     final again = await showDialog<bool>(
       context: context,
@@ -214,7 +216,14 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
                 padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
                 child: Stack(
                   children: [
-                    Positioned.fill(child: SolitaireTable(controller: c)),
+                    Positioned.fill(
+                      child: SolitaireTable(
+                        controller: c,
+                        onCelebrationTap: () {
+                          if (!_skipCelebration.isCompleted) _skipCelebration.complete();
+                        },
+                      ),
+                    ),
                     // 힌트 안내는 판 위에 띄워서, 나타나도 카드가 밀리지 않게 한다
                     Positioned(left: 0, right: 0, bottom: 12, child: Center(child: _hintBanner())),
                     Positioned.fill(
