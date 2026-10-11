@@ -334,22 +334,22 @@ class _TablePainter extends CustomPainter {
 
     // 붙은 조각 → 안 붙은 조각 순서로 (order 가 이미 그 순서)
     final dragging = c.dragging;
+    final dragMembers = c.dragMembers;
     for (final i in c.order) {
-      if (i == dragging) continue;
+      if (dragging != null && dragMembers.contains(i)) continue;
       _drawPiece(canvas, i, c.pos[i]);
     }
 
     // 방금 붙은 조각 반짝임
-    if (c.lastPlaced >= 0 && pop.value < 1 && !c.completed) {
-      final i = c.lastPlaced;
+    if (c.lastPlaced.isNotEmpty && pop.value < 1 && !c.completed) {
       final t = pop.value;
-      canvas.drawPath(
-        c.geometry.paths[i].shift(c.pos[i]),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = (6 + 10 * t) / scale.clamp(0.2, 4)
-          ..color = Colors.white.withValues(alpha: (1 - t) * 0.9),
-      );
+      final glow = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (6 + 10 * t) / scale.clamp(0.2, 4)
+        ..color = Colors.white.withValues(alpha: (1 - t) * 0.9);
+      for (final i in c.lastPlaced) {
+        canvas.drawPath(c.geometry.paths[i].shift(c.pos[i]), glow);
+      }
     }
 
     // 완성: 그림 전체가 이음매 없이 나타난다
@@ -389,23 +389,25 @@ class _TablePainter extends CustomPainter {
       );
     }
 
-    // 지금 끌고 있는 조각은 맨 위에, 그림자와 함께
+    // 지금 끌고 있는 조각(덩어리)은 맨 위에, 그림자와 함께
     if (dragging != null) {
-      final img = pieces.images[dragging];
-      final p = c.pos[dragging];
-      canvas.drawImage(
-        img,
-        p + const Offset(10, 14),
-        Paint()
-          ..colorFilter = const ColorFilter.mode(Color(0x66000000), BlendMode.srcIn)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
-      );
-      final center = p + Offset(img.width / 2, img.height / 2);
+      final shadow = Paint()
+        ..colorFilter = const ColorFilter.mode(Color(0x66000000), BlendMode.srcIn)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+      var bounds = c.pos[dragging] & c.geometry.boxes[dragging].size;
+      for (final m in dragMembers) {
+        bounds = bounds.expandToInclude(c.pos[m] & c.geometry.boxes[m].size);
+        canvas.drawImage(pieces.images[m], c.pos[m] + const Offset(10, 14), shadow);
+      }
+      final center = bounds.center;
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.scale(1.04);
       canvas.translate(-center.dx, -center.dy);
-      canvas.drawImage(img, p, Paint()..filterQuality = FilterQuality.medium);
+      for (final m in c.order) {
+        if (!dragMembers.contains(m)) continue;
+        canvas.drawImage(pieces.images[m], c.pos[m], Paint()..filterQuality = FilterQuality.medium);
+      }
       canvas.restore();
     }
     canvas.restore();

@@ -15,6 +15,7 @@ class JigsawController extends ChangeNotifier {
     List<Offset>? positions,
     List<bool>? placed,
     List<int>? order,
+    List<int>? groups,
     int elapsedSeconds = 0,
     this.ghost = true,
     int? scatterSeed,
@@ -23,6 +24,7 @@ class JigsawController extends ChangeNotifier {
         pos = positions ?? List.filled(geometry.count, Offset.zero),
         placed = placed ?? List.filled(geometry.count, false),
         order = order ?? List.generate(geometry.count, (i) => i),
+        group = groups ?? List.generate(geometry.count, (i) => i),
         elapsed = ValueNotifier<int>(elapsedSeconds) {
     if (positions == null) scatter(Random(scatterSeed));
     completed = this.placed.every((p) => p);
@@ -39,6 +41,9 @@ class JigsawController extends ChangeNotifier {
   /// 그리는 순서 (뒤로 갈수록 위에 보임).
   final List<int> order;
 
+  /// 조각 i가 속한 덩어리 번호. 같은 번호끼리는 서로 맞붙은 채로 한꺼번에 움직인다.
+  final List<int> group;
+
   final ValueNotifier<int> elapsed;
 
   /// 밑그림(희미한 완성 그림) 보이기.
@@ -50,9 +55,12 @@ class JigsawController extends ChangeNotifier {
   int? dragging;
   Offset _grab = Offset.zero;
 
-  /// 방금 붙은 조각과 붙은 횟수 (애니메이션용).
-  int lastPlaced = -1;
+  /// 방금 판에 붙거나 서로 이어진 조각들과 그 횟수 (애니메이션용).
+  List<int> lastPlaced = const [];
   int placeSerial = 0;
+
+  /// 지금 끌고 있는 덩어리의 조각들 ([dragging]이 속한 덩어리).
+  List<int> dragMembers = const [];
 
   /// 힌트로 알려주는 조각 (몇 초 뒤 사라짐).
   int? hintPiece;
@@ -97,6 +105,7 @@ class JigsawController extends ChangeNotifier {
     final board = boardRect.deflate(min(geometry.cw, geometry.ch) * 0.2);
     for (var i = 0; i < geometry.count; i++) {
       if (placed[i]) continue;
+      group[i] = i; // 흩어 놓으면 이어진 덩어리도 다시 낱개가 된다
       final box = geometry.boxes[i];
       final w = box.width, h = box.height;
       Offset best = Offset.zero;
@@ -151,14 +160,24 @@ class JigsawController extends ChangeNotifier {
     return nearest;
   }
 
+  /// 조각 [i]와 같은 덩어리의 모든 조각.
+  List<int> membersOf(int i) {
+    final g = group[i];
+    return [for (var k = 0; k < group.length; k++) if (group[k] == g) k];
+  }
+
   void beginDrag(int i, Offset tablePoint) {
     if (paused || completed || placed[i]) return;
     dragging = i;
+    dragMembers = membersOf(i);
     _grab = pos[i] - tablePoint;
+    // 덩어리 전체를 맨 위로 (원래 그려지던 순서는 유지)
+    final members = {...dragMembers};
+    final moved = [for (final j in order) if (members.contains(j)) j];
     order
-      ..remove(i)
-      ..add(i); // 맨 위로
-    if (hintPiece == i) hintPiece = null;
+      ..removeWhere(members.contains)
+      ..addAll(moved);
+    if (hintPiece != null && members.contains(hintPiece)) hintPiece = null;
     notifyListeners();
   }
 
@@ -167,31 +186,48 @@ class JigsawController extends ChangeNotifier {
     if (i == null) return;
     final box = geometry.boxes[i];
     final table = tableSize;
-    var p = tablePoint + _grab;
-    // 탁자 밖으로는 못 나가게
-    p = Offset(
-      p.dx.clamp(-box.width * 0.5, table.width - box.width * 0.5),
-      p.dy.clamp(-box.height * 0.5, table.height - box.height * 0.5),
+    var delta = tablePoint + _grab - pos[i];
+    // 덩어리 전체가 탁자 밖으로 너무 나가지 못하게
+    var bounds = pos[i] & box.size;
+    for (final m in dragMembers) {
+      bounds = bounds.expandToInclude(pos[m] & geometry.boxes[m].size);
+    }
+    delta = Offset(
+      delta.dx.clamp(-box.width * 0.5 - bounds.left, table.width - box.width * 0.5 - bounds.right),
+      delta.dy.clamp(-box.height * 0.5 - bounds.top, table.height - box.height * 0.5 - bounds.bottom),
     );
-    pos[i] = p;
+    for (final m in dragMembers) {
+      pos[m] += delta;
+    }
     notifyListeners();
   }
 
-  /// 손을 뗐을 때. 제자리 가까이면 딸깍 붙는다.
+  /// 손을 뗐을 때. 제자리 가까이면 딸깍 붙고, 이웃한 조각 가까이면 서로 이어진다.
   void endDrag() {
     final i = dragging;
     if (i == null) return;
     dragging = null;
+    dragMembers = const [];
+    final glow = <int>{};
+
+    _joinNeighbors(i, glow);
     if ((pos[i] - targetPos(i)).distance <= snapDistance) {
-      pos[i] = targetPos(i);
-      placed[i] = true;
-      lastPlaced = i;
-      placeSerial++;
+      for (final m in membersOf(i)) {
+        pos[m] = targetPos(m);
+        placed[m] = true;
+        glow.add(m);
+      }
       // 붙은 조각은 맨 아래쪽(붙지 않은 조각들 밑)으로
-      final idx = order.indexOf(i);
-      order.removeAt(idx);
-      final firstUnplaced = order.indexWhere((j) => !placed[j]);
-      order.insert(firstUnplaced < 0 ? order.length : firstUnplaced, i);
+      final fixed = [for (final j in order) if (placed[j]) j];
+      final loose = [for (final j in order) if (!placed[j]) j];
+      order
+        ..clear()
+        ..addAll(fixed)
+        ..addAll(loose);
+    }
+    if (glow.isNotEmpty) {
+      lastPlaced = glow.toList();
+      placeSerial++;
       onSnap?.call();
       if (placed.every((p) => p)) {
         completed = true;
@@ -202,6 +238,57 @@ class JigsawController extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  /// [i]의 덩어리 안 조각 가운데 맞는 이웃이 가까이 있으면 그 덩어리와 합친다.
+  /// 처음 합칠 때는 끌던 덩어리를 이웃에 맞춰 옮기고, 이어서 합치는 덩어리는 이쪽에 맞춘다.
+  void _joinNeighbors(int i, Set<int> glow) {
+    var movedMine = false;
+    while (true) {
+      int? bestM, bestN;
+      var bestD = snapDistance;
+      var bestShift = Offset.zero;
+      for (final m in membersOf(i)) {
+        for (final n in _neighbors(m)) {
+          if (placed[n] || group[n] == group[m]) continue;
+          final expected = pos[m] + (targetPos(n) - targetPos(m));
+          final d = (pos[n] - expected).distance;
+          if (d <= bestD) {
+            bestD = d;
+            bestM = m;
+            bestN = n;
+            bestShift = expected - pos[n];
+          }
+        }
+      }
+      if (bestM == null || bestN == null) return;
+      final other = membersOf(bestN);
+      if (!movedMine) {
+        for (final m in membersOf(i)) {
+          pos[m] -= bestShift;
+        }
+        movedMine = true;
+      } else {
+        for (final m in other) {
+          pos[m] += bestShift;
+        }
+      }
+      final g = group[bestM];
+      for (final m in other) {
+        group[m] = g;
+      }
+      glow
+        ..addAll(membersOf(i))
+        ..addAll(other);
+    }
+  }
+
+  Iterable<int> _neighbors(int i) sync* {
+    final r = geometry.rowOf(i), c = geometry.colOf(i);
+    if (r > 0) yield geometry.indexOf(r - 1, c);
+    if (r < geometry.rows - 1) yield geometry.indexOf(r + 1, c);
+    if (c > 0) yield geometry.indexOf(r, c - 1);
+    if (c < geometry.cols - 1) yield geometry.indexOf(r, c + 1);
   }
 
   // ── 도우미 ──
@@ -261,6 +348,7 @@ class JigsawController extends ChangeNotifier {
         'pos': [for (final p in pos) [p.dx, p.dy]],
         'placed': [for (final p in placed) p ? 1 : 0],
         'order': order,
+        'group': group,
         'elapsed': elapsed.value,
         'ghost': ghost,
         'ta': tableAspect,
@@ -281,6 +369,7 @@ class JigsawController extends ChangeNotifier {
       ],
       placed: [for (final v in j['placed'] as List) v == 1],
       order: List<int>.from(j['order'] as List),
+      groups: j['group'] == null ? null : List<int>.from(j['group'] as List),
       elapsedSeconds: j['elapsed'] as int,
       ghost: j['ghost'] as bool,
       tableAspect: (j['ta'] as num?)?.toDouble(),

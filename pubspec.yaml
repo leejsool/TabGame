@@ -37,6 +37,8 @@ dependencies:
   shared_preferences: ^2.5.6
   image_picker: ^1.2.4
   path_provider: ^2.1.6
+  image_picker_android: ^0.8.13+25
+  image_picker_platform_interface: ^2.11.2
 
 dev_dependencies:
   flutter_test:

@@ -169,6 +169,64 @@ void main() {
       expect(c.pieceAt(c.pos[0] + const Offset(20, 20)), isNot(0));
     });
 
+    test('판 밖에서도 이웃한 조각끼리 붙고, 덩어리는 한꺼번에 움직인다', () {
+      final c = make();
+      final g = c.geometry;
+      // 0번과 오른쪽 이웃(1번)을 판 밖 서로 다른 곳에 둔다
+      c.pos[0] = const Offset(5, 5);
+      c.pos[1] = const Offset(400, 40);
+      final rel = c.targetPos(1) - c.targetPos(0);
+      // 1번을 0번 옆 제자리 근처(살짝 어긋나게)로 가져다 놓는다
+      c.beginDrag(1, c.pos[1]);
+      c.dragTo(c.pos[0] + rel + Offset(c.snapDistance * 0.5, 0));
+      c.endDrag();
+      expect(c.group[0], c.group[1]);
+      expect(c.pos[1] - c.pos[0], rel); // 정확히 맞춰진다
+      expect(c.placed[0] || c.placed[1], isFalse);
+
+      // 덩어리째 끌면 둘이 같이 움직인다
+      final before = c.pos[1] - c.pos[0];
+      c.beginDrag(0, c.pos[0]);
+      expect(c.dragMembers, containsAll([0, 1]));
+      c.dragTo(c.pos[0] + const Offset(60, 30));
+      c.endDrag();
+      expect(c.pos[1] - c.pos[0], before);
+
+      // 이웃(2번)이라도 맞는 자리에서 멀면 붙지 않는다
+      c.pos[2] = const Offset(900, 900);
+      c.beginDrag(2, c.pos[2]);
+      c.dragTo(c.pos[1] + (c.targetPos(2) - c.targetPos(1)) + Offset(c.snapDistance * 2, 0));
+      c.endDrag();
+      expect(c.group[2], isNot(c.group[0]));
+      // 이웃이 아닌 조각끼리는 위치가 맞아 보여도 붙지 않는다 (0번 덩어리와 마지막 조각)
+      final last = g.count - 1;
+      c.pos[last] = const Offset(900, 900);
+      c.beginDrag(last, c.pos[last]);
+      c.dragTo(c.pos[0] + (c.targetPos(last) - c.targetPos(0)));
+      c.endDrag();
+      expect(c.group[last], isNot(c.group[0]));
+    });
+
+    test('덩어리를 판 제자리에 가져가면 한꺼번에 붙는다', () {
+      final c = make();
+      c.pos[0] = const Offset(5, 5);
+      c.pos[1] = c.pos[0] + (c.targetPos(1) - c.targetPos(0));
+      c.group[1] = c.group[0]; // 이미 이어진 덩어리
+      c.beginDrag(0, c.pos[0]);
+      c.dragTo(c.targetPos(0) + Offset(c.snapDistance * 0.5, 0));
+      c.endDrag();
+      expect(c.placed[0], isTrue);
+      expect(c.placed[1], isTrue);
+      expect(c.pos[1], c.targetPos(1));
+    });
+
+    test('덩어리 정보도 저장·복원된다', () {
+      final c = make();
+      c.group[1] = c.group[0];
+      final r = JigsawController.fromJson(c.toJson());
+      expect(r.group, c.group);
+    });
+
     test('끌면 그 조각이 맨 위로 올라온다', () {
       final c = make();
       c.beginDrag(2, c.pos[2] + const Offset(3, 3));

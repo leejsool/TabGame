@@ -10,17 +10,97 @@ import 'settings_screen.dart';
 
 enum _Filter { all, solo, multi }
 
-/// 폭이 고정된 필터 버튼 글자 (글자 폭 계산에 기대지 않아 어떤 기기에서도 안 깨진다).
-class _FilterLabel extends StatelessWidget {
-  const _FilterLabel(this.text);
+extension on _Filter {
+  IconData get icon => switch (this) {
+        _Filter.all => Icons.apps_rounded,
+        _Filter.solo => Icons.person_rounded,
+        _Filter.multi => Icons.groups_rounded,
+      };
 
-  final String text;
+  String get label => switch (this) {
+        _Filter.all => '전체',
+        _Filter.solo => '혼자',
+        _Filter.multi => '함께',
+      };
+}
+
+/// 칸 구분선 없이 알약 모양으로 고르는 필터. 고른 항목만 아이콘+글자, 나머지는 아이콘만 보인다.
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({required this.selected, required this.onChanged});
+
+  final _Filter selected;
+  final ValueChanged<_Filter> onChanged;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 56,
-        child: Text(text, textAlign: TextAlign.center, softWrap: false),
-      );
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: .6),
+        borderRadius: BorderRadius.circular(32),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final f in _Filter.values)
+            _FilterPill(
+              filter: f,
+              selected: f == selected,
+              onTap: () => onChanged(f),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({required this.filter, required this.selected, required this.onTap});
+
+  final _Filter filter;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final fg = selected ? scheme.onPrimary : scheme.onSurfaceVariant;
+    return Tooltip(
+      message: filter.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.symmetric(horizontal: selected ? 20 : 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? scheme.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(filter.icon, size: 24, color: fg),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: selected
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(filter.label,
+                            softWrap: false,
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: fg)),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 첫 화면: 게임 목록.
@@ -46,8 +126,8 @@ class _HubScreenState extends State<HubScreen> {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context)),
-            if (_filter != _Filter.multi) ..._section(context, '혼자 놀기', solo),
-            if (_filter != _Filter.solo) ..._section(context, '함께 놀기', multi),
+            if (_filter != _Filter.multi) ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
+            if (_filter != _Filter.solo) ..._section(context, '함께 놀기', Icons.groups_rounded, multi),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
@@ -96,41 +176,31 @@ class _HubScreenState extends State<HubScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          SegmentedButton<_Filter>(
-            showSelectedIcon: false,
-            style: const ButtonStyle(
-              padding: WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
-              textStyle: WidgetStatePropertyAll(
-                TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-            ),
-            segments: const [
-              ButtonSegment(value: _Filter.all, label: _FilterLabel('전체')),
-              ButtonSegment(value: _Filter.solo, label: _FilterLabel('혼자')),
-              ButtonSegment(value: _Filter.multi, label: _FilterLabel('함께')),
-            ],
-            selected: {_filter},
-            onSelectionChanged: (s) => setState(() => _filter = s.first),
+          _FilterBar(
+            selected: _filter,
+            onChanged: (f) => setState(() => _filter = f),
           ),
         ],
       ),
     );
   }
 
-  List<Widget> _section(BuildContext context, String title, List<GameInfo> games) {
+  List<Widget> _section(BuildContext context, String title, IconData icon, List<GameInfo> games) {
     return [
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
-          child: Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
+          child: Row(children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ]),
         ),
       ),
       SliverPadding(
