@@ -131,8 +131,8 @@ class _TextCache {
   }
 }
 
-/// 카드 한 장 그리기 (발라트로 스타일): 왼쪽 줄에 작은 숫자 + 그 아래 작은 무늬를
-/// 위(똑바로)와 아래(뒤집어서)에 놓고, 오른쪽의 넓은 자리에 큰 무늬를 숫자만큼 배치한다.
+/// 카드 한 장 그리기 (발라트로 스타일): 왼쪽 위에 작은 숫자 + 그 바로 아래 작은 무늬,
+/// 오른쪽 아래에는 같은 것이 180도 뒤집혀 있고, 숫자 사이의 가운데에 무늬를 숫자만큼 대칭으로 배치한다.
 /// 여러 장이 겹쳐 쌓여도 맨 위 한 줄(숫자)만으로 읽힌다.
 void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth = 3}) {
   final w = size.width, h = size.height;
@@ -160,28 +160,27 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
 
   final label = kRankLabels[rank];
 
-  // 왼쪽 줄: 숫자 + 그 아래 작은 무늬 (가운데 맞춤). 아래쪽에는 180도 돌려서 한 번 더.
-  final tp = _TextCache.get(label, w * (label.length > 1 ? 0.17 : 0.25), color, FontWeight.w800);
-  final idxCx = w * 0.05 + max(tp.width, w * 0.15) / 2;
+  // 모서리 숫자: 작게 줄여서 가운데 무늬와 여백을 둔다. 아래쪽에는 180도 돌려서 한 번 더.
+  final tp = _TextCache.get(label, w * (label.length > 1 ? 0.15 : 0.22), color, FontWeight.w800);
+  final idxCx = w * 0.05 + max(tp.width, w * 0.13) / 2;
   void index() {
     tp.paint(canvas, Offset(idxCx - tp.width / 2, h * 0.03));
-    final s = w * 0.15;
+    final s = w * 0.13;
     drawSuit(canvas, suit, Rect.fromLTWH(idxCx - s / 2, h * 0.03 + tp.height + h * 0.008, s, s), Paint()..color = color);
   }
 
   index();
   canvas.save();
-  canvas.translate(idxCx, h / 2); // 같은 세로 줄 위에서 위아래만 뒤집는다
+  canvas.translate(w, h);
   canvas.rotate(pi);
-  canvas.translate(-idxCx, -h / 2);
   index();
   canvas.restore();
 
-  // 오른쪽 자리: 숫자 줄과 사이를 충분히 띄운다
-  final mid = w * 0.64;
+  // 가운데: 카드의 가로 가운데에 맞춘 대칭 배치
+  final mid = w * 0.5;
   if (rank >= 10) {
     final band = RRect.fromRectAndRadius(
-      Rect.fromLTRB(w * 0.34, h * 0.1, w * 0.94, h * 0.9),
+      Rect.fromLTRB(w * 0.3, h * 0.12, w * 0.7, h * 0.88),
       Radius.circular(w * 0.1),
     );
     canvas.drawRRect(band, Paint()..color = color.withValues(alpha: 0.10));
@@ -192,20 +191,20 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
         ..strokeWidth = 1.2
         ..color = color.withValues(alpha: 0.35),
     );
-    final big = _TextCache.get(label, w * 0.4, color, FontWeight.w900);
+    final big = _TextCache.get(label, w * 0.36, color, FontWeight.w900);
     big.paint(canvas, Offset(mid - big.width / 2, h * 0.3));
-    final s = w * 0.26;
+    final s = w * 0.24;
     drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.3 + big.height + h * 0.02, s, s), Paint()..color = color);
   } else if (rank == 0) {
-    final s = w * 0.5;
+    final s = w * 0.48;
     drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.5 - s / 2, s, s), Paint()..color = color);
   } else {
-    // 2~10: 숫자만큼 큰 무늬를 정해진 자리에 (모두 똑바로)
-    final s = w * (rank <= 3 ? 0.27 : rank <= 5 ? 0.24 : 0.21);
+    // 2~10: 무늬를 작게 해서 숫자와의 여백을 넉넉히 (모두 똑바로)
+    final s = w * (rank <= 3 ? 0.24 : rank <= 5 ? 0.2 : rank <= 8 ? 0.17 : 0.14);
     final paint = Paint()..color = color;
-    final xHalf = w * 0.23;
+    final xHalf = w * 0.15;
     for (final (cx, ty) in kPipLayouts[rank - 1]) {
-      final c = Offset(mid + (cx - 0.5) * 2 * xHalf, h * (0.19 + 0.62 * ty));
+      final c = Offset(mid + (cx - 0.5) * 2 * xHalf, h * (0.23 + 0.54 * ty));
       drawSuit(canvas, suit, Rect.fromCenter(center: c, width: s, height: s), paint);
     }
   }
