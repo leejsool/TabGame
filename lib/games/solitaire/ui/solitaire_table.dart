@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../freecell/ui/playing_card.dart';
+import '../../freecell/ui/win_celebration.dart';
 import '../core/solitaire_rules.dart';
 import '../game/solitaire_controller.dart';
 import 'card_back.dart';
@@ -123,7 +124,7 @@ class _SolitaireTableState extends State<SolitaireTable> with TickerProviderStat
 
   // 완성 연출
   Ticker? _ticker;
-  final List<_Flyer> _flyers = [];
+  WinCelebration? _show;
   Duration _lastTick = Duration.zero;
   bool _celebrating = false;
   final ValueNotifier<int> _winTick = ValueNotifier(0);
@@ -140,6 +141,7 @@ class _SolitaireTableState extends State<SolitaireTable> with TickerProviderStat
   void dispose() {
     c.removeListener(_onController);
     _ticker?.dispose();
+    _show?.dispose();
     _pulse.dispose();
     _winTick.dispose();
     super.dispose();
@@ -157,30 +159,20 @@ class _SolitaireTableState extends State<SolitaireTable> with TickerProviderStat
     _wasCompleted = c.completed;
   }
 
-  // ── 완성 연출: 카드가 완성 칸에서 튀어 올라 바닥에서 통통 튄다 ──
+  // ── 완성 연출: 윈도우 솔리테어처럼 카드가 잔상을 남기며 튀고, 솟구쳐 터지고, 화면으로 날아온다 ──
 
   void _startCelebration() {
     final m = _m;
     if (m == null) return;
     _celebrating = true;
-    _flyers.clear();
-    final rng = Random(c.deal);
-    var order = 0;
-    for (var rank = 12; rank >= 0; rank--) {
-      for (var suit = 0; suit < 4; suit++) {
-        final p = m.topPos(3 + suit);
-        final dir = rng.nextBool() ? 1.0 : -1.0;
-        _flyers.add(_Flyer(
-          card: rank * 4 + suit,
-          x: p.dx,
-          y: p.dy,
-          vx: dir * (m.cw * (2.2 + rng.nextDouble() * 3.4)),
-          vy: -m.ch * (1.5 + rng.nextDouble() * 2.5),
-          launchAt: Duration(milliseconds: 120 * order),
-        ));
-        order++;
-      }
-    }
+    _show?.dispose();
+    _show = WinCelebration(
+      view: m.view,
+      cardSize: m.cardSize,
+      foundationPositions: [for (var suit = 0; suit < 4; suit++) m.topPos(3 + suit)],
+      seed: c.deal,
+      pixelRatio: View.of(context).devicePixelRatio,
+    );
     _lastTick = Duration.zero;
     _ticker?.dispose();
     _ticker = createTicker(_onTick)..start();
@@ -191,30 +183,19 @@ class _SolitaireTableState extends State<SolitaireTable> with TickerProviderStat
     _celebrating = false;
     _ticker?.dispose();
     _ticker = null;
-    _flyers.clear();
+    _show?.dispose();
+    _show = null;
     setState(() {});
   }
 
   void _onTick(Duration t) {
-    final m = _m;
-    if (m == null) return;
+    final show = _show;
+    if (show == null) return;
     final dt = ((t - _lastTick).inMicroseconds / 1e6).clamp(0.0, 0.05);
     _lastTick = t;
-    final floor = m.view.height - m.ch;
-    final g = m.ch * 9.0;
-    for (final f in _flyers) {
-      if (t < f.launchAt || f.gone) continue;
-      f.vy += g * dt;
-      f.x += f.vx * dt;
-      f.y += f.vy * dt;
-      if (f.y > floor) {
-        f.y = floor;
-        f.vy = -f.vy * 0.78;
-        if (f.vy.abs() < m.ch * 0.6) f.vy = -m.ch * 1.2;
-      }
-      if (f.x < -m.cw * 1.2 || f.x > m.view.width + m.cw * 0.2) f.gone = true;
-    }
+    show.update(dt);
     _winTick.value++;
+    if (show.finished) _ticker?.stop();
   }
 
   // ── 카드 자리 계산 ──
@@ -462,12 +443,10 @@ class _SolitaireTableState extends State<SolitaireTable> with TickerProviderStat
         ..._hintTarget(m), // 카드 뒤에 깔아서, 위쪽 카드를 덮어 물들이지 않게 한다
         for (final e in entries) e.$2,
         if (s.stock.isNotEmpty) _stockCount(m),
-        if (_celebrating)
+        if (_celebrating && _show != null)
           Positioned.fill(
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _WinPainter(_flyers, m.cardSize, _winTick),
-              ),
+              child: CustomPaint(painter: WinCelebrationPainter(_show!, _winTick)),
             ),
           ),
       ],
@@ -760,41 +739,4 @@ class _SuitIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SuitIconPainter old) => old.suit != suit;
-}
-
-class _Flyer {
-  _Flyer({
-    required this.card,
-    required this.x,
-    required this.y,
-    required this.vx,
-    required this.vy,
-    required this.launchAt,
-  });
-
-  final int card;
-  double x, y, vx, vy;
-  final Duration launchAt;
-  bool gone = false;
-}
-
-class _WinPainter extends CustomPainter {
-  _WinPainter(this.flyers, this.cardSize, Listenable repaint) : super(repaint: repaint);
-
-  final List<_Flyer> flyers;
-  final Size cardSize;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final f in flyers) {
-      if (f.gone) continue;
-      canvas.save();
-      canvas.translate(f.x, f.y);
-      drawCard(canvas, f.card, cardSize);
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(_WinPainter old) => true;
 }

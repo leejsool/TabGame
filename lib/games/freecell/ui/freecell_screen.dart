@@ -114,7 +114,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
       seconds: seconds,
       moves: moves,
     ));
-    await Future<void>.delayed(const Duration(milliseconds: 2800));
+    await Future<void>.delayed(const Duration(milliseconds: 6500));
     if (!mounted) return;
     final again = await showDialog<bool>(
       context: context,

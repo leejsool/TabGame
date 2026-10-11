@@ -487,7 +487,7 @@ void main() {
       final list = await tester.runAsync(FreecellStorage.loadHistory);
       expect(list!.length, 1);
       expect(list.first.deal, 2);
-      await tester.pump(const Duration(milliseconds: 3200));
+      await tester.pump(const Duration(milliseconds: 6600));
       expect(find.text('완성! 🎉'), findsOneWidget);
       expect(find.textContaining('#2'), findsWidgets); // 번호와 난이도가 함께 보인다
       await tester.pumpWidget(const SizedBox());
