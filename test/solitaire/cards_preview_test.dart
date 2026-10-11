@@ -17,40 +17,45 @@ void main() {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
     }
     await loader.load();
-    await tester.binding.setSurfaceSize(const Size(1400, 700));
     final big = Platform.environment['BIG_CARDS'] != null;
+    // 큰 그림: 카드는 늘 가로:세로 = 1:1.4 (칸에 맞춰 찌그러뜨리지 않는다)
+    await tester.binding.setSurfaceSize(big ? const Size(1300, 480) : const Size(1400, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final key = GlobalKey();
+    final suits = big ? [3, 1] : [3, 2, 0, 1];
+    final ranks = big ? const [0, 5, 8, 9, 12] : List<int>.generate(13, (i) => i);
     await tester.pumpWidget(
       RepaintBoundary(
         key: key,
         child: Directionality(
           textDirection: TextDirection.ltr,
           child: Container(
-          color: const Color(0xFF1F6B4A),
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            children: [
-              for (final suit in big ? [3, 3] : [3, 2, 0, 1])
-                Expanded(
-                  child: Row(
-                    children: [
-                      for (var rank in (big ? const [0, 5, 8, 9] : List<int>.generate(13, (i) => i)))
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(3),
-                            child: AspectRatio(
-                              aspectRatio: 1 / 1.4,
-                              child: CustomPaint(painter: PlayingCardPainter(rank * 4 + suit)),
+            color: const Color(0xFF1F6B4A),
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              children: [
+                for (final suit in suits)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        for (final rank in ranks)
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(3),
+                              child: Center(
+                                child: AspectRatio(
+                                  aspectRatio: 1 / 1.4,
+                                  child: CustomPaint(painter: PlayingCardPainter(rank * 4 + suit)),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
