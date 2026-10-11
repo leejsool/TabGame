@@ -101,10 +101,10 @@ const List<List<(double, double)>> kPipLayouts = [
   [(_l, 0), (_r, 0), (_l, 0.5), (_r, 0.5), (_l, 1), (_r, 1)], // 6
   [(_l, 0), (_r, 0), (_c, 0.25), (_l, 0.5), (_r, 0.5), (_l, 1), (_r, 1)], // 7
   [(_l, 0), (_r, 0), (_c, 0.25), (_l, 0.5), (_r, 0.5), (_c, 0.75), (_l, 1), (_r, 1)], // 8
-  [(_l, 0), (_r, 0), (_l, 1 / 3), (_r, 1 / 3), (_c, 0.5), (_l, 2 / 3), (_r, 2 / 3), (_l, 1), (_r, 1)], // 9
+  [(_l, 0), (_r, 0), (_c, 0.185), (_l, 0.37), (_r, 0.37), (_l, 0.63), (_r, 0.63), (_l, 1), (_r, 1)], // 9
   [
-    (_l, 0), (_r, 0), (_c, 1 / 6), (_l, 1 / 3), (_r, 1 / 3), //
-    (_l, 2 / 3), (_r, 2 / 3), (_c, 5 / 6), (_l, 1), (_r, 1), // 10
+    (_l, 0), (_r, 0), (_c, 0.185), (_l, 0.37), (_r, 0.37), //
+    (_l, 0.63), (_r, 0.63), (_c, 0.815), (_l, 1), (_r, 1), // 10
   ],
 ];
 
@@ -199,13 +199,23 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
     final s = w * 0.48;
     drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.5 - s / 2, s, s), Paint()..color = color);
   } else {
-    // 2~10: 무늬를 작게 해서 숫자와의 여백을 넉넉히 (모두 똑바로)
-    final s = w * (rank <= 3 ? 0.24 : rank <= 5 ? 0.2 : rank <= 8 ? 0.17 : 0.14);
+    // 2~10: 숫자만큼 무늬를 배치한다. 아래쪽 절반의 무늬는 발라트로처럼 위아래를 뒤집는다.
+    final s = w * (rank <= 3 ? 0.26 : rank <= 5 ? 0.22 : rank <= 8 ? 0.19 : 0.17);
     final paint = Paint()..color = color;
-    final xHalf = w * 0.15;
+    final xHalf = w * 0.16;
     for (final (cx, ty) in kPipLayouts[rank - 1]) {
-      final c = Offset(mid + (cx - 0.5) * 2 * xHalf, h * (0.23 + 0.54 * ty));
-      drawSuit(canvas, suit, Rect.fromCenter(center: c, width: s, height: s), paint);
+      final c = Offset(mid + (cx - 0.5) * 2 * xHalf, h * (0.21 + 0.58 * ty));
+      final r = Rect.fromCenter(center: c, width: s, height: s);
+      if (ty > 0.55) {
+        canvas.save();
+        canvas.translate(c.dx, c.dy);
+        canvas.rotate(pi);
+        canvas.translate(-c.dx, -c.dy);
+        drawSuit(canvas, suit, r, paint);
+        canvas.restore();
+      } else {
+        drawSuit(canvas, suit, r, paint);
+      }
     }
   }
 
