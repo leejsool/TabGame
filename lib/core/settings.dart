@@ -8,6 +8,7 @@ class Settings extends ChangeNotifier {
         _haptics = _prefs.getBool(_kHaptics) ?? true,
         _autoComplete = _prefs.getBool(_kAutoComplete) ?? true,
         _freecellAutoMove = _prefs.getBool(_kFreecellAutoMove) ?? true,
+        _solitaireAutoMove = _prefs.getBool(_kSolitaireAutoMove) ?? true,
         _themeMode = ThemeMode.values.byName(
           _prefs.getString(_kTheme) ?? ThemeMode.system.name,
         );
@@ -17,12 +18,14 @@ class Settings extends ChangeNotifier {
   static const _kTheme = 'themeMode';
   static const _kAutoComplete = 'autoComplete';
   static const _kFreecellAutoMove = 'freecellAutoMove';
+  static const _kSolitaireAutoMove = 'solitaireAutoMove';
 
   final SharedPreferences _prefs;
   bool _sound;
   bool _haptics;
   bool _autoComplete;
   bool _freecellAutoMove;
+  bool _solitaireAutoMove;
   ThemeMode _themeMode;
 
   static Future<Settings> load() async =>
@@ -37,6 +40,15 @@ class Settings extends ChangeNotifier {
 
   /// 프리셀: 손해 없는 카드를 완성 칸으로 자동으로 올린다.
   bool get freecellAutoMove => _freecellAutoMove;
+
+  /// 솔리테어: 손해 없는 카드를 완성 칸으로 자동으로 올린다.
+  bool get solitaireAutoMove => _solitaireAutoMove;
+
+  set solitaireAutoMove(bool v) {
+    _solitaireAutoMove = v;
+    _prefs.setBool(_kSolitaireAutoMove, v);
+    notifyListeners();
+  }
 
   set freecellAutoMove(bool v) {
     _freecellAutoMove = v;
