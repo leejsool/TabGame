@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/card_look.dart';
 import '../core/settings.dart';
 import '../games/freecell/ui/playing_card.dart';
+import '../games/solitaire/ui/card_back.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.settings});
@@ -53,6 +54,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const Divider(height: 24),
             _CardStylePicker(settings: settings),
+            _CardBackStylePicker(settings: settings),
             SwitchListTile(
               secondary: const Icon(Icons.palette_rounded),
               title: const Text('무늬 4색으로 보기'),
@@ -76,6 +78,87 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardBackStylePicker extends StatelessWidget {
+  const _CardBackStylePicker({required this.settings});
+
+  final Settings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.style_rounded, color: scheme.onSurfaceVariant),
+            const SizedBox(width: 16),
+            const Text('카드 뒷면', style: TextStyle(fontSize: 16)),
+          ]),
+          const SizedBox(height: 10),
+          LayoutBuilder(builder: (context, box) {
+            final columns = box.maxWidth < 420 ? 2 : 3;
+            final gap = 10.0;
+            final width = (box.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final style in CardBackStyle.values)
+                  SizedBox(
+                    width: width,
+                    child: _CardBackTile(
+                      style: style,
+                      selected: settings.cardBackStyle == style,
+                      onTap: () => settings.cardBackStyle = style,
+                    ),
+                  ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardBackTile extends StatelessWidget {
+  const _CardBackTile({required this.style, required this.selected, required this.onTap});
+
+  final CardBackStyle style;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: .5),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: ValueKey('card-back-style-${style.name}'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? scheme.primary : Colors.transparent, width: 2.5),
+          ),
+          child: Column(children: [
+            SizedBox(width: 64, height: 90, child: CustomPaint(painter: CardBackPainter(style: style))),
+            const SizedBox(height: 8),
+            Text(style.label, style: TextStyle(fontWeight: FontWeight.w800, color: selected ? scheme.primary : null)),
+            Text(style.description, textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: .65))),
+          ]),
         ),
       ),
     );

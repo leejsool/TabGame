@@ -15,8 +15,10 @@ class Settings extends ChangeNotifier {
           _prefs.getString(_kTheme) ?? ThemeMode.system.name,
         ),
         _cardStyle = _readCardStyle(_prefs.getString(_kCardStyle)),
+        _cardBackStyle = _readCardBackStyle(_prefs.getString(_kCardBackStyle)),
         _fourColor = _prefs.getBool(_kFourColor) ?? false {
     CardLook.style = _cardStyle;
+    CardLook.backStyle = _cardBackStyle;
     CardLook.fourColor = _fourColor;
   }
 
@@ -27,6 +29,13 @@ class Settings extends ChangeNotifier {
     return CardStyle.bicycle; // 기본은 바이시클
   }
 
+  static CardBackStyle _readCardBackStyle(String? name) {
+    for (final style in CardBackStyle.values) {
+      if (style.name == name) return style;
+    }
+    return CardBackStyle.classic;
+  }
+
   static const _kSound = 'sound';
   static const _kHaptics = 'haptics';
   static const _kTheme = 'themeMode';
@@ -34,6 +43,7 @@ class Settings extends ChangeNotifier {
   static const _kFreecellAutoMove = 'freecellAutoMove';
   static const _kSolitaireAutoMove = 'solitaireAutoMove';
   static const _kCardStyle = 'cardStyle';
+  static const _kCardBackStyle = 'cardBackStyle';
   static const _kFourColor = 'cardFourColor';
 
   final SharedPreferences _prefs;
@@ -44,6 +54,7 @@ class Settings extends ChangeNotifier {
   bool _solitaireAutoMove;
   ThemeMode _themeMode;
   CardStyle _cardStyle;
+  CardBackStyle _cardBackStyle;
   bool _fourColor;
 
   static Future<Settings> load() async =>
@@ -75,6 +86,16 @@ class Settings extends ChangeNotifier {
     _cardStyle = v;
     CardLook.style = v;
     _prefs.setString(_kCardStyle, v.name);
+    notifyListeners();
+  }
+
+  /// 카드 뒷면 모양.
+  CardBackStyle get cardBackStyle => _cardBackStyle;
+
+  set cardBackStyle(CardBackStyle v) {
+    _cardBackStyle = v;
+    CardLook.backStyle = v;
+    _prefs.setString(_kCardBackStyle, v.name);
     notifyListeners();
   }
 

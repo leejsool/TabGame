@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../core/settings_scope.dart';
 import '../../freecell/ui/playing_card.dart';
 import '../../freecell/ui/win_celebration.dart';
 import '../core/solitaire_rules.dart';
@@ -681,7 +682,10 @@ class _CardViewState extends State<_CardView> with SingleTickerProviderStateMixi
   }
 
   Widget _face(bool up) {
-    if (!up) return const RepaintBoundary(child: CustomPaint(painter: CardBackPainter()));
+    if (!up) {
+      final style = SettingsScope.of(context).cardBackStyle;
+      return RepaintBoundary(child: CustomPaint(painter: CardBackPainter(style: style)));
+    }
     final glow = widget.glow;
     if (glow == null) return RepaintBoundary(child: CustomPaint(painter: PlayingCardPainter(widget.card)));
     return AnimatedBuilder(
