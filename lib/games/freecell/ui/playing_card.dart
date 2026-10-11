@@ -91,6 +91,23 @@ void drawSuit(Canvas canvas, int suit, Rect r, Paint paint) {
   }
 }
 
+/// 숫자 카드(2~10)의 무늬 자리: (가로 비율, 세로 0~1). 세로 0이 위쪽, 1이 아래쪽.
+const double _l = 0.29, _c = 0.5, _r = 0.71;
+const List<List<(double, double)>> kPipLayouts = [
+  [(_c, 0), (_c, 1)], // 2
+  [(_c, 0), (_c, 0.5), (_c, 1)], // 3
+  [(_l, 0), (_r, 0), (_l, 1), (_r, 1)], // 4
+  [(_l, 0), (_r, 0), (_c, 0.5), (_l, 1), (_r, 1)], // 5
+  [(_l, 0), (_r, 0), (_l, 0.5), (_r, 0.5), (_l, 1), (_r, 1)], // 6
+  [(_l, 0), (_r, 0), (_c, 0.25), (_l, 0.5), (_r, 0.5), (_l, 1), (_r, 1)], // 7
+  [(_l, 0), (_r, 0), (_c, 0.25), (_l, 0.5), (_r, 0.5), (_c, 0.75), (_l, 1), (_r, 1)], // 8
+  [(_l, 0), (_r, 0), (_l, 1 / 3), (_r, 1 / 3), (_c, 0.5), (_l, 2 / 3), (_r, 2 / 3), (_l, 1), (_r, 1)], // 9
+  [
+    (_l, 0), (_r, 0), (_c, 1 / 6), (_l, 1 / 3), (_r, 1 / 3), //
+    (_l, 2 / 3), (_r, 2 / 3), (_c, 5 / 6), (_l, 1), (_r, 1), // 10
+  ],
+];
+
 class _TextCache {
   static final Map<int, TextPainter> _m = {};
 
@@ -172,9 +189,27 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
     big.paint(canvas, Offset((w - big.width) / 2, h * 0.34));
     final s = w * 0.3;
     drawSuit(canvas, suit, Rect.fromLTWH((w - s) / 2, h * 0.34 + big.height + h * 0.01, s, s), Paint()..color = color);
-  } else {
+  } else if (rank == 0) {
     final s = w * 0.5;
     drawSuit(canvas, suit, Rect.fromLTWH((w - s) / 2, h * 0.38, s, s), Paint()..color = color);
+  } else {
+    // 2~10: 숫자만큼 작은 무늬를 트럼프처럼 배치한다 (아래쪽 절반은 뒤집어서)
+    final s = w * (rank <= 5 ? 0.25 : rank <= 7 ? 0.22 : 0.19); // 무늬가 많을수록 작게
+    final paint = Paint()..color = color;
+    for (final (cx, ty) in kPipLayouts[rank - 1]) {
+      final c = Offset(w * cx, h * (0.30 + 0.40 * ty));
+      final r = Rect.fromCenter(center: c, width: s, height: s);
+      if (ty > 0.5) {
+        canvas.save();
+        canvas.translate(c.dx, c.dy);
+        canvas.rotate(pi);
+        canvas.translate(-c.dx, -c.dy);
+        drawSuit(canvas, suit, r, paint);
+        canvas.restore();
+      } else {
+        drawSuit(canvas, suit, r, paint);
+      }
+    }
   }
 
   // 오른쪽 아래 (뒤집힌) 숫자
