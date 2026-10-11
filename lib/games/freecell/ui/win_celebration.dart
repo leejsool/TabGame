@@ -38,6 +38,9 @@ class _Flyer {
   final double spin;
   double rot = 0, scale = 1, alpha = 1, age = 0;
   double? lastStampX, lastStampY;
+
+  /// 화면으로 날아오는 카드(zoom)가 부딪히는 자리 (카드마다 화면의 아무 곳이나).
+  double tx = 0, ty = 0;
   bool launched = false, gone = false;
 
   /// 잔상: (가운데 x, 가운데 y, 크기, 회전)
@@ -92,7 +95,7 @@ class WinCelebration {
         };
         final dir = _rng.nextBool() ? 1.0 : -1.0;
         final cw = cardSize.width, ch = cardSize.height;
-        _flyers.add(_Flyer(
+        final flyer = _Flyer(
           card: rank * 4 + suit,
           x: p.dx,
           y: p.dy,
@@ -109,7 +112,13 @@ class WinCelebration {
           launchAt: 0.3 + order * 0.28,
           mode: mode,
           spin: dir * (0.5 + _rng.nextDouble() * 2.5),
-        ));
+        );
+        if (mode == _Mode.zoom) {
+          // 정가운데만이 아니라 화면 어디든 (가장자리는 조금 피한다)
+          flyer.tx = view.width * (0.16 + 0.68 * _rng.nextDouble());
+          flyer.ty = view.height * (0.2 + 0.58 * _rng.nextDouble());
+        }
+        _flyers.add(flyer);
         order++;
       }
     }
@@ -150,6 +159,12 @@ class WinCelebration {
     Color(0xFFFF9F43),
     Color(0xFFB388FF),
   ];
+
+  /// 화면으로 날아오는 카드들이 부딪히는 자리들 (테스트용).
+  List<Offset> get zoomTargets => [
+        for (final f in _flyers)
+          if (f.mode == _Mode.zoom) Offset(f.tx, f.ty),
+      ];
 
   /// 연출이 끝났는가 (모든 카드와 잔상이 사라지고 시간이 충분히 지났다).
   bool get finished => time > 8 && _flyers.isEmpty && _particles.isEmpty;
@@ -262,7 +277,7 @@ class WinCelebration {
           const dur = 1.15;
           final t = (f.age / dur).clamp(0.0, 1.0);
           final p = t * t * (3 - 2 * t) * 0.35 + t * t * t * 0.65; // 처음엔 천천히, 갈수록 빠르게
-          final target = Offset(view.width * (0.3 + 0.4 * ((f.card * 37) % 10) / 10), view.height * 0.45);
+          final target = Offset(f.tx, f.ty);
           final cx = f.x0 + cw / 2 + (target.dx - (f.x0 + cw / 2)) * p;
           final cy = f.y0 + ch / 2 + (target.dy - (f.y0 + ch / 2)) * p;
           f.scale = 1 + 2.8 * p;

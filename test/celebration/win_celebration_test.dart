@@ -34,6 +34,32 @@ void main() {
     show.dispose();
   });
 
+  testWidgets('화면으로 날아오는 카드는 정가운데가 아니라 화면 곳곳으로 향한다', (tester) async {
+    final spots = <Offset>{};
+    for (final seed in [1, 2, 3, 617, 9999]) {
+      final show = WinCelebration(
+        view: const Size(820, 1300),
+        cardSize: const Size(100, 140),
+        foundationPositions: [for (var i = 0; i < 4; i++) Offset(300 + i * 112.0, 20)],
+        seed: seed,
+        pixelRatio: 1,
+      );
+      final t = show.zoomTargets;
+      expect(t.length, 4);
+      for (final o in t) {
+        expect(o.dx, inInclusiveRange(820 * 0.16, 820 * 0.84));
+        expect(o.dy, inInclusiveRange(1300 * 0.2, 1300 * 0.78));
+        spots.add(o);
+      }
+      show.dispose();
+    }
+    expect(spots.length, 20); // 모두 다른 자리
+    final xs = spots.map((o) => o.dx);
+    final ys = spots.map((o) => o.dy);
+    expect(xs.reduce((a, b) => a > b ? a : b) - xs.reduce((a, b) => a < b ? a : b), greaterThan(300)); // 넓게 퍼져 있다
+    expect(ys.reduce((a, b) => a > b ? a : b) - ys.reduce((a, b) => a < b ? a : b), greaterThan(400));
+  });
+
   testWidgets('좁은 화면(폰)에서도 예외 없이 돌아간다', (tester) async {
     final show = make(view: const Size(360, 640));
     for (var i = 0; i < 60 * 40; i++) {

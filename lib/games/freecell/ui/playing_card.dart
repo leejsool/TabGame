@@ -2,12 +2,17 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/card_look.dart';
 import '../core/freecell_rules.dart';
+import 'court_painter.dart';
 
 const Color kCardRed = Color(0xFFD62F3A);
 const Color kCardBlack = Color(0xFF1E2430);
 
-Color suitColor(int suit) => isRedSuit(suit) ? kCardRed : kCardBlack;
+/// 4색 모드의 색: ♣ 초록, ♦ 파랑, ♥ 빨강, ♠ 검정.
+const List<Color> kFourColors = [Color(0xFF2E8B4F), Color(0xFF2F6FDB), kCardRed, kCardBlack];
+
+Color suitColor(int suit) => CardLook.fourColor ? kFourColors[suit] : (isRedSuit(suit) ? kCardRed : kCardBlack);
 
 /// 무늬마다 모양이 달라 같은 칸에 그리면 크기가 달라 보인다 (클로버가 크고 다이아가 작다).
 /// 실제로 칠해진 면적이 비슷해지도록 무늬별로 크기와 세로 위치를 보정한다. (♣ ♦ ♥ ♠)
@@ -145,10 +150,11 @@ class _TextCache {
 /// 카드 한 장 그리기 (발라트로 스타일): 왼쪽 위에 작은 숫자 + 그 바로 아래 작은 무늬,
 /// 오른쪽 아래에는 같은 것이 180도 뒤집혀 있고, 숫자 사이의 가운데에 무늬를 숫자만큼 대칭으로 배치한다.
 /// 여러 장이 겹쳐 쌓여도 맨 위 한 줄(숫자)만으로 읽힌다.
-void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth = 3}) {
+void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth = 3, CardStyle? style, bool? fourColor}) {
   final w = size.width, h = size.height;
   final rank = rankOf(card), suit = suitOf(card);
-  final color = suitColor(suit);
+  final four = fourColor ?? CardLook.fourColor;
+  final color = four ? kFourColors[suit] : (isRedSuit(suit) ? kCardRed : kCardBlack);
   final rr = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(w * 0.12));
 
   canvas.drawShadow(Path()..addRRect(rr), Colors.black, 1.6, true);
@@ -189,26 +195,35 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
 
   // 가운데: 카드의 가로 가운데에 맞춘 대칭 배치
   final mid = w * 0.5;
+  final st = style ?? CardLook.style;
   if (rank >= 10) {
-    final band = RRect.fromRectAndRadius(
-      Rect.fromLTRB(w * 0.3, h * 0.12, w * 0.7, h * 0.88),
-      Radius.circular(w * 0.1),
-    );
-    canvas.drawRRect(band, Paint()..color = color.withValues(alpha: 0.10));
-    canvas.drawRRect(
-      band,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = color.withValues(alpha: 0.35),
-    );
-    final big = _TextCache.get(label, w * 0.36, color, FontWeight.w900);
-    big.paint(canvas, Offset(mid - big.width / 2, h * 0.3));
-    final s = w * 0.24;
-    drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.3 + big.height + h * 0.02, s, s), Paint()..color = color);
+    if (st == CardStyle.simple) {
+      final band = RRect.fromRectAndRadius(
+        Rect.fromLTRB(w * 0.3, h * 0.12, w * 0.7, h * 0.88),
+        Radius.circular(w * 0.1),
+      );
+      canvas.drawRRect(band, Paint()..color = color.withValues(alpha: 0.10));
+      canvas.drawRRect(
+        band,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = color.withValues(alpha: 0.35),
+      );
+      final big = _TextCache.get(label, w * 0.36, color, FontWeight.w900);
+      big.paint(canvas, Offset(mid - big.width / 2, h * 0.3));
+      final s = w * 0.24;
+      drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.3 + big.height + h * 0.02, s, s), Paint()..color = color);
+    } else {
+      drawCourtPanel(canvas, size, rank, suit, color, st);
+    }
   } else if (rank == 0) {
-    final s = w * 0.48;
-    drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.5 - s / 2, s, s), Paint()..color = color);
+    if (st == CardStyle.simple) {
+      final s = w * 0.48;
+      drawSuit(canvas, suit, Rect.fromLTWH(mid - s / 2, h * 0.5 - s / 2, s, s), Paint()..color = color);
+    } else {
+      drawAceFancy(canvas, size, suit, color, st);
+    }
   } else {
     // 2~10: 숫자만큼 무늬를 배치한다. 아래쪽 절반의 무늬는 발라트로처럼 위아래를 뒤집는다.
     // rank는 0부터 센다: 무늬 개수 = rank + 1
@@ -243,14 +258,21 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
 }
 
 class PlayingCardPainter extends CustomPainter {
-  const PlayingCardPainter(this.card, {this.glow});
+  PlayingCardPainter(this.card, {this.glow, CardStyle? style, bool? fourColor})
+      : style = style ?? CardLook.style,
+        fourColor = fourColor ?? CardLook.fourColor;
 
   final int card;
   final Color? glow;
 
-  @override
-  void paint(Canvas canvas, Size size) => drawCard(canvas, card, size, glow: glow);
+  /// 만들 때의 카드 모양 (설정이 바뀌면 다시 그리려고).
+  final CardStyle style;
+  final bool fourColor;
 
   @override
-  bool shouldRepaint(PlayingCardPainter old) => old.card != card || old.glow != glow;
+  void paint(Canvas canvas, Size size) => drawCard(canvas, card, size, glow: glow, style: style, fourColor: fourColor);
+
+  @override
+  bool shouldRepaint(PlayingCardPainter old) =>
+      old.card != card || old.glow != glow || old.style != style || old.fourColor != fourColor;
 }

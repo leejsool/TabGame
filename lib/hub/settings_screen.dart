@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../core/card_look.dart';
 import '../core/settings.dart';
+import '../games/freecell/ui/playing_card.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.settings});
@@ -42,6 +44,23 @@ class SettingsScreen extends StatelessWidget {
               value: settings.freecellAutoMove,
               onChanged: (v) => settings.freecellAutoMove = v,
             ),
+            SwitchListTile(
+              secondary: const Icon(Icons.auto_awesome_rounded),
+              title: const Text('솔리테어 자동 올리기'),
+              subtitle: const Text('손해 없는 카드는 완성 칸으로 알아서 올려요'),
+              value: settings.solitaireAutoMove,
+              onChanged: (v) => settings.solitaireAutoMove = v,
+            ),
+            const Divider(height: 24),
+            _CardStylePicker(settings: settings),
+            SwitchListTile(
+              secondary: const Icon(Icons.palette_rounded),
+              title: const Text('무늬 4색으로 보기'),
+              subtitle: const Text('♠ 검정 · ♥ 빨강 · ♣ 초록 · ♦ 파랑으로 구분하기 쉬워요'),
+              value: settings.fourColor,
+              onChanged: (v) => settings.fourColor = v,
+            ),
+            const Divider(height: 24),
             ListTile(
               leading: const Icon(Icons.brightness_6_rounded),
               title: const Text('화면 모드'),
@@ -57,6 +76,114 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 카드 모양 고르기: 모양마다 에이스·왕 그림을 미리 보여준다.
+class _CardStylePicker extends StatelessWidget {
+  const _CardStylePicker({required this.settings});
+
+  final Settings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.style_rounded, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 16),
+              const Text('카드 모양', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LayoutBuilder(
+            builder: (context, box) {
+              final narrow = box.maxWidth < 420;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final style in CardStyle.values)
+                    SizedBox(
+                      width: narrow ? box.maxWidth : (box.maxWidth - 20) / 3,
+                      child: _StyleTile(
+                        style: style,
+                        selected: settings.cardStyle == style,
+                        fourColor: settings.fourColor,
+                        onTap: () => settings.cardStyle = style,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StyleTile extends StatelessWidget {
+  const _StyleTile({required this.style, required this.selected, required this.fourColor, required this.onTap});
+
+  final CardStyle style;
+  final bool selected;
+  final bool fourColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Widget mini(int card) => SizedBox(
+          width: 46,
+          height: 64,
+          child: CustomPaint(painter: PlayingCardPainter(card, style: style, fourColor: fourColor)),
+        );
+    return Material(
+      color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: ValueKey('card-style-${style.name}'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? scheme.primary : Colors.transparent, width: 2.5),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  mini(0 * 4 + 3), // A♠
+                  const SizedBox(width: 6),
+                  mini(11 * 4 + 2), // Q♥
+                  const SizedBox(width: 6),
+                  mini(12 * 4 + 1), // K♦
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                style.label,
+                style: TextStyle(fontWeight: FontWeight.w800, color: selected ? scheme.primary : null),
+              ),
+              Text(
+                style.description,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.65)),
+              ),
+            ],
+          ),
         ),
       ),
     );

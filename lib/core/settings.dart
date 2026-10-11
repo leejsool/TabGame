@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'card_look.dart';
+
 /// 앱 전체 설정. 바뀌면 화면이 자동으로 갱신되고, 기기에 저장된다.
 class Settings extends ChangeNotifier {
   Settings._(this._prefs)
@@ -11,7 +13,19 @@ class Settings extends ChangeNotifier {
         _solitaireAutoMove = _prefs.getBool(_kSolitaireAutoMove) ?? true,
         _themeMode = ThemeMode.values.byName(
           _prefs.getString(_kTheme) ?? ThemeMode.system.name,
-        );
+        ),
+        _cardStyle = _readCardStyle(_prefs.getString(_kCardStyle)),
+        _fourColor = _prefs.getBool(_kFourColor) ?? false {
+    CardLook.style = _cardStyle;
+    CardLook.fourColor = _fourColor;
+  }
+
+  static CardStyle _readCardStyle(String? name) {
+    for (final s in CardStyle.values) {
+      if (s.name == name) return s;
+    }
+    return CardStyle.bicycle; // 기본은 바이시클
+  }
 
   static const _kSound = 'sound';
   static const _kHaptics = 'haptics';
@@ -19,6 +33,8 @@ class Settings extends ChangeNotifier {
   static const _kAutoComplete = 'autoComplete';
   static const _kFreecellAutoMove = 'freecellAutoMove';
   static const _kSolitaireAutoMove = 'solitaireAutoMove';
+  static const _kCardStyle = 'cardStyle';
+  static const _kFourColor = 'cardFourColor';
 
   final SharedPreferences _prefs;
   bool _sound;
@@ -27,6 +43,8 @@ class Settings extends ChangeNotifier {
   bool _freecellAutoMove;
   bool _solitaireAutoMove;
   ThemeMode _themeMode;
+  CardStyle _cardStyle;
+  bool _fourColor;
 
   static Future<Settings> load() async =>
       Settings._(await SharedPreferences.getInstance());
@@ -47,6 +65,26 @@ class Settings extends ChangeNotifier {
   set solitaireAutoMove(bool v) {
     _solitaireAutoMove = v;
     _prefs.setBool(_kSolitaireAutoMove, v);
+    notifyListeners();
+  }
+
+  /// 카드 앞면 모양 (프리셀·솔리테어). 기본은 바이시클.
+  CardStyle get cardStyle => _cardStyle;
+
+  set cardStyle(CardStyle v) {
+    _cardStyle = v;
+    CardLook.style = v;
+    _prefs.setString(_kCardStyle, v.name);
+    notifyListeners();
+  }
+
+  /// 무늬마다 다른 색으로 카드를 구분하기 쉽게.
+  bool get fourColor => _fourColor;
+
+  set fourColor(bool v) {
+    _fourColor = v;
+    CardLook.fourColor = v;
+    _prefs.setBool(_kFourColor, v);
     notifyListeners();
   }
 

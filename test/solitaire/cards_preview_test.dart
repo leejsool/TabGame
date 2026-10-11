@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tabgame/core/card_look.dart';
 import 'package:tabgame/games/freecell/ui/playing_card.dart';
 
 void main() {
@@ -18,12 +19,18 @@ void main() {
     }
     await loader.load();
     final big = Platform.environment['BIG_CARDS'] != null;
+    CardLook.style = CardStyle.values.byName(Platform.environment['CARD_STYLE'] ?? 'bicycle');
+    CardLook.fourColor = Platform.environment['FOUR_COLOR'] != null;
+    addTearDown(() {
+      CardLook.style = CardStyle.bicycle;
+      CardLook.fourColor = false;
+    });
     // 큰 그림: 카드는 늘 가로:세로 = 1:1.4 (칸에 맞춰 찌그러뜨리지 않는다)
     await tester.binding.setSurfaceSize(big ? const Size(1300, 480) : const Size(1400, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final key = GlobalKey();
-    final suits = big ? [3, 1] : [3, 2, 0, 1];
-    final ranks = big ? const [0, 5, 8, 9, 12] : List<int>.generate(13, (i) => i);
+    final suits = big ? [3, 2] : [3, 2, 0, 1];
+    final ranks = big ? const [0, 9, 10, 11, 12] : List<int>.generate(13, (i) => i);
     await tester.pumpWidget(
       RepaintBoundary(
         key: key,
