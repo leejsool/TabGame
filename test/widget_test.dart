@@ -19,7 +19,7 @@ void main() {
     expect(find.text('스도쿠'), findsOneWidget);
     expect(find.text('고블렛 고블러스'), findsOneWidget);
 
-    await tester.tap(find.text('함께'));
+    await tester.tap(find.byTooltip('함께'));
     await tester.pumpAndSettle();
     expect(find.text('스도쿠'), findsNothing);
     expect(find.text('얼티밋 틱택토'), findsOneWidget);
@@ -47,7 +47,7 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = await Settings.load();
     await tester.pumpWidget(TabGameApp(settings: settings));
-    await tester.tap(find.text('함께')); // 화면이 낮아 "함께 놀기" 카드만 보이게 한다
+    await tester.tap(find.byTooltip('함께')); // 화면이 낮아 "함께 놀기" 카드만 보이게 한다
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('얼티밋 틱택토'));
     await tester.pumpAndSettle();

@@ -5,6 +5,7 @@ import '../games/goblet/goblet_entry.dart';
 import '../games/uttt/uttt_entry.dart';
 import '../games/jigsaw/jigsaw_entry.dart';
 import '../games/minesweeper/minesweeper_entry.dart';
+import '../games/rhythm/rhythm_entry.dart';
 import '../games/solitaire/solitaire_entry.dart';
 import '../games/sudoku/sudoku_entry.dart';
 import 'game_info.dart';
@@ -58,6 +59,15 @@ const List<GameInfo> allGames = [
     color: Color(0xFFE09F3E),
     modes: [PlayMode.solo],
     builder: buildJigsaw,
+  ),
+  GameInfo(
+    id: 'rhythm_swords',
+    title: '리듬 검사단',
+    tagline: '박자에 맞춰 검을 휘둘러요',
+    icon: Icons.music_note_rounded,
+    color: Color(0xFFE2793A),
+    modes: [PlayMode.solo],
+    builder: buildRhythm,
   ),
   GameInfo(
     id: 'pinball',

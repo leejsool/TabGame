@@ -39,7 +39,7 @@ dependencies:
   path_provider: ^2.1.6
   image_picker_android: ^0.8.13+25
   image_picker_platform_interface: ^2.11.2
-
+  audioplayers: ^6.8.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -65,6 +65,9 @@ flutter:
   # 프리셀 판별 난이도 점수 (tool/rate_freecell_deals.dart 로 만든 32000바이트)
   assets:
     - assets/freecell_difficulty.bin
+    # 리듬 검사단 효과음 (tool/make_rhythm_sounds.dart 로 합성)
+    - assets/rhythm/
+    - assets/rhythm/art/
 
   # 나눔고딕 (SIL Open Font License, assets/fonts/OFL.txt 참고)
   fonts:
