@@ -1,3 +1,4 @@
+import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/game_info.dart';
@@ -82,11 +83,8 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
                   textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
               ),
-              TextButton.icon(
-                onPressed: () => utttTutorial().open(context),
-                icon: const Icon(Icons.help_outline_rounded),
-                label: const Text('게임 방법'),
-              ),
+              const SizedBox(height: 10),
+              const TutorialButton(tutorial: utttTutorial),
             ],
           ),
         ),

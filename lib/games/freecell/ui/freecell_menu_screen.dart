@@ -1,3 +1,4 @@
+import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
@@ -143,6 +144,8 @@ class _FreecellMenuScreenState extends State<FreecellMenuScreen> {
                       ),
                       const SizedBox(height: 18),
                     ],
+                    const TutorialButton(tutorial: freecellTutorial),
+                    const SizedBox(height: 18),
                     Text('난이도',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 10),

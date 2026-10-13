@@ -1,3 +1,4 @@
+import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
@@ -114,6 +115,8 @@ class _SolitaireMenuScreenState extends State<SolitaireMenuScreen> {
                       ),
                       const SizedBox(height: 18),
                     ],
+                    const TutorialButton(tutorial: solitaireTutorial),
+                    const SizedBox(height: 18),
                     Text('뽑는 방식', style: heading),
                     const SizedBox(height: 10),
                     Row(

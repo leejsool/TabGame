@@ -20,6 +20,9 @@ class RhythmMenuScreen extends StatefulWidget {
 }
 
 class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
+  /// 이보다 낮은 화면에서는 스크롤한다 (제목 + 네 명 + 코스 카드들 + 버튼들이 다 들어가는 높이).
+  static const double _minHeight = 720;
+
   final List<RhythmResult?> _best = List.filled(RhythmCourse.all.length, null);
   final List<int> _clears = List.filled(RhythmCourse.all.length, 0);
   RhythmArt? _art;
@@ -65,8 +68,10 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
         children: [
           Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: BackgroundPainter(_art ?? RhythmArt.empty())))),
           SafeArea(
-            child: Column(
-              children: [
+            // 화면이 낮으면(가로 폰 등) 전체를 세로로 스크롤한다. 코스가 늘어도 아래 버튼이 잘리지 않는다.
+            child: LayoutBuilder(builder: (context, box) {
+              final content = Column(
+                children: [
                 Padding(
                   padding: const EdgeInsets.all(8),
                   child: Row(
@@ -113,6 +118,13 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
                         const _ComingSoonCard(),
                         TextButton.icon(
                           style: TextButton.styleFrom(foregroundColor: _ink, backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _ink, width: 3))),
+                          onPressed: () => rhythmTutorial().open(context),
+                          icon: const Icon(Icons.school_rounded),
+                          label: const Text('튜토리얼 보기'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(foregroundColor: _ink, backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _ink, width: 3))),
                           onPressed: () => _open(const CalibrationScreen()),
                           icon: const Icon(Icons.tune_rounded),
                           label: const Text('박자 보정 (소리가 어긋나면)'),
@@ -122,7 +134,10 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
                   ),
                 ),
               ],
-            ),
+              );
+              if (box.maxHeight >= _minHeight) return content;
+              return SingleChildScrollView(child: SizedBox(height: _minHeight, child: content));
+            }),
           ),
         ],
       ),

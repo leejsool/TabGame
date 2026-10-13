@@ -1,3 +1,4 @@
+import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
@@ -90,6 +91,8 @@ class _MinesMenuScreenState extends State<MinesMenuScreen> {
                       ),
                       const SizedBox(height: 18),
                     ],
+                    const TutorialButton(tutorial: minesTutorial),
+                    const SizedBox(height: 18),
                     Text('난이도를 골라 시작해요', style: heading),
                     const SizedBox(height: 12),
                     for (final l in MinesLevel.values) ...[

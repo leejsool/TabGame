@@ -1,3 +1,4 @@
+import '../../../tutorial/tutorial_button.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -191,6 +192,8 @@ class _JigsawMenuScreenState extends State<JigsawMenuScreen> {
                       ),
                       const SizedBox(height: 22),
                     ],
+                    const TutorialButton(tutorial: jigsawTutorial),
+                    const SizedBox(height: 18),
                     _GalleryCard(onTap: _pickFromGallery, busy: _busy),
                     const SizedBox(height: 26),
                     if (_entries.isNotEmpty) ...[
