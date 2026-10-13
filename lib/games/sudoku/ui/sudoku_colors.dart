@@ -84,6 +84,31 @@ class SudokuColors {
     remove: Color(0xFFFF8A80),
   );
 
-  static SudokuColors of(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? dark : light;
+  /// 메모 모드일 때 쓰는 색: 선택·강조 색을 파랑에서 녹색 계열로 바꿔서
+  /// 메모 모드가 켜져 있음이 한눈에 보이게 한다.
+  SudokuColors get asNotes => SudokuColors(
+        cell: cell,
+        peer: this == dark ? const Color(0xFF263A2C) : const Color(0xFFE2F1E0),
+        sameDigit: this == dark ? const Color(0xFF2F5A3A) : const Color(0xFFBEE2BA),
+        selected: this == dark ? const Color(0xFF3E7F4E) : const Color(0xFF8FCB8C),
+        given: given,
+        user: user,
+        wrong: wrong,
+        wrongBg: wrongBg,
+        lineThin: lineThin,
+        lineThick: lineThick,
+        note: note,
+        noteHighlight: this == dark ? const Color(0xFF3F8A52) : const Color(0xFFA5D6A1),
+        hintCause: hintCause,
+        hintTarget: hintTarget,
+        hintRegion: hintRegion,
+        accent: this == dark ? const Color(0xFF6FD08A) : const Color(0xFF2E8B57),
+        place: place,
+        remove: remove,
+      );
+
+  static SudokuColors of(BuildContext context, {bool notes = false}) {
+    final base = Theme.of(context).brightness == Brightness.dark ? dark : light;
+    return notes ? base.asNotes : base;
+  }
 }

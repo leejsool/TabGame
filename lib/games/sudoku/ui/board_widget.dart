@@ -107,7 +107,6 @@ class _SudokuBoardState extends State<SudokuBoard> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final colors = SudokuColors.of(context);
     return LayoutBuilder(
       builder: (context, box) {
         final size = box.biggest.shortestSide;
@@ -121,7 +120,8 @@ class _SudokuBoardState extends State<SudokuBoard> with TickerProviderStateMixin
             size: Size.square(size),
             painter: BoardPainter(
               game: widget.game,
-              colors: colors,
+              baseColors: SudokuColors.of(context),
+              notesColors: SudokuColors.of(context, notes: true),
               pop: _pop,
               wave: _wave,
               cache: _cache,
@@ -136,14 +136,19 @@ class _SudokuBoardState extends State<SudokuBoard> with TickerProviderStateMixin
 class BoardPainter extends CustomPainter {
   BoardPainter({
     required this.game,
-    required this.colors,
+    required this.baseColors,
+    required this.notesColors,
     required this.pop,
     required this.wave,
     required this.cache,
   }) : super(repaint: Listenable.merge([game, pop, wave]));
 
   final SudokuGame game;
-  final SudokuColors colors;
+  final SudokuColors baseColors;
+  final SudokuColors notesColors;
+
+  /// 메모 모드일 때는 녹색 계열 색을 쓴다.
+  SudokuColors get colors => game.notesMode ? notesColors : baseColors;
   final Animation<double> pop;
   final Animation<double> wave;
   final TextCache cache;

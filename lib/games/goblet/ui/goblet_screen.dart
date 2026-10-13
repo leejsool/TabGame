@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/settings_scope.dart';
+import '../tutorial/goblet_tutorial.dart';
 import '../../../records/records_screen.dart';
 import '../core/goblet_ai.dart';
 import '../data/goblet_history.dart';
@@ -314,7 +315,7 @@ class _ResultDialog extends StatelessWidget {
 Future<void> showGobbletRules(BuildContext context) {
   return showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (ctx) => AlertDialog(
       title: const Text('고블렛 고블러스 규칙'),
       content: SingleChildScrollView(
         child: Column(
@@ -361,7 +362,14 @@ Future<void> showGobbletRules(BuildContext context) {
         ),
       ),
       actions: [
-        FilledButton(onPressed: () => Navigator.pop(context), child: const Text('알겠어요')),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            gobletTutorial().open(context);
+          },
+          child: const Text('게임 방법 자세히'),
+        ),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요')),
       ],
     ),
   );

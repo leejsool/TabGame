@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../tutorial/tutorial.dart';
+
 /// 게임을 즐기는 방법.
 enum PlayMode {
   solo('혼자 하기', '나 혼자 차분히 즐겨요', Icons.person),
@@ -25,6 +27,7 @@ class GameInfo {
     required this.color,
     required this.modes,
     this.builder,
+    this.tutorial,
   });
 
   final String id;
@@ -36,6 +39,11 @@ class GameInfo {
 
   /// null이면 아직 만드는 중인 게임("준비 중"으로 표시).
   final GameScreenBuilder? builder;
+
+  /// 게임 방법 안내. 있으면 처음 열 때 한 번 자동으로 보여주고(건너뛰기 가능),
+  /// 게임 메뉴의 도움말 버튼으로 언제든 다시 볼 수 있다.
+  /// (그림을 그리는 함수가 들어 있어 const로 못 만드니, 만드는 함수를 받는다.)
+  final GameTutorial Function()? tutorial;
 
   bool get isReady => builder != null;
   bool get hasSolo => modes.contains(PlayMode.solo);

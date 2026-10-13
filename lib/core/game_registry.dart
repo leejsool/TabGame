@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../games/freecell/freecell_entry.dart';
+import '../games/freecell/tutorial/freecell_tutorial.dart';
 import '../games/goblet/goblet_entry.dart';
+import '../games/goblet/tutorial/goblet_tutorial.dart';
+import '../games/uttt/tutorial/uttt_tutorial.dart';
 import '../games/uttt/uttt_entry.dart';
 import '../games/jigsaw/jigsaw_entry.dart';
+import '../games/jigsaw/tutorial/jigsaw_tutorial.dart';
 import '../games/minesweeper/minesweeper_entry.dart';
+import '../games/minesweeper/tutorial/mines_tutorial.dart';
 import '../games/rhythm/rhythm_entry.dart';
+import '../games/rhythm/tutorial/rhythm_tutorial.dart';
 import '../games/solitaire/solitaire_entry.dart';
+import '../games/solitaire/tutorial/solitaire_tutorial.dart';
 import '../games/sudoku/sudoku_entry.dart';
+import '../games/sudoku/tutorial/sudoku_tutorial.dart';
 import 'game_info.dart';
 
 /// 앱에 들어갈 모든 게임 목록.
@@ -23,6 +31,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFF3F7CAC),
     modes: [PlayMode.solo],
     builder: buildSudoku,
+    tutorial: sudokuTutorial,
   ),
   GameInfo(
     id: 'minesweeper',
@@ -32,6 +41,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFFC8553D),
     modes: [PlayMode.solo],
     builder: buildMinesweeper,
+    tutorial: minesTutorial,
   ),
   GameInfo(
     id: 'solitaire',
@@ -41,6 +51,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFF2E7D5B),
     modes: [PlayMode.solo],
     builder: buildSolitaire,
+    tutorial: solitaireTutorial,
   ),
   GameInfo(
     id: 'freecell',
@@ -50,6 +61,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFF6A4C93),
     modes: [PlayMode.solo],
     builder: buildFreecell,
+    tutorial: freecellTutorial,
   ),
   GameInfo(
     id: 'jigsaw',
@@ -59,6 +71,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFFE09F3E),
     modes: [PlayMode.solo],
     builder: buildJigsaw,
+    tutorial: jigsawTutorial,
   ),
   GameInfo(
     id: 'rhythm_swords',
@@ -68,6 +81,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFFE2793A),
     modes: [PlayMode.solo],
     builder: buildRhythm,
+    tutorial: rhythmTutorial,
   ),
   GameInfo(
     id: 'pinball',
@@ -87,6 +101,7 @@ const List<GameInfo> allGames = [
     color: Color(0xFFD1495B),
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildUttt,
+    tutorial: utttTutorial,
   ),
   GameInfo(
     id: 'goblet_gobblers',
@@ -96,5 +111,6 @@ const List<GameInfo> allGames = [
     color: Color(0xFF00798C),
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildGoblet,
+    tutorial: gobletTutorial,
   ),
 ];

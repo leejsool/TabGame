@@ -4,6 +4,7 @@ import '../../../core/game_info.dart';
 import '../../../records/records_screen.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
+import '../tutorial/uttt_tutorial.dart';
 import 'uttt_board.dart';
 import 'uttt_screen.dart';
 
@@ -82,9 +83,9 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => showUtttRules(context),
+                onPressed: () => utttTutorial().open(context),
                 icon: const Icon(Icons.help_outline_rounded),
-                label: const Text('규칙 보기'),
+                label: const Text('게임 방법'),
               ),
             ],
           ),

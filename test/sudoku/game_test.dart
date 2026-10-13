@@ -341,6 +341,54 @@ void main() {
     });
   });
 
+  test('빠른 입력에서 숫자를 고르면 칸 선택과 강조가 풀린다', () {
+    final g = newGame(Difficulty.easy);
+    g.toggleQuick();
+    final given = List.generate(81, (i) => i).firstWhere((i) => g.values[i] != 0);
+    g.strokeDown(given);
+    g.strokeEnd();
+    expect(g.selected, given);
+    expect(g.highlightDigit, g.values[given]);
+    g.padDigit(5);
+    expect(g.selected, -1);
+    expect(g.quickDigit, 5);
+    expect(g.highlightDigit, 5, reason: '고른 숫자는 계속 강조된다');
+    // 같은 숫자를 다시 누르면 고른 숫자가 풀리고, 강조도 사라진다
+    g.padDigit(5);
+    expect(g.quickDigit, 0);
+    expect(g.highlightDigit, 0);
+  });
+
+  test('직접 메모에서 지운 후보는 힌트가 또 지우라고 하지 않는다', () {
+    var checked = 0;
+    for (var seed = 1; seed <= 6 && checked < 3; seed++) {
+      final g = newGame(Difficulty.hard, seed);
+      g.autoNotes();
+      var guard = 0;
+      while (!g.completed && guard++ < 300) {
+        g.requestHint();
+        final h = g.hint!;
+        if (h.isPlacement || h.isWrongCells || h.removeMask.isEmpty) {
+          g.applyHint();
+          g.autoNotes();
+          continue;
+        }
+        // 힌트가 지우라는 후보를 내가 직접 메모에서 먼저 지운다
+        final removed = Map<int, int>.of(h.removeMask);
+        removed.forEach((cell, mask) => g.notes[cell] &= ~mask);
+        g.dismissHint();
+        g.requestHint();
+        final next = g.hint!;
+        next.removeMask.forEach((cell, mask) {
+          expect(mask & (removed[cell] ?? 0), 0, reason: '이미 지운 후보 $cell를 또 알려줌');
+        });
+        checked++;
+        break;
+      }
+    }
+    expect(checked, greaterThan(0), reason: '후보 지우기 힌트를 한 번도 못 만났어요');
+  });
+
   for (final d in Difficulty.values) {
     test('${d.label}: 힌트만 따라가도 퍼즐이 끝까지 풀린다 (실수 0)', () {
       for (var seed = 1; seed <= 4; seed++) {

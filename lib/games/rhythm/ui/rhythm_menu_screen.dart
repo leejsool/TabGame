@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/rhythm_chart.dart';
 import '../data/rhythm_storage.dart';
+import '../tutorial/rhythm_tutorial.dart';
 import 'calibration_screen.dart';
 import 'camp_painter.dart';
 import 'rhythm_screen.dart';
@@ -66,18 +67,29 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
           SafeArea(
             child: Column(
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Material(
-                      color: Colors.white,
-                      shape: const CircleBorder(side: BorderSide(color: _ink, width: 3.5)),
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_rounded, color: _ink),
-                        onPressed: () => Navigator.of(context).pop(),
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(side: BorderSide(color: _ink, width: 3.5)),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
                       ),
-                    ),
+                      const Spacer(),
+                      Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(side: BorderSide(color: _ink, width: 3.5)),
+                        child: IconButton(
+                          tooltip: '게임 방법',
+                          icon: const Icon(Icons.help_outline_rounded, color: _ink),
+                          onPressed: () => rhythmTutorial().open(context),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 4),

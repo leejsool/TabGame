@@ -7,6 +7,7 @@ import '../../../core/format.dart';
 import '../../../records/records_screen.dart';
 import '../data/jigsaw_storage.dart';
 import '../jigsaw_entry.dart';
+import '../tutorial/jigsaw_tutorial.dart';
 import 'jigsaw_images.dart';
 import 'jigsaw_setup_screen.dart';
 
@@ -107,6 +108,11 @@ class _JigsawMenuScreenState extends State<JigsawMenuScreen> {
         title: const Text('직소퍼즐', style: TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.transparent,
         actions: [
+          IconButton(
+            tooltip: '게임 방법',
+            icon: const Icon(Icons.help_outline_rounded),
+            onPressed: () => jigsawTutorial().open(context),
+          ),
           IconButton(
             tooltip: '내 기록',
             icon: const Icon(Icons.emoji_events_rounded),

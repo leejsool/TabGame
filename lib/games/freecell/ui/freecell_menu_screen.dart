@@ -6,7 +6,7 @@ import '../core/freecell_difficulty.dart';
 import '../core/freecell_rules.dart';
 import '../data/freecell_storage.dart';
 import '../freecell_entry.dart';
-import 'freecell_screen.dart' show showFreecellRules;
+import '../tutorial/freecell_tutorial.dart';
 
 const levelColors = {
   FcLevel.easy: Color(0xFF3FA796),
@@ -110,9 +110,9 @@ class _FreecellMenuScreenState extends State<FreecellMenuScreen> {
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            tooltip: '규칙',
+            tooltip: '게임 방법',
             icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => showFreecellRules(context),
+            onPressed: () => freecellTutorial().open(context),
           ),
           IconButton(
             tooltip: '내 기록',

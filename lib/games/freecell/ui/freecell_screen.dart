@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/format.dart';
 import '../../../core/settings.dart';
 import '../../../core/settings_scope.dart';
+import '../tutorial/freecell_tutorial.dart';
 import '../core/freecell_difficulty.dart';
 import '../data/freecell_storage.dart';
 import '../freecell_entry.dart';
@@ -623,7 +624,16 @@ Future<void> showFreecellRules(BuildContext context) {
           ],
         ),
       ),
-      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            freecellTutorial().open(context);
+          },
+          child: const Text('게임 방법 자세히'),
+        ),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요')),
+      ],
     ),
   );
 }

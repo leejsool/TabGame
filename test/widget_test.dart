@@ -71,6 +71,10 @@ void main() {
 
     await tester.tap(find.text('CPU와 대결'));
     await tester.pumpAndSettle();
+    // 처음 여는 게임이라 게임 방법 안내가 먼저 나오고, 건너뛸 수 있다 (자세한 건 tutorial/first_run_test.dart)
+    expect(find.text('얼티밋 틱택토 게임 방법'), findsOneWidget);
+    await tester.tap(find.text('건너뛰기'));
+    await tester.pumpAndSettle();
     expect(find.text('내 표시'), findsOneWidget);
     expect(find.text('CPU 난이도'), findsOneWidget);
   });

@@ -17,7 +17,8 @@ class Settings extends ChangeNotifier {
         _cardStyle = _readCardStyle(_prefs.getString(_kCardStyle)),
         _cardBackStyle = _readCardBackStyle(_prefs.getString(_kCardBackStyle)),
         _fourColor = _prefs.getBool(_kFourColor) ?? false,
-        _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true {
+        _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true,
+        _showTutorials = _prefs.getBool(_kShowTutorials) ?? true {
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
     CardLook.fourColor = _fourColor;
@@ -48,6 +49,7 @@ class Settings extends ChangeNotifier {
   static const _kFourColor = 'cardFourColor';
   static const _kAutoUpdateCheck = 'autoUpdateCheck';
   static const _kLastUpdateCheck = 'lastUpdateCheckMs';
+  static const _kShowTutorials = 'showTutorials';
 
   final SharedPreferences _prefs;
   bool _sound;
@@ -60,6 +62,7 @@ class Settings extends ChangeNotifier {
   CardBackStyle _cardBackStyle;
   bool _fourColor;
   bool _autoUpdateCheck;
+  bool _showTutorials;
 
   static Future<Settings> load() async =>
       Settings._(await SharedPreferences.getInstance());
@@ -119,6 +122,15 @@ class Settings extends ChangeNotifier {
   set autoUpdateCheck(bool v) {
     _autoUpdateCheck = v;
     _prefs.setBool(_kAutoUpdateCheck, v);
+    notifyListeners();
+  }
+
+  /// 게임을 처음 열 때 게임 방법 안내를 자동으로 보여준다 (건너뛸 수 있다).
+  bool get showTutorials => _showTutorials;
+
+  set showTutorials(bool v) {
+    _showTutorials = v;
+    _prefs.setBool(_kShowTutorials, v);
     notifyListeners();
   }
 

@@ -1,49 +1,57 @@
 import 'package:flutter/material.dart';
 
+import '../../../tutorial/pulse.dart';
 import '../game/hint.dart';
 import '../game/sudoku_game.dart';
 import 'sudoku_colors.dart';
 
 /// 숫자 패드. 숫자 아래에 남은 개수를 보여주고, 다 놓은 숫자는 숨긴다.
 class NumberPad extends StatelessWidget {
-  const NumberPad({super.key, required this.game, this.columns = 9});
+  const NumberPad({super.key, required this.game, this.columns = 9, this.spotlight = false});
 
   final SudokuGame game;
+
+  /// 튜토리얼에서 "이 숫자 패드를 쓰세요" 하고 깜빡여 알려준다.
+  final bool spotlight;
 
   /// 9 = 한 줄, 3 = 3×3 격자 (태블릿 가로 화면).
   final int columns;
 
   @override
   Widget build(BuildContext context) {
-    final colors = SudokuColors.of(context);
     return ListenableBuilder(
       listenable: game,
       builder: (context, _) {
+        // 메모 모드일 때는 숫자 색도 녹색 계열이 된다
+        final colors = SudokuColors.of(context, notes: game.notesMode);
         final rows = 9 ~/ columns;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var r = 0; r < rows; r++)
-              Padding(
-                padding: EdgeInsets.only(bottom: r < rows - 1 ? 8 : 0),
-                child: Row(
-                  children: [
-                    for (var c = 0; c < columns; c++)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: _DigitButton(
-                            game: game,
-                            digit: r * columns + c + 1,
-                            colors: colors,
-                            wide: columns < 9,
+        return PulseHighlight(
+          active: spotlight,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var r = 0; r < rows; r++)
+                Padding(
+                  padding: EdgeInsets.only(bottom: r < rows - 1 ? 8 : 0),
+                  child: Row(
+                    children: [
+                      for (var c = 0; c < columns; c++)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: _DigitButton(
+                              game: game,
+                              digit: r * columns + c + 1,
+                              colors: colors,
+                              wide: columns < 9,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -137,9 +145,12 @@ class _DigitButton extends StatelessWidget {
 
 /// 취소 / 지우기 / 메모 / 빠른 메모 / 힌트.
 class ActionBar extends StatelessWidget {
-  const ActionBar({super.key, required this.game});
+  const ActionBar({super.key, required this.game, this.spotlight = const {}});
 
   final SudokuGame game;
+
+  /// 튜토리얼에서 깜빡여 알려줄 버튼: 'undo' 'erase' 'notes' 'auto' 'hint'.
+  final Set<String> spotlight;
 
   @override
   Widget build(BuildContext context) {
@@ -151,30 +162,36 @@ class ActionBar extends StatelessWidget {
           _ActionButton(
             icon: Icons.undo_rounded,
             label: '취소',
+            spotlight: spotlight.contains('undo'),
             enabled: game.canUndo,
             onTap: game.undo,
           ),
           _ActionButton(
             icon: Icons.backspace_outlined,
             label: '지우기',
+            spotlight: spotlight.contains('erase'),
             onTap: game.erase,
           ),
           _ActionButton(
             icon: Icons.edit_rounded,
             label: '메모',
+            spotlight: spotlight.contains('notes'),
             badge: game.notesMode ? 'ON' : null,
             highlight: game.notesMode,
+            color: SudokuColors.of(context, notes: true).accent,
             onTap: game.toggleNotes,
           ),
           _ActionButton(
             icon: Icons.auto_fix_high_rounded,
             label: '빠른 메모',
+            spotlight: spotlight.contains('auto'),
             onTap: game.autoNotes,
           ),
           _ActionButton(
             icon: Icons.lightbulb_rounded,
             label: '힌트',
-            highlight: game.hint != null,
+            spotlight: spotlight.contains('hint'),
+            highlight: game.hint != null && !game.hint!.visualOnly,
             color: colors.accent,
             onTap: game.requestHint,
           ),
@@ -193,6 +210,7 @@ class _ActionButton extends StatelessWidget {
     this.badge,
     this.highlight = false,
     this.color,
+    this.spotlight = false,
   });
 
   final IconData icon;
@@ -202,6 +220,7 @@ class _ActionButton extends StatelessWidget {
   final String? badge;
   final bool highlight;
   final Color? color;
+  final bool spotlight;
 
   @override
   Widget build(BuildContext context) {
@@ -209,43 +228,46 @@ class _ActionButton extends StatelessWidget {
     final base = highlight ? (color ?? scheme.primary) : scheme.onSurface.withValues(alpha: 0.75);
     final fg = enabled ? base : base.withValues(alpha: 0.3);
     return Expanded(
-      child: InkResponse(
-        onTap: enabled ? onTap : null,
-        radius: 44,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icon, size: 32, color: fg),
-                  if (badge != null)
-                    Positioned(
-                      right: -16,
-                      top: -6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          badge!,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            color: scheme.onPrimary,
+      child: PulseHighlight(
+        active: spotlight,
+        child: InkResponse(
+          onTap: enabled ? onTap : null,
+          radius: 44,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(icon, size: 32, color: fg),
+                    if (badge != null)
+                      Positioned(
+                        right: -16,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: color ?? scheme.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            badge!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: scheme.onPrimary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(label, style: TextStyle(fontSize: 13, color: fg)),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(label, style: TextStyle(fontSize: 13, color: fg)),
+              ],
+            ),
           ),
         ),
       ),
@@ -351,11 +373,14 @@ class HintPanel extends StatelessWidget {
           const SizedBox(height: 6),
           Text(hint.message, style: const TextStyle(fontSize: 15, height: 1.5)),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          // 좁은 화면이나 큰 글자에서는 버튼이 다음 줄로 내려간다
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               TextButton(onPressed: game.dismissHint, child: const Text('직접 해볼래요')),
-              const SizedBox(width: 8),
               FilledButton(onPressed: game.applyHint, child: Text(hint.applyLabel)),
             ],
           ),

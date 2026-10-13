@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/settings_scope.dart';
+import '../tutorial/mines_tutorial.dart';
 import '../core/mines_rules.dart';
 import '../data/mines_storage.dart';
 import '../game/mines_controller.dart';
@@ -447,7 +448,16 @@ Future<void> showMinesRules(BuildContext context) {
           ],
         ),
       ),
-      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            minesTutorial().open(context);
+          },
+          child: const Text('게임 방법 자세히'),
+        ),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요')),
+      ],
     ),
   );
 }

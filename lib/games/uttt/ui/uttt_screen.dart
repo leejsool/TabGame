@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/settings_scope.dart';
+import '../tutorial/uttt_tutorial.dart';
 import '../../../records/records_screen.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
@@ -412,7 +413,16 @@ Future<void> showUtttRules(BuildContext context) {
           ],
         ),
       ),
-      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            utttTutorial().open(context);
+          },
+          child: const Text('게임 방법 자세히'),
+        ),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요')),
+      ],
     ),
   );
 }

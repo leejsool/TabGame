@@ -215,6 +215,8 @@ class SudokuGame extends ChangeNotifier {
     if (paused || completed || autoCompleting) return;
     if (quickMode) {
       quickDigit = quickDigit == d ? 0 : d;
+      // 빠른 입력에서 숫자를 고르면, 먼저 눌러 둔 칸의 선택과 행·열·박스 강조는 풀린다
+      selected = -1;
       _changed(keepHint: true);
       return;
     }
@@ -469,8 +471,35 @@ class SudokuGame extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final g = CandidateGrid.fromValues(values, eliminated: hintElims);
-    final step = StepFinder.next(g, maxLevel: 4);
+    // 힌트로 지운 후보뿐 아니라, 내가 메모에서 이미 지운 후보도 "지운 것"으로 친다.
+    // (그러지 않으면 이미 지운 후보를 또 지우라고 알려준다)
+    final elims = List<int>.of(hintElims);
+    var g = CandidateGrid.fromValues(values, eliminated: elims);
+    var step = StepFinder.next(g, maxLevel: 4);
+    for (var guard = 0; guard < 200 && step != null && !step.isPlacement; guard++) {
+      final left = <int, int>{};
+      step.eliminations.forEach((cell, mask) {
+        // 메모가 비어 있는 칸은 아직 후보를 안 적은 칸이니, 지울 후보가 그대로 남아 있다고 본다.
+        final remain = notes[cell] == 0 ? mask : mask & notes[cell];
+        if (remain != 0) left[cell] = remain;
+      });
+      if (left.isNotEmpty) {
+        step = SolveStep(
+          technique: step.technique,
+          cells: step.cells,
+          digits: step.digits,
+          unit: step.unit,
+          units: step.units,
+          coverUnits: step.coverUnits,
+          eliminations: left,
+        );
+        break;
+      }
+      // 이 단계는 내가 이미 해 둔 것: 반영하고 다음 단계를 찾는다.
+      step.eliminations.forEach((cell, mask) => elims[cell] |= mask);
+      g = CandidateGrid.fromValues(values, eliminated: elims);
+      step = StepFinder.next(g, maxLevel: 4);
+    }
     if (step != null) {
       hint = ActiveHint.fromStep(step, g);
     } else {
@@ -491,6 +520,12 @@ class SudokuGame extends ChangeNotifier {
     hintsUsed++;
     final h = hint!;
     if (h.placeCell >= 0) selected = h.placeCell;
+    notifyListeners();
+  }
+
+  /// 튜토리얼에서 판 위에 칠할 표시를 바꾼다. (설명 카드가 없는 [ActiveHint.visualOnly]용)
+  void setVisual(ActiveHint? visual) {
+    hint = visual;
     notifyListeners();
   }
 

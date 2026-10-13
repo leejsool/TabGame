@@ -5,7 +5,7 @@ import '../../../records/records_screen.dart';
 import '../core/solitaire_rules.dart';
 import '../data/solitaire_storage.dart';
 import '../solitaire_entry.dart';
-import 'solitaire_screen.dart' show showSolitaireRules;
+import '../tutorial/solitaire_tutorial.dart';
 
 /// 솔리테어 첫 화면: 이어하기 + 뽑기 장수 고르기 + 새 게임 + 번호로 시작.
 class SolitaireMenuScreen extends StatefulWidget {
@@ -82,9 +82,9 @@ class _SolitaireMenuScreenState extends State<SolitaireMenuScreen> {
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            tooltip: '규칙',
+            tooltip: '게임 방법',
             icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => showSolitaireRules(context),
+            onPressed: () => solitaireTutorial().open(context),
           ),
           IconButton(
             tooltip: '내 기록',

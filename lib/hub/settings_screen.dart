@@ -6,6 +6,7 @@ import '../core/update/update_service.dart';
 import '../core/update/update_ui.dart';
 import '../games/freecell/ui/playing_card.dart';
 import '../games/solitaire/ui/card_back.dart';
+import '../tutorial/tutorial_progress.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.settings});
@@ -54,6 +55,28 @@ class SettingsScreen extends StatelessWidget {
               subtitle: const Text('손해 없는 카드는 완성 칸으로 알아서 올려요'),
               value: settings.solitaireAutoMove,
               onChanged: (v) => settings.solitaireAutoMove = v,
+            ),
+            const Divider(height: 24),
+            SwitchListTile(
+              secondary: const Icon(Icons.school_rounded),
+              title: const Text('게임 방법 안내'),
+              subtitle: const Text('게임을 처음 열 때 방법을 알려 줘요 (언제든 건너뛸 수 있어요)'),
+              value: settings.showTutorials,
+              onChanged: (v) => settings.showTutorials = v,
+            ),
+            ListTile(
+              leading: const Icon(Icons.replay_rounded),
+              title: const Text('게임 방법 안내 다시 받기'),
+              subtitle: const Text('모든 게임의 처음 안내를 다시 보여줘요'),
+              onTap: () async {
+                await TutorialProgress.resetSeen();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(content: Text('다음에 게임을 열 때 방법 안내가 다시 나와요')),
+                  );
+              },
             ),
             const Divider(height: 24),
             _CardStylePicker(settings: settings),

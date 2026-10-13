@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/settings_scope.dart';
+import '../tutorial/solitaire_tutorial.dart';
 import '../data/solitaire_storage.dart';
 import '../game/solitaire_controller.dart';
 import '../solitaire_entry.dart';
@@ -484,7 +485,16 @@ Future<void> showSolitaireRules(BuildContext context) {
           ],
         ),
       ),
-      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            solitaireTutorial().open(context);
+          },
+          child: const Text('게임 방법 자세히'),
+        ),
+        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요')),
+      ],
     ),
   );
 }

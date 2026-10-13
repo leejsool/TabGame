@@ -5,6 +5,7 @@ import '../../../records/records_screen.dart';
 import '../core/goblet_ai.dart';
 import '../core/goblet_rules.dart';
 import 'goblet_piece.dart';
+import '../tutorial/goblet_tutorial.dart';
 import 'goblet_screen.dart';
 
 /// CPU 대전 시작 전 설정: 난이도 + 내 팀.
@@ -90,9 +91,9 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => showGobbletRules(context),
+                onPressed: () => gobletTutorial().open(context),
                 icon: const Icon(Icons.help_outline_rounded),
-                label: const Text('규칙 보기'),
+                label: const Text('게임 방법'),
               ),
             ],
           ),

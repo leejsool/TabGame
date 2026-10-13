@@ -17,6 +17,7 @@ class ActiveHint {
     this.placeCell = -1,
     this.placeDigit = 0,
     this.wrongCells = const [],
+    this.visualOnly = false,
   });
 
   final String title;
@@ -48,6 +49,9 @@ class ActiveHint {
   /// 틀린 숫자가 들어 있는 칸들.
   final List<int> wrongCells;
 
+  /// 튜토리얼에서 칸을 색칠해 보여주기만 하는 표시 (설명 카드·입력 버튼은 없다).
+  final bool visualOnly;
+
   bool get isWrongCells => wrongCells.isNotEmpty;
   bool get isPlacement => placeCell >= 0;
   SolveStepKind get kind => isWrongCells
@@ -68,7 +72,7 @@ class ActiveHint {
   }
 
   /// 논리 단계로 힌트를 만든다. [g]는 단계를 적용하기 전의 후보 격자.
-  factory ActiveHint.fromStep(SolveStep s, CandidateGrid g) {
+  factory ActiveHint.fromStep(SolveStep s, CandidateGrid g, {bool visualOnly = false}) {
     final cands = <int, int>{};
     for (final c in s.cells) {
       if (g.cand[c] != 0) cands[c] = g.cand[c];
@@ -96,6 +100,7 @@ class ActiveHint {
       patternDigits: s.digits,
       placeCell: s.placeCell,
       placeDigit: s.placeDigit,
+      visualOnly: visualOnly,
     );
   }
 

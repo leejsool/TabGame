@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/game_info.dart';
+import '../core/settings_scope.dart';
 import '../games/coming_soon_screen.dart';
+import '../tutorial/tutorial_progress.dart';
 
 /// 게임을 시작한다. 모드가 여러 개면 먼저 고르게 하고, 하나뿐이면 바로 들어간다.
 Future<void> launchGame(BuildContext context, GameInfo game) async {
@@ -20,6 +22,20 @@ Future<void> launchGame(BuildContext context, GameInfo game) async {
     );
   }
   if (mode == null || !context.mounted) return;
+
+  // 처음 여는 게임이면 먼저 게임 방법을 안내한다. 언제든 건너뛸 수 있고, 한 번 보여주면
+  // (건너뛰어도) 다시 자동으로 뜨지 않는다.
+  final tutorial = game.tutorial?.call();
+  if (game.isReady && tutorial != null && SettingsScope.of(context).showTutorials) {
+    final seen = await TutorialProgress.isSeen(game.id);
+    if (!context.mounted) return;
+    if (!seen) {
+      await TutorialProgress.markSeen(game.id);
+      if (!context.mounted) return;
+      await tutorial.open(context, firstTime: true);
+      if (!context.mounted) return;
+    }
+  }
 
   final chosen = mode;
   await Navigator.of(context).push(

@@ -5,7 +5,7 @@ import '../../../records/records_screen.dart';
 import '../core/mines_rules.dart';
 import '../data/mines_storage.dart';
 import '../minesweeper_entry.dart';
-import 'mines_screen.dart' show showMinesRules;
+import '../tutorial/mines_tutorial.dart';
 
 const levelColors = {
   MinesLevel.beginner: Color(0xFF3FA796),
@@ -58,9 +58,9 @@ class _MinesMenuScreenState extends State<MinesMenuScreen> {
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
-            tooltip: '규칙',
+            tooltip: '게임 방법',
             icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => showMinesRules(context),
+            onPressed: () => minesTutorial().open(context),
           ),
           IconButton(
             tooltip: '내 기록',
