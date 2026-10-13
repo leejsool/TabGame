@@ -63,6 +63,9 @@ class _JigsawTableState extends State<JigsawTable> with TickerProviderStateMixin
   bool _wasCompleted = false;
   Timer? _hintTimer;
 
+  /// 끌고 있는 덩어리를 한 장으로 합쳐 둔 그림 (끄는 동안 그림자·조각마다 다시 그리지 않으려고).
+  _DragLayer? _dragLayer;
+
   Path _buildSlotLines() {
     final all = Path();
     for (var i = 0; i < c.geometry.count; i++) {
@@ -84,6 +87,7 @@ class _JigsawTableState extends State<JigsawTable> with TickerProviderStateMixin
   @override
   void dispose() {
     c.removeListener(_onController);
+    _dragLayer?.dispose();
     _hintTimer?.cancel();
     _pop.dispose();
     _reveal.dispose();
@@ -147,16 +151,25 @@ class _JigsawTableState extends State<JigsawTable> with TickerProviderStateMixin
       final i = c.pieceAt(p);
       if (i != null) {
         c.beginDrag(i, p);
-        if (c.dragging != null) _dragPointer = e.pointer;
+        if (c.dragging != null) {
+          _dragPointer = e.pointer;
+          _dragLayer = _DragLayer.build(c, widget.pieces);
+        }
       }
     } else if (_pointers.length == 2) {
       // 두 번째 손가락: 끌던 조각은 놓고, 확대·축소 시작
       if (_dragPointer != null) {
-        c.endDrag();
+        _endDrag();
         _dragPointer = null;
       }
       _startPinch();
     }
+  }
+
+  void _endDrag() {
+    c.endDrag();
+    _dragLayer?.dispose();
+    _dragLayer = null;
   }
 
   void _startPinch() {
@@ -193,7 +206,7 @@ class _JigsawTableState extends State<JigsawTable> with TickerProviderStateMixin
     final moved = (e.localPosition - _downPos).distance;
     _pointers.remove(e.pointer);
     if (wasDragging) {
-      c.endDrag();
+      _endDrag();
       _dragPointer = null;
     } else if (_pointers.isEmpty && moved < 10 && e is PointerUpEvent) {
       // 빈 곳을 두 번 두드리면 화면에 맞춘다
@@ -243,6 +256,7 @@ class _JigsawTableState extends State<JigsawTable> with TickerProviderStateMixin
                 slotLines: _slotLines,
                 getScale: () => _scale,
                 getOffset: () => _offset,
+                getDragLayer: () => _dragLayer,
                 pop: _pop,
                 reveal: _reveal,
                 pulse: _pulse,
@@ -264,6 +278,7 @@ class _TablePainter extends CustomPainter {
     required this.slotLines,
     required this.getScale,
     required this.getOffset,
+    required this.getDragLayer,
     required this.pop,
     required this.reveal,
     required this.pulse,
@@ -276,6 +291,7 @@ class _TablePainter extends CustomPainter {
   final Path slotLines;
   final double Function() getScale;
   final Offset Function() getOffset;
+  final _DragLayer? Function() getDragLayer;
   final Animation<double> pop;
   final Animation<double> reveal;
   final Animation<double> pulse;
@@ -334,10 +350,11 @@ class _TablePainter extends CustomPainter {
 
     // 붙은 조각 → 안 붙은 조각 순서로 (order 가 이미 그 순서)
     final dragging = c.dragging;
-    final dragMembers = c.dragMembers;
+    final dragSet = dragging == null ? const <int>{} : c.dragMembers.toSet();
+    final paint = Paint()..filterQuality = FilterQuality.medium;
     for (final i in c.order) {
-      if (dragging != null && dragMembers.contains(i)) continue;
-      _drawPiece(canvas, i, c.pos[i]);
+      if (dragSet.contains(i)) continue;
+      canvas.drawImage(pieces.images[i], c.pos[i], paint);
     }
 
     // 방금 붙은 조각 반짝임
@@ -391,32 +408,112 @@ class _TablePainter extends CustomPainter {
 
     // 지금 끌고 있는 조각(덩어리)은 맨 위에, 그림자와 함께
     if (dragging != null) {
-      final shadow = Paint()
-        ..colorFilter = const ColorFilter.mode(Color(0x66000000), BlendMode.srcIn)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
-      var bounds = c.pos[dragging] & c.geometry.boxes[dragging].size;
-      for (final m in dragMembers) {
-        bounds = bounds.expandToInclude(c.pos[m] & c.geometry.boxes[m].size);
-        canvas.drawImage(pieces.images[m], c.pos[m] + const Offset(10, 14), shadow);
+      final layer = getDragLayer();
+      if (layer != null) {
+        // 덩어리를 한 장으로 합쳐 둔 그림을 옮겨 그리기만 한다 (조각이 많아도 가볍다)
+        layer.paint(canvas, c.pos[dragging]);
+      } else {
+        _paintDragSlow(canvas, dragging, c.dragMembers);
       }
-      final center = bounds.center;
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.scale(1.04);
-      canvas.translate(-center.dx, -center.dy);
-      for (final m in c.order) {
-        if (!dragMembers.contains(m)) continue;
-        canvas.drawImage(pieces.images[m], c.pos[m], Paint()..filterQuality = FilterQuality.medium);
-      }
-      canvas.restore();
     }
     canvas.restore();
   }
 
-  void _drawPiece(Canvas canvas, int i, Offset p) {
-    canvas.drawImage(pieces.images[i], p, Paint()..filterQuality = FilterQuality.medium);
+  /// 합친 그림을 못 만들었을 때의 예비 방법 (조각마다 그림자를 그린다).
+  void _paintDragSlow(Canvas canvas, int dragging, List<int> dragMembers) {
+    final shadow = Paint()
+      ..colorFilter = const ColorFilter.mode(Color(0x66000000), BlendMode.srcIn)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    var bounds = c.pos[dragging] & c.geometry.boxes[dragging].size;
+    for (final m in dragMembers) {
+      bounds = bounds.expandToInclude(c.pos[m] & c.geometry.boxes[m].size);
+      canvas.drawImage(pieces.images[m], c.pos[m] + const Offset(10, 14), shadow);
+    }
+    final center = bounds.center;
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(1.04);
+    canvas.translate(-center.dx, -center.dy);
+    final members = dragMembers.toSet();
+    for (final m in c.order) {
+      if (!members.contains(m)) continue;
+      canvas.drawImage(pieces.images[m], c.pos[m], Paint()..filterQuality = FilterQuality.medium);
+    }
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(_TablePainter old) => true;
+}
+
+/// 끌고 있는 덩어리(조각 여러 개)와 그 그림자를 한 장의 이미지로 합쳐 둔 것.
+///
+/// 조각마다 흐린 그림자를 매 프레임 따로 그리면 큰 덩어리를 끌 때 랙이 생기므로,
+/// 끌기 시작할 때 한 번만 합치고 그 뒤에는 이 한 장을 옮겨 그리기만 한다.
+class _DragLayer {
+  _DragLayer._(this._image, this._origin, this._startPos, this._center);
+
+  /// 그림자 여백까지 포함해 합친 이미지.
+  final ui.Image _image;
+
+  /// 끌기 시작 때 이미지 왼쪽 위의 탁자 좌표.
+  final Offset _origin;
+
+  /// 끌기 시작 때 대표 조각의 위치 (얼마나 움직였는지 재는 기준) / 덩어리 중심.
+  final Offset _startPos;
+  final Offset _center;
+
+  static const double _pad = 40;
+
+  /// 지금 끌고 있는 덩어리로 만든다. 못 만들면(예: 이미지 생성 미지원 환경) null.
+  static _DragLayer? build(JigsawController c, PieceImages pieces) {
+    final leader = c.dragging;
+    if (leader == null) return null;
+    try {
+      final members = c.dragMembers.toSet();
+      var bounds = c.pos[leader] & c.geometry.boxes[leader].size;
+      for (final m in members) {
+        bounds = bounds.expandToInclude(c.pos[m] & c.geometry.boxes[m].size);
+      }
+      final origin = bounds.topLeft - const Offset(_pad, _pad);
+      final w = (bounds.width + _pad * 2).ceil(), h = (bounds.height + _pad * 2).ceil();
+      final rec = ui.PictureRecorder();
+      final canvas = Canvas(rec);
+      canvas.translate(-origin.dx, -origin.dy);
+      final ordered = [for (final i in c.order) if (members.contains(i)) i];
+      // 그림자: 덩어리 전체를 한 번에 흐리게
+      canvas.saveLayer(
+        origin & Size(w.toDouble(), h.toDouble()),
+        Paint()
+          ..colorFilter = const ColorFilter.mode(Color(0x66000000), BlendMode.srcIn)
+          ..imageFilter = ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      );
+      for (final m in ordered) {
+        canvas.drawImage(pieces.images[m], c.pos[m] + const Offset(10, 14), Paint());
+      }
+      canvas.restore();
+      for (final m in ordered) {
+        canvas.drawImage(pieces.images[m], c.pos[m], Paint()..filterQuality = FilterQuality.medium);
+      }
+      final picture = rec.endRecording();
+      final image = picture.toImageSync(w, h);
+      picture.dispose();
+      return _DragLayer._(image, origin, c.pos[leader], bounds.center);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void paint(Canvas canvas, Offset leaderPos) {
+    final delta = leaderPos - _startPos;
+    final center = _center + delta;
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(1.04);
+    canvas.translate(-center.dx, -center.dy);
+    canvas.drawImage(_image, _origin + delta, Paint()..filterQuality = FilterQuality.medium);
+    canvas.restore();
+  }
+
+  void dispose() => _image.dispose();
 }

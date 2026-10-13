@@ -76,7 +76,7 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
 
   Future<void> _onCompleted() async {
     final seconds = s.controller.elapsed.value;
-    await JigsawStorage.clear(s.controller);
+    await JigsawStorage.clear(s.controller, s.source);
     final isBest = await JigsawStorage.recordWin(s.pieceTarget, seconds);
     await JigsawHistory.add(JigsawRecord(
       at: DateTime.now().millisecondsSinceEpoch,

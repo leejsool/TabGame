@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
+import '../../../records/record_widgets.dart';
 import '../core/jigsaw_geometry.dart';
 import '../data/jigsaw_storage.dart';
 import '../jigsaw_entry.dart';
 
 /// 고른 그림으로 퍼즐을 만들기 전 설정: 조각 수 + 밑그림.
 class JigsawSetupScreen extends StatefulWidget {
-  const JigsawSetupScreen({super.key, required this.pick});
+  const JigsawSetupScreen({super.key, required this.pick, this.initialTarget = 24});
 
   final PickedImage pick;
+
+  /// 처음에 골라져 있을 조각 수 (보관함의 퍼즐은 지난번에 고른 값).
+  final int initialTarget;
 
   @override
   State<JigsawSetupScreen> createState() => _JigsawSetupScreenState();
 }
 
 class _JigsawSetupScreenState extends State<JigsawSetupScreen> {
-  int _target = 24;
+  late int _target = kPieceChoices.any((c) => c.$1 == widget.initialTarget) ? widget.initialTarget : 24;
   bool _ghost = true;
   final Map<int, int?> _best = {};
 
@@ -24,6 +28,17 @@ class _JigsawSetupScreenState extends State<JigsawSetupScreen> {
   void initState() {
     super.initState();
     _loadBest();
+  }
+
+  Future<void> _start() async {
+    // 같은 그림으로 이어하던 판이 있으면 새로 시작하기 전에 물어본다
+    final saved = await JigsawStorage.entryFor(widget.pick.source);
+    if (!mounted) return;
+    if (saved != null && saved.inProgress) {
+      final ok = await confirmOverwrite(context, gameName: '이 그림의 퍼즐');
+      if (!ok || !mounted) return;
+    }
+    await startJigsawGame(context, widget.pick, pieceTarget: _target, ghost: _ghost);
   }
 
   Future<void> _loadBest() async {
@@ -79,12 +94,7 @@ class _JigsawSetupScreenState extends State<JigsawSetupScreen> {
         ),
         const SizedBox(height: 10),
         FilledButton.icon(
-          onPressed: () => startJigsawGame(
-            context,
-            widget.pick,
-            pieceTarget: _target,
-            ghost: _ghost,
-          ),
+          onPressed: _start,
           icon: const Icon(Icons.extension_rounded),
           label: const Text('퍼즐 시작'),
           style: FilledButton.styleFrom(

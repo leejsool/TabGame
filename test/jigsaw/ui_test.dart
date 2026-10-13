@@ -87,6 +87,48 @@ void main() {
     s.dispose();
   });
 
+  testWidgets('이어 붙인 큰 덩어리를 끌면 전체가 같이 움직이고 오류가 없다', (tester) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final s = await makeSession(tester, target: 96);
+    final c = s.controller;
+    // 모든 조각을 하나의 덩어리로 맞춰 판 밖 한쪽에 놓는다
+    final shift = Offset(-c.geometry.imageSize.width * 0.25, -c.geometry.imageSize.height * 0.25);
+    for (var i = 0; i < c.geometry.count; i++) {
+      c.group[i] = 0;
+      c.pos[i] = c.targetPos(i) + shift;
+    }
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: JigsawTable(controller: c, pieces: s.pieces, image: s.image)),
+    ));
+    final view = tester.getSize(find.byType(JigsawTable));
+    final before = List<Offset>.of(c.pos);
+
+    final i = c.order.last;
+    final cell = c.geometry.cellRect(c.geometry.rowOf(i), c.geometry.colOf(i));
+    final grabTable = c.pos[i] + (cell.center - c.geometry.boxes[i].topLeft);
+    final g = await tester.startGesture(toScreen(c, view, grabTable));
+    await tester.pump();
+    expect(c.dragging, i);
+    expect(c.dragMembers.length, c.geometry.count);
+    for (var step = 1; step <= 12; step++) {
+      await g.moveBy(const Offset(4, 3));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    final moved = c.pos[0] - before[0];
+    expect(moved.distance, greaterThan(1));
+    for (var k = 1; k < c.geometry.count; k++) {
+      expect((c.pos[k] - before[k] - moved).distance, lessThan(0.001), reason: '조각 $k');
+    }
+    await g.up();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(c.dragging, isNull);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    s.dispose();
+  });
+
   testWidgets('빈 곳을 밀면 화면이 이동하고(조각은 안 움직임), 두 손가락 확대도 문제없다', (tester) async {
     tester.view.physicalSize = const Size(800, 1000);
     tester.view.devicePixelRatio = 1.0;

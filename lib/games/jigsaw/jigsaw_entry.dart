@@ -126,9 +126,10 @@ Future<void> startJigsawGame(
 /// 기록에서 고른 퍼즐을 같은 그림·같은 조각 수로 처음부터 다시 한다.
 /// 이어하던 판이 있으면 먼저 물어보고, 그림을 못 불러오면 안내한다.
 Future<void> replayJigsawRecord(BuildContext context, JigsawRecord record) async {
-  final saved = await JigsawStorage.load();
+  // 같은 그림으로 이어하던 판이 있을 때만 (다른 그림의 이어하기는 보관함에 그대로 남는다)
+  final saved = await JigsawStorage.entryFor(record.source);
   if (!context.mounted) return;
-  if (saved != null) {
+  if (saved != null && saved.inProgress) {
     final ok = await confirmOverwrite(context, gameName: '직소퍼즐');
     if (!ok || !context.mounted) return;
   }
