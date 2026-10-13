@@ -4,6 +4,8 @@ import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../core/card_look.dart';
+import '../../../core/settings_scope.dart';
 import '../core/freecell_rules.dart';
 import '../game/freecell_controller.dart';
 import 'playing_card.dart';
@@ -81,6 +83,9 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
 
   final GlobalKey _stackKey = GlobalKey();
   FcMetrics? _m;
+
+  /// 카드 앞면을 폰용(숫자·무늬 한 줄)으로 그리는가 (설정 + 기기 크기).
+  bool _faceCompact = false;
   _Drag? _drag;
 
   late final AnimationController _pulse = AnimationController(
@@ -325,9 +330,13 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
       builder: (context, box) {
         final maxLen = c.state.columns.fold<int>(0, (a, col) => max(a, col.length));
         // 탭(넓은 화면)은 그대로, 폰 화면에서만 카드를 간결하고 크게 그린다
-        final compact = MediaQuery.sizeOf(context).shortestSide < 600;
+        final shortest = MediaQuery.sizeOf(context).shortestSide;
+        final compact = shortest < 600;
         final m = FcMetrics(box.biggest, maxLen, compact: compact);
         _m = m;
+        // 카드 그림을 폰용(숫자·무늬 한 줄)으로 그릴지는 설정에서 고른다 (설정이 바뀌면 다시 그려지게 구독)
+        SettingsScope.of(context);
+        _faceCompact = CardLook.compactFor(shortest);
         return ListenableBuilder(
           listenable: c,
           builder: (context, _) => _stack(m),
@@ -363,7 +372,7 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
           card: card,
           pos: pos,
           size: m.cardSize,
-          compact: m.compact,
+          compact: _faceCompact,
           animate: !dragging,
           glow: hintCards.contains(card) ? const Color(0xFFFFD84D) : null,
           pulse: _pulse,

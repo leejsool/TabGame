@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/core/card_look.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/solitaire/core/solitaire_rules.dart';
@@ -66,6 +67,16 @@ void main() {
     if (wMove.isNotEmpty) c.tryMove(wMove.first);
     c.hint = c.state.hint();
     await shoot('portrait_play', const Size(820, 1300), c);
+
+    // 폰 화면: 자동(= 폰용 카드)과 전체 카드 비교. 앱이 실제 폰 크기로 인식하도록 화면 크기를 바꾼다.
+    await tester.binding.setSurfaceSize(null);
+    tester.view.physicalSize = const Size(380, 780);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await shoot('phone_auto', const Size(380, 780), SolitaireController(deal: 4, draw: 1, autoMoveEnabled: false));
+    settings.cardLayout = CardLayout.full;
+    await shoot('phone_full', const Size(380, 780), SolitaireController(deal: 4, draw: 1, autoMoveEnabled: false));
+    settings.cardLayout = CardLayout.auto;
   }, skip: dir == null);
 
   test('(미리보기 도구) 안내', () {

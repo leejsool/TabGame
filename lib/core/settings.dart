@@ -16,12 +16,21 @@ class Settings extends ChangeNotifier {
         ),
         _cardStyle = _readCardStyle(_prefs.getString(_kCardStyle)),
         _cardBackStyle = _readCardBackStyle(_prefs.getString(_kCardBackStyle)),
+        _cardLayout = _readCardLayout(_prefs.getString(_kCardLayout)),
         _fourColor = _prefs.getBool(_kFourColor) ?? false,
         _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true,
         _showTutorials = _prefs.getBool(_kShowTutorials) ?? true {
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
+    CardLook.layout = _cardLayout;
     CardLook.fourColor = _fourColor;
+  }
+
+  static CardLayout _readCardLayout(String? name) {
+    for (final l in CardLayout.values) {
+      if (l.name == name) return l;
+    }
+    return CardLayout.auto;
   }
 
   static CardStyle _readCardStyle(String? name) {
@@ -46,6 +55,7 @@ class Settings extends ChangeNotifier {
   static const _kSolitaireAutoMove = 'solitaireAutoMove';
   static const _kCardStyle = 'cardStyle';
   static const _kCardBackStyle = 'cardBackStyle';
+  static const _kCardLayout = 'cardLayout';
   static const _kFourColor = 'cardFourColor';
   static const _kAutoUpdateCheck = 'autoUpdateCheck';
   static const _kLastUpdateCheck = 'lastUpdateCheckMs';
@@ -60,6 +70,7 @@ class Settings extends ChangeNotifier {
   ThemeMode _themeMode;
   CardStyle _cardStyle;
   CardBackStyle _cardBackStyle;
+  CardLayout _cardLayout;
   bool _fourColor;
   bool _autoUpdateCheck;
   bool _showTutorials;
@@ -103,6 +114,16 @@ class Settings extends ChangeNotifier {
     _cardBackStyle = v;
     CardLook.backStyle = v;
     _prefs.setString(_kCardBackStyle, v.name);
+    notifyListeners();
+  }
+
+  /// 카드 앞면 배치: 자동 / 폰용(숫자·무늬 한 줄) / 전체.
+  CardLayout get cardLayout => _cardLayout;
+
+  set cardLayout(CardLayout v) {
+    _cardLayout = v;
+    CardLook.layout = v;
+    _prefs.setString(_kCardLayout, v.name);
     notifyListeners();
   }
 

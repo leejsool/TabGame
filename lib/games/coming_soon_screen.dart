@@ -1,3 +1,4 @@
+import '../hub/game_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../core/game_info.dart';
@@ -17,7 +18,7 @@ class ComingSoonScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(game.icon, size: 96, color: game.color),
+            GameIcon(id: game.id, fallback: game.icon, size: 120),
             const SizedBox(height: 24),
             Text(
               '${game.title} · ${mode.label}',

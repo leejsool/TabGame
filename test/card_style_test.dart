@@ -11,6 +11,7 @@ import 'package:tabgame/hub/settings_screen.dart';
 void main() {
   tearDown(() {
     CardLook.style = CardStyle.bicycle;
+    CardLook.layout = CardLayout.auto;
     CardLook.fourColor = false;
   });
 
@@ -60,6 +61,65 @@ void main() {
     expect({for (var s = 0; s < 4; s++) suitColor(s)}.length, 2);
     CardLook.fourColor = true;
     expect({for (var s = 0; s < 4; s++) suitColor(s)}.length, 4);
+  });
+
+  test('카드 표시 방식: 기본은 자동이고, 자동은 폰(짧은 변 600 미만)에서만 폰용으로 그린다', () async {
+    SharedPreferences.setMockInitialValues({});
+    final s = await Settings.load();
+    expect(s.cardLayout, CardLayout.auto);
+    expect(CardLook.compactFor(360), isTrue);
+    expect(CardLook.compactFor(599), isTrue);
+    expect(CardLook.compactFor(800), isFalse);
+    s.cardLayout = CardLayout.phone;
+    expect(CardLook.compactFor(1200), isTrue, reason: '폰용을 고르면 태블릿에서도 간결하게');
+    s.cardLayout = CardLayout.full;
+    expect(CardLook.compactFor(360), isFalse, reason: '전체를 고르면 폰에서도 전체로');
+  });
+
+  test('카드 표시 방식이 저장되고, 모르는 값이면 자동', () async {
+    SharedPreferences.setMockInitialValues({});
+    final s = await Settings.load();
+    s.cardLayout = CardLayout.phone;
+    CardLook.layout = CardLayout.auto; // 앱을 다시 켠 것처럼
+    final again = await Settings.load();
+    expect(again.cardLayout, CardLayout.phone);
+    expect(CardLook.layout, CardLayout.phone);
+    SharedPreferences.setMockInitialValues({'cardLayout': 'nope'});
+    expect((await Settings.load()).cardLayout, CardLayout.auto);
+  });
+
+  test('52장 모두 모든 모양의 폰용 카드로도 오류 없이 그려진다', () {
+    for (final style in CardStyle.values) {
+      for (var card = 0; card < 52; card++) {
+        final recorder = ui.PictureRecorder();
+        drawCard(Canvas(recorder), card, const Size(44, 62), style: style, compact: true);
+        recorder.endRecording().dispose();
+      }
+    }
+  });
+
+  testWidgets('설정 화면에서 카드 표시 방식을 고르면 바로 적용된다 (폰·태블릿 폭)', (tester) async {
+    for (final size in const [Size(800, 1800), Size(360, 740)]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues({});
+      final settings = await Settings.load();
+      await tester.pumpWidget(MaterialApp(home: SettingsScreen(settings: settings)));
+      for (final l in CardLayout.values) {
+        final tile = find.byKey(ValueKey('card-layout-${l.name}'));
+        if (tile.evaluate().isEmpty) {
+          await tester.scrollUntilVisible(tile, 300, scrollable: find.byType(Scrollable).first);
+        }
+        await tester.ensureVisible(tile);
+        await tester.tap(tile);
+        await tester.pump();
+        expect(settings.cardLayout, l, reason: '$size ${l.label}');
+      }
+      expect(find.text('카드 표시 (프리셀·솔리테어)'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 
   testWidgets('설정 화면 맨 아래 항목이 아래 시스템 바에 가려지지 않는다', (tester) async {

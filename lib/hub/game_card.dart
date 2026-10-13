@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/game_info.dart';
+import 'game_icons.dart';
 
 /// 허브에 나오는 게임 카드. 누르면 살짝 눌리는 애니메이션이 있다.
 class GameCard extends StatefulWidget {
@@ -64,12 +65,12 @@ class _GameCardState extends State<GameCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(game.icon, color: Colors.white, size: 34),
+                        child: GameIcon(id: game.id, fallback: game.icon, size: 50),
                       ),
                       if (!game.isReady) const _SoonBadge(),
                     ],

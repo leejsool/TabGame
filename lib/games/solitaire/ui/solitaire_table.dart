@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../core/card_look.dart';
 import '../../../core/settings_scope.dart';
 import '../../freecell/ui/playing_card.dart';
 import '../../freecell/ui/win_celebration.dart';
@@ -687,11 +688,13 @@ class _CardViewState extends State<_CardView> with SingleTickerProviderStateMixi
       return RepaintBoundary(child: CustomPaint(painter: CardBackPainter(style: style)));
     }
     final glow = widget.glow;
-    if (glow == null) return RepaintBoundary(child: CustomPaint(painter: PlayingCardPainter(widget.card)));
+    SettingsScope.of(context); // 설정이 바뀌면 다시 그리려고
+    final compact = CardLook.compactFor(MediaQuery.sizeOf(context).shortestSide);
+    if (glow == null) return RepaintBoundary(child: CustomPaint(painter: PlayingCardPainter(widget.card, compact: compact)));
     return AnimatedBuilder(
       animation: widget.pulse,
       builder: (_, _) => CustomPaint(
-        painter: PlayingCardPainter(widget.card, glow: glow.withValues(alpha: 0.55 + 0.45 * widget.pulse.value)),
+        painter: PlayingCardPainter(widget.card, compact: compact, glow: glow.withValues(alpha: 0.55 + 0.45 * widget.pulse.value)),
       ),
     );
   }
