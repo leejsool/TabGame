@@ -141,6 +141,8 @@ void main() {
       'swipe_landscape_guide_run': (const Size(1100, 700), mineSwipe.time - 0.1),
       'swipe_portrait_guide_run': (const Size(600, 1000), mineSwipe.time - 0.1),
       'swipe_portrait_npc_swing': (const Size(600, 1000), first0.time + 0.05),
+      'red_landscape_hit': (const Size(1100, 700), w0.time + 0.07),
+      'red_landscape_ready': (const Size(1100, 700), w0.time - 0.12),
     };
     for (final entry in slimeScenes.entries) {
       final (size, t) = entry.value;
@@ -157,8 +159,61 @@ void main() {
         child: RepaintBoundary(
           key: k,
           child: Stack(children: [
-            Positioned.fill(child: CustomPaint(painter: BackgroundPainter(art))),
-            Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: () => t, wall: () => t, foe: Foe.slime))),
+            Positioned.fill(child: CustomPaint(painter: BackgroundPainter(art, name: 'bg_forest'))),
+            Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: () => t, wall: () => t, foe: Foe.slime, iron: true))),
+          ]),
+        ),
+      ));
+      await tester.pump();
+      await tester.runAsync(() async {
+        final boundary = k.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 1.0);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('$dir/${entry.key}.png').writeAsBytes(bytes!.buffer.asUint8List());
+      });
+    }
+
+    // 4코스(보스): 큰 빨간 슬라임 — 맞음 / 힘 모으기 / 덮치기 / 막음 / 못 막음
+    final bc = RhythmChart.course(3);
+    final g0 = bc.guards.first;
+    final b = bc.beat;
+    final firstStrike = bc.events.firstWhere((e) => e.actor == 0 && !e.isGuard);
+    final bossScenes = <String, (Size, double, String)>{
+      'boss_landscape_hit': (const Size(1100, 700), firstStrike.time + 0.06, 'play'),
+      'boss_landscape_windup': (const Size(1100, 700), g0.time - 1.5 * b, 'play'),
+      'boss_landscape_windup_late': (const Size(1100, 700), g0.time - 0.4, 'play'),
+      'boss_landscape_lunge': (const Size(1100, 700), g0.time - 0.07, 'play'),
+      'boss_landscape_blocked': (const Size(1100, 700), g0.time + 0.12, 'block'),
+      'boss_landscape_hurt': (const Size(1100, 700), g0.time + 0.4, 'play'),
+      'boss_portrait_windup': (const Size(600, 1000), g0.time - 1.0 * b, 'play'),
+      'boss_portrait_blocked': (const Size(600, 1000), g0.time + 0.12, 'block'),
+    };
+    for (final entry in bossScenes.entries) {
+      final (size, t, mode) = entry.value;
+      await tester.binding.setSurfaceSize(size);
+      final c = RhythmController(chart: bc);
+      c.start();
+      var x = 0.0;
+      for (; x < t - 0.25 && x < g0.time - 0.25; x += 0.05) {
+        c.update(x);
+      }
+      if (mode == 'block') {
+        c.beginSwipe(g0.time - 0.2);
+        c.update(g0.time - 0.02);
+        c.guard(g0.time);
+      }
+      for (; x < t; x += 0.05) {
+        c.update(x);
+      }
+      c.update(t);
+      final k = GlobalKey();
+      await tester.pumpWidget(Directionality(
+        textDirection: TextDirection.ltr,
+        child: RepaintBoundary(
+          key: k,
+          child: Stack(children: [
+            Positioned.fill(child: CustomPaint(painter: BackgroundPainter(art, name: 'bg_forest'))),
+            Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: () => t, wall: () => t, foe: Foe.bossSlime, iron: true))),
           ]),
         ),
       ));

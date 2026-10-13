@@ -21,7 +21,7 @@ class RhythmMenuScreen extends StatefulWidget {
 
 class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
   /// 이보다 낮은 화면에서는 스크롤한다 (제목 + 네 명 + 코스 카드들 + 버튼들이 다 들어가는 높이).
-  static const double _minHeight = 720;
+  static const double _minHeight = 800;
 
   final List<RhythmResult?> _best = List.filled(RhythmCourse.all.length, null);
   final List<int> _clears = List.filled(RhythmCourse.all.length, 0);

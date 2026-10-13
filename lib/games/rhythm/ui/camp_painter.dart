@@ -42,14 +42,17 @@ class CampLayout {
 
 /// 움직이지 않는 배경 그림 (성·천막·깃발·흙바닥). 화면을 꽉 채우도록 가운데 기준으로 자른다.
 class BackgroundPainter extends CustomPainter {
-  const BackgroundPainter(this.art);
+  const BackgroundPainter(this.art, {this.name = 'bg'});
 
   final RhythmArt art;
+
+  /// 배경 그림 이름 ('bg' = 훈련장, 'bg_forest' = 숲길).
+  final String name;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFE8C98E));
-    final img = art.image('bg');
+    final img = art.image(name);
     if (img == null) return;
     final iw = img.width.toDouble(), ih = img.height.toDouble();
     final s = max(size.width / iw, size.height / ih);
@@ -59,7 +62,7 @@ class BackgroundPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(BackgroundPainter old) => old.art != art;
+  bool shouldRepaint(BackgroundPainter old) => old.art != art || old.name != name;
 }
 
 /// 그림 한 장을 발 위치 기준으로 그린다.

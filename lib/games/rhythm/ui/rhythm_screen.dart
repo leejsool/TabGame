@@ -174,9 +174,17 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
     if (c.tap(side, _songTime())) _holdPointer = e.pointer;
   }
 
-  void _onMove(PointerMoveEvent e, double width) {
+  void _onMove(PointerMoveEvent e, double width, double height) {
     if (_c == null || e.pointer != _swipePointer || _paused) return;
     final d = e.localPosition - _swipeFrom;
+    if (c.armedGuard) {
+      // 막기: 어느 손이든 위로 화면 높이의 12%(최소 70px) 이상, 가로보다 세로로 더 많이 밀면 성공
+      final need = (height * 0.12).clamp(70.0, 220.0);
+      if (-d.dy < need || -d.dy < d.dx.abs() * 1.2) return;
+      _swipePointer = null;
+      c.guard(_songTime());
+      return;
+    }
     // 가로로 화면 너비의 20%(최소 100px) 이상, 세로보다 가로로 더 많이 움직이면 "그었다"
     final need = (width * 0.2).clamp(100.0, 320.0);
     if (d.dx.abs() < need || d.dx.abs() < d.dy.abs() * 1.2) return;
@@ -210,6 +218,11 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
   }
 
   Future<void> _onFinished() async {
+    // 하트를 다 잃은 판은 점수·별과 상관없이 실패: 기록도 다음 코스 열림도 없다
+    if (c.gameOver) {
+      if (mounted) setState(() => _isBest = false);
+      return;
+    }
     final j = c.judge;
     final best = await RhythmStorage.record(
       RhythmResult(stars: j.stars, accuracy: j.accuracy, score: j.score, maxCombo: j.maxCombo),
@@ -229,14 +242,14 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
           final width = box.maxWidth;
           return Stack(
             children: [
-              Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: BackgroundPainter(art)))),
-              Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: _songTime, wall: _wall, foe: _course.foe))),
+              Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: BackgroundPainter(art, name: _course.background)))),
+              Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: _songTime, wall: _wall, foe: _course.foe, iron: _course.ironSword))),
               // 화면 전체가 탭 영역: 왼쪽 절반 / 오른쪽 절반
               Positioned.fill(
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
                   onPointerDown: (e) => _onDown(e, width),
-                  onPointerMove: (e) => _onMove(e, width),
+                  onPointerMove: (e) => _onMove(e, width, box.maxHeight),
                   onPointerUp: _onUp,
                   onPointerCancel: _onUp,
                   child: const SizedBox.expand(),
@@ -247,6 +260,9 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
                 animation: c,
                 builder: (context, _) {
                   if (c.status == RhythmStatus.ready) return _ReadyCard(course: widget.course, onStart: _audioReady && _art != null ? _begin : null);
+                  if (c.status == RhythmStatus.finished && c.gameOver) {
+                    return _GameOverCard(onAgain: _restart, onExit: () => Navigator.of(context).pop());
+                  }
                   if (c.status == RhythmStatus.finished) {
                     return _ResultCard(
                       c: c,
@@ -304,6 +320,7 @@ class _Hud extends StatelessWidget {
                 ],
               ),
             ),
+            if (playing && c.hasHearts) Positioned(left: 14, top: 96, child: IgnorePointer(child: _Hearts(c: c, t: t))),
             if (playing && c.judge.combo >= 2)
               Positioned(
                 right: 14,
@@ -528,7 +545,13 @@ class _ReadyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final sound = SettingsScope.of(context).sound;
     final info = RhythmCourse.all[course];
-    final tips = course == 0
+    final tips = course >= 3
+        ? const [
+            _HowTo(icon: Icons.swipe_up_rounded, title: '위로 쓱 = 막기', sub: '슬라임이 덮칠 때, 어느 손이든'),
+            _HowTo(icon: Icons.favorite_rounded, title: '하트 3개', sub: '막지 못하면 하나씩 깎여요'),
+            _HowTo(icon: Icons.heart_broken_rounded, title: '다 잃으면 끝', sub: '점수와 상관없이 게임 오버'),
+          ]
+        : course == 0
         ? const [
             _HowTo(icon: Icons.keyboard_double_arrow_left_rounded, title: '왼쪽 탭', sub: '화면 왼쪽 절반'),
             _HowTo(icon: Icons.keyboard_double_arrow_right_rounded, title: '오른쪽 탭', sub: '화면 오른쪽 절반'),
@@ -608,6 +631,88 @@ class _HowTo extends StatelessWidget {
           Icon(icon, size: 34, color: const Color(0xFFFF7A2F)),
           Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: _ink)),
           Text(sub, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: _ink)),
+        ],
+      ),
+    );
+  }
+}
+
+/// 하트를 다 잃어서 끝났을 때.
+class _GameOverCard extends StatelessWidget {
+  const _GameOverCard({required this.onAgain, required this.onExit});
+
+  final VoidCallback onAgain;
+  final VoidCallback onExit;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.heart_broken_rounded, size: 64, color: Color(0xFFE5484D)),
+          const SizedBox(height: 6),
+          const Text('게임 오버', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: _ink)),
+          const SizedBox(height: 8),
+          const Text(
+            '하트를 모두 잃었다!\n점수는 소용없다. 슬라임이 힘을 모을 때 위로 쓱 밀어서 막아라!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: _ink, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(child: OutlinedButton(onPressed: onExit, child: const Padding(padding: EdgeInsets.all(10), child: Text('나가기')))),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton(
+                  onPressed: onAgain,
+                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF7A2F)),
+                  child: const Padding(padding: EdgeInsets.all(10), child: Text('다시 도전!', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 남은 하트 (보스 코스). 잃은 하트는 비고, 방금 잃었다면 잠깐 흔들린다.
+class _Hearts extends StatelessWidget {
+  const _Hearts({required this.c, required this.t});
+
+  final RhythmController c;
+  final double t;
+
+  @override
+  Widget build(BuildContext context) {
+    final lostAgo = t - c.heartLostAt;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _ink, width: 3),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < c.chart.hearts; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              child: Transform.translate(
+                // 방금 깎인 하트(맨 오른쪽 남은 것의 바로 다음)는 흔들린다
+                offset: Offset(i == c.hearts && lostAgo >= 0 && lostAgo < 0.4 ? sin(lostAgo * 90) * 4 : 0, 0),
+                child: Icon(
+                  i < c.hearts ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  size: 30,
+                  color: i < c.hearts ? const Color(0xFFE5484D) : const Color(0xFFB9A9A9),
+                ),
+              ),
+            ),
         ],
       ),
     );

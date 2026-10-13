@@ -384,6 +384,97 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('보스전: 하트가 보이고, 박자에 맞춰 위로 밀면 막고, 가로로 밀면 못 막는다', (tester) async {
+      // 빠른 곡(박자 0.15초): 첫 막기는 시작 후 약 1.5초, 두 번째는 약 2.4초
+      final chart = RhythmChart.build(
+        const [TutorialStage(title: '막기', hint: '', waves: [Motif.bossAttack, Motif.bossAttack])],
+        bpm: 400,
+        countIn: 1,
+        hearts: 3,
+      );
+      final c = RhythmController(chart: chart, sfx: RecordingSfx());
+      await pumpApp(tester, const Size(1000, 700), RhythmScreen(course: 3, controller: c, art: RhythmArt.empty()));
+      expect(find.text('거대 슬라임'), findsOneWidget);
+      expect(find.text('위로 쓱 = 막기'), findsOneWidget);
+      await tester.tap(find.text('출발!'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byIcon(Icons.favorite_rounded), findsNWidgets(3), reason: '하트 3개가 보인다');
+
+      Future<void> waitUntil(double t) async {
+        await tester.runAsync(() async {
+          while (c.now < t) {
+            await Future<void>.delayed(const Duration(milliseconds: 15));
+            await tester.pump();
+          }
+        });
+      }
+
+      final g1 = chart.guards[0], g2 = chart.guards[1];
+      // ① 첫 번째: 박자 조금 앞에 손을 대고(검을 든다), 위로 쓱 밀면 막는다
+      await waitUntil(g1.time - 0.12);
+      final up = await tester.startGesture(const Offset(300, 600));
+      await tester.pump();
+      expect(c.armedGuard, isTrue);
+      expect(c.swing(3, c.now)?.guard, isTrue, reason: '손을 대면 검을 든다');
+      await up.moveBy(const Offset(0, -30)); // 거리가 모자라면 아직
+      expect(c.guardOutcome(g1), isNull);
+      await up.moveBy(const Offset(10, -140));
+      await tester.pump();
+      expect(c.guardOutcome(g1)?.blocked, isTrue);
+      expect(c.hearts, 3);
+      await up.up();
+      // ② 두 번째: 가로로 밀면 막지 못한다 → 하트가 깎인다
+      await waitUntil(g2.time - 0.12);
+      final side = await tester.startGesture(const Offset(300, 600));
+      await tester.pump();
+      await side.moveBy(const Offset(260, 0));
+      await tester.pump();
+      expect(c.guardOutcome(g2), isNull, reason: '가로 밀기는 막기가 아니다');
+      await side.up();
+      await waitUntil(g2.time + 0.4);
+      await tester.pump();
+      expect(c.guardOutcome(g2)?.blocked, isFalse);
+      expect(c.hearts, 2);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byIcon(Icons.favorite_rounded), findsNWidgets(2));
+      expect(find.byIcon(Icons.favorite_border_rounded), findsNWidgets(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('보스전: 하트를 다 잃으면 게임 오버 카드가 뜨고 기록은 남지 않는다', (tester) async {
+      final chart = RhythmChart.build(
+        const [TutorialStage(title: '막기', hint: '', waves: [Motif.bossAttack, Motif.bossAttack, Motif.bossAttack])],
+        bpm: 400,
+        countIn: 1,
+        hearts: 3,
+      );
+      final c = RhythmController(chart: chart, sfx: RecordingSfx());
+      await pumpApp(tester, const Size(1000, 700), RhythmScreen(course: 3, controller: c, art: RhythmArt.empty()));
+      await tester.tap(find.text('출발!'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.runAsync(() async {
+        while (c.status == RhythmStatus.playing) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+        }
+      });
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(c.gameOver, isTrue);
+      expect(c.hearts, 0);
+      expect(find.text('게임 오버'), findsOneWidget);
+      expect(find.text('합격!'), findsNothing);
+      expect(find.text('다시 도전!'), findsOneWidget);
+      // 다시 도전하면 하트가 되돌아온다
+      await tester.tap(find.text('다시 도전!'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(c.hearts, 3);
+      expect(c.gameOver, isFalse);
+      expect(find.text('게임 오버'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('세로 화면에서도 깨지지 않는다', (tester) async {
       final c = RhythmController(sfx: RecordingSfx());
       await pumpApp(tester, const Size(600, 1000), RhythmScreen(controller: c, autoStart: true, art: RhythmArt.empty()));

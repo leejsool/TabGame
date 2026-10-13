@@ -54,7 +54,7 @@ class RhythmJudge {
   /// 옆으로 긋기는 손가락이 일정 거리를 가야 해서 탭보다 늦게 잡힌다 — 판정 폭을 이만큼 넓힌다.
   final double swipeSlack;
 
-  double _slack(ChartEvent e) => e.isSwipe ? swipeSlack : 1.0;
+  double _slack(ChartEvent e) => (e.isSwipe || e.isGuard) ? swipeSlack : 1.0;
 
   final List<ChartEvent> _expected;
   late final List<bool> _done;
@@ -128,7 +128,7 @@ class RhythmJudge {
   Judged tap(double t, Side side) {
     final cands = <int>[];
     for (var i = 0; i < _expected.length; i++) {
-      if (_done[i] || _pressed[i] || _expected[i].isSwipe) continue;
+      if (_done[i] || _pressed[i] || _expected[i].isSwipe || _expected[i].isGuard) continue;
       final err = t - _ref(i);
       if (err < -matchWindow || err > matchWindow) continue;
       cands.add(i);
@@ -171,7 +171,7 @@ class RhythmJudge {
     int? pick;
     for (var i = 0; i < _expected.length; i++) {
       final e = _expected[i];
-      if (_done[i] || !e.isSwipe) continue;
+      if (_done[i] || !e.isSwipe) continue; // 막기 박자는 위로 밀기([guard])로만
       if ((t - _ref(i)).abs() > matchWindow * swipeSlack) continue;
       if (pick == null || _ref(i) < _ref(pick)) pick = i;
     }
@@ -189,6 +189,26 @@ class RhythmJudge {
       return Judged(Rating.wrongSide, e, err);
     }
     return _rate(e, err);
+  }
+
+  /// 화면을 위로 쓱 밀었다 (보스의 공격 막기). 방향(어느 손)은 보지 않고 박자만 본다.
+  /// [t]는 [tap]과 같은 시계. 가까운 막기 박자가 없으면 [Rating.stray].
+  Judged guard(double t) {
+    int? pick;
+    for (var i = 0; i < _expected.length; i++) {
+      final e = _expected[i];
+      if (_done[i] || !e.isGuard) continue;
+      if ((t - _ref(i)).abs() > matchWindow * swipeSlack) continue;
+      if (pick == null || _ref(i) < _ref(pick)) pick = i;
+    }
+    if (pick == null) {
+      stray++;
+      _break();
+      return Judged(Rating.stray, null, 0);
+    }
+    final e = _expected[pick];
+    _done[pick] = true;
+    return _rate(e, t - _ref(pick));
   }
 
   /// 손을 뗐다. 꾹 누르고 있던 박자가 없으면 null.

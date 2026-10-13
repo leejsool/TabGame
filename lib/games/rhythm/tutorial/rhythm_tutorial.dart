@@ -36,6 +36,19 @@ GameTutorial rhythmTutorial() => GameTutorial(
           art: (context, accent) => const ArtCanvas(width: 340, height: 300, child: _HoldArt()),
         ),
         TutorialStep(
+          title: '옆으로 쓱 긋기 (3코스)',
+          body: '화면을 가로로 쓱 그으면 검을 옆으로 휘둘러요. 화살표가 가리키는 쪽으로 그으면 돼요.\n'
+              '손가락이 일정 거리를 간 순간이 박자예요. 박자에 맞춰 시원하게 그어 보세요!',
+          art: (context, accent) => const ArtCanvas(width: 340, height: 280, child: _SwipeArt()),
+        ),
+        TutorialStep(
+          title: '보스의 공격을 막아요 (4코스)',
+          body: '큰 슬라임이 힘을 모으면 화면 가장자리가 붉어져요. 덮치는 순간에 맞춰 화면을 위로 쓱 밀면 '
+              '검을 들어 막아요. 왼손이든 오른손이든 상관없어요!\n'
+              '막지 못하면 하트가 하나 깎이고, 하트 3개를 다 잃으면 점수와 상관없이 게임 오버예요.',
+          art: (context, accent) => const ArtCanvas(width: 340, height: 300, child: _GuardArt()),
+        ),
+        TutorialStep(
           title: '별을 모아 다음 코스로',
           body: '정확하게 칠수록 별이 많아져요. 별 2개 이상이면 다음 코스가 열려요.\n'
               '소리를 켜고 박자를 들으면서 하면 훨씬 쉬워요. 소리가 화면과 어긋나는 느낌이 들면 '
@@ -243,6 +256,71 @@ class _HoldArt extends StatelessWidget {
                 const Text('손을 떼면 쾅!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
               ],
             ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SwipeArt extends StatelessWidget {
+  const _SwipeArt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            SizedBox(height: 150, child: _sprite('c3_side_ready', height: 140)),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 50),
+              child: Icon(Icons.swipe_right_alt_rounded, size: 64, color: _rhythmColor),
+            ),
+            SizedBox(height: 150, child: _sprite('c3_side_swing', height: 130)),
+          ],
+        ),
+        const SizedBox(height: 14),
+        const ArtLabel('가로로 쓱! 화살표 쪽으로', color: _rhythmColor, filled: false),
+      ],
+    );
+  }
+}
+
+class _GuardArt extends StatelessWidget {
+  const _GuardArt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            SizedBox(height: 120, child: _sprite('slime_red_ready', height: 116)),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 30),
+              child: Icon(Icons.swipe_up_rounded, size: 64, color: _rhythmColor),
+            ),
+            SizedBox(height: 150, child: _sprite('c3_windup', height: 148)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const ArtLabel('덮칠 때 위로 쓱!', color: _rhythmColor, filled: false),
+        const SizedBox(height: 10),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite_rounded, size: 36, color: Color(0xFFE5484D)),
+            Icon(Icons.favorite_rounded, size: 36, color: Color(0xFFE5484D)),
+            Icon(Icons.favorite_border_rounded, size: 36, color: Color(0xFFB9A9A9)),
+            SizedBox(width: 10),
+            Text('못 막으면 하트가 깎여요', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           ],
         ),
       ],

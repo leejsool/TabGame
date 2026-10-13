@@ -3,6 +3,7 @@
 tool/art_src/rhythm_slime.webp (배경이 이미 투명한 2x2 시트)에서 네 자세를 오려
 assets/rhythm/art/ 에 slime_idle.png(기본) / slime_ready.png(공격 준비) / slime_attack.png(공격) /
 slime_hit.png(피격) 와 art_slime.json 으로 저장한다. 피격 그림에 같이 그려진 칼은 지운다.
+같은 네 자세를 빨간 슬라임으로 색만 바꾼 slime_red_*.png 도 만든다 (보스용).
 (아직 게임 코드에서는 쓰지 않는다)
 
     python tool/prepare_rhythm_slime_art.py            # 실제 생성
@@ -27,6 +28,51 @@ NAMES = [['idle', 'ready'], ['attack', 'hit']]
 
 def dilate(mask, size=5):
     return np.array(Image.fromarray((mask * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(size))) > 0
+
+
+# 빨간 슬라임: 파란 계열 색만 골라 빨강으로 돌린다 (눈·볼터치·윤곽선·노란 효과는 그대로)
+RED_SHIFT_DEG = 146.0  # 파랑(약 212°) → 빨강(약 358°)
+BLUE_RANGE_DEG = (165.0, 265.0)
+
+
+def recolor_red(rgba):
+    rgb = rgba[..., :3].astype(np.float32) / 255.0
+    mx = rgb.max(axis=2)
+    mn = rgb.min(axis=2)
+    d = mx - mn
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    h = np.zeros_like(mx)
+    nz = d > 1e-6
+    rm = nz & (mx == r)
+    gm = nz & (mx == g) & ~rm
+    bm = nz & ~rm & ~gm
+    h[rm] = ((g - b)[rm] / d[rm]) % 6
+    h[gm] = (b - r)[gm] / d[gm] + 2
+    h[bm] = (r - g)[bm] / d[bm] + 4
+    h = h * 60.0
+    sat = np.where(mx > 0, d / np.maximum(mx, 1e-6), 0)
+    pick = (rgba[..., 3] > 0) & (sat > 0.12) & (h >= BLUE_RANGE_DEG[0]) & (h <= BLUE_RANGE_DEG[1])
+    h2 = np.where(pick, (h + RED_SHIFT_DEG) % 360.0, h)
+    s2 = np.where(pick, np.minimum(1.0, sat * 1.12), sat)
+    v2 = np.where(pick, mx * 0.92, mx)
+    # HSV → RGB
+    c = v2 * s2
+    hp = h2 / 60.0
+    x = c * (1 - np.abs(hp % 2 - 1))
+    z = np.zeros_like(c)
+    sector = np.floor(hp).astype(int) % 6
+    table = [(c, x, z), (x, c, z), (z, c, x), (z, x, c), (x, z, c), (c, z, x)]
+    out = np.zeros_like(rgb)
+    for k, (rr, gg, bb) in enumerate(table):
+        m = sector == k
+        out[..., 0][m] = rr[m]
+        out[..., 1][m] = gg[m]
+        out[..., 2][m] = bb[m]
+    m0 = v2 - c
+    out += m0[..., None]
+    res = rgba.copy()
+    res[..., :3] = np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    return res
 
 
 def erase_sword(rgba, x0, y0):
@@ -94,20 +140,23 @@ def main():
             ys, xs = np.nonzero(cell[..., 3] > 0)
             cell = cell[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
             bx, by, *_ = largest_component_bottom(cell[..., 3] > 0)
-            file = f'slime_{name}.png'
-            save_png(cell, file)
-            meta[file] = {'w': int(cell.shape[1]), 'h': int(cell.shape[0]), 'baseX': bx, 'baseY': by}
-            print(file, cell.shape[1], 'x', cell.shape[0])
+            for prefix, img in (('slime', cell), ('slime_red', recolor_red(cell))):
+                file = f'{prefix}_{name}.png'
+                save_png(img, file)
+                meta[file] = {'w': int(img.shape[1]), 'h': int(img.shape[0]), 'baseX': bx, 'baseY': by}
+                print(file, img.shape[1], 'x', img.shape[0])
     with open(os.path.join(OUT, 'art_slime.json'), 'w', encoding='utf-8') as f:
         json.dump(meta, f, indent=1)
 
     if sheet:
-        canvas = Image.new('RGBA', (2100, 400), (60, 200, 90, 255))
+        canvas = Image.new('RGBA', (2150, 790), (60, 200, 90, 255))
         x = 10
-        for name in ('idle', 'ready', 'attack', 'hit'):
-            im = Image.open(os.path.join(OUT, f'slime_{name}.png'))
-            canvas.alpha_composite(im, (x, 10))
-            x += im.width + 10
+        for row, prefix in enumerate(('slime', 'slime_red')):
+            x = 10
+            for name in ('idle', 'ready', 'attack', 'hit'):
+                im = Image.open(os.path.join(OUT, f'{prefix}_{name}.png'))
+                canvas.alpha_composite(im, (x, 10 + row * 390))
+                x += im.width + 10
         canvas.convert('RGB').save(os.path.join(SRC, '_check_slime.png'))
     print('done ->', OUT)
 

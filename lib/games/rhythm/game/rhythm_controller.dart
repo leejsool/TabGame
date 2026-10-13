@@ -8,15 +8,56 @@ enum RhythmStatus { ready, playing, finished }
 
 /// 화면에 잠깐 떴다 사라지는 판정 글자.
 class RatingPop {
-  const RatingPop(this.rating, this.at, this.side);
+  const RatingPop(this.rating, this.at, this.side, {this.guard = false});
   final Rating rating;
   final double at;
   final Side side;
+
+  /// 보스의 공격을 막는 박자의 판정인가 (글자가 "막았다!" 식으로 나온다).
+  final bool guard;
+}
+
+/// 보스의 공격 하나를 막았는지 못 막았는지.
+class GuardOutcome {
+  const GuardOutcome(this.event, this.blocked, this.at);
+
+  final ChartEvent event;
+  final bool blocked;
+
+  /// 결과가 정해진 곡 시간(초).
+  final double at;
+}
+
+/// 보스 슬라임이 지금 하는 일 (화면이 모습을 고르는 데 쓴다).
+enum BossPhase {
+  /// 가만히 있다.
+  idle,
+
+  /// 힘을 모으는 중 (떨리고 점점 커진다).
+  windup,
+
+  /// 내게 덮쳐 오는 중.
+  lunge,
+
+  /// 막혀서 튕겨 나가는 중.
+  blocked,
+
+  /// 막지 못해 내리찍은 모습.
+  slam,
+}
+
+class BossState {
+  const BossState(this.phase, this.progress);
+
+  final BossPhase phase;
+
+  /// 그 동작이 얼마나 진행됐는지 0~1.
+  final double progress;
 }
 
 /// 선배(또는 플레이어)가 휘두르는 중인 동작.
 class SwingState {
-  const SwingState(this.progress, this.side, this.sinceImpact, {this.charge, this.swipe = false});
+  const SwingState(this.progress, this.side, this.sinceImpact, {this.charge, this.swipe = false, this.guard = false});
 
   /// 0 = 들어올리기 시작, [kImpactProgress] = 맞는 순간, 1 = 자세 회복.
   final double progress;
@@ -30,11 +71,14 @@ class SwingState {
 
   /// 옆으로 휘두르는 동작인가 (화면을 옆으로 긋는 박자). [side]는 칼이 휘둘러지는 쪽.
   final bool swipe;
+
+  /// 검을 들어 막는 자세인가 (보스의 공격을 막는 중).
+  final bool guard;
 }
 
 /// 안내 링 하나: 남은 시간(1에서 시작해 0에서 맞음), 방향, 꾹 누르기 여부.
 class CueInfo {
-  const CueInfo(this.remain, this.side, {this.isHold = false, this.releasing = false, this.isSwipe = false});
+  const CueInfo(this.remain, this.side, {this.isHold = false, this.releasing = false, this.isSwipe = false, this.isGuard = false});
 
   final double remain;
   final Side side;
@@ -47,6 +91,9 @@ class CueInfo {
 
   /// 옆으로 긋는 박자인가 ([side]는 긋는 방향).
   final bool isSwipe;
+
+  /// 보스의 공격을 막는 박자인가 (위로 쓱 밀기).
+  final bool isGuard;
 }
 
 /// 들어올리는 시간 / 맞은 뒤 자세 회복 시간 (초).
@@ -73,6 +120,7 @@ class RhythmController extends ChangeNotifier {
     for (var a = 0; a < 4; a++) {
       _byActor[a] = [for (final e in this.chart.events) if (e.actor == a) e];
     }
+    hearts = this.chart.hearts;
     _stageTotals = List.filled(this.chart.stages.length, 0);
     _stageHits = List.filled(this.chart.stages.length, 0);
     for (final e in this.chart.playerEvents) {
@@ -112,8 +160,12 @@ class RhythmController extends ChangeNotifier {
   /// 플레이어가 마지막으로 내려친 동작이 옆으로 긋기였는가.
   bool _playerSwingSwipe = false;
 
-  /// 긋기를 하려고 화면에 손을 댄 채 기다리는 중 (칼을 뒤로 빼 든 자세를 보여 준다).
+  /// 긋기(또는 막기)를 하려고 화면에 손을 댄 채 기다리는 중 (칼을 뒤로 빼 든 자세를 보여 준다).
   bool _swipeArmed = false;
+
+  /// 기다리는 것이 막기(위로 밀기)인가 — 그러면 가로가 아니라 위로 밀어야 한다.
+  bool _armedGuard = false;
+  bool get armedGuard => _swipeArmed && _armedGuard;
   Side _swipeArmSide = Side.right;
 
   /// 플레이어가 꾹 누르기 시작한 시각/방향.
@@ -131,6 +183,29 @@ class RhythmController extends ChangeNotifier {
   void Function(Judged j)? onJudged;
   VoidCallback? onFinished;
 
+  // ── 하트 / 게임 오버 (보스 코스) ──
+
+  /// 남은 하트. 보스의 공격을 막지 못할 때마다 하나 깎이고, 0이 되면 [gameOver].
+  late int hearts;
+
+  /// 하트가 있는 곡인가.
+  bool get hasHearts => chart.hearts > 0;
+
+  /// 하트를 다 잃어서 끝났는가. 이때는 점수·별과 상관없이 실패다.
+  bool gameOver = false;
+
+  /// 마지막으로 하트를 잃은 곡 시간 (하트가 깎이는 모습·화면 번쩍임용).
+  double heartLostAt = -10;
+
+  final Map<int, GuardOutcome> _guardOutcomes = {};
+
+  /// 막기 박자 [e]의 결과 (아직 안 정해졌으면 null).
+  GuardOutcome? guardOutcome(ChartEvent e) => _guardOutcomes[e.wave];
+
+  /// 막으려고 위로 쓱 민 마지막 시각 (검 든 자세·방어 효과용).
+  double? _guardAt;
+  double? get lastGuardAt => _guardAt;
+
   void _buildCues() {
     final beat = chart.beat;
     for (var b = 0; b < chart.countInBeats; b++) {
@@ -141,6 +216,10 @@ class RhythmController extends ChangeNotifier {
     for (var b = chart.countInBeats; b <= lastBeat; b++) {
       _cues.add(_Cue(b * beat, Sfx.kick));
       _cues.add(_Cue((b + 0.5) * beat, Sfx.hat));
+    }
+    for (final e in chart.guards) {
+      // 보스가 힘을 모으는 소리: 덮치기 한 박 전부터 올라가서, 덮치는 순간에 터진다
+      _cues.add(_Cue(e.time - beat, Sfx.charge));
     }
     for (final e in chart.events) {
       if (e.isPlayer) continue;
@@ -186,10 +265,32 @@ class RhythmController extends ChangeNotifier {
 
   void _noteMiss(Judged m) {
     sfx.play(Sfx.miss);
+    final guard = m.event?.isGuard ?? false;
     pops
       ..clear()
-      ..add(RatingPop(Rating.miss, now, m.event?.side ?? Side.left));
+      ..add(RatingPop(Rating.miss, now, m.event?.side ?? Side.left, guard: guard));
     onJudged?.call(m);
+    if (guard) {
+      // 보스의 공격을 막지 못했다: 하트가 하나 깎인다
+      _guardOutcomes[m.event!.wave] = GuardOutcome(m.event!, false, now);
+      _loseHeart();
+    }
+  }
+
+  void _loseHeart() {
+    if (gameOver || !hasHearts) return;
+    hearts = hearts > 0 ? hearts - 1 : 0;
+    heartLostAt = now;
+    if (hearts <= 0) _endGameOver();
+  }
+
+  /// 하트를 다 잃어서 바로 끝낸다 (남은 곡이 있어도, 점수·별과 상관없이 실패).
+  void _endGameOver() {
+    if (status == RhythmStatus.finished) return;
+    gameOver = true;
+    status = RhythmStatus.finished;
+    sfx.play(Sfx.miss);
+    onFinished?.call();
   }
 
   /// 플레이어가 화면 [side]쪽을 눌렀다. [t]는 [update]와 같은 시계의 시각.
@@ -224,6 +325,26 @@ class RhythmController extends ChangeNotifier {
     return false;
   }
 
+  /// 플레이어가 화면을 위로 쓱 밀었다 (보스의 공격 막기). 어느 손이든 상관없다.
+  /// [t]는 [update]와 같은 시계의 시각.
+  void guard(double t) {
+    if (status != RhythmStatus.playing || t < 0) return;
+    _swipeArmed = false;
+    _armedGuard = false;
+    now = t;
+    _guardAt = t;
+    sfx.play(Sfx.hitRight);
+    if (t < chart.countInBeats * chart.beat) {
+      notifyListeners();
+      return;
+    }
+    final r = _judge.guard(t - inputOffset);
+    if (r.rating.isHit && r.event != null) {
+      _guardOutcomes[r.event!.wave] = GuardOutcome(r.event!, true, t);
+    }
+    _afterJudge(r, t, Side.left, guard: true);
+  }
+
   /// 화면에 손을 댔을 때: 지금 해야 할 박자가 "옆으로 긋기"면 true.
   /// true이면 탭으로 치지 말고 손가락이 일정 거리 움직일 때까지 기다렸다가 [swipe]를 불러야 한다.
   bool beginSwipe(double t) {
@@ -231,8 +352,9 @@ class RhythmController extends ChangeNotifier {
     final adj = t - inputOffset;
     final e = _judge.nextPending(adj);
     // 박자 바로 앞뒤에 닿았을 때만 (한참 먼 긋기를 미리 당겨 치는 건 아님)
-    if (e == null || !e.isSwipe || e.time - adj > 0.6) return false;
+    if (e == null || !(e.isSwipe || e.isGuard) || e.time - adj > 0.6) return false;
     _swipeArmed = true;
+    _armedGuard = e.isGuard;
     _swipeArmSide = e.side;
     notifyListeners();
     return true;
@@ -242,6 +364,7 @@ class RhythmController extends ChangeNotifier {
   void cancelSwipe() {
     if (!_swipeArmed) return;
     _swipeArmed = false;
+    _armedGuard = false;
     notifyListeners();
   }
 
@@ -249,6 +372,7 @@ class RhythmController extends ChangeNotifier {
   void swipe(Side dir, double t) {
     if (status != RhythmStatus.playing || t < 0) return;
     _swipeArmed = false;
+    _armedGuard = false;
     now = t;
     sfx.play(dir == Side.left ? Sfx.swipeLeft : Sfx.swipeRight);
     _playerSwingAt = t;
@@ -275,7 +399,7 @@ class RhythmController extends ChangeNotifier {
     _afterJudge(r, t, _holdSide);
   }
 
-  void _afterJudge(Judged r, double t, Side side) {
+  void _afterJudge(Judged r, double t, Side side, {bool guard = false}) {
     if (r.rating.isHit) {
       sfx.play(Sfx.chime);
       if (r.event != null) _stageHits[r.event!.stage]++;
@@ -284,7 +408,7 @@ class RhythmController extends ChangeNotifier {
     }
     pops
       ..clear()
-      ..add(RatingPop(r.rating, t, side));
+      ..add(RatingPop(r.rating, t, side, guard: guard));
     onJudged?.call(r);
     notifyListeners();
   }
@@ -304,6 +428,12 @@ class RhythmController extends ChangeNotifier {
     _playerSwingAt = null;
     _playerSwingSwipe = false;
     _swipeArmed = false;
+    _armedGuard = false;
+    _guardAt = null;
+    _guardOutcomes.clear();
+    hearts = chart.hearts;
+    gameOver = false;
+    heartLostAt = -10;
     _holdStartT = null;
     _stage = 0;
     for (var i = 0; i < _stageHits.length; i++) {
@@ -327,6 +457,11 @@ class RhythmController extends ChangeNotifier {
         final charge = ((t - hs) / len).clamp(0.0, 1.0);
         return SwingState(kImpactProgress * 0.9, _holdSide, -0.05, charge: charge);
       }
+      // 위로 밀어서 막은 직후: 검을 들어 막는 자세를 잠깐 유지한다
+      final ga = _guardAt;
+      if (ga != null && t >= ga && t - ga < 0.5) return SwingState(kImpactProgress, Side.left, t - ga, guard: true);
+      // 막으려고(위로 밀려고) 손을 댄 채 기다리는 중: 검을 들어 올릴 준비
+      if (_swipeArmed && _armedGuard) return SwingState(kImpactProgress * 0.9, Side.left, -0.05, guard: true);
       // 옆으로 긋기를 하려고 손을 댄 채 기다리는 중: 칼을 뒤로 빼 든다
       if (_swipeArmed) return SwingState(kImpactProgress * 0.9, _swipeArmSide, -0.05, swipe: true);
       final at = _playerSwingAt;
@@ -377,7 +512,29 @@ class RhythmController extends ChangeNotifier {
     final remain = ref - tAdj;
     final span = chart.beat * 1.4;
     if (remain > span) return null;
-    return CueInfo((remain / span).clamp(-0.2, 1.0), e.side, isHold: e.isHold, releasing: releasing, isSwipe: e.isSwipe);
+    return CueInfo((remain / span).clamp(-0.2, 1.0), e.side, isHold: e.isHold, releasing: releasing, isSwipe: e.isSwipe, isGuard: e.isGuard);
+  }
+
+  /// 보스 슬라임이 곡 시간 [t]에 하는 일. 막기 박자마다: 세 박 동안 힘을 모으고(windup),
+  /// 덮친 뒤(lunge) — 막았으면 튕겨 나가고(blocked), 못 막았으면 내리찍는다(slam).
+  BossState bossState(double t) {
+    final b = chart.beat;
+    for (final e in chart.guards) {
+      final start = e.time - BossTiming.windupBeats * b;
+      final lungeAt = e.time - BossTiming.lungeSeconds;
+      if (t < start) return const BossState(BossPhase.idle, 0);
+      if (t < lungeAt) return BossState(BossPhase.windup, ((t - start) / (lungeAt - start)).clamp(0.0, 1.0));
+      if (t < e.time) return BossState(BossPhase.lunge, ((t - lungeAt) / BossTiming.lungeSeconds).clamp(0.0, 1.0));
+      final out = _guardOutcomes[e.wave];
+      if (out != null && out.blocked) {
+        final since = t - out.at;
+        if (since < BossTiming.recoilSeconds) return BossState(BossPhase.blocked, (since / BossTiming.recoilSeconds).clamp(0.0, 1.0));
+        continue;
+      }
+      final since = t - e.time;
+      if (since < BossTiming.slamSeconds) return BossState(BossPhase.slam, (since / BossTiming.slamSeconds).clamp(0.0, 1.0));
+    }
+    return const BossState(BossPhase.idle, 0);
   }
 
   /// 지금 박자에 쳐야 하는 사람(0~3). 카운트다운 중이거나 시작 전이면 -1.
@@ -405,3 +562,18 @@ class RhythmController extends ChangeNotifier {
 
 /// swing()의 progress에서 "맞는 순간"에 해당하는 값.
 const double kImpactProgress = 0.38;
+
+/// 보스 공격 동작의 길이들 (초).
+class BossTiming {
+  BossTiming._();
+
+  /// 힘을 모으는 박 수 (곡 쪽 [RhythmChart.guardWindupBeats]와 같다).
+  static const int windupBeats = RhythmChart.guardWindupBeats;
+
+  /// 덮치는 데 걸리는 시간 (맞는 순간 직전).
+  static const double lungeSeconds = 0.18;
+
+  /// 막혀서 튕겨 나가는 시간 / 막지 못해 내리찍은 모습이 남는 시간.
+  static const double recoilSeconds = 0.6;
+  static const double slamSeconds = 0.7;
+}

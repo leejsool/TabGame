@@ -78,7 +78,14 @@ void main() {
       // 선배들도 같은 박자에 긋는다 (물결 하나 = 네 명이 한 박씩)
       final w0 = c.events.where((e) => e.wave == 0).toList();
       expect(w0.every((e) => e.isSwipe), isTrue);
-      expect(RhythmCourse.all.map((c) => c.title), ['훈련소 입소', '꾹 눌러 모으기', '마을 밖으로']);
+      expect(RhythmCourse.all.map((c) => c.title).take(3), ['훈련소 입소', '꾹 눌러 모으기', '마을 밖으로']);
+      expect(RhythmCourse.all.length, 4);
+    });
+
+    test('코스별 배경과 검: 1·2코스는 훈련장 + 목검, 3·4코스는 숲길 + 철검', () {
+      final all = RhythmCourse.all;
+      expect(all.map((c) => c.background), ['bg', 'bg', 'bg_forest', 'bg_forest']);
+      expect(all.map((c) => c.ironSword), [false, false, true, true]);
     });
 
     test('튜토리얼에는 왼쪽·오른쪽·2연속이 모두 들어 있다', () {
