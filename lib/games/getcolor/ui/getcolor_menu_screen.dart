@@ -1,3 +1,4 @@
+import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
@@ -14,6 +15,7 @@ const levelColors = {
   GcLevel.normal: Color(0xFF3F7CAC),
   GcLevel.hard: Color(0xFFE09F3E),
   GcLevel.master: Color(0xFFD1495B),
+  GcLevel.veryHard: Color(0xFF6A2C91),
 };
 
 /// 겟 컬러 첫 화면: 이어하기 + 난이도 고르기(고르면 바로 시작).
@@ -100,6 +102,8 @@ class _GetColorMenuScreenState extends State<GetColorMenuScreen> {
                       ),
                       const SizedBox(height: 18),
                     ],
+                    const TutorialButton(tutorial: getColorTutorial),
+                    const SizedBox(height: 18),
                     Text('난이도를 골라 시작해요', style: heading),
                     const SizedBox(height: 12),
                     for (final l in GcLevel.values) ...[

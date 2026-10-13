@@ -10,13 +10,21 @@ import 'dart:math';
 const int kBottleCapacity = 4;
 
 /// 색마다 칸 수는 병 하나를 가득 채우는 만큼 (= [kBottleCapacity]).
+///
+/// 저장된 기록·이어하기가 순서(번호)로 난이도를 가리키므로, 새 난이도는 항상 맨 뒤에 더한다.
 enum GcLevel {
   easy('쉬움', '4가지 색', 4, 2),
   normal('보통', '6가지 색', 6, 2),
   hard('어려움', '8가지 색', 8, 2),
-  master('달인', '12가지 색', 12, 2);
+  master('달인', '12가지 색', 12, 2),
 
-  const GcLevel(this.label, this.description, this.colors, this.empties);
+  /// 13가지 색 + 빈 병 2개(= 병 15개). 판을 [candidates]개 만들어 풀이기가 가장 애를 먹은(= 가장 어려운) 판만 낸다.
+  /// 병이 15개라 "병 더하기"는 쓸 수 없다.
+  /// (빈 병을 1개만 두면 오히려 쉬워진다: 12색 무작위 판은 3000판 중 풀리는 판이 0개였고, 풀리게 거꾸로 섞은 판은
+  /// 평균 21수면 끝나는 얕은 판뿐이었다.)
+  veryHard('매우 어려움', '13가지 색 · 엄선한 어려운 판', 13, 2, candidates: 40);
+
+  const GcLevel(this.label, this.description, this.colors, this.empties, {this.candidates = 1});
 
   final String label;
   final String description;
@@ -26,6 +34,9 @@ enum GcLevel {
 
   /// 처음에 비어 있는 병 수.
   final int empties;
+
+  /// 새 판을 낼 때 만들어 비교하는 후보 수 (1이면 풀리는 첫 판을 그대로 쓴다).
+  final int candidates;
 
   int get bottles => colors + empties;
 }

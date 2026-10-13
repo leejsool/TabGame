@@ -219,9 +219,31 @@ Future<GcSolution> solveWater(
   return GcSolution(GcVerdict.lost, nodes: expanded);
 }
 
+/// 후보를 여럿 섞어 풀어 보고, 풀리는 판 중 풀이기가 가장 많은 상태를 살펴야 했던 판(= 가장 어려운 판)을 고른다.
+/// 풀이 속도(상태 수)는 사람에게도 "막다른 길에 빠지기 쉬운 정도"와 잘 맞아서 난이도의 잣대로 쓴다.
+Future<WaterState?> _hardestOf(GcLevel level, Random rng) async {
+  WaterState? best;
+  var bestNodes = -1;
+  for (var t = 0; t < level.candidates; t++) {
+    final s = WaterState.shuffled(level, rng);
+    final r = await solveWater(s, maxNodes: 60000);
+    if (r.verdict != GcVerdict.winnable) continue;
+    if (r.nodes > bestNodes) {
+      best = s;
+      bestNodes = r.nodes;
+    }
+  }
+  return best;
+}
+
 /// 풀 수 있는 새 판을 만든다. 섞고 → 풀어 보고 → 안 풀리면 다시 섞는다.
+/// 후보가 여럿인 난이도([GcLevel.candidates])는 그 중 가장 어려운 판을 낸다.
 /// 끝내 확인하지 못해도 마지막으로 섞은 판을 돌려준다 (도움 기능으로 풀 수 있다).
 Future<WaterState> generateWaterPuzzle(GcLevel level, Random rng, {int maxTries = 30}) async {
+  if (level.candidates > 1) {
+    final hardest = await _hardestOf(level, rng);
+    if (hardest != null) return hardest;
+  }
   WaterState? last;
   for (var t = 0; t < maxTries; t++) {
     final s = WaterState.shuffled(level, rng);

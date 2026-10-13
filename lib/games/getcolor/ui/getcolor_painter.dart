@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/getcolor_rules.dart';
 
-/// 물 색깔 12가지 (색 번호 → 색). 서로 헷갈리지 않게 골랐다.
+/// 물 색깔 13가지 (색 번호 → 색). 서로 헷갈리지 않게 골랐다.
 const List<Color> kWaterColors = [
   Color(0xFFE5484D), // 빨강
   Color(0xFFF28C28), // 주황
@@ -18,6 +18,7 @@ const List<Color> kWaterColors = [
   Color(0xFFF06BA8), // 분홍
   Color(0xFF9A6B43), // 갈색
   Color(0xFFB9C2CF), // 회색
+  Color(0xFF243A8F), // 남색 (13번째 — 매우 어려움에서만 쓴다)
 ];
 
 Color waterColor(int c) => kWaterColors[c % kWaterColors.length];

@@ -284,6 +284,21 @@ void main() {
     });
   });
 
+  group('매우 어려움 (컨트롤러)', () {
+    test('병이 15개라 병 더하기를 쓸 수 없고, 이어하기 저장·복원이 된다', () async {
+      final c = await GetColorController.create(GcLevel.veryHard, rng: Random(4));
+      expect(c.state.count, 15);
+      expect(c.canAddBottle, isFalse);
+      c.addBottle();
+      expect(c.state.count, 15);
+      final back = GetColorController.fromJson(c.toJson());
+      expect(back.level, GcLevel.veryHard);
+      expect(back.state.count, 15);
+      back.dispose();
+      c.dispose();
+    });
+  });
+
   group('병 고르기 / 터치 판정', () {
     test('selectBottle: 누르자마자 고르고, 빈 병·끝난 병은 못 고르고, clearSelection으로 내려놓는다', () {
       final c = make([
@@ -547,7 +562,7 @@ void main() {
       await settle(tester, rounds: 4);
       expect(find.text('쉬움'), findsOneWidget);
       expect(find.text('달인'), findsOneWidget);
-      expect(find.text('아직 클리어한 적이 없어요'), findsNWidgets(4));
+      expect(find.text('아직 클리어한 적이 없어요'), findsNWidgets(GcLevel.values.length));
 
       await tester.tap(find.text('쉬움'));
       await settle(tester, rounds: 8);

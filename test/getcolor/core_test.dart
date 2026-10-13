@@ -107,6 +107,51 @@ void main() {
     });
   });
 
+  group('매우 어려움', () {
+    test('13가지 색 + 빈 병 2개 = 병 15개, 맨 마지막 난이도(저장된 기록의 번호가 밀리지 않는다)', () {
+      const lv = GcLevel.veryHard;
+      expect(lv.colors, 13);
+      expect(lv.empties, 2);
+      expect(lv.bottles, 15);
+      expect(GcLevel.values.last, lv);
+      expect(GcLevel.values.indexOf(GcLevel.master), 3);
+      expect(lv.candidates, greaterThan(1));
+      expect([for (final l in GcLevel.values) if (l != lv) l.candidates].every((c) => c == 1), isTrue);
+    });
+
+    test('후보 중 풀이기가 가장 애를 먹은 판을 낸다 (첫 후보보다 어렵거나 같다) + 풀 수 있다', () async {
+      for (final seed in [3, 8, 14]) {
+        final first = WaterState.shuffled(GcLevel.veryHard, Random(seed));
+        final picked = await generateWaterPuzzle(GcLevel.veryHard, Random(seed));
+        final r = await solveWater(picked, maxNodes: 200000);
+        expect(r.verdict, GcVerdict.winnable, reason: 'seed $seed');
+        expect(picked.count, 15);
+        expect([for (var k = 0; k < picked.count; k++) picked.isDone(k)].any((d) => d), isFalse);
+        final rf = await solveWater(first, maxNodes: 60000);
+        if (rf.verdict == GcVerdict.winnable) {
+          expect(r.nodes, greaterThanOrEqualTo(rf.nodes), reason: 'seed $seed');
+        }
+      }
+    });
+
+    test('평균적으로 달인보다 풀이기가 훨씬 더 많이 헤맨다', () async {
+      Future<double> avgNodes(GcLevel level) async {
+        final rng = Random(77);
+        var sum = 0;
+        const n = 6;
+        for (var i = 0; i < n; i++) {
+          final r = await solveWater(await generateWaterPuzzle(level, rng), maxNodes: 200000);
+          sum += r.nodes;
+        }
+        return sum / n;
+      }
+
+      final master = await avgNodes(GcLevel.master);
+      final very = await avgNodes(GcLevel.veryHard);
+      expect(very, greaterThan(master * 3), reason: '달인 $master / 매우 어려움 $very');
+    });
+  });
+
   group('풀이기', () {
     test('막힌 판은 막혔다고 판정한다', () async {
       final dead = s([
