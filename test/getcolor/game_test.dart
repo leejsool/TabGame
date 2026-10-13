@@ -284,6 +284,42 @@ void main() {
     });
   });
 
+  group('병 고르기 / 터치 판정', () {
+    test('selectBottle: 누르자마자 고르고, 빈 병·끝난 병은 못 고르고, clearSelection으로 내려놓는다', () {
+      final c = make([
+        [0, 1, 0, 1],
+        [1, 0, 1, 0],
+        [2, 2, 2, 2],
+        [],
+      ]);
+      expect(c.selectBottle(3), isFalse);
+      expect(c.selectBottle(2), isFalse);
+      expect(c.selectBottle(0), isTrue);
+      expect(c.selected, 0);
+      expect(c.selectBottle(0), isTrue); // 이미 골랐으면 그대로
+      expect(c.selectBottle(1), isTrue); // 다른 병으로 옮겨 고름 (끌기 시작)
+      expect(c.selected, 1);
+      c.clearSelection();
+      expect(c.selected, isNull);
+      c.setPaused(true);
+      expect(c.selectBottle(0), isFalse, reason: '일시정지 중에는 못 고른다');
+    });
+
+    test('GcLayout.hit: 병 위·틈·위아래 빈 곳은 가까운 병으로, 멀리 떨어진 곳은 null', () {
+      for (final size in const [Size(360, 520), Size(800, 1000), Size(1280, 620)]) {
+        final l = GcLayout.compute(size, 8);
+        for (var i = 0; i < 8; i++) {
+          final r = l.rects[i];
+          expect(l.hit(r.center), i, reason: '$size 병 $i 가운데');
+          // 병 바로 위(들어 올린 높이)와 병 옆 틈의 가운데를 눌러도 같은 줄에서 가장 가까운 병
+          expect(l.hit(Offset(r.center.dx, r.top - l.w * 0.3)), i, reason: '$size 병 $i 위쪽');
+          expect(l.hit(Offset(r.right + l.w * GcLayout.gapRatio * 0.3, r.center.dy)), i, reason: '$size 병 $i 오른쪽 틈');
+        }
+        expect(l.hit(const Offset(-500, -500)), isNull);
+      }
+    });
+  });
+
   group('화면', () {
     test('배치: 병이 모두 영역 안에 들어가고 서로 겹치지 않는다', () {
       for (final size in const [Size(360, 520), Size(800, 1000), Size(1280, 620), Size(533, 333)]) {
@@ -304,7 +340,7 @@ void main() {
       }
     });
 
-    testWidgets('병을 눌러 붓고, 붓는 애니메이션이 끝나면 다시 누를 수 있다', (tester) async {
+    testWidgets('병을 눌러 붓고, 붓는 애니메이션 중에도 바로 다음 병을 고를 수 있다', (tester) async {
       tester.view.physicalSize = const Size(800, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -320,10 +356,10 @@ void main() {
       await tester.tapAt(origin + layout.rects[2].center);
       await tester.pump(const Duration(milliseconds: 100));
       expect(c.moveCount, 1);
-      // 붓는 중에 누른 것은 무시된다
+      // 붓는 중에도 입력이 씹히지 않는다: 바로 다음 병을 고를 수 있다
       await tester.tapAt(origin + layout.rects[1].center);
       await tester.pump(const Duration(milliseconds: 100));
-      expect(c.selected, isNull);
+      expect(c.selected, 1);
       // 애니메이션 중간 프레임들이 오류 없이 그려진다
       for (var i = 0; i < 12; i++) {
         await tester.pump(const Duration(milliseconds: 80));
@@ -331,7 +367,119 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tapAt(origin + layout.rects[1].center);
       await tester.pump(const Duration(milliseconds: 100));
-      expect(c.selected, 1);
+      expect(c.selected, isNull, reason: '같은 병을 다시 누르면 내려놓는다');
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    });
+
+    testWidgets('누르는 순간 바로 들어 올린다 (손을 떼기 전에), 손가락이 조금 움직여도 탭이 씹히지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(tiny());
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: GetColorBoard(controller: c))));
+      final origin = tester.getTopLeft(find.byType(GetColorBoard));
+      final layout = GcLayout.compute(tester.getSize(find.byType(GetColorBoard)), c.state.count);
+
+      final g = await tester.startGesture(origin + layout.rects[0].center);
+      expect(c.selected, 0, reason: '손을 떼기 전에 이미 골라진다');
+      // 탭 인식기라면 취소됐을 만큼(20px 가까이) 흔들려도 그대로 골라진 채 유지
+      await g.moveBy(const Offset(6, 5));
+      await g.moveBy(const Offset(-3, 4));
+      await g.up();
+      await tester.pump();
+      expect(c.selected, 0);
+      // 병 사이 틈/위쪽 빈 곳을 눌러도 가까운 병을 잡아 준다
+      final r2 = layout.rects[2];
+      await tester.tapAt(origin + Offset(r2.center.dx, r2.top - layout.w * 0.3));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.moveCount, 1);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    });
+
+    testWidgets('끌어서 붓기: 끄는 동안 병이 골라져 있고, 부을 수 있는 병 위에서 놓으면 붓는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(tiny());
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: GetColorBoard(controller: c))));
+      final origin = tester.getTopLeft(find.byType(GetColorBoard));
+      final layout = GcLayout.compute(tester.getSize(find.byType(GetColorBoard)), c.state.count);
+
+      final g = await tester.startGesture(origin + layout.rects[0].center);
+      await g.moveTo(origin + layout.rects[1].center); // 병 1 위로 끌고 가는 중 (병 1에는 부을 수 없다: 색이 다름)
+      await tester.pump();
+      expect(c.selected, 0);
+      expect(c.moveCount, 0);
+      await g.moveTo(origin + layout.rects[2].center); // 빈 병 위
+      await tester.pump();
+      expect(c.moveCount, 0, reason: '놓기 전에는 붓지 않는다');
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.moveCount, 1);
+      expect(c.state.bottles[2], [1, 1]);
+      expect(c.selected, isNull);
+      for (var i = 0; i < 14; i++) {
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    });
+
+    testWidgets('끌다가 부을 수 없는 곳이나 빈 곳에 놓으면 아무 일 없이 내려놓는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(tiny());
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: GetColorBoard(controller: c))));
+      final origin = tester.getTopLeft(find.byType(GetColorBoard));
+      final layout = GcLayout.compute(tester.getSize(find.byType(GetColorBoard)), c.state.count);
+
+      // 색이 다른 병 위에 놓기
+      var g = await tester.startGesture(origin + layout.rects[0].center);
+      await g.moveTo(origin + layout.rects[1].center);
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.moveCount, 0);
+      expect(c.selected, isNull);
+      // 판 밖 빈 곳에 놓기
+      g = await tester.startGesture(origin + layout.rects[0].center);
+      await g.moveTo(origin + const Offset(2, 2));
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.moveCount, 0);
+      expect(c.selected, isNull);
+      // 끌다가 취소(포인터 취소)되어도 들린 병이 남지 않는다
+      g = await tester.startGesture(origin + layout.rects[0].center);
+      await g.moveTo(origin + layout.rects[2].center);
+      await g.cancel();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.selected, isNull);
+      expect(c.moveCount, 0);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    });
+
+    testWidgets('이미 병을 골라 둔 뒤에도 다른 병에서 끌기를 시작하면 그 병으로 옮겨 붓는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(tiny());
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: GetColorBoard(controller: c))));
+      final origin = tester.getTopLeft(find.byType(GetColorBoard));
+      final layout = GcLayout.compute(tester.getSize(find.byType(GetColorBoard)), c.state.count);
+
+      await tester.tapAt(origin + layout.rects[0].center);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.selected, 0);
+      final g = await tester.startGesture(origin + layout.rects[1].center);
+      await g.moveTo(origin + layout.rects[2].center);
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.moveCount, 1);
+      expect(c.state.bottles[2], [0, 0], reason: '병 1의 위쪽 색(0)이 빈 병으로 옮겨졌다');
       await tester.pumpWidget(const SizedBox());
       c.dispose();
     });

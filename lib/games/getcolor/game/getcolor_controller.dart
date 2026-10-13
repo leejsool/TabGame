@@ -128,6 +128,25 @@ class GetColorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 병 [i]를 고른다 (누르자마자 들어 올리거나, 끌기를 시작할 때). 이미 골랐으면 그대로 둔다.
+  /// 비었거나 다 모은 병은 고를 수 없어 false.
+  bool selectBottle(int i) {
+    if (!canAct || i < 0 || i >= state.count || state.isEmpty(i) || state.isDone(i)) return false;
+    if (selected == i) return true;
+    selected = i;
+    _clearHint();
+    onFeedback?.call('select');
+    notifyListeners();
+    return true;
+  }
+
+  /// 고른 병을 내려놓는다 (끌다가 아무 데나 놓았을 때).
+  void clearSelection() {
+    if (selected == null) return;
+    selected = null;
+    notifyListeners();
+  }
+
   /// 병 [from]의 물을 [to]로 붓는다 (힌트를 따라 하기에도 쓴다). 합법이 아니면 false.
   bool pourTo(int from, int to) {
     if (!canAct || !state.canPour(from, to)) return false;
