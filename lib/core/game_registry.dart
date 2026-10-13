@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../games/freecell/freecell_entry.dart';
+import '../games/getcolor/getcolor_entry.dart';
+import '../games/getcolor/tutorial/getcolor_tutorial.dart';
 import '../games/freecell/tutorial/freecell_tutorial.dart';
 import '../games/goblet/goblet_entry.dart';
 import '../games/goblet/tutorial/goblet_tutorial.dart';
@@ -72,6 +74,16 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildJigsaw,
     tutorial: jigsawTutorial,
+  ),
+  GameInfo(
+    id: 'get_color',
+    title: '겟 컬러',
+    tagline: '같은 색끼리 병에 모아요',
+    icon: Icons.local_drink_rounded,
+    color: Color(0xFF8E4EC6),
+    modes: [PlayMode.solo],
+    builder: buildGetColor,
+    tutorial: getColorTutorial,
   ),
   GameInfo(
     id: 'rhythm_swords',

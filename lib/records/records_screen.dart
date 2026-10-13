@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../games/freecell/ui/freecell_records_tab.dart';
+import '../games/getcolor/ui/getcolor_records_tab.dart';
 import '../games/goblet/ui/goblet_records_tab.dart';
 import '../games/jigsaw/ui/jigsaw_records_tab.dart';
 import '../games/minesweeper/ui/mines_records_tab.dart';
@@ -21,6 +22,7 @@ class RecordsScreen extends StatelessWidget {
     (id: 'minesweeper', title: '지뢰찾기', icon: Icons.flag_rounded, tab: (_) => const MinesRecordsTab()),
     (id: 'solitaire', title: '솔리테어', icon: Icons.style_rounded, tab: (_) => const SolitaireRecordsTab()),
     (id: 'jigsaw', title: '직소퍼즐', icon: Icons.extension_rounded, tab: (_) => const JigsawRecordsTab()),
+    (id: 'get_color', title: '겟 컬러', icon: Icons.local_drink_rounded, tab: (_) => const GetColorRecordsTab()),
     (id: 'ultimate_tictactoe', title: '얼티밋 틱택토', icon: Icons.tag_rounded, tab: (_) => const UtttRecordsTab()),
     (id: 'goblet_gobblers', title: '고블렛', icon: Icons.layers_rounded, tab: (_) => const GobbletRecordsTab()),
   ];
