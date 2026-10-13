@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/solitaire_rules.dart';
+import '../core/solitaire_solver.dart';
 
 class _Step {
   _Step(this.move, this.auto, this.before);
@@ -71,6 +72,10 @@ class SolitaireController extends ChangeNotifier {
   /// 힌트: 두면 좋은 수 (null이면 없음) + 안내 문구.
   SolMove? hint;
   String? hintMessage;
+
+  /// 힌트를 계산하는 중 (풀이기가 도는 동안).
+  bool hintThinking = false;
+  int _hintStamp = 0;
 
   /// 수를 둘 때/완성했을 때 알림 ('drop' | 'win').
   void Function(String kind)? onFeedback;
@@ -310,25 +315,79 @@ class SolitaireController extends ChangeNotifier {
 
   // ── 힌트 ──
 
-  void requestHint() {
-    if (!canAct) return;
-    final h = state.hint();
-    if (h == null) {
-      hint = null;
-      hintMessage = '더 둘 수 있는 수가 없어요. 되돌리기로 다른 길을 시도해 보세요.';
-    } else {
-      hint = h;
-      hintMessage = switch (h.kind) {
-        SolKind.draw => '둘 곳이 없어요. 더미에서 카드를 뽑아 보세요.',
-        SolKind.recycle => '더미를 다시 넘겨 보세요.',
-        _ => null,
-      };
+  /// 힌트: 이 판을 끝까지 풀어 보고, 이길 수 있으면 그 길의 첫 수를, 이미 졌으면 졌다고 알려 준다.
+  /// 너무 복잡해서 못 따져 보면 기존 규칙 기반 추천으로 대신한다.
+  Future<void> requestHint() async {
+    if (!canAct || hintThinking) return;
+    final serial = moveSerial;
+    final stamp = ++_hintStamp;
+    hintThinking = true;
+    hint = null;
+    hintMessage = '이길 수 있는 길을 찾는 중이에요…';
+    notifyListeners();
+
+    final before = state.copy();
+    final result = await solveSolitaire(
+      before,
+      cancelled: () => _disposed || serial != moveSerial || stamp != _hintStamp,
+    );
+    if (_disposed) return;
+    hintThinking = false;
+    if (serial != moveSerial || stamp != _hintStamp) {
+      // 기다리는 사이에 수를 두었거나 닫았으면 낡은 답은 버린다.
+      notifyListeners();
+      return;
+    }
+
+    switch (result.verdict) {
+      case SolVerdict.winnable:
+        final m = result.firstMove!;
+        hint = m;
+        hintMessage = '이길 수 있는 판이에요! ${_describe(before, m)}';
+      case SolVerdict.lost:
+        hint = null;
+        hintMessage = '이 판은 이미 망했어요. 어떻게 해도 끝까지 풀 수 없어요. '
+            '되돌리기로 돌아가거나 처음부터 다시 해 보세요.';
+      case SolVerdict.unknown:
+        final h = before.hint();
+        if (h == null) {
+          hint = null;
+          hintMessage = '더 둘 수 있는 수가 없어요. 되돌리기로 다른 길을 시도해 보세요.';
+        } else {
+          hint = h;
+          hintMessage = '이 판은 너무 복잡해서 이길 수 있는지는 확인하지 못했어요. 일단 이 수를 추천해요. '
+              '${_describe(before, h)}';
+        }
     }
     notifyListeners();
   }
 
+  /// 추천한 수가 왜 좋은지 짧게 설명한다 ([s]는 그 수를 두기 전 상태).
+  String _describe(SolState s, SolMove m) {
+    switch (m.kind) {
+      case SolKind.draw:
+        return '둘 곳이 없으니 더미에서 카드를 뽑아 보세요.';
+      case SolKind.recycle:
+        return '더미를 다시 넘겨 보세요.';
+      case SolKind.wasteToFound:
+      case SolKind.colToFound:
+        return '노란 카드를 완성 칸으로 올려요.';
+      case SolKind.wasteToCol:
+        return '버린 카드를 표시된 열에 붙여요.';
+      case SolKind.colToCol:
+        final hidden = s.tableau[m.from].length - s.up[m.from];
+        if (s.up[m.from] == m.count && hidden > 0) return '뒤집힌 카드를 열 수 있어요. 노란 카드를 표시된 곳으로 옮겨 보세요.';
+        if (s.up[m.from] == m.count && s.tableau[m.to].isEmpty) return '열을 비워 K를 놓을 자리를 만들어요.';
+        return '노란 카드를 표시된 곳으로 옮겨 보세요.';
+      case SolKind.foundToCol:
+        return '완성 칸의 카드를 열로 내려요. 다음 수를 위한 준비예요.';
+    }
+  }
+
   void dismissHint() {
-    if (hint == null && hintMessage == null) return;
+    if (hint == null && hintMessage == null && !hintThinking) return;
+    _hintStamp++;
+    hintThinking = false;
     hint = null;
     hintMessage = null;
     notifyListeners();

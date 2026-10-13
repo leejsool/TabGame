@@ -366,9 +366,15 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: Icon(Icons.lightbulb_rounded, size: 18, color: Color(0xFFB88700)),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: c.hintThinking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Color(0xFFB88700)),
+                      )
+                    : const Icon(Icons.lightbulb_rounded, size: 18, color: Color(0xFFB88700)),
               ),
               Flexible(
                 child: Text(
