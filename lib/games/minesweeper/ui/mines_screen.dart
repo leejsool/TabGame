@@ -368,49 +368,10 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) {
-        final scheme = Theme.of(context).colorScheme;
-        Widget modeButton(bool flag, IconData icon, String label) {
-          final selected = c.flagMode == flag;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                if (c.flagMode != flag) c.toggleFlagMode();
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: selected ? scheme.primary.withValues(alpha: 0.18) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 2.5 : 1),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 26, color: selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.6)),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                        color: selected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-
         return Padding(
           padding: const EdgeInsets.fromLTRB(10, 2, 10, 8),
           child: Row(
             children: [
-              modeButton(false, Icons.touch_app_rounded, '열기'),
-              const SizedBox(width: 8),
-              modeButton(true, Icons.flag_rounded, '깃발'),
-              const SizedBox(width: 8),
               _BarButton(icon: Icons.lightbulb_rounded, label: '힌트', onTap: c.canAct ? c.requestHint : null),
               _BarButton(icon: Icons.refresh_rounded, label: '새 판', onTap: _confirmRestart),
             ],
@@ -477,10 +438,12 @@ Future<void> showMinesRules(BuildContext context) {
             line('목표: 지뢰가 없는 칸을 모두 열면 이겨요. 지뢰를 밟으면 져요.'),
             line('칸을 눌러서 열어요. 첫 칸은 늘 안전해요.'),
             line('숫자는 그 칸 둘레 8칸에 지뢰가 몇 개 있는지 알려줘요.'),
-            line('지뢰라고 생각하는 칸은 길게 눌러서(또는 아래 "깃발" 모드로) 깃발을 꽂아 두세요.'),
+            line('칸을 톡 치면 열려요.'),
+            line('칸을 꾹 누르면 동그란 메뉴가 떠요. 손가락을 그대로 밀었다 떼세요: 위쪽은 열기, 오른쪽 아래는 깃발, 왼쪽 아래는 물음표(?)예요. 가운데에서 떼면 취소돼요.'),
+            line('물음표는 "잘 모르겠어요" 표시라서 지뢰 수에 들어가지 않고, 눌러서 열 수도 있어요.'),
             line('열린 숫자 둘레에 깃발이 숫자만큼 꽂혀 있으면, 그 숫자를 눌러서 나머지 칸을 한꺼번에 열 수 있어요.'),
             line('힌트 버튼은 지금 보이는 숫자로 "확실한" 칸과 그 이유를 알려줘요.'),
-            line('두 손가락으로 벌리면 판을 확대해서 정확하게 누를 수 있어요.'),
+            line('두 손가락으로 벌리면 판을 확대하고, 두 손가락으로 움직여 판을 옮길 수 있어요. (한 손가락 끌기는 깃발·물음표예요)'),
           ],
         ),
       ),

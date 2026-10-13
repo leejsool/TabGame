@@ -150,7 +150,16 @@ class _TextCache {
 /// 카드 한 장 그리기 (발라트로 스타일): 왼쪽 위에 작은 숫자 + 그 바로 아래 작은 무늬,
 /// 오른쪽 아래에는 같은 것이 180도 뒤집혀 있고, 숫자 사이의 가운데에 무늬를 숫자만큼 대칭으로 배치한다.
 /// 여러 장이 겹쳐 쌓여도 맨 위 한 줄(숫자)만으로 읽힌다.
-void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth = 3, CardStyle? style, bool? fourColor}) {
+void drawCard(
+  Canvas canvas,
+  int card,
+  Size size, {
+  Color? glow,
+  double glowWidth = 3,
+  CardStyle? style,
+  bool? fourColor,
+  bool compact = false,
+}) {
   final w = size.width, h = size.height;
   final rank = rankOf(card), suit = suitOf(card);
   final four = fourColor ?? CardLook.fourColor;
@@ -176,6 +185,20 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
   );
 
   final label = kRankLabels[rank];
+
+  if (compact) {
+    _drawCompactFace(canvas, size, rank, suit, color, label, style ?? CardLook.style);
+    if (glow != null) {
+      canvas.drawRRect(
+        rr.deflate(glowWidth / 2),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = glowWidth
+          ..color = glow,
+      );
+    }
+    return;
+  }
 
   // 모서리 숫자: 작게 줄여서 가운데 무늬와 여백을 둔다. 아래쪽에는 180도 돌려서 한 번 더.
   final tp = _TextCache.get(label, w * 0.22, color, FontWeight.w800, tight: label.length > 1); // 모든 숫자·글자를 같은 크기로
@@ -257,10 +280,33 @@ void drawCard(Canvas canvas, int card, Size size, {Color? glow, double glowWidth
   }
 }
 
+/// 폰 화면용 카드 앞면: 맨 위 한 줄에 숫자(왼쪽)와 무늬(오른쪽)를 크게 나란히 두어,
+/// 카드가 촘촘히 겹쳐도 한 줄만으로 또렷하게 읽힌다. 아래쪽은 큰 무늬(숫자 카드·에이스)나 인물 그림.
+void _drawCompactFace(Canvas canvas, Size size, int rank, int suit, Color color, String label, CardStyle st) {
+  final w = size.width, h = size.height;
+  final paint = Paint()..color = color;
+
+  final tp = _TextCache.get(label, w * 0.42, color, FontWeight.w800, tight: label.length > 1);
+  tp.paint(canvas, Offset(w * 0.07, w * 0.035));
+  final s = w * 0.32;
+  drawSuit(canvas, suit, Rect.fromLTWH(w - w * 0.07 - s, w * 0.035 + (tp.height - s) / 2, s, s), paint);
+
+  final body = Rect.fromLTRB(w * 0.1, w * 0.54, w * 0.9, h - w * 0.1);
+  if (rank >= 10 && st != CardStyle.simple) {
+    drawCourtCompact(canvas, body, rank, suit, color, st);
+  } else {
+    final big = min(body.width, body.height) * (rank == 0 ? 0.95 : 0.88);
+    drawSuit(canvas, suit, Rect.fromCenter(center: body.center, width: big, height: big), paint);
+  }
+}
+
 class PlayingCardPainter extends CustomPainter {
-  PlayingCardPainter(this.card, {this.glow, CardStyle? style, bool? fourColor})
+  PlayingCardPainter(this.card, {this.glow, CardStyle? style, bool? fourColor, this.compact = false})
       : style = style ?? CardLook.style,
         fourColor = fourColor ?? CardLook.fourColor;
+
+  /// 폰용 간결한 앞면 (숫자·무늬를 맨 위 한 줄에 크게).
+  final bool compact;
 
   final int card;
   final Color? glow;
@@ -270,9 +316,13 @@ class PlayingCardPainter extends CustomPainter {
   final bool fourColor;
 
   @override
-  void paint(Canvas canvas, Size size) => drawCard(canvas, card, size, glow: glow, style: style, fourColor: fourColor);
+  void paint(Canvas canvas, Size size) => drawCard(canvas, card, size, glow: glow, style: style, fourColor: fourColor, compact: compact);
 
   @override
   bool shouldRepaint(PlayingCardPainter old) =>
-      old.card != card || old.glow != glow || old.style != style || old.fourColor != fourColor;
+      old.card != card ||
+      old.glow != glow ||
+      old.style != style ||
+      old.fourColor != fourColor ||
+      old.compact != compact;
 }

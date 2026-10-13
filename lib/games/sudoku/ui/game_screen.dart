@@ -299,26 +299,29 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
           child: Stack(
             children: [
               Positioned.fill(child: SudokuBoard(game: game)),
-              // 자동 완성 중임을 알리는 안내
+              // 자동 완성 중임을 알리는 안내. 투명할 때도 자리는 있어서, 터치는 통과시켜야
+              // 아래 보드(맨 아래 줄 가운데 칸)가 눌린다.
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 10,
-                child: ListenableBuilder(
-                  listenable: game,
-                  builder: (context, _) => AnimatedOpacity(
-                    opacity: game.autoCompleting ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          '✨ 남은 칸을 자동으로 채워요',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                child: IgnorePointer(
+                  child: ListenableBuilder(
+                    listenable: game,
+                    builder: (context, _) => AnimatedOpacity(
+                      opacity: game.autoCompleting ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            '✨ 남은 칸을 자동으로 채워요',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ),

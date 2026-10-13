@@ -66,23 +66,67 @@ void main() {
 
     test('시작 전에는 깃발을 꽂을 수 없다', () {
       final c = MinesController(level: MinesLevel.beginner);
-      c.longPress(0);
+      c.flag(0);
       expect(c.board.flagCount, 0);
       c.dispose();
     });
 
-    test('깃발 모드에서는 탭이 깃발, 깃발 칸은 열리지 않는다', () {
-      final c = fixed([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-      c.toggleFlagMode();
-      c.tap(40);
-      expect(c.board.marks[40], CellMark.flagged);
-      expect(c.minesLeft, 9);
-      c.toggleFlagMode();
-      c.tap(40); // 깃발 칸은 열기로 열리지 않는다
-      expect(c.board.marks[40], CellMark.flagged);
-      c.longPress(40);
-      expect(c.board.marks[40], CellMark.hidden);
+    test('깃발 칸은 열기로 열리지 않고, 깃발 토글로 뽑을 수 있다', () {
+      final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]); // 가운데 줄이 지뢰 벽: 위쪽만 열린다
+      c.tap(0); // 시작
+      c.flag(72);
+      expect(c.board.marks[72], CellMark.flagged);
+      expect(c.minesLeft, 8);
+      c.tap(72); // 깃발 칸은 열기로 열리지 않는다
+      expect(c.board.marks[72], CellMark.flagged);
+      c.flag(72);
+      expect(c.board.marks[72], CellMark.hidden);
       c.dispose();
+    });
+
+    test('물음표: 시작 전에는 달 수 없고, 달아도 지뢰 수·열기에 영향이 없다', () {
+      final c = MinesController(level: MinesLevel.beginner);
+      c.question(0);
+      expect(c.board.marks[0], CellMark.hidden);
+      c.dispose();
+
+      final p = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]); // 가운데 줄이 지뢰 벽: 위쪽만 열린다
+      p.tap(0);
+      p.question(72);
+      expect(p.board.marks[72], CellMark.question);
+      expect(p.minesLeft, 9); // 깃발이 아니라서 줄지 않는다
+      p.tap(72); // 물음표 칸은 눌러서 열 수 있다
+      expect(p.board.marks[72], CellMark.revealed);
+      p.dispose();
+    });
+
+    test('깃발 칸에서 물음표로, 물음표 칸에서 깃발로 바꾸면 지뢰 수가 맞는다', () {
+      final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]);
+      c.tap(0);
+      c.flag(72);
+      expect(c.minesLeft, 8);
+      c.question(72); // 깃발 → 물음표
+      expect(c.board.marks[72], CellMark.question);
+      expect(c.minesLeft, 9);
+      c.flag(72); // 물음표 → 깃발
+      expect(c.board.marks[72], CellMark.flagged);
+      expect(c.minesLeft, 8);
+      c.tap(72); // 깃발 칸은 열리지 않는다
+      expect(c.board.marks[72], CellMark.flagged);
+      c.dispose();
+    });
+
+    test('물음표가 저장했다 불러와도 남는다', () {
+      final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]);
+      c.tap(0);
+      c.question(36);
+      c.flag(37);
+      final r = MinesController.fromJson(c.toJson());
+      expect(r.board.marks[36], CellMark.question);
+      expect(r.board.marks[37], CellMark.flagged);
+      expect(r.board.flagCount, 1);
+      c.dispose();
+      r.dispose();
     });
 
     test('지뢰를 밟으면 지고, 이후에는 입력을 받지 않는다', () {
@@ -114,7 +158,7 @@ void main() {
       final c = fixed([0]);
       c.tap(40); // 연쇄로 대부분 열린다
       expect(c.board.marks[1], CellMark.revealed); // 칸 1은 숫자 1
-      c.longPress(0);
+      c.flag(0);
       expect(c.board.marks[0], CellMark.flagged);
       c.tap(1); // 깃발 수 == 숫자 → 이웃을 한꺼번에 연다 (이미 열려 있어도 오류 없이)
       expect(c.status, MinesStatus.won);
@@ -125,7 +169,7 @@ void main() {
       final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]); // 가운데 줄이 지뢰 벽: 위쪽만 열린다
       c.tap(0);
       expect(c.status, MinesStatus.playing);
-      c.longPress(36);
+      c.flag(36);
       c.elapsed.value = 61;
       final r = MinesController.fromJson(c.toJson());
       expect(r.level, c.level);
@@ -178,18 +222,75 @@ void main() {
       }
     }
 
-    testWidgets('칸을 누르면 열리고, 길게 누르면 깃발이 꽂힌다', (tester) async {
+    testWidgets('톡 치면 열기, 꾹 눌러 원형 메뉴: 위=열기 / 오른쪽 아래=깃발 / 왼쪽 아래=물음표 / 가운데=취소', (tester) async {
       final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]); // 가운데 줄이 지뢰 벽: 위쪽만 열린다
       await pumpScreen(tester, const Size(800, 1280), c);
-      await tester.tapAt(cellCenter(tester, c, 0));
-      await tester.pump(const Duration(milliseconds: 600));
+
+      Future<void> press(int cell, {Offset drag = Offset.zero, int holdMs = 0}) async {
+        final g = await tester.startGesture(cellCenter(tester, c, cell));
+        if (holdMs > 0) await tester.pump(Duration(milliseconds: holdMs));
+        if (drag != Offset.zero) {
+          await g.moveBy(drag ~/ 2);
+          await g.moveBy(drag - drag ~/ 2);
+        }
+        await g.up();
+        await tester.pump(const Duration(milliseconds: 600));
+      }
+
+      await press(0); // 톡 치기 = 열기
       expect(c.board.marks[0], CellMark.revealed);
       expect(c.status, MinesStatus.playing);
-      // 지뢰가 있는 칸에 깃발
-      await tester.longPressAt(cellCenter(tester, c, 36));
-      await tester.pump(const Duration(milliseconds: 600));
+
+      // 오른쪽 아래(깃발): 지뢰가 있는 칸
+      await press(36, drag: const Offset(60, 30), holdMs: 300);
       expect(c.board.marks[36], CellMark.flagged);
       expect(tester.widget<Text>(find.byKey(const ValueKey('mines-left'))).data, '8');
+      await press(36, drag: const Offset(90, 0)); // 바로 오른쪽도 깃발 조각: 한 번 더 하면 뽑힌다
+      expect(c.board.marks[36], CellMark.hidden);
+
+      // 왼쪽 아래(물음표): 남은 지뢰 수는 그대로
+      await press(37, drag: const Offset(-60, 30), holdMs: 300);
+      expect(c.board.marks[37], CellMark.question);
+      expect(tester.widget<Text>(find.byKey(const ValueKey('mines-left'))).data, '9');
+      await press(37, drag: const Offset(-90, 0));
+      expect(c.board.marks[37], CellMark.hidden);
+
+      // 가운데에서 떼면 취소 (메뉴가 뜬 뒤): 열리지도 표시되지도 않는다
+      await press(72, holdMs: 500);
+      expect(c.board.marks[72], CellMark.hidden);
+      await press(72, drag: const Offset(10, 6), holdMs: 500);
+      expect(c.board.marks[72], CellMark.hidden);
+
+      // 깃발 칸은 열기 조각으로 열리지 않는다
+      await press(36, drag: const Offset(60, 30), holdMs: 300);
+      expect(c.board.marks[36], CellMark.flagged);
+      await press(36, drag: const Offset(0, -80), holdMs: 300);
+      expect(c.board.marks[36], CellMark.flagged);
+      expect(c.status, MinesStatus.playing);
+
+      // 위쪽으로 밀면 열기 (남은 칸이 다 열려서 이긴다)
+      await press(72, drag: const Offset(0, -80), holdMs: 300);
+      expect(c.board.marks[72], CellMark.revealed);
+      expect(c.status, MinesStatus.won);
+      // 클리어 연출과 결과 창이 끝나도록 기다린다
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump(const Duration(milliseconds: 3200));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
+    testWidgets('두 손가락으로 누르면 칸이 열리지 않는다 (확대/이동용)', (tester) async {
+      final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]);
+      await pumpScreen(tester, const Size(800, 1280), c);
+      final g1 = await tester.startGesture(cellCenter(tester, c, 0), pointer: 1);
+      final g2 = await tester.startGesture(cellCenter(tester, c, 3), pointer: 2);
+      await g1.up();
+      await g2.up();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(c.board.marks[0], CellMark.hidden);
+      expect(c.board.marks[3], CellMark.hidden);
+      expect(c.board.revealedCount, 0);
       await tester.pumpWidget(const SizedBox());
     });
 
@@ -224,15 +325,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     });
 
-    testWidgets('깃발 모드 버튼과 힌트 버튼', (tester) async {
+    testWidgets('아래에는 힌트·새 판 버튼만 있다 (열기/깃발 모드 버튼은 없다)', (tester) async {
       final c = fixed([0, 80]);
       await pumpScreen(tester, const Size(800, 1280), c);
-      await tester.tap(find.text('깃발'));
-      await tester.pump();
-      expect(c.flagMode, isTrue);
-      await tester.tap(find.text('열기'));
-      await tester.pump();
-      expect(c.flagMode, isFalse);
+      expect(find.text('깃발'), findsNothing);
+      expect(find.text('열기'), findsNothing);
       await tester.tap(find.text('힌트'));
       await tester.pump(const Duration(milliseconds: 100));
       expect(c.hintMessage, isNotNull);

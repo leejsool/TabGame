@@ -13,6 +13,8 @@ import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/minesweeper/core/mines_rules.dart';
 import 'package:tabgame/games/minesweeper/game/mines_controller.dart';
+import 'package:tabgame/games/minesweeper/ui/mines_board.dart';
+import 'package:tabgame/games/minesweeper/ui/mines_painter.dart';
 import 'package:tabgame/games/minesweeper/ui/mines_screen.dart';
 
 void main() {
@@ -62,7 +64,7 @@ void main() {
     final play = MinesController(level: MinesLevel.beginner, rng: rng);
     play.tap(40);
     for (var i = 0; i < play.board.size; i++) {
-      if (play.board.mine[i] && i % 3 == 0) play.longPress(i);
+      if (play.board.mine[i] && i % 3 == 0) play.flag(i);
     }
     play.requestHint();
     await shoot('play', const Size(820, 1300), play, waitMs: 900);
@@ -83,6 +85,57 @@ void main() {
       won.tap(safe.first);
     }
     await shoot('won', const Size(820, 1300), won, waitMs: 1000);
+
+    // 칸을 누르고 있을 때의 안내 (그 자리 / 오른쪽 / 왼쪽 / 위로 끌어 취소)
+    Future<void> holdShot(String name, Size size, MinesController c, int cell, Offset drag) async {
+      await tester.binding.setSurfaceSize(size);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: SettingsScope(
+            settings: settings,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+              home: MinesScreen(controller: c),
+            ),
+          ),
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 700)));
+      await tester.pump(const Duration(milliseconds: 50));
+      final box = tester.getRect(find.byType(MinesBoardView));
+      final layout = MinesLayout(box.size, c.board.rows, c.board.cols);
+      final g = await tester.startGesture(box.topLeft + layout.rect(cell).center);
+      await tester.pump(const Duration(milliseconds: 250));
+      if (drag != Offset.zero) {
+        await g.moveBy(drag / 2);
+        await g.moveBy(drag / 2);
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.runAsync(() async {
+        final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 1.0);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('$dir/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
+      });
+      await g.cancel();
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    for (final (name, drag) in [
+      ('press_hold', Offset.zero),
+      ('press_flag', const Offset(55, 30)),
+      ('press_question', const Offset(-55, 30)),
+      ('press_open', const Offset(0, -60)),
+    ]) {
+      final c = MinesController(level: MinesLevel.beginner, rng: Random(4));
+      c.tap(40);
+      final target = [for (var i = 0; i < c.board.size; i++) if (c.board.marks[i] == CellMark.hidden) i][12];
+      await holdShot(name, const Size(820, 1300), c, target, drag);
+    }
 
     // 고급: 세로 화면 / 가로 화면
     final expert = MinesController(level: MinesLevel.expert, rng: Random(1));

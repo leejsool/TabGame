@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/card_look.dart';
 import '../core/settings.dart';
+import '../core/update/update_service.dart';
+import '../core/update/update_ui.dart';
 import '../games/freecell/ui/playing_card.dart';
 import '../games/solitaire/ui/card_back.dart';
 
@@ -17,7 +19,8 @@ class SettingsScreen extends StatelessWidget {
       body: ListenableBuilder(
         listenable: settings,
         builder: (context, _) => ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          // 맨 아래 항목이 태블릿의 아래 시스템 바(내비게이션 바)에 가리지 않게 그만큼 띄운다
+          padding: EdgeInsets.only(top: 8, bottom: 8 + MediaQuery.viewPaddingOf(context).bottom),
           children: [
             SwitchListTile(
               secondary: const Icon(Icons.volume_up_rounded),
@@ -77,6 +80,17 @@ class SettingsScreen extends StatelessWidget {
                 onSelectionChanged: (s) => settings.themeMode = s.first,
               ),
             ),
+            if (updatesSupported) ...[
+              const Divider(height: 24),
+              SwitchListTile(
+                secondary: const Icon(Icons.system_update_rounded),
+                title: const Text('시작할 때 업데이트 확인'),
+                subtitle: const Text('새 버전이 나오면 알려 주고, 눌러서 바로 내려받아 설치해요'),
+                value: settings.autoUpdateCheck,
+                onChanged: (v) => settings.autoUpdateCheck = v,
+              ),
+              _UpdateTile(settings: settings),
+            ],
           ],
         ),
       ),
@@ -269,6 +283,26 @@ class _StyleTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 지금 버전을 보여 주고, 눌러서 바로 업데이트를 확인한다.
+class _UpdateTile extends StatelessWidget {
+  const _UpdateTile({required this.settings});
+
+  final Settings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.refresh_rounded),
+      title: const Text('지금 업데이트 확인'),
+      subtitle: FutureBuilder<AppVersion?>(
+        future: UpdateService().currentVersion().then<AppVersion?>((v) => v).catchError((_) => null),
+        builder: (_, snap) => Text(snap.data == null ? '현재 버전을 알 수 없어요' : '현재 버전 v${snap.data}'),
+      ),
+      onTap: () => checkForUpdate(context, settings, manual: true),
     );
   }
 }

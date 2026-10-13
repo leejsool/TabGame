@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/settings.dart';
 import '../../../core/settings_scope.dart';
 import '../core/freecell_difficulty.dart';
 import '../data/freecell_storage.dart';
@@ -219,40 +220,139 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
+    // 폰을 가로로 돌렸을 때는 세로가 모자라니, 도구를 위·아래가 아닌 좌·우로 뺀다
+    final size = MediaQuery.sizeOf(context);
+    final sideBars = size.shortestSide < 600 && size.width > size.height;
+    final table = Padding(
+      padding: sideBars ? const EdgeInsets.fromLTRB(2, 4, 2, 4) : const EdgeInsets.fromLTRB(8, 2, 8, 4),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: FreecellTable(
+              controller: c,
+              onCelebrationTap: () {
+                if (!_skipCelebration.isCompleted) _skipCelebration.complete();
+              },
+            ),
+          ),
+          // 힌트 안내는 판 위에 띄워서, 나타나도 카드가 밀리지 않게 한다
+          Positioned(left: 0, right: 0, bottom: 12, child: Center(child: _hintBanner())),
+          Positioned.fill(
+            child: ListenableBuilder(
+              listenable: c,
+              builder: (context, _) => c.paused ? _pauseCover() : const SizedBox.shrink(),
+            ),
+          ),
+        ],
+      ),
+    );
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        child: sideBars
+            ? Row(
+                children: [
+                  _leftRail(),
+                  Expanded(child: table),
+                  _rightRail(),
+                ],
+              )
+            : Column(
+                children: [
+                  _topBar(),
+                  Expanded(child: table),
+                  _bottomBar(),
+                ],
+              ),
+      ),
+    );
+  }
+
+  /// 가로 폰 화면의 왼쪽 줄: 뒤로 가기, 판 번호·난이도, 수·시간, 일시정지, 메뉴.
+  Widget _leftRail() {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 72,
+      child: ListenableBuilder(
+        listenable: c,
+        builder: (context, _) => Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _topBar(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 2, 8, 4),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: FreecellTable(
-                        controller: c,
-                        onCelebrationTap: () {
-                          if (!_skipCelebration.isCompleted) _skipCelebration.complete();
-                        },
-                      ),
-                    ),
-                    // 힌트 안내는 판 위에 띄워서, 나타나도 카드가 밀리지 않게 한다
-                    Positioned(left: 0, right: 0, bottom: 12, child: Center(child: _hintBanner())),
-                    Positioned.fill(
-                      child: ListenableBuilder(
-                        listenable: c,
-                        builder: (context, _) => c.paused ? _pauseCover() : const SizedBox.shrink(),
-                      ),
-                    ),
-                  ],
+            IconButton(
+              tooltip: '뒤로',
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            Text(
+              '#${c.deal}',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            if (_level != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: levelColors[_level!]!.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  _level!.label,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: levelColors[_level!]!),
+                ),
+              ),
+            Text(
+              '${c.moveCount}수',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: scheme.primary),
+            ),
+            ValueListenableBuilder<int>(
+              valueListenable: c.elapsed,
+              builder: (_, sec, _) => Text(
+                formatTime(sec),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: scheme.onSurface.withValues(alpha: 0.65),
                 ),
               ),
             ),
-            _bottomBar(),
+            IconButton(
+              tooltip: c.paused ? '계속하기' : '일시정지',
+              icon: Icon(
+                c.paused ? Icons.play_circle_outline_rounded : Icons.pause_circle_outline_rounded,
+                size: 28,
+              ),
+              onPressed: c.completed ? null : () => c.setPaused(!c.paused),
+            ),
+            _menuButton(),
           ],
         ),
       ),
+    );
+  }
+
+  /// 가로 폰 화면의 오른쪽 줄: 되돌리기·힌트·자동 올리기·처음부터.
+  Widget _rightRail() {
+    return SizedBox(
+      width: 72,
+      child: ListenableBuilder(
+        listenable: c,
+        builder: (context, _) => Column(children: _barButtons(SettingsScope.of(context))),
+      ),
+    );
+  }
+
+  Widget _menuButton() {
+    return PopupMenuButton<String>(
+      tooltip: '메뉴',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (v) {
+        if (v == 'restart') _confirmRestart();
+        if (v == 'new') _startNewGame();
+        if (v == 'rules') showFreecellRules(context);
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
+        PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+        PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
+      ],
     );
   }
 
@@ -344,20 +444,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
               ),
               onPressed: c.completed ? null : () => c.setPaused(!c.paused),
             ),
-            PopupMenuButton<String>(
-              tooltip: '메뉴',
-              icon: const Icon(Icons.more_vert_rounded),
-              onSelected: (v) {
-                if (v == 'restart') _confirmRestart();
-                if (v == 'new') _startNewGame();
-                if (v == 'rules') showFreecellRules(context);
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
-                PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
-                PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
-              ],
-            ),
+            _menuButton(),
           ],
         ),
       ),
@@ -428,38 +515,41 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
         final settings = SettingsScope.of(context);
         return Padding(
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-          child: Row(
-            children: [
-              _BarButton(
-                icon: Icons.undo_rounded,
-                label: '되돌리기',
-                onTap: c.canUndo ? c.undo : null,
-              ),
-              _BarButton(
-                icon: Icons.lightbulb_rounded,
-                label: '힌트',
-                onTap: c.canAct && !c.thinkingHint ? c.requestHint : null,
-              ),
-              _BarButton(
-                icon: Icons.auto_awesome_rounded,
-                label: c.autoMoveEnabled ? '자동 올리기 켬' : '자동 올리기 끔',
-                highlight: c.autoMoveEnabled,
-                onTap: () {
-                  c.autoMoveEnabled = !c.autoMoveEnabled;
-                  settings.freecellAutoMove = c.autoMoveEnabled;
-                  c.start(); // 켰을 때 바로 올릴 카드가 있으면 올린다
-                },
-              ),
-              _BarButton(
-                icon: Icons.refresh_rounded,
-                label: '처음부터',
-                onTap: _confirmRestart,
-              ),
-            ],
-          ),
+          child: Row(children: _barButtons(settings)),
         );
       },
     );
+  }
+
+  /// 되돌리기·힌트·자동 올리기·처음부터 버튼 (아래 줄에서는 가로로, 가로 폰 화면에서는 세로로 놓인다).
+  List<Widget> _barButtons(Settings settings) {
+    return [
+      _BarButton(
+        icon: Icons.undo_rounded,
+        label: '되돌리기',
+        onTap: c.canUndo ? c.undo : null,
+      ),
+      _BarButton(
+        icon: Icons.lightbulb_rounded,
+        label: '힌트',
+        onTap: c.canAct && !c.thinkingHint ? c.requestHint : null,
+      ),
+      _BarButton(
+        icon: Icons.auto_awesome_rounded,
+        label: c.autoMoveEnabled ? '자동 올리기 켬' : '자동 올리기 끔',
+        highlight: c.autoMoveEnabled,
+        onTap: () {
+          c.autoMoveEnabled = !c.autoMoveEnabled;
+          settings.freecellAutoMove = c.autoMoveEnabled;
+          c.start(); // 켰을 때 바로 올릴 카드가 있으면 올린다
+        },
+      ),
+      _BarButton(
+        icon: Icons.refresh_rounded,
+        label: '처음부터',
+        onTap: _confirmRestart,
+      ),
+    ];
   }
 }
 
@@ -487,7 +577,13 @@ class _BarButton extends StatelessWidget {
             children: [
               Icon(icon, size: 28, color: color),
               const SizedBox(height: 3),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: color)),
+              Text(
+                label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12.5, color: color),
+              ),
             ],
           ),
         ),

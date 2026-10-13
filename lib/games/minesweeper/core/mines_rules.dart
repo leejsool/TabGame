@@ -19,7 +19,9 @@ enum MinesLevel {
 }
 
 /// 칸의 표시 상태. (지뢰가 있는지는 [MinesBoard.mine]에 따로 있다)
-enum CellMark { hidden, revealed, flagged }
+/// 칸의 표시. [question]은 "잘 모르겠다"는 물음표(?)로, 깃발과 달리 지뢰 수에 들어가지 않고 열 수도 있다.
+/// (저장된 판에 숫자(index)로 남으므로 새 값은 맨 뒤에만 추가한다)
+enum CellMark { hidden, revealed, flagged, question }
 
 class MinesBoard {
   MinesBoard(this.rows, this.cols, this.mineCount)
@@ -91,10 +93,13 @@ class MinesBoard {
   /// 남은 지뢰 수 표시용 (깃발을 많이 꽂으면 음수가 될 수 있다).
   int get minesLeft => mineCount - flagCount;
 
+  /// 아직 안 열렸고 깃발도 없어서 열 수 있는 칸 (그냥 닫힌 칸이거나 물음표 칸).
+  bool canOpen(int i) => marks[i] == CellMark.hidden || marks[i] == CellMark.question;
+
   /// 칸을 연다. 새로 열린 칸들을 (칸, 시작 칸으로부터의 거리) 순서로 돌려준다.
   /// 깃발이 꽂힌 칸이나 이미 열린 칸이면 빈 목록. 지뢰를 밟으면 [explodedCell]이 정해진다.
   List<(int, int)> reveal(int i) {
-    if (marks[i] != CellMark.hidden) return const [];
+    if (!canOpen(i)) return const [];
     if (mine[i]) {
       marks[i] = CellMark.revealed;
       explodedCell = i;
@@ -110,7 +115,7 @@ class MinesBoard {
       final cur = queue[head];
       if (adj[cur] != 0) continue;
       for (final n in neighbors(cur)) {
-        if (marks[n] != CellMark.hidden || mine[n]) continue;
+        if (!canOpen(n) || mine[n]) continue;
         marks[n] = CellMark.revealed;
         revealedCount++;
         dist[n] = dist[cur]! + 1;
@@ -121,15 +126,34 @@ class MinesBoard {
     return out;
   }
 
-  /// 깃발을 꽂거나 뽑는다. 이미 열린 칸이면 false.
+  /// 깃발을 꽂거나 뽑는다 (물음표 칸에는 깃발로 바꿔 꽂는다). 이미 열린 칸이면 false.
   bool toggleFlag(int i) {
     switch (marks[i]) {
       case CellMark.hidden:
+      case CellMark.question:
         marks[i] = CellMark.flagged;
         flagCount++;
         return true;
       case CellMark.flagged:
         marks[i] = CellMark.hidden;
+        flagCount--;
+        return true;
+      case CellMark.revealed:
+        return false;
+    }
+  }
+
+  /// 물음표를 달거나 뗀다 (깃발 칸에는 깃발을 뽑고 물음표로 바꾼다). 이미 열린 칸이면 false.
+  bool toggleQuestion(int i) {
+    switch (marks[i]) {
+      case CellMark.hidden:
+        marks[i] = CellMark.question;
+        return true;
+      case CellMark.question:
+        marks[i] = CellMark.hidden;
+        return true;
+      case CellMark.flagged:
+        marks[i] = CellMark.question;
         flagCount--;
         return true;
       case CellMark.revealed:
@@ -145,7 +169,7 @@ class MinesBoard {
     if (marks[i] != CellMark.revealed || adj[i] == 0 || flaggedNeighbors(i) != adj[i]) return const [];
     final out = <(int, int)>[];
     for (final n in neighbors(i)) {
-      if (marks[n] != CellMark.hidden) continue;
+      if (!canOpen(n)) continue;
       out.addAll(reveal(n));
       if (isLost) break;
     }
@@ -155,7 +179,7 @@ class MinesBoard {
   /// 이기면 남은 지뢰에 깃발을 모두 꽂는다.
   void flagAllMines() {
     for (var i = 0; i < size; i++) {
-      if (mine[i] && marks[i] == CellMark.hidden) {
+      if (mine[i] && canOpen(i)) {
         marks[i] = CellMark.flagged;
         flagCount++;
       }

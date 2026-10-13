@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 내려받은 업데이트 APK: 캐시 폴더의 update/ -->
+    <cache-path name="update" path="update/" />
+</paths>

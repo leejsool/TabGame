@@ -32,7 +32,7 @@ class MinesSolver {
       final hidden = <int>{};
       var flags = 0;
       for (final n in b.neighbors(i)) {
-        if (b.marks[n] == CellMark.hidden) hidden.add(n);
+        if (b.canOpen(n)) hidden.add(n); // 물음표 칸도 아직 모르는 칸
         if (b.marks[n] == CellMark.flagged) flags++;
       }
       if (hidden.isEmpty) continue;

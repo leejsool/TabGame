@@ -74,6 +74,22 @@ void main() {
     });
   });
 
+  sizes.forEach((name, size) {
+    testWidgets('$name: 보드의 81칸 어디를 눌러도 선택된다 (맨 아래 줄 포함)', (tester) async {
+      final game = await pumpGame(tester, size);
+      final dead = <int>[];
+      for (var cell = 0; cell < 81; cell++) {
+        game.select(-1);
+        final g = await tester.startGesture(cellCenter(tester, cell));
+        await g.up();
+        await tester.pump();
+        if (game.selected != cell) dead.add(cell);
+      }
+      expect(dead, isEmpty, reason: '반응 없는 칸');
+      await closeScreen(tester);
+    });
+  });
+
   testWidgets('칸을 누르고 숫자를 누르면 입력된다 (고전 방식)', (tester) async {
     final game = await pumpGame(tester, const Size(800, 1280));
     final cell = game.values.indexOf(0);

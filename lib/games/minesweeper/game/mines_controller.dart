@@ -25,7 +25,6 @@ class MinesController extends ChangeNotifier {
   bool paused = false;
 
   /// true면 탭이 "깃발 꽂기", false면 "열기".
-  bool flagMode = false;
 
   MinesHint? hint;
   String? hintMessage;
@@ -70,29 +69,39 @@ class MinesController extends ChangeNotifier {
 
   // ── 입력 ──
 
-  /// 칸을 탭했다. 열린 숫자면 코드, [flagMode]면 깃발, 아니면 열기.
+  /// 칸을 열기로 골랐다. 열린 숫자면 코드(주변 한꺼번에 열기), 깃발 칸은 그대로, 아니면 열기(물음표 칸도 연다).
   void tap(int i) {
     if (!canAct) return;
     final m = board.marks[i];
     if (m == CellMark.revealed) {
       _afterReveal(board.chord(i), origin: i);
-    } else if (flagMode) {
-      _toggleFlag(i);
-    } else if (m == CellMark.hidden) {
+    } else if (m != CellMark.flagged) {
       _open(i);
     }
   }
 
-  /// 칸을 길게 눌렀다: 깃발 꽂기/뽑기.
-  void longPress(int i) {
+  /// 깃발 꽂기/뽑기.
+  void flag(int i) {
     if (!canAct) return;
     _toggleFlag(i);
   }
 
-  void _toggleFlag(int i) {
-    if (board.marks[i] == CellMark.revealed) return;
-    if (status == MinesStatus.ready) return; // 시작 전에는 깃발이 의미 없다
-    board.toggleFlag(i);
+  /// 물음표(?) 달기/떼기.
+  void question(int i) {
+    if (!canAct) return;
+    _toggleFlag(i, question: true);
+  }
+
+  /// 이 칸에 깃발·물음표를 달 수 있는가 (시작 전이거나 이미 열린 칸이면 안 된다).
+  bool canMark(int i) => canAct && status != MinesStatus.ready && board.marks[i] != CellMark.revealed;
+
+  void _toggleFlag(int i, {bool question = false}) {
+    if (!canMark(i)) return; // 시작 전에는 깃발이 의미 없다
+    if (question) {
+      board.toggleQuestion(i);
+    } else {
+      board.toggleFlag(i);
+    }
     flagAt[i] = clockMs;
     animEndMs = max(animEndMs, clockMs + 400);
     hint = null;
@@ -186,11 +195,6 @@ class MinesController extends ChangeNotifier {
     if (hint == null && hintMessage == null) return;
     hint = null;
     hintMessage = null;
-    notifyListeners();
-  }
-
-  void toggleFlagMode() {
-    flagMode = !flagMode;
     notifyListeners();
   }
 

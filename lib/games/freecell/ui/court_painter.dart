@@ -68,6 +68,26 @@ void drawCourtPanel(Canvas canvas, Size size, int rank, int suit, Color suitColo
   drawSuit(canvas, suit, Rect.fromCenter(center: center, width: s, height: s), Paint()..color = suitColor);
 }
 
+/// 폰용 카드의 아래쪽 [body]에 인물 한 명을 크게 그린다 (위아래 두 명 대신).
+void drawCourtCompact(Canvas canvas, Rect body, int rank, int suit, Color suitColor, CardStyle style) {
+  final cute = style == CardStyle.cute;
+  final w = body.width;
+  final panel = RRect.fromRectAndRadius(body, Radius.circular(w * 0.07));
+  final isRed = suit == 1 || suit == 2;
+  canvas.drawRRect(
+    panel,
+    Paint()..color = cute ? (isRed ? const Color(0xFFFFEEF0) : const Color(0xFFEAF2FF)) : const Color(0xFFFFF8E6),
+  );
+  canvas.drawRRect(
+    panel,
+    Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = max(1.0, w * 0.025)
+      ..color = suitColor.withValues(alpha: 0.85),
+  );
+  _bust(canvas, body.deflate(w * 0.05), rank, suit, cute);
+}
+
 /// 위쪽 반 칸 [r] 안에 가슴 위 인물을 그린다. [rank] 10=J, 11=Q, 12=K.
 void _bust(Canvas canvas, Rect r, int rank, int suit, bool cute) {
   final w = r.width, h = r.height;

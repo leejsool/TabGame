@@ -16,7 +16,8 @@ class Settings extends ChangeNotifier {
         ),
         _cardStyle = _readCardStyle(_prefs.getString(_kCardStyle)),
         _cardBackStyle = _readCardBackStyle(_prefs.getString(_kCardBackStyle)),
-        _fourColor = _prefs.getBool(_kFourColor) ?? false {
+        _fourColor = _prefs.getBool(_kFourColor) ?? false,
+        _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true {
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
     CardLook.fourColor = _fourColor;
@@ -45,6 +46,8 @@ class Settings extends ChangeNotifier {
   static const _kCardStyle = 'cardStyle';
   static const _kCardBackStyle = 'cardBackStyle';
   static const _kFourColor = 'cardFourColor';
+  static const _kAutoUpdateCheck = 'autoUpdateCheck';
+  static const _kLastUpdateCheck = 'lastUpdateCheckMs';
 
   final SharedPreferences _prefs;
   bool _sound;
@@ -56,6 +59,7 @@ class Settings extends ChangeNotifier {
   CardStyle _cardStyle;
   CardBackStyle _cardBackStyle;
   bool _fourColor;
+  bool _autoUpdateCheck;
 
   static Future<Settings> load() async =>
       Settings._(await SharedPreferences.getInstance());
@@ -108,6 +112,20 @@ class Settings extends ChangeNotifier {
     _prefs.setBool(_kFourColor, v);
     notifyListeners();
   }
+
+  /// 앱을 켤 때 GitHub에서 새 버전이 있는지 알아서 확인한다.
+  bool get autoUpdateCheck => _autoUpdateCheck;
+
+  set autoUpdateCheck(bool v) {
+    _autoUpdateCheck = v;
+    _prefs.setBool(_kAutoUpdateCheck, v);
+    notifyListeners();
+  }
+
+  /// 마지막으로 업데이트를 확인한 때 (밀리초). 자동 확인을 너무 자주 하지 않으려고.
+  int get lastUpdateCheckMs => _prefs.getInt(_kLastUpdateCheck) ?? 0;
+
+  set lastUpdateCheckMs(int v) => _prefs.setInt(_kLastUpdateCheck, v);
 
   set freecellAutoMove(bool v) {
     _freecellAutoMove = v;

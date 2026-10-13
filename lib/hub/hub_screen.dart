@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/game_info.dart';
 import '../core/game_registry.dart';
 import '../core/settings.dart';
+import '../core/update/update_ui.dart';
 import '../records/records_screen.dart';
 import 'game_card.dart';
 import 'launch.dart';
@@ -115,6 +116,15 @@ class HubScreen extends StatefulWidget {
 
 class _HubScreenState extends State<HubScreen> {
   _Filter _filter = _Filter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    // 앱을 켜면 GitHub에 새 버전이 있는지 슬쩍 확인한다 (있을 때만 알려준다)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) autoCheckForUpdate(context, widget.settings);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

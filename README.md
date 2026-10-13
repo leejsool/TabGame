@@ -27,3 +27,20 @@ flutter build apk --release
 
 구조: `lib/core`(공통), `lib/hub`(첫 화면), `lib/records`(기록), `lib/games/<게임>/{core,game,ui,data}`.
 규칙 엔진은 순수 Dart로 분리되어 있어 화면 없이 테스트돼요.
+
+## 업데이트 (안드로이드)
+
+앱을 켜면(6시간에 한 번) GitHub 최신 릴리즈를 확인하고, 새 버전이 있으면 알려 줘요. "업데이트"를 누르면 APK를 내려받아(진행률 표시, SHA-256 검증) 안드로이드 설치 화면을 열어요. 설정 화면에서 자동 확인을 끄거나 "지금 업데이트 확인"으로 바로 확인할 수 있어요.
+
+새 버전을 내보내는 방법:
+
+1. `pubspec.yaml`의 `version`을 올려요 (예: `1.0.1+2`). 앱은 이 버전과 릴리즈 태그를 비교해요.
+2. 릴리즈 키로 서명해서 빌드해요: `flutter build apk --release`. 서명 키가 이전 버전과 다르면 설치가 거부돼요.
+3. 태그(`v1.0.1`)로 GitHub 릴리즈를 만들고 APK(`.apk`)를 자산으로 올려요. (시험판·초안은 무시돼요)
+
+```
+gh release create v1.0.1 build/app/outputs/flutter-apk/app-release.apk#TabGame-1.0.1.apk --title "TabGame 1.0.1" --notes "바뀐 점"
+```
+
+릴리즈 본문이 업데이트 안내 창에 그대로 보여요. 처음 설치할 때 "이 앱에서 설치 허용"을 한 번 켜야 해요.
+

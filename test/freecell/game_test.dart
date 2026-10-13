@@ -364,7 +364,10 @@ void main() {
         for (var card = 0; card < 52; card++) {
           expect(find.byKey(ValueKey('card-$card')), findsOneWidget);
         }
-        expect(find.text('프리셀 #617'), findsOneWidget);
+        // 폰 가로 화면은 도구가 좌우 줄로 가서 판 번호만 보인다
+        final phoneLandscape = size.shortestSide < 600 && size.width > size.height;
+        expect(find.text(phoneLandscape ? '#617' : '프리셀 #617'), findsOneWidget);
+        expect(find.text('힌트'), findsOneWidget);
         // 일시정지·힌트 표시 상태도 넘치지 않는다
         c.setPaused(true);
         await tester.pump();
@@ -407,6 +410,42 @@ void main() {
       expect(c.state.columns[move.toIndex].last, card);
       expect(c.moveCount, 1);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
+    testWidgets('대충 옆으로 치우쳐 놓아도 가장 가까운 놓을 수 있는 열로 들어간다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(dealWithColumnMove(), auto: false);
+      await tester.pumpWidget(await app(c));
+      await tester.pump();
+
+      final move = c.state.legalMoves().firstWhere(
+            (m) => m.from == Place.column && m.to == Place.column && m.count == 1,
+          );
+      final targets = c.targetsFor(Place.column, move.fromIndex, 1).where((t) => t.to == Place.column);
+      bool legal(int col) => targets.any((t) => t.toIndex == col);
+      // 옆 열이 놓을 수 있는 자리가 아닌 쪽으로 치우쳐서 놓는다
+      final dir = (move.toIndex < 7 && !legal(move.toIndex + 1)) ? 1.0 : -1.0;
+      expect(dir > 0 || (move.toIndex > 0 && !legal(move.toIndex - 1)), isTrue, reason: '치우칠 쪽이 필요');
+
+      final card = c.state.columns[move.fromIndex].last;
+      final destTop = c.state.columns[move.toIndex].last;
+      final cardW = tester.getSize(find.byKey(ValueKey('card-$card'))).width;
+      final start = tester.getCenter(find.byKey(ValueKey('card-$card')));
+      // 도착 열 중심에서 카드 폭의 0.8배나 옆으로 벗어난 곳에 놓는다 (예전 판정으로는 옆 열이라 실패)
+      final end = tester.getCenter(find.byKey(ValueKey('card-$destTop'))) + Offset(dir * cardW * 0.8, 30);
+      final g = await tester.startGesture(start);
+      await g.moveTo(start + const Offset(0, 20));
+      await g.moveTo(end);
+      await tester.pump(const Duration(milliseconds: 50));
+      await g.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(c.state.columns[move.toIndex].last, card);
+      expect(c.moveCount, 1);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 100));
     });

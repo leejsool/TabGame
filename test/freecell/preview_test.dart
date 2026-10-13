@@ -25,10 +25,11 @@ void main() {
     await loader.load();
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(tester.view.reset);
 
-    Future<void> shoot(String name, Size size, FreecellController c) async {
-      await tester.binding.setSurfaceSize(size);
+    Future<void> shoot(String name, Size size, FreecellController c, {double pixelRatio = 1.0}) async {
+      tester.view.physicalSize = size; // MediaQuery도 이 크기를 따르도록 (폰/탭 구분)
+      tester.view.devicePixelRatio = 1.0;
       final key = GlobalKey();
       await tester.pumpWidget(
         RepaintBoundary(
@@ -46,7 +47,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
       await tester.runAsync(() async {
         final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-        final image = await boundary.toImage(pixelRatio: 1.0);
+        final image = await boundary.toImage(pixelRatio: pixelRatio);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
         await File('$dir/$name.png').writeAsBytes(bytes!.buffer.asUint8List());
       });
@@ -57,6 +58,10 @@ void main() {
     // 새 판 (세로 / 가로)
     await shoot('portrait_new', const Size(820, 1300), FreecellController(deal: 617, autoMoveEnabled: false));
     await shoot('landscape_new', const Size(1280, 720), FreecellController(deal: 617, autoMoveEnabled: false));
+
+    // 폰 화면 (간결한 카드)
+    await shoot('phone_new', const Size(411, 891), FreecellController(deal: 617, autoMoveEnabled: false), pixelRatio: 2.5);
+    await shoot('phone_land', const Size(891, 411), FreecellController(deal: 617, autoMoveEnabled: false), pixelRatio: 2.0);
 
     // 몇 수 둔 뒤 + 힌트 표시
     final c = FreecellController(deal: 1, autoMoveEnabled: false, autoDelay: const Duration(milliseconds: 1));

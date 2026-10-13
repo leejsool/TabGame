@@ -11,24 +11,26 @@ import 'win_celebration.dart';
 
 /// 화면 크기에서 카드 크기와 자리를 계산한다.
 class FcMetrics {
-  FcMetrics(Size view, int maxColumnLength) : view = view {
-    // 가로 기준 카드 폭 (좌우 여백 포함 9.44장 너비)
-    var w = view.width / 9.44;
+  FcMetrics(Size view, int maxColumnLength, {this.compact = false}) : view = view {
+    // 가로 기준 카드 폭 (좌우 여백 포함 9.44장 너비). 폰은 좌우를 꽉 채워 카드를 키운다.
+    var w = view.width / (compact ? 8.5 : 9.44);
     // 세로가 모자라면 (가로 화면) 카드를 줄여서 열이 12장쯤 쌓여도 읽히게 한다
     w = min(w, view.height / 7.1);
     cw = w;
     ch = w * 1.4;
-    gap = w * 0.12;
+    gap = w * (compact ? 0.06 : 0.12);
     left = (view.width - (8 * cw + 7 * gap)) / 2;
     pad = w * 0.25;
     topY = pad;
     colY = topY + ch + w * 0.4;
     final avail = view.height - colY - pad;
     final n = max(2, maxColumnLength);
-    off = ((avail - ch) / (n - 1)).clamp(ch * 0.13, ch * 0.36);
+    // 폰 카드는 맨 위 한 줄(숫자+무늬)이 w*0.5쯤이라, 겹치는 간격도 그만큼까지 넓힌다
+    off = ((avail - ch) / (n - 1)).clamp(ch * 0.13, compact ? w * 0.52 : ch * 0.36);
   }
 
   final Size view;
+  final bool compact;
   late final double cw, ch, gap, left, pad, topY, colY, off;
 
   double slotX(int slot) => left + slot * (cw + gap);
@@ -273,20 +275,46 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
   }
 
   /// 끌고 있는 카드가 어느 합법적인 자리 위에 있는가.
+  ///
+  /// 카드의 가운데 한 점이 아니라 "얼마나 겹치는가"로 고른다: 합법적인 자리마다 놓을 수 있는 영역(열은
+  /// 맨 아래 카드까지 이어진 띠, 프리셀·완성 칸은 칸 하나)을 잡고, 끌고 있는 카드와 겹친 넓이가
+  /// 가장 큰 곳을 고른다. 손가락이 그 영역 근처에 있어도 인정해서, 대충 가까이 놓아도 들어간다.
   FcMove? _resolveTarget(FcMetrics m, _Drag drag) {
-    final cx = drag.topLeft.dx + m.cw / 2;
-    final cy = drag.topLeft.dy + m.ch * 0.3;
-    final slot = ((cx - m.left) / (m.cw + m.gap)).floor().clamp(0, 7);
-    final inTopRow = cy < m.colY - m.gap;
+    final card = drag.topLeft & m.cardSize;
+    final finger = drag.topLeft + drag.grab;
+    final cardArea = m.cw * m.ch;
+    FcMove? best;
+    var bestScore = 0.0;
     for (final t in drag.targets) {
-      if (inTopRow) {
-        if (t.to == Place.cell && t.toIndex == slot) return t;
-        if (t.to == Place.foundation && 4 + t.toIndex == slot) return t;
-      } else if (t.to == Place.column && t.toIndex == slot) {
-        return t;
+      final zone = _dropZone(m, t);
+      final overlap = card.intersect(zone);
+      var score = (overlap.width > 0 && overlap.height > 0) ? overlap.width * overlap.height / cardArea : 0.0;
+      // 손가락이 영역 위(또는 바로 근처)에 있으면 겹침이 적어도 의도한 곳으로 본다
+      final near = zone.inflate(m.cw * 0.2);
+      if (near.contains(finger)) score = max(score, 0.2) + 0.05;
+      if (score < 0.12) continue;
+      if (score > bestScore) {
+        bestScore = score;
+        best = t;
       }
     }
-    return null;
+    return best;
+  }
+
+  /// 도착 자리 [t]에 놓았다고 인정하는 영역.
+  Rect _dropZone(FcMetrics m, FcMove t) {
+    switch (t.to) {
+      case Place.cell:
+        return m.topPos(t.toIndex) & m.cardSize;
+      case Place.foundation:
+        return m.topPos(4 + t.toIndex) & m.cardSize;
+      case Place.column:
+        final len = c.state.columns[t.toIndex].length;
+        final top = m.colPos(t.toIndex, 0);
+        final bottom = m.colPos(t.toIndex, max(0, len - 1)).dy + m.ch;
+        // 맨 위(열 시작)부터 맨 아래 카드 조금 아래까지: 열 어디에 놓아도 그 열로 본다
+        return Rect.fromLTRB(top.dx, m.colY - m.gap, top.dx + m.cw, bottom + m.ch * 0.4);
+    }
   }
 
   // ── 그리기 ──
@@ -296,7 +324,9 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
     return LayoutBuilder(
       builder: (context, box) {
         final maxLen = c.state.columns.fold<int>(0, (a, col) => max(a, col.length));
-        final m = FcMetrics(box.biggest, maxLen);
+        // 탭(넓은 화면)은 그대로, 폰 화면에서만 카드를 간결하고 크게 그린다
+        final compact = MediaQuery.sizeOf(context).shortestSide < 600;
+        final m = FcMetrics(box.biggest, maxLen, compact: compact);
         _m = m;
         return ListenableBuilder(
           listenable: c,
@@ -333,6 +363,7 @@ class _FreecellTableState extends State<FreecellTable> with TickerProviderStateM
           card: card,
           pos: pos,
           size: m.cardSize,
+          compact: m.compact,
           animate: !dragging,
           glow: hintCards.contains(card) ? const Color(0xFFFFD84D) : null,
           pulse: _pulse,
@@ -504,6 +535,7 @@ class _CardView extends StatelessWidget {
     required this.card,
     required this.pos,
     required this.size,
+    required this.compact,
     required this.animate,
     required this.glow,
     required this.pulse,
@@ -516,6 +548,7 @@ class _CardView extends StatelessWidget {
   final int card;
   final Offset pos;
   final Size size;
+  final bool compact;
   final bool animate;
   final Color? glow;
   final Animation<double> pulse;
@@ -541,12 +574,13 @@ class _CardView extends StatelessWidget {
         onPanUpdate: onDragUpdate,
         onPanEnd: onDragEnd,
         child: glow == null
-            ? RepaintBoundary(child: CustomPaint(painter: PlayingCardPainter(card)))
+            ? RepaintBoundary(child: CustomPaint(painter: PlayingCardPainter(card, compact: compact)))
             : AnimatedBuilder(
                 animation: pulse,
                 builder: (_, _) => CustomPaint(
                   painter: PlayingCardPainter(
                     card,
+                    compact: compact,
                     glow: glow!.withValues(alpha: 0.55 + 0.45 * pulse.value),
                   ),
                 ),

@@ -88,6 +88,43 @@ void main() {
       expect(b.marks[3], CellMark.hidden);
     });
 
+    test('물음표는 지뢰 수에 안 들어가고, 열 수 있고, 연쇄로도 열린다', () {
+      final b = custom(1, 5, [4]);
+      expect(b.toggleQuestion(2), isTrue);
+      expect(b.marks[2], CellMark.question);
+      expect(b.minesLeft, 1);
+      b.reveal(0); // 연쇄가 물음표 칸도 연다
+      expect(b.marks[2], CellMark.revealed);
+      expect(b.marks[3], CellMark.revealed);
+      expect(b.toggleQuestion(2), isFalse); // 열린 칸에는 못 단다
+    });
+
+    test('깃발 ↔ 물음표 바꾸기와 떼기', () {
+      final b = custom(3, 3, [0, 1]);
+      b.toggleFlag(0);
+      expect(b.flagCount, 1);
+      b.toggleQuestion(0); // 깃발이 물음표로
+      expect(b.marks[0], CellMark.question);
+      expect(b.flagCount, 0);
+      b.toggleFlag(0); // 물음표가 깃발로
+      expect(b.marks[0], CellMark.flagged);
+      expect(b.flagCount, 1);
+      b.toggleFlag(0);
+      expect(b.marks[0], CellMark.hidden);
+      b.toggleQuestion(0);
+      b.toggleQuestion(0);
+      expect(b.marks[0], CellMark.hidden);
+    });
+
+    test('코드: 물음표 칸도 한꺼번에 열린다', () {
+      final b = custom(1, 3, [0]);
+      b.reveal(1); // 숫자 1
+      b.toggleFlag(0);
+      b.toggleQuestion(2);
+      expect(b.chord(1).map((e) => e.$1), [2]);
+      expect(b.marks[2], CellMark.revealed);
+    });
+
     test('깃발 토글과 남은 지뢰 수', () {
       final b = custom(3, 3, [0, 1]);
       expect(b.minesLeft, 2);

@@ -62,6 +62,22 @@ void main() {
     expect({for (var s = 0; s < 4; s++) suitColor(s)}.length, 4);
   });
 
+  testWidgets('설정 화면 맨 아래 항목이 아래 시스템 바에 가려지지 않는다', (tester) async {
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = const FakeViewPadding(bottom: 96); // 태블릿 아래 시스템 바
+    tester.view.viewPadding = const FakeViewPadding(bottom: 96);
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    await tester.pumpWidget(MaterialApp(home: SettingsScreen(settings: settings)));
+    // 끝까지 스크롤한다
+    await tester.drag(find.byType(ListView), const Offset(0, -3000));
+    await tester.pump();
+    final last = tester.getRect(find.text('화면 모드')); // 업데이트 항목이 없는 환경에서는 맨 아래 항목
+    expect(last.bottom, lessThanOrEqualTo(900 - 96), reason: '시스템 바 위로 올라와야 한다');
+  });
+
   testWidgets('설정 화면에서 카드 모양을 고르면 바로 적용된다', (tester) async {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1.0;
