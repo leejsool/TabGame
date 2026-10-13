@@ -39,6 +39,7 @@ class RhythmJudge {
     this.perfectWindow = 0.07,
     this.goodWindow = 0.15,
     this.matchWindow = 0.2,
+    this.swipeSlack = 1.3,
   }) : _expected = expected.toList() {
     _done = List.filled(_expected.length, false);
     _pressed = List.filled(_expected.length, false);
@@ -49,6 +50,11 @@ class RhythmJudge {
 
   /// 이 안에 들어온 탭만 그 박자의 시도로 본다 (벗어나면 stray).
   final double matchWindow;
+
+  /// 옆으로 긋기는 손가락이 일정 거리를 가야 해서 탭보다 늦게 잡힌다 — 판정 폭을 이만큼 넓힌다.
+  final double swipeSlack;
+
+  double _slack(ChartEvent e) => e.isSwipe ? swipeSlack : 1.0;
 
   final List<ChartEvent> _expected;
   late final List<bool> _done;
@@ -101,11 +107,12 @@ class RhythmJudge {
 
   Judged _rate(ChartEvent e, double err) {
     final a = err.abs();
-    if (a <= perfectWindow) {
+    final k = _slack(e);
+    if (a <= perfectWindow * k) {
       _hit(Rating.perfect);
       return Judged(Rating.perfect, e, err);
     }
-    if (a <= goodWindow) {
+    if (a <= goodWindow * k) {
       _hit(Rating.good);
       return Judged(Rating.good, e, err);
     }
@@ -121,7 +128,7 @@ class RhythmJudge {
   Judged tap(double t, Side side) {
     final cands = <int>[];
     for (var i = 0; i < _expected.length; i++) {
-      if (_done[i] || _pressed[i]) continue;
+      if (_done[i] || _pressed[i] || _expected[i].isSwipe) continue;
       final err = t - _ref(i);
       if (err < -matchWindow || err > matchWindow) continue;
       cands.add(i);
@@ -158,6 +165,32 @@ class RhythmJudge {
     return _rate(e, err);
   }
 
+  /// 화면을 [dir] 쪽으로 쓱 그었다 (일정 거리를 넘긴 순간). [t]는 [tap]과 같은 시계.
+  /// 방향만 본다: 박자가 맞아도 방향이 반대면 [Rating.wrongSide].
+  Judged swipe(double t, Side dir) {
+    int? pick;
+    for (var i = 0; i < _expected.length; i++) {
+      final e = _expected[i];
+      if (_done[i] || !e.isSwipe) continue;
+      if ((t - _ref(i)).abs() > matchWindow * swipeSlack) continue;
+      if (pick == null || _ref(i) < _ref(pick)) pick = i;
+    }
+    if (pick == null) {
+      stray++;
+      _break();
+      return Judged(Rating.stray, null, 0);
+    }
+    final e = _expected[pick];
+    final err = t - _ref(pick);
+    _done[pick] = true;
+    if (e.side != dir) {
+      miss++;
+      _break();
+      return Judged(Rating.wrongSide, e, err);
+    }
+    return _rate(e, err);
+  }
+
   /// 손을 뗐다. 꾹 누르고 있던 박자가 없으면 null.
   Judged? release(double t) {
     final i = _holding;
@@ -174,7 +207,7 @@ class RhythmJudge {
     for (var i = 0; i < _expected.length; i++) {
       if (_done[i]) continue;
       final e = _expected[i];
-      final deadline = (_pressed[i] ? e.time : _ref(i)) + matchWindow;
+      final deadline = (_pressed[i] ? e.time : _ref(i)) + matchWindow * _slack(e);
       if (deadline >= now) continue;
       _done[i] = true;
       if (_holding == i) _holding = null;
@@ -195,7 +228,7 @@ class RhythmJudge {
     for (var i = 0; i < _expected.length; i++) {
       if (_done[i]) continue;
       final r = _ref(i);
-      if (r + goodWindow >= now && r < bestRef) {
+      if (r + goodWindow * _slack(_expected[i]) >= now && r < bestRef) {
         best = _expected[i];
         bestRef = r;
       }

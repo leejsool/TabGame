@@ -27,13 +27,16 @@ class CampLayout {
   /// 허수아비 그림 배율.
   double get dummyScale => unit * 0.66 / 327;
 
+  /// 슬라임 그림 배율 (기본 자세 그림 가로 402px 기준 — 한 칸에 몸이 넉넉히 들어가도록).
+  double get slimeScale => unit * 0.6 / 402;
+
   /// 허수아비 받침대 바닥 y.
   double get dummyBaseY => feetY - unit * 1.1;
 
   /// 허수아비 높이(px).
   double get dummyHeight => 327 * dummyScale;
 
-  /// 네 명(과 허수아비)의 가운데 x.
+  /// 네 명(과 허수아비·슬라임)의 가운데 x.
   double actorX(int i) => size.width * (landscape ? 0.14 + 0.24 * i : 0.13 + 0.245 * i);
 }
 

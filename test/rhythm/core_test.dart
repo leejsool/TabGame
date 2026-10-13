@@ -54,6 +54,33 @@ void main() {
       expect(RhythmChart.course(1).playerEvents.any((e) => e.isHold), isTrue);
     });
 
+    test('3코스(마을 밖으로): 슬라임 4단계, 옆으로 긋기를 처음 배우고 앞 기술과 섞는다', () {
+      final course = RhythmCourse.all[2];
+      expect(course.foe, Foe.slime);
+      expect(course.stages.length, 4);
+      expect(course.bpm, greaterThanOrEqualTo(RhythmCourse.all[1].bpm));
+      // 첫 단계는 긋기만, 마지막 단계만 안내가 없다
+      expect(course.stages.first.waves.every((w) => w.swipe), isTrue);
+      expect(course.stages.map((s) => s.cue), [true, true, true, false]);
+      // 갈수록 길어진다
+      final lens = course.stages.map((s) => s.waves.length).toList();
+      for (var i = 1; i < lens.length; i++) {
+        expect(lens[i], greaterThanOrEqualTo(lens[i - 1]));
+      }
+      final c = RhythmChart.course(2);
+      final mine = c.playerEvents.toList();
+      expect(mine.any((e) => e.isSwipe && e.side == Side.left), isTrue);
+      expect(mine.any((e) => e.isSwipe && e.side == Side.right), isTrue);
+      expect(mine.any((e) => e.isHold), isTrue);
+      expect(mine.any((e) => !e.isSwipe && !e.isHold), isTrue);
+      // 앞의 코스에는 긋기가 없다
+      expect(RhythmChart.course(1).events.any((e) => e.isSwipe), isFalse);
+      // 선배들도 같은 박자에 긋는다 (물결 하나 = 네 명이 한 박씩)
+      final w0 = c.events.where((e) => e.wave == 0).toList();
+      expect(w0.every((e) => e.isSwipe), isTrue);
+      expect(RhythmCourse.all.map((c) => c.title), ['훈련소 입소', '꾹 눌러 모으기', '마을 밖으로']);
+    });
+
     test('튜토리얼에는 왼쪽·오른쪽·2연속이 모두 들어 있다', () {
       final mine = chart.playerEvents.toList();
       expect(mine.any((e) => e.side == Side.left), isTrue);
@@ -63,6 +90,49 @@ void main() {
         byWave[e.wave] = (byWave[e.wave] ?? 0) + 1;
       }
       expect(byWave.values.any((n) => n == 2), isTrue);
+    });
+  });
+
+  group('RhythmJudge 옆으로 긋기', () {
+    ChartEvent sw(double t, Side s) => ChartEvent(time: t, actor: 3, side: s, stage: 0, wave: 0, isSwipe: true);
+
+    test('방향이 맞고 박자에 맞게 그으면 완벽 — 탭보다 판정 폭이 넓다', () {
+      final j = RhythmJudge([sw(1.0, Side.right), sw(2.0, Side.left), sw(3.0, Side.right)]);
+      expect(j.swipe(1.03, Side.right).rating, Rating.perfect);
+      // 탭이라면 좋아요(0.07초 초과)지만 긋기는 0.09초까지 완벽
+      expect(j.swipe(2.085, Side.left).rating, Rating.perfect);
+      expect(j.swipe(3.17, Side.right).rating, Rating.good);
+      expect(j.total, 3);
+      expect(j.hits, 3);
+    });
+
+    test('방향이 반대면 반대쪽(놓침)', () {
+      final j = RhythmJudge([sw(1.0, Side.right)]);
+      final r = j.swipe(1.0, Side.left);
+      expect(r.rating, Rating.wrongSide);
+      expect(j.miss, 1);
+      expect(j.combo, 0);
+    });
+
+    test('긋기 박자는 탭으로 칠 수 없고, 탭 박자는 긋기로 칠 수 없다', () {
+      final tapEv = ChartEvent(time: 1.0, actor: 3, side: Side.left, stage: 0, wave: 0);
+      final j = RhythmJudge([sw(2.0, Side.right), tapEv]);
+      expect(j.tap(2.0, Side.right).rating, Rating.stray);
+      expect(j.swipe(1.0, Side.left).rating, Rating.stray);
+      expect(j.tap(1.0, Side.left).rating, Rating.perfect);
+      expect(j.swipe(2.0, Side.right).rating, Rating.perfect);
+    });
+
+    test('아무도 안 그으면 박자가 지나서 놓침 처리된다 (판정 폭 여유만큼 더 기다린다)', () {
+      final j = RhythmJudge([sw(1.0, Side.right)]);
+      expect(j.expire(1.0 + 0.2 + 0.01), isEmpty);
+      expect(j.expire(1.0 + 0.2 * 1.3 + 0.01).length, 1);
+      expect(j.miss, 1);
+    });
+
+    test('nextPending은 긋기도 안내 대상으로 돌려준다', () {
+      final j = RhythmJudge([sw(1.0, Side.left)]);
+      expect(j.nextPending(0.5)!.isSwipe, isTrue);
     });
   });
 

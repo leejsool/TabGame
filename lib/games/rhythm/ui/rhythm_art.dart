@@ -22,7 +22,7 @@ class SpriteInfo {
   final double? tipY;
 }
 
-/// 리듬 검사단의 그림 모음 (배경, 허수아비, 검사 4명 × 기본/준비/타격).
+/// 리듬 검사단의 그림 모음 (배경, 허수아비, 슬라임 4자세, 검사 4명 × 기본/준비/타격/옆 준비/옆 휘두르기).
 class RhythmArt {
   RhythmArt._(this._images, this._info);
 
@@ -37,8 +37,11 @@ class RhythmArt {
   ui.Image? image(String name) => _images[name];
   SpriteInfo? info(String name) => _info[name];
 
-  /// 검사 [actor](0~3)의 자세 그림 이름. kind: idle / windup / strike.
+  /// 검사 [actor](0~3)의 자세 그림 이름. kind: idle / windup / strike / side_ready / side_swing.
   static String actorSprite(int actor, String kind) => 'c${actor}_$kind';
+
+  /// 슬라임의 자세 그림 이름. kind: idle(기본) / ready(공격 준비) / attack(공격) / hit(피격).
+  static String slimeSprite(String kind) => 'slime_$kind';
 
   static Future<RhythmArt>? _loading;
 
@@ -47,9 +50,12 @@ class RhythmArt {
 
   static Future<RhythmArt> _load() async {
     final meta = jsonDecode(await rootBundle.loadString('assets/rhythm/art/art.json')) as Map<String, dynamic>;
-    final names = <String>['bg', 'dummy'];
+    // 옆으로 휘두르는 자세 (tool/prepare_rhythm_side_art.py)
+    meta.addAll(jsonDecode(await rootBundle.loadString('assets/rhythm/art/art_side.json')) as Map<String, dynamic>);
+    final slimeMeta = jsonDecode(await rootBundle.loadString('assets/rhythm/art/art_slime.json')) as Map<String, dynamic>;
+    final names = <String>['bg', 'dummy', for (final k in ['idle', 'ready', 'attack', 'hit']) slimeSprite(k)];
     for (var i = 0; i < 4; i++) {
-      for (final k in ['idle', 'windup', 'strike']) {
+      for (final k in ['idle', 'windup', 'strike', 'side_ready', 'side_swing']) {
         names.add(actorSprite(i, k));
       }
     }
@@ -74,6 +80,17 @@ class RhythmArt {
         scale: ((m['scale'] ?? 1.0) as num).toDouble(),
         tipX: (m['tipX'] as num?)?.toDouble(),
         tipY: (m['tipY'] as num?)?.toDouble(),
+      );
+    });
+    // 슬라임은 바닥에 닿는 점(baseX/baseY)을 발 위치로 쓴다 (tool/prepare_rhythm_slime_art.py)
+    slimeMeta.forEach((key, value) {
+      final m = value as Map<String, dynamic>;
+      info[key.replaceAll('.png', '')] = SpriteInfo(
+        w: (m['w'] as num).toDouble(),
+        h: (m['h'] as num).toDouble(),
+        footX: (m['baseX'] as num).toDouble(),
+        footY: (m['baseY'] as num).toDouble(),
+        scale: 1.0,
       );
     });
     return RhythmArt._(images, info);

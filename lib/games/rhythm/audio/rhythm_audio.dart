@@ -9,6 +9,10 @@ enum Sfx {
   hitRight('hit_right'),
   npcLeft('npc_left'),
   npcRight('npc_right'),
+  swipeLeft('swipe_left'),
+  swipeRight('swipe_right'),
+  npcSwipeLeft('npc_swipe_left'),
+  npcSwipeRight('npc_swipe_right'),
   kick('kick'),
   hat('hat'),
   tick('tick'),
@@ -61,6 +65,7 @@ class PoolSfx implements RhythmSfx {
 
   static int _voiceCount(Sfx s) => switch (s) {
         Sfx.hitLeft || Sfx.hitRight || Sfx.npcLeft || Sfx.npcRight => 3,
+        Sfx.swipeLeft || Sfx.swipeRight || Sfx.npcSwipeLeft || Sfx.npcSwipeRight => 3,
         Sfx.kick || Sfx.hat || Sfx.tick || Sfx.chime || Sfx.charge => 2,
         _ => 1,
       };

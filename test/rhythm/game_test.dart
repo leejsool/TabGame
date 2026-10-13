@@ -5,6 +5,7 @@ import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/rhythm/audio/rhythm_audio.dart';
 import 'package:tabgame/games/rhythm/core/rhythm_chart.dart';
+import 'package:tabgame/games/rhythm/core/rhythm_judge.dart';
 import 'package:tabgame/games/rhythm/game/rhythm_controller.dart';
 import 'package:tabgame/games/rhythm/ui/rhythm_menu_screen.dart';
 import 'package:tabgame/games/rhythm/ui/rhythm_art.dart';
@@ -144,6 +145,113 @@ void main() {
       expect(c.judge.stars, 3);
     });
 
+    test('3코스: 정확히 치고 제때 떼면 끝까지 만점', () {
+      final c = RhythmController(chart: RhythmChart.course(2), sfx: RecordingSfx());
+      c.start();
+      var t = 0.0;
+      for (final e in c.chart.playerEvents) {
+        while (t < e.pressTime - 0.15) {
+          t += 0.016;
+          c.update(t);
+        }
+        if (e.isSwipe) {
+          // 박자 조금 전에 손을 대고(칼을 빼 든다), 박자에 맞춰 긋는다
+          expect(c.beginSwipe(t), isTrue);
+          expect(c.swing(3, t)!.swipe, isTrue);
+          while (t < e.time) {
+            t += 0.016;
+            c.update(t);
+          }
+          c.swipe(e.side, e.time);
+          continue;
+        }
+        while (t < e.pressTime) {
+          t += 0.016;
+          c.update(t);
+        }
+        final started = c.tap(e.side, e.pressTime);
+        expect(started, e.isHold);
+        if (e.isHold) {
+          while (t < e.time) {
+            t += 0.016;
+            c.update(t);
+          }
+          c.release(e.time);
+        }
+      }
+      while (t < c.chart.endTime + 0.5) {
+        t += 0.05;
+        c.update(t);
+      }
+      expect(c.judge.perfect, c.judge.total);
+      expect(c.judge.stars, 3);
+      expect(c.status, RhythmStatus.finished);
+    });
+
+    test('긋기: 손을 대면 칼을 빼 들고, 그으면 옆으로 휘두르며, 손만 떼면 취소된다', () {
+      final c = RhythmController(chart: RhythmChart.course(2), sfx: RecordingSfx());
+      c.start();
+      final e = c.chart.playerEvents.first;
+      expect(e.isSwipe, isTrue);
+      var t = 0.0;
+      // 한참 전에는 긋기를 기다리지 않는다
+      while (t < e.time - 1.0) {
+        t += 0.016;
+        c.update(t);
+      }
+      expect(c.beginSwipe(t), isFalse);
+      while (t < e.time - 0.2) {
+        t += 0.016;
+        c.update(t);
+      }
+      expect(c.beginSwipe(t), isTrue);
+      final armed = c.swing(3, t)!;
+      expect(armed.swipe, isTrue);
+      expect(armed.side, e.side);
+      expect(armed.sinceImpact, lessThan(0));
+      // 손을 떼면(거리 부족) 자세가 풀린다
+      c.cancelSwipe();
+      expect(c.swing(3, t), isNull);
+      // 다시 대고 그으면 그 박자가 완벽
+      expect(c.beginSwipe(t), isTrue);
+      c.swipe(e.side, e.time);
+      final done = c.swing(3, e.time + 0.05)!;
+      expect(done.swipe, isTrue);
+      expect(done.sinceImpact, greaterThanOrEqualTo(0));
+      expect(c.judge.perfect, 1);
+      expect(c.pops.single.rating, Rating.perfect);
+    });
+
+    test('긋기 소리: 내가 그으면 방향별 쓱 소리, 선배의 긋기는 선배용 쓱 소리', () {
+      final sfx = RecordingSfx();
+      final c = RhythmController(chart: RhythmChart.course(2), sfx: sfx);
+      c.start();
+      final mine = c.chart.playerEvents.first; // 오른쪽으로 긋기
+      expect(mine.side, Side.right);
+      var t = 0.0;
+      while (t < mine.time - 0.05) {
+        t += 0.016;
+        c.update(t);
+      }
+      expect(sfx.played, contains(Sfx.npcSwipeRight), reason: '앞사람(선배)의 긋기 소리');
+      expect(sfx.played, isNot(contains(Sfx.npcRight)), reason: '긋기 박자에는 탭 소리를 쓰지 않는다');
+      c.beginSwipe(t);
+      expect(sfx.played, isNot(contains(Sfx.swipeRight)));
+      c.swipe(Side.right, mine.time);
+      expect(sfx.played, contains(Sfx.swipeRight));
+      expect(sfx.played, isNot(contains(Sfx.swipeLeft)));
+      c.swipe(Side.left, mine.time + 0.1);
+      expect(sfx.played, contains(Sfx.swipeLeft));
+    });
+
+    test('긋기 박자가 없는 코스에서는 손을 대도 긋기를 기다리지 않는다', () {
+      final c = RhythmController(sfx: RecordingSfx());
+      c.start();
+      final first = c.chart.playerEvents.first;
+      c.update(first.time - 0.1);
+      expect(c.beginSwipe(first.time - 0.1), isFalse);
+    });
+
     test('꾹 누르는 동안 힘이 모이고, 안내 링은 떼야 할 때로 바뀐다', () {
       final c = RhythmController(chart: RhythmChart.course(1), sfx: RecordingSfx());
       c.start();
@@ -213,6 +321,64 @@ void main() {
       // 화면 양쪽 탭 (카운트다운 중이라 판정에는 영향 없음)
       await tester.tapAt(const Offset(150, 400));
       await tester.tapAt(const Offset(850, 400));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('3코스 화면: 슬라임 코스 안내 → 출발 → 놓쳐도 깨지지 않는다', (tester) async {
+      final c = RhythmController(chart: RhythmChart.course(2), sfx: RecordingSfx());
+      await pumpApp(tester, const Size(1000, 700), RhythmScreen(course: 2, controller: c, art: RhythmArt.empty()));
+      expect(find.text('마을 밖으로'), findsOneWidget);
+      expect(find.text('마을 밖이다! 슬라임이 나타났다!'), findsOneWidget);
+      await tester.tap(find.text('출발!'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(c.status, RhythmStatus.playing);
+      // 곡이 흘러 첫 박자를 놓치게 둔다 (슬라임이 덤비는 장면까지 그려 본다)
+      final first = c.chart.playerEvents.first;
+      var t = 0.0;
+      while (t < first.time + 0.3) {
+        t += 0.05;
+        c.update(t);
+      }
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(c.pops.isNotEmpty, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('옆으로 긋기: 손가락을 박자에 맞춰 가로로 끌면 판정된다 (탭으로는 안 됨)', (tester) async {
+      // 빠른 곡(박자 0.15초)으로 첫 긋기가 시작 후 약 1.5초에 오게 한다
+      final chart = RhythmChart.build(
+        const [TutorialStage(title: '긋기', hint: '', waves: [Motif.swipeRight, Motif.swipeLeft])],
+        bpm: 400,
+        countIn: 1,
+      );
+      final c = RhythmController(chart: chart, sfx: RecordingSfx());
+      await pumpApp(tester, const Size(1000, 700), RhythmScreen(controller: c, art: RhythmArt.empty()));
+      await tester.tap(find.text('훈련 시작!'));
+      await tester.pump(const Duration(milliseconds: 50));
+      final e = chart.playerEvents.first;
+      expect(e.isSwipe, isTrue);
+
+      // 박자 조금 앞까지 실제 시간을 흘려 보낸다
+      await tester.runAsync(() async {
+        while (c.now < e.time - 0.12) {
+          await Future<void>.delayed(const Duration(milliseconds: 15));
+          await tester.pump();
+        }
+      });
+      final g = await tester.startGesture(const Offset(300, 500));
+      await tester.pump();
+      expect(c.swing(3, c.now)?.swipe, isTrue, reason: '손을 대면 칼을 빼 든다');
+      expect(c.judge.judged, 0, reason: '손을 댄 것만으로는 판정하지 않는다');
+      await g.moveBy(const Offset(60, 0));
+      expect(c.judge.hits, 0, reason: '거리가 모자라면 아직 아니다');
+      await g.moveBy(const Offset(260, 4));
+      await tester.pump();
+      expect(c.judge.hits, 1);
+      expect(c.pops.single.rating.isHit, isTrue);
+      await g.up();
       await tester.pump(const Duration(milliseconds: 50));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

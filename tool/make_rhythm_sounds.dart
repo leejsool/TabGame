@@ -140,6 +140,30 @@ Float64List charge() => render(0.6, (t) {
       return (sin(2 * pi * f * vib * t) * 0.7 + sin(2 * pi * f * 2.01 * t) * 0.25 * k) * env;
     });
 
+/// 쓱! — 옆으로 긋는 소리. 대역 필터를 지난 잡음의 중심 주파수가 한 방향으로 쓸고 지나가고
+/// (오른쪽으로 긋기 = 올라가는 소리, 왼쪽으로 긋기 = 내려가는 소리), 끝에 아주 짧은 '스윽' 마무리가 붙는다.
+Float64List swipe({required bool toRight}) {
+  var low = 0.0;
+  var band = 0.0;
+  const q = 0.2; // 1/Q: 작을수록 휘파람처럼 또렷한 대역
+  return render(0.3, (t) {
+    final k = (t / 0.16).clamp(0.0, 1.0);
+    final sweep = toRight ? k : 1 - k;
+    final fc = 420 + 1700 * sweep * sweep;
+    final f = 2 * sin(pi * fc / sr);
+    final n = noise();
+    low += f * band;
+    final high = n - low - q * band;
+    band += f * high;
+    // 소리 크기: 빠르게 커졌다가(0.04초) 줄어든다
+    final amp = (t < 0.04 ? sin(pi / 2 * t / 0.04) : 1.0) * env(max(0.0, t - 0.04), 13);
+    // 끝의 짧은 마무리 (고음 잡음 한 톨)
+    final tt = max(0.0, t - 0.13);
+    final tail = t < 0.13 ? 0.0 : noise() * env(tt, 80) * 0.18;
+    return band * 2.2 * amp + tail;
+  });
+}
+
 void main() {
   save('hit_left', slash(pitch: 1.0, clang: 0.7));
   save('hit_right', slash(pitch: 1.18, clang: 0.7));
@@ -155,4 +179,9 @@ void main() {
   save('miss', miss(), gain: 0.5);
   save('stage_clear', fanfare(), gain: 0.6);
   save('all_clear', fanfare(big: true), gain: 0.7);
+  // 옆으로 긋기 (3코스~). 기존 소리의 난수 순서가 바뀌지 않도록 맨 끝에 둔다.
+  save('swipe_left', swipe(toRight: false), gain: 0.85);
+  save('swipe_right', swipe(toRight: true), gain: 0.85);
+  save('npc_swipe_left', swipe(toRight: false), gain: 0.5);
+  save('npc_swipe_right', swipe(toRight: true), gain: 0.5);
 }

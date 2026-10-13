@@ -121,6 +121,56 @@ void main() {
       });
     }
 
+    // 3코스: 슬라임 (기본 / 칼이 올라올 때 / 맞은 순간 / 내가 놓쳐서 덤빌 때) — 가로·세로
+    final sc = RhythmChart.course(2);
+    final w0 = sc.events.firstWhere((e) => e.wave == 1 && e.actor == 0);
+    final miss = sc.playerEvents.first;
+    final mineSwipe = sc.playerEvents.first; // 첫 물결(오른쪽으로 긋기)의 내 박자
+    final first0 = sc.events.firstWhere((e) => e.actor == 0 && e.wave == 0);
+    final slimeScenes = <String, (Size, double)>{
+      'slime_landscape_idle': (const Size(1100, 700), 1.0),
+      'slime_landscape_ready': (const Size(1100, 700), w0.time - 0.12),
+      'slime_landscape_hit': (const Size(1100, 700), w0.time + 0.07),
+      'slime_landscape_attack': (const Size(1100, 700), miss.time + 0.3),
+      'slime_portrait_hit': (const Size(600, 1000), w0.time + 0.07),
+      'slime_portrait_attack': (const Size(600, 1000), miss.time + 0.3),
+      // 옆으로 긋기: 선배의 준비/휘두름, 안내 화살표(링 단계/구슬 달리는 단계)
+      'swipe_landscape_npc_ready': (const Size(1100, 700), first0.time - 0.1),
+      'swipe_landscape_npc_swing': (const Size(1100, 700), first0.time + 0.05),
+      'swipe_landscape_guide_ring': (const Size(1100, 700), mineSwipe.time - 0.65),
+      'swipe_landscape_guide_run': (const Size(1100, 700), mineSwipe.time - 0.1),
+      'swipe_portrait_guide_run': (const Size(600, 1000), mineSwipe.time - 0.1),
+      'swipe_portrait_npc_swing': (const Size(600, 1000), first0.time + 0.05),
+    };
+    for (final entry in slimeScenes.entries) {
+      final (size, t) = entry.value;
+      await tester.binding.setSurfaceSize(size);
+      final c = RhythmController(chart: sc);
+      c.start();
+      for (var x = 0.0; x < t; x += 0.05) {
+        c.update(x);
+      }
+      c.update(t);
+      final k = GlobalKey();
+      await tester.pumpWidget(Directionality(
+        textDirection: TextDirection.ltr,
+        child: RepaintBoundary(
+          key: k,
+          child: Stack(children: [
+            Positioned.fill(child: CustomPaint(painter: BackgroundPainter(art))),
+            Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: () => t, wall: () => t, foe: Foe.slime))),
+          ]),
+        ),
+      ));
+      await tester.pump();
+      await tester.runAsync(() async {
+        final boundary = k.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final image = await boundary.toImage(pixelRatio: 1.0);
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('$dir/${entry.key}.png').writeAsBytes(bytes!.buffer.asUint8List());
+      });
+    }
+
     // 메뉴의 네 명 줄
     await tester.binding.setSurfaceSize(const Size(900, 330));
     final key2 = GlobalKey();

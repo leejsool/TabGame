@@ -12,12 +12,15 @@ const _gold = Color(0xFFFFD21F);
 const kInk = Color(0xFF1A1523);
 const _names = ['교관', '선배', '선배', '나'];
 
-/// 움직이는 부분: 허수아비, 검사들, 타격 효과, 안내 링, 이름표, 판정 글자.
+/// 움직이는 부분: 허수아비(또는 슬라임), 검사들, 타격 효과, 안내 링, 이름표, 판정 글자.
 class StagePainter extends CustomPainter {
-  StagePainter(this.c, {required this.art, required this.clock, required this.wall}) : super(repaint: c);
+  StagePainter(this.c, {required this.art, required this.clock, required this.wall, this.foe = Foe.dummy}) : super(repaint: c);
 
   final RhythmController c;
   final RhythmArt art;
+
+  /// 검사들 앞에 선 상대.
+  final Foe foe;
 
   /// 지금 곡 시간(초). 시작 전에는 음수.
   final double Function() clock;
@@ -49,9 +52,13 @@ class StagePainter extends CustomPainter {
       canvas.translate(sin(idle * 131) * k * 1.3, cos(idle * 107) * k);
     }
 
-    // ── 허수아비 ──
+    // ── 허수아비 / 슬라임 ──
     for (var i = 0; i < 4; i++) {
-      _drawDummy(canvas, L, i, c.swing(i, t));
+      if (foe == Foe.slime) {
+        _drawSlime(canvas, L, i, c.swing(i, t), t, idle);
+      } else {
+        _drawDummy(canvas, L, i, c.swing(i, t));
+      }
     }
 
     // 내 자리 표시: 바닥의 금빛 타원
@@ -75,7 +82,22 @@ class StagePainter extends CustomPainter {
       if (swing != null) {
         final s = swing.sinceImpact;
         mirror = swing.side == Side.left;
-        if (swing.charge != null) {
+        if (swing.swipe) {
+          // 옆으로 휘두르기: 칼을 뒤로 빼 들었다가 쓱 휘두른다 (칼끝에 푸른 궤적)
+          if (s >= 0 && s < 0.3) {
+            kind = 'side_swing';
+            final e = exp(-s * 18);
+            squashY = 1 - 0.04 * e;
+            squashX = 1 + 0.04 * e;
+          } else if (s < 0 && (s > -0.2 || i == 3)) {
+            kind = 'side_ready';
+            final k = i == 3 ? 1.0 : (1 + s / 0.2).clamp(0.0, 1.0);
+            squashY = 1 + 0.02 * k;
+            rotate = (mirror ? 1 : -1) * 0.02 * k;
+          } else {
+            mirror = false;
+          }
+        } else if (swing.charge != null) {
           // 꾹 눌러 힘을 모으는 중: 칼을 치켜든 채 점점 떨린다
           kind = 'windup';
           final ch = swing.charge!;
@@ -112,13 +134,13 @@ class StagePainter extends CustomPainter {
       );
     }
 
-    if (cue != null) _drawRing(canvas, L, cue);
+    if (cue != null) cue.isSwipe ? _drawSwipeGuide(canvas, L, cue) : _drawRing(canvas, L, cue);
     for (final p in c.pops) {
       _drawPop(canvas, L, p, t);
     }
     canvas.restore();
 
-    if (cue != null) _drawEdgeGlow(canvas, size, cue.remain, cue.side);
+    if (cue != null && !cue.isSwipe) _drawEdgeGlow(canvas, size, cue.remain, cue.side);
     if (impact > 0) {
       canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white.withValues(alpha: 0.14 * impact));
     }
@@ -151,15 +173,7 @@ class StagePainter extends CustomPainter {
     final dir = sw.side == Side.right ? 1.0 : -1.0;
     final player = i == 3;
 
-    // 칼바람: 검사 쪽에서 허수아비로 날아가는 흰 줄
-    if (s < 0.1) {
-      final k = s / 0.1;
-      final from = Offset(base.dx + dir * L.unit * 0.1, L.feetY - L.unit * 0.25);
-      final to = Offset(base.dx + dir * L.dummyHeight * 0.1, centerY);
-      final head = Offset.lerp(from, to, Curves.easeOut.transform(k))!;
-      final tail = Offset.lerp(from, to, max(0.0, Curves.easeOut.transform(k) - 0.3))!;
-      canvas.drawLine(tail, head, Paint()..color = Colors.white.withValues(alpha: 0.9)..strokeWidth = L.unit * 0.05..strokeCap = StrokeCap.round);
-    }
+    _drawSlash(canvas, L, base, dir, centerY, L.dummyHeight * 0.1, s);
 
     // 맞은 자리의 충격 별
     if (s < 0.17) {
@@ -180,21 +194,102 @@ class StagePainter extends CustomPainter {
     }
 
     // 나무 조각 (포물선)
+    _drawDebris(canvas, L, i, sw, Offset(base.dx + dir * L.dummyHeight * 0.1, centerY),
+        colors: const [Color(0xFFE9B96E), Color(0xFFC9482F)], count: 7, round: false);
+  }
+
+  // ── 슬라임: 숨 쉬듯 말랑거리다가, 칼이 올라오면 깜짝 놀라고, 맞으면 찌그러지며 튕겨 난다 ──
+  void _drawSlime(Canvas canvas, CampLayout L, int i, SwingState? sw, double t, double idle) {
+    final base = Offset(L.actorX(i), L.dummyBaseY);
+    final scale = L.slimeScale;
+    final centerY = base.dy - 346 * scale * 0.5;
+    var kind = 'idle';
+    var mirror = false;
+    var offset = Offset.zero;
+    var rotate = 0.0;
+    final breathe = sin(idle * 3.2 + i * 1.3);
+    var squashX = 1 - 0.025 * breathe;
+    var squashY = 1 + 0.035 * breathe;
+    var flash = 0.0;
+    var dir = 1.0;
+
+    if (sw != null && sw.sinceImpact >= 0 && sw.sinceImpact < 0.45) {
+      // 맞았다: 칼 맞은 쪽 반대로 튕기며 찌그러졌다 돌아온다
+      final s = sw.sinceImpact;
+      kind = 'hit';
+      mirror = sw.side == Side.left;
+      dir = sw.side == Side.right ? 1.0 : -1.0;
+      rotate = dir * 0.14 * exp(-5 * s) * cos(22 * s);
+      squashX = 1 - 0.1 * exp(-9 * s) * cos(30 * s);
+      squashY = 1 + 0.12 * exp(-9 * s) * cos(30 * s);
+      offset = Offset(-dir * L.unit * 0.05 * exp(-7 * s), 0);
+      flash = (1 - s / 0.12).clamp(0.0, 1.0);
+    } else if (sw != null && (sw.sinceImpact < 0 || sw.charge != null)) {
+      // 칼이 올라온다: 깜짝 놀라 부르르 떤다
+      kind = 'ready';
+      squashY = 1.04;
+      offset = Offset(sin(idle * 60) * L.unit * 0.004, 0);
+    } else if (i == 3 && c.pops.isNotEmpty) {
+      // 내가 놓치면 내 앞의 슬라임이 덤벼든다
+      final p = c.pops.last;
+      final age = t - p.at;
+      if ((p.rating == Rating.miss || p.rating == Rating.wrongSide) && age >= 0 && age < 0.45) {
+        final k = age / 0.45;
+        final lunge = sin(pi * k);
+        kind = 'attack';
+        mirror = p.side == Side.left;
+        offset = Offset((mirror ? -1 : 1) * L.unit * 0.18 * lunge, -L.unit * 0.07 * lunge);
+        squashX = 1 + 0.05 * lunge;
+        squashY = 1 - 0.04 * lunge;
+      }
+    }
+
+    Paint? paint;
+    if (flash > 0) {
+      paint = Paint()
+        ..filterQuality = FilterQuality.high
+        ..colorFilter = ColorFilter.mode(Colors.white.withValues(alpha: 0.85 * flash), BlendMode.srcATop);
+    }
+    drawSprite(canvas, art, RhythmArt.slimeSprite(kind), base + offset, scale,
+        mirror: mirror, squashX: squashX, squashY: squashY, rotate: rotate, paint: paint);
+
+    if (kind != 'hit' || sw == null || sw.sinceImpact > 0.5) return;
+    _drawSlash(canvas, L, base, dir, centerY, L.unit * 0.18, sw.sinceImpact);
+    _drawDebris(canvas, L, i, sw, Offset(base.dx + dir * L.unit * 0.18, centerY),
+        colors: const [Color(0xFF63B6FA), Color(0xFFBFE3FF)], count: 6, round: true);
+  }
+
+  /// 칼바람: 검사 쪽에서 맞는 자리로 날아가는 흰 줄.
+  void _drawSlash(Canvas canvas, CampLayout L, Offset base, double dir, double centerY, double reach, double s) {
+    if (s >= 0.1) return;
+    final k = s / 0.1;
+    final from = Offset(base.dx + dir * L.unit * 0.1, L.feetY - L.unit * 0.25);
+    final to = Offset(base.dx + dir * reach, centerY);
+    final head = Offset.lerp(from, to, Curves.easeOut.transform(k))!;
+    final tail = Offset.lerp(from, to, max(0.0, Curves.easeOut.transform(k) - 0.3))!;
+    canvas.drawLine(tail, head, Paint()..color = Colors.white.withValues(alpha: 0.9)..strokeWidth = L.unit * 0.05..strokeCap = StrokeCap.round);
+  }
+
+  /// 맞은 자리에서 포물선으로 흩어지는 조각들 (나무 조각 / 물방울).
+  void _drawDebris(Canvas canvas, CampLayout L, int i, SwingState sw, Offset c0, {required List<Color> colors, required int count, required bool round}) {
+    final s = sw.sinceImpact;
+    final dir = sw.side == Side.right ? 1.0 : -1.0;
     final rng = Random(i * 31 + sw.side.index);
     final k = (s / 0.5).clamp(0.0, 1.0);
-    final c0 = Offset(base.dx + dir * L.dummyHeight * 0.1, centerY);
-    for (var n = 0; n < 7; n++) {
+    for (var n = 0; n < count; n++) {
       final ang = -pi * (0.1 + 0.8 * rng.nextDouble()) + dir * 0.4;
       final sp = L.unit * (0.5 + 0.7 * rng.nextDouble());
       final pos = c0 + Offset(cos(ang) * sp * s, sin(ang) * sp * s + L.unit * 2.2 * s * s);
       final sz = L.unit * (0.014 + 0.016 * rng.nextDouble());
+      final paint = Paint()..color = colors[n.isEven ? 0 : 1].withValues(alpha: 1 - k);
+      if (round) {
+        canvas.drawCircle(pos, sz * 1.3, paint);
+        continue;
+      }
       canvas.save();
       canvas.translate(pos.dx, pos.dy);
       canvas.rotate(s * (6 + n * 3));
-      canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: sz * 2, height: sz * 1.3),
-        Paint()..color = (n.isEven ? const Color(0xFFE9B96E) : const Color(0xFFC9482F)).withValues(alpha: 1 - k),
-      );
+      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: sz * 2, height: sz * 1.3), paint);
       canvas.restore();
     }
   }
@@ -236,6 +331,49 @@ class StagePainter extends CustomPainter {
     if (cue.isHold) {
       _sticker(canvas, cue.releasing ? '떼!' : '꾹', pt + Offset(0, -u * 0.42), u * 0.17, cue.releasing ? const Color(0xFFFF9A4D) : const Color(0xFF9CCBFF));
     }
+  }
+
+  // ── 옆으로 긋기 안내: 시작점에서 링이 줄어든 뒤, 구슬이 화살표를 따라 달려가 끝에 닿는 순간이 박자 ──
+  void _drawSwipeGuide(Canvas canvas, CampLayout L, CueInfo cue) {
+    final size = L.size;
+    final u = L.unit;
+    final y = size.height * (L.landscape ? 0.74 : 0.78);
+    final toRight = cue.side == Side.right;
+    final startX = size.width * (toRight ? 0.2 : 0.8);
+    final endX = size.width * (toRight ? 0.8 : 0.2);
+    final dirX = toRight ? 1.0 : -1.0;
+    final start = Offset(startX, y);
+    final end = Offset(endX, y);
+
+    // 화살표 띠: 바깥 검은 선 + 안쪽 흰 선 + 끝의 화살촉
+    final head = u * 0.16;
+    final bodyEnd = Offset(endX - dirX * head * 0.7, y);
+    final band = Path()..moveTo(startX, y)..lineTo(bodyEnd.dx, y);
+    final tip = Path()
+      ..moveTo(endX, y)
+      ..lineTo(endX - dirX * head, y - head * 0.7)
+      ..lineTo(endX - dirX * head, y + head * 0.7)
+      ..close();
+    canvas.drawPath(band, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.115..strokeCap = StrokeCap.round..color = kInk);
+    canvas.drawPath(tip, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.07..strokeJoin = StrokeJoin.round..color = kInk);
+    canvas.drawPath(band, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.07..strokeCap = StrokeCap.round..color = Colors.white.withValues(alpha: 0.85));
+    canvas.drawPath(tip, Paint()..color = Colors.white.withValues(alpha: 0.85));
+
+    // 시작점 + 줄어드는 링 (remain 1 → 0.35), 그 뒤 구슬이 끝까지 달린다 (0.35 → 0)
+    const run = 0.35;
+    final ringK = ((cue.remain - run) / (1 - run)).clamp(0.0, 1.0);
+    final travel = Curves.easeIn.transform((1 - cue.remain / run).clamp(0.0, 1.0));
+    canvas.drawCircle(start, u * 0.15, Paint()..color = Colors.white.withValues(alpha: 0.7));
+    canvas.drawCircle(start, u * 0.15, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.03..color = kInk);
+    if (ringK > 0) {
+      final ring = u * (0.15 + 0.45 * ringK);
+      canvas.drawCircle(start, ring, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.075..color = kInk);
+      canvas.drawCircle(start, ring, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.045..color = const Color(0xFF5AD7FF));
+    }
+    final dot = Offset.lerp(start, end, travel)!;
+    canvas.drawCircle(dot, u * 0.1, Paint()..color = const Color(0xFF5AD7FF));
+    canvas.drawCircle(dot, u * 0.1, Paint()..style = PaintingStyle.stroke..strokeWidth = u * 0.03..color = kInk);
+    _sticker(canvas, '쓱!', Offset(size.width * 0.5, y - u * 0.34), u * 0.17, const Color(0xFF8BE3FF));
   }
 
   // ── 힘 모으기: 칼끝에 에너지 구슬이 커지고, 빛 알갱이가 빨려 든다 ──

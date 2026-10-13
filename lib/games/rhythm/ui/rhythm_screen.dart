@@ -43,6 +43,7 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
 
   RhythmController? _c;
   RhythmController get c => _c!;
+  RhythmCourse get _course => RhythmCourse.all[widget.course];
   late final Ticker _ticker;
   final Stopwatch _song = Stopwatch();
   final Stopwatch _wallClock = Stopwatch()..start();
@@ -54,6 +55,10 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
 
   /// 꾹 누르기를 시작한 손가락.
   int? _holdPointer;
+
+  /// 옆으로 긋기를 하는 손가락과 시작 위치 (기다리는 동안만 값이 있다).
+  int? _swipePointer;
+  Offset _swipeFrom = Offset.zero;
 
   double _songTime() => _song.elapsedMicroseconds / 1e6 - _lead;
   double _wall() => _wallClock.elapsedMicroseconds / 1e6;
@@ -159,11 +164,32 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
 
   void _onDown(PointerDownEvent e, double width) {
     if (_c == null || _paused || c.status != RhythmStatus.playing) return;
+    // 지금 해야 할 박자가 "옆으로 긋기"면 탭으로 치지 않고, 손가락이 충분히 움직일 때까지 기다린다
+    if (_swipePointer == null && c.beginSwipe(_songTime())) {
+      _swipePointer = e.pointer;
+      _swipeFrom = e.localPosition;
+      return;
+    }
     final side = e.localPosition.dx < width / 2 ? Side.left : Side.right;
     if (c.tap(side, _songTime())) _holdPointer = e.pointer;
   }
 
+  void _onMove(PointerMoveEvent e, double width) {
+    if (_c == null || e.pointer != _swipePointer || _paused) return;
+    final d = e.localPosition - _swipeFrom;
+    // 가로로 화면 너비의 20%(최소 100px) 이상, 세로보다 가로로 더 많이 움직이면 "그었다"
+    final need = (width * 0.2).clamp(100.0, 320.0);
+    if (d.dx.abs() < need || d.dx.abs() < d.dy.abs() * 1.2) return;
+    _swipePointer = null;
+    c.swipe(d.dx > 0 ? Side.right : Side.left, _songTime());
+  }
+
   void _onUp(PointerEvent e) {
+    if (_c != null && e.pointer == _swipePointer) {
+      _swipePointer = null;
+      c.cancelSwipe();
+      return;
+    }
     if (_c == null || e.pointer != _holdPointer) return;
     _holdPointer = null;
     if (_paused) return;
@@ -204,18 +230,19 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
           return Stack(
             children: [
               Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: BackgroundPainter(art)))),
-              Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: _songTime, wall: _wall))),
+              Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: _songTime, wall: _wall, foe: _course.foe))),
               // 화면 전체가 탭 영역: 왼쪽 절반 / 오른쪽 절반
               Positioned.fill(
                 child: Listener(
                   behavior: HitTestBehavior.opaque,
                   onPointerDown: (e) => _onDown(e, width),
+                  onPointerMove: (e) => _onMove(e, width),
                   onPointerUp: _onUp,
                   onPointerCancel: _onUp,
                   child: const SizedBox.expand(),
                 ),
               ),
-              SafeArea(child: _Hud(c: c, songTime: _songTime, onBack: () => Navigator.of(context).maybePop(), onPause: _pause)),
+              SafeArea(child: _Hud(c: c, welcome: _course.welcome, songTime: _songTime, onBack: () => Navigator.of(context).maybePop(), onPause: _pause)),
               AnimatedBuilder(
                 animation: c,
                 builder: (context, _) {
@@ -230,7 +257,7 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
                       onExit: () => Navigator.of(context).pop(),
                     );
                   }
-                  if (_paused) return _PauseCard(onResume: _resume, onExit: () => Navigator.of(context).pop());
+                  if (_paused) return _PauseCard(quitLabel: _course.foe == Foe.dummy ? '훈련 그만두기' : '그만두기', onResume: _resume, onExit: () => Navigator.of(context).pop());
                   return const SizedBox.shrink();
                 },
               ),
@@ -245,9 +272,10 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
 // ── 위쪽 안내 ──
 
 class _Hud extends StatelessWidget {
-  const _Hud({required this.c, required this.songTime, required this.onBack, required this.onPause});
+  const _Hud({required this.c, required this.welcome, required this.songTime, required this.onBack, required this.onPause});
 
   final RhythmController c;
+  final String welcome;
   final double Function() songTime;
   final VoidCallback onBack;
   final VoidCallback onPause;
@@ -270,7 +298,7 @@ class _Hud extends StatelessWidget {
                 children: [
                   _RoundButton(icon: Icons.arrow_back_rounded, onTap: onBack),
                   const SizedBox(width: 10),
-                  Expanded(child: IgnorePointer(child: _HintPanel(c: c, playing: playing))),
+                  Expanded(child: IgnorePointer(child: _HintPanel(c: c, welcome: welcome, playing: playing))),
                   const SizedBox(width: 10),
                   _RoundButton(icon: Icons.pause_rounded, onTap: onPause),
                 ],
@@ -313,14 +341,15 @@ class _RoundButton extends StatelessWidget {
 
 /// 위쪽 안내판: 단계 표시 점 + 교관의 한마디.
 class _HintPanel extends StatelessWidget {
-  const _HintPanel({required this.c, required this.playing});
+  const _HintPanel({required this.c, required this.welcome, required this.playing});
   final RhythmController c;
+  final String welcome;
   final bool playing;
 
   @override
   Widget build(BuildContext context) {
     final n = c.chart.stages.length;
-    final text = playing ? c.stageInfo.hint : '훈련소에 온 걸 환영한다!';
+    final text = playing ? c.stageInfo.hint : welcome;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 620),
@@ -505,11 +534,17 @@ class _ReadyCard extends StatelessWidget {
             _HowTo(icon: Icons.keyboard_double_arrow_right_rounded, title: '오른쪽 탭', sub: '화면 오른쪽 절반'),
             _HowTo(icon: Icons.touch_app_rounded, title: '2연속', sub: '같은 쪽 빠르게 두 번'),
           ]
-        : const [
-            _HowTo(icon: Icons.touch_app_rounded, title: '탭', sub: '짧게 눌러 바로 내려치기'),
-            _HowTo(icon: Icons.bolt_rounded, title: '꾹 누르기', sub: '누르고 있으면 힘이 모여요'),
-            _HowTo(icon: Icons.back_hand_rounded, title: '떼기', sub: '손을 떼면 내려쳐요'),
-          ];
+        : course == 1
+            ? const [
+                _HowTo(icon: Icons.touch_app_rounded, title: '탭', sub: '짧게 눌러 바로 내려치기'),
+                _HowTo(icon: Icons.bolt_rounded, title: '꾹 누르기', sub: '누르고 있으면 힘이 모여요'),
+                _HowTo(icon: Icons.back_hand_rounded, title: '떼기', sub: '손을 떼면 내려쳐요'),
+              ]
+            : const [
+                _HowTo(icon: Icons.swipe_rounded, title: '옆으로 긋기', sub: '화면을 쓱 그으면 베어요'),
+                _HowTo(icon: Icons.touch_app_rounded, title: '방향', sub: '화살표 쪽으로 그어요'),
+                _HowTo(icon: Icons.bolt_rounded, title: '탭·꾹', sub: '배운 것도 섞여 나와요'),
+              ];
     return _Card(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -548,7 +583,7 @@ class _ReadyCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: _ink, width: 3.5)),
               ),
-              child: Text(onStart == null ? '준비 중…' : '훈련 시작!', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+              child: Text(onStart == null ? '준비 중…' : (info.foe == Foe.dummy ? '훈련 시작!' : '출발!'), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             ),
           ),
         ],
@@ -580,7 +615,8 @@ class _HowTo extends StatelessWidget {
 }
 
 class _PauseCard extends StatelessWidget {
-  const _PauseCard({required this.onResume, required this.onExit});
+  const _PauseCard({required this.quitLabel, required this.onResume, required this.onExit});
+  final String quitLabel;
   final VoidCallback onResume;
   final VoidCallback onExit;
 
@@ -597,7 +633,7 @@ class _PauseCard extends StatelessWidget {
             child: FilledButton(onPressed: onResume, child: const Padding(padding: EdgeInsets.all(10), child: Text('계속하기', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))),
           ),
           const SizedBox(height: 8),
-          TextButton(onPressed: onExit, child: const Text('훈련 그만두기')),
+          TextButton(onPressed: onExit, child: Text(quitLabel)),
         ],
       ),
     );

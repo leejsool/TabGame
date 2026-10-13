@@ -16,7 +16,7 @@ class RatingPop {
 
 /// 선배(또는 플레이어)가 휘두르는 중인 동작.
 class SwingState {
-  const SwingState(this.progress, this.side, this.sinceImpact, {this.charge});
+  const SwingState(this.progress, this.side, this.sinceImpact, {this.charge, this.swipe = false});
 
   /// 0 = 들어올리기 시작, [kImpactProgress] = 맞는 순간, 1 = 자세 회복.
   final double progress;
@@ -27,11 +27,14 @@ class SwingState {
 
   /// 꾹 눌러 힘을 모으는 중이면 모인 정도 0~1, 아니면 null.
   final double? charge;
+
+  /// 옆으로 휘두르는 동작인가 (화면을 옆으로 긋는 박자). [side]는 칼이 휘둘러지는 쪽.
+  final bool swipe;
 }
 
 /// 안내 링 하나: 남은 시간(1에서 시작해 0에서 맞음), 방향, 꾹 누르기 여부.
 class CueInfo {
-  const CueInfo(this.remain, this.side, {this.isHold = false, this.releasing = false});
+  const CueInfo(this.remain, this.side, {this.isHold = false, this.releasing = false, this.isSwipe = false});
 
   final double remain;
   final Side side;
@@ -41,6 +44,9 @@ class CueInfo {
 
   /// 이미 누르고 있고 이제 떼야 하는 때인가.
   final bool releasing;
+
+  /// 옆으로 긋는 박자인가 ([side]는 긋는 방향).
+  final bool isSwipe;
 }
 
 /// 들어올리는 시간 / 맞은 뒤 자세 회복 시간 (초).
@@ -103,6 +109,13 @@ class RhythmController extends ChangeNotifier {
   double? _playerSwingAt;
   Side _playerSwingSide = Side.left;
 
+  /// 플레이어가 마지막으로 내려친 동작이 옆으로 긋기였는가.
+  bool _playerSwingSwipe = false;
+
+  /// 긋기를 하려고 화면에 손을 댄 채 기다리는 중 (칼을 뒤로 빼 든 자세를 보여 준다).
+  bool _swipeArmed = false;
+  Side _swipeArmSide = Side.right;
+
   /// 플레이어가 꾹 누르기 시작한 시각/방향.
   double? _holdStartT;
   Side _holdSide = Side.left;
@@ -132,7 +145,8 @@ class RhythmController extends ChangeNotifier {
     for (final e in chart.events) {
       if (e.isPlayer) continue;
       if (e.isHold) _cues.add(_Cue(e.pressTime, Sfx.charge));
-      _cues.add(_Cue(e.time, e.side == Side.left ? Sfx.npcLeft : Sfx.npcRight));
+      final left = e.side == Side.left;
+      _cues.add(_Cue(e.time, e.isSwipe ? (left ? Sfx.npcSwipeLeft : Sfx.npcSwipeRight) : (left ? Sfx.npcLeft : Sfx.npcRight)));
     }
     _cues.sort((a, b) => a.time.compareTo(b.time));
   }
@@ -189,6 +203,7 @@ class RhythmController extends ChangeNotifier {
       sfx.play(side == Side.left ? Sfx.hitLeft : Sfx.hitRight);
       _playerSwingAt = t;
       _playerSwingSide = side;
+      _playerSwingSwipe = false;
       notifyListeners();
       return false;
     }
@@ -204,8 +219,46 @@ class RhythmController extends ChangeNotifier {
     sfx.play(side == Side.left ? Sfx.hitLeft : Sfx.hitRight);
     _playerSwingAt = t;
     _playerSwingSide = side;
+    _playerSwingSwipe = false;
     _afterJudge(r, t, side);
     return false;
+  }
+
+  /// 화면에 손을 댔을 때: 지금 해야 할 박자가 "옆으로 긋기"면 true.
+  /// true이면 탭으로 치지 말고 손가락이 일정 거리 움직일 때까지 기다렸다가 [swipe]를 불러야 한다.
+  bool beginSwipe(double t) {
+    if (status != RhythmStatus.playing || t < 0) return false;
+    final adj = t - inputOffset;
+    final e = _judge.nextPending(adj);
+    // 박자 바로 앞뒤에 닿았을 때만 (한참 먼 긋기를 미리 당겨 치는 건 아님)
+    if (e == null || !e.isSwipe || e.time - adj > 0.6) return false;
+    _swipeArmed = true;
+    _swipeArmSide = e.side;
+    notifyListeners();
+    return true;
+  }
+
+  /// 긋기를 하다가 손을 뗐다 (거리를 못 채움).
+  void cancelSwipe() {
+    if (!_swipeArmed) return;
+    _swipeArmed = false;
+    notifyListeners();
+  }
+
+  /// 플레이어가 화면을 [dir] 쪽으로 일정 거리 그었다. [t]는 [update]와 같은 시계의 시각.
+  void swipe(Side dir, double t) {
+    if (status != RhythmStatus.playing || t < 0) return;
+    _swipeArmed = false;
+    now = t;
+    sfx.play(dir == Side.left ? Sfx.swipeLeft : Sfx.swipeRight);
+    _playerSwingAt = t;
+    _playerSwingSide = dir;
+    _playerSwingSwipe = true;
+    if (t < chart.countInBeats * chart.beat) {
+      notifyListeners();
+      return;
+    }
+    _afterJudge(_judge.swipe(t - inputOffset, dir), t, dir);
   }
 
   /// 플레이어가 손을 뗐다. 꾹 누르고 있던 중이 아니면 아무 일도 없다.
@@ -217,6 +270,7 @@ class RhythmController extends ChangeNotifier {
     sfx.play(_holdSide == Side.left ? Sfx.hitLeft : Sfx.hitRight);
     _playerSwingAt = t;
     _playerSwingSide = _holdSide;
+    _playerSwingSwipe = false;
     _holdStartT = null;
     _afterJudge(r, t, _holdSide);
   }
@@ -248,6 +302,8 @@ class RhythmController extends ChangeNotifier {
     _cueIndex = 0;
     pops.clear();
     _playerSwingAt = null;
+    _playerSwingSwipe = false;
+    _swipeArmed = false;
     _holdStartT = null;
     _stage = 0;
     for (var i = 0; i < _stageHits.length; i++) {
@@ -271,12 +327,14 @@ class RhythmController extends ChangeNotifier {
         final charge = ((t - hs) / len).clamp(0.0, 1.0);
         return SwingState(kImpactProgress * 0.9, _holdSide, -0.05, charge: charge);
       }
+      // 옆으로 긋기를 하려고 손을 댄 채 기다리는 중: 칼을 뒤로 빼 든다
+      if (_swipeArmed) return SwingState(kImpactProgress * 0.9, _swipeArmSide, -0.05, swipe: true);
       final at = _playerSwingAt;
       if (at == null) return null;
       final dt = t - at;
       if (dt < 0 || dt > kRecover) return null;
-      // 플레이어는 탭한(또는 손을 뗀) 순간이 곧 내려치는 순간
-      return SwingState(kImpactProgress + dt / kRecover * (1 - kImpactProgress), _playerSwingSide, dt);
+      // 플레이어는 탭한(또는 손을 뗀, 그은) 순간이 곧 내려치는 순간
+      return SwingState(kImpactProgress + dt / kRecover * (1 - kImpactProgress), _playerSwingSide, dt, swipe: _playerSwingSwipe);
     }
     final list = _byActor[actor]!;
     // 꾹 누르는 중인 선배: 힘을 모으는 자세를 유지한다
@@ -303,7 +361,7 @@ class RhythmController extends ChangeNotifier {
       final p = dt < 0
           ? (1 + dt / kWindup) * kImpactProgress
           : kImpactProgress + dt / kRecover * (1 - kImpactProgress);
-      return SwingState(p, best.side, dt);
+      return SwingState(p, best.side, dt, swipe: best.isSwipe);
     }
     return null;
   }
@@ -319,7 +377,7 @@ class RhythmController extends ChangeNotifier {
     final remain = ref - tAdj;
     final span = chart.beat * 1.4;
     if (remain > span) return null;
-    return CueInfo((remain / span).clamp(-0.2, 1.0), e.side, isHold: e.isHold, releasing: releasing);
+    return CueInfo((remain / span).clamp(-0.2, 1.0), e.side, isHold: e.isHold, releasing: releasing, isSwipe: e.isSwipe);
   }
 
   /// 지금 박자에 쳐야 하는 사람(0~3). 카운트다운 중이거나 시작 전이면 -1.
