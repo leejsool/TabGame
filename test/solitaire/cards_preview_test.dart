@@ -20,10 +20,10 @@ void main() {
     await loader.load();
     final big = Platform.environment['BIG_CARDS'] != null;
     CardLook.style = CardStyle.values.byName(Platform.environment['CARD_STYLE'] ?? 'bicycle');
-    CardLook.fourColor = Platform.environment['FOUR_COLOR'] != null;
+    CardLook.palette = SuitPalette.values.byName(Platform.environment['SUIT_PALETTE'] ?? 'twoColor');
     addTearDown(() {
       CardLook.style = CardStyle.bicycle;
-      CardLook.fourColor = false;
+      CardLook.palette = SuitPalette.twoColor;
     });
     // 큰 그림: 카드는 늘 가로:세로 = 1:1.4 (칸에 맞춰 찌그러뜨리지 않는다)
     await tester.binding.setSurfaceSize(big ? const Size(1300, 480) : const Size(1400, 700));

@@ -162,7 +162,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('기록이 없으면 안내가 보이고, 기록 화면은 4개 탭이다', (tester) async {
+    testWidgets('기록이 없으면 안내가 보이고, 기록 화면에서 다른 게임으로 바꿀 수 있다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -170,8 +170,11 @@ void main() {
       await tester.pumpWidget(await appWith(const RecordsScreen(initialGame: 'freecell')));
       await settle(tester, rounds: 4);
       expect(find.textContaining('아직 완성한 판이 없어요'), findsOneWidget);
+      expect(find.text('프리셀'), findsOneWidget); // 지금 보는 게임 이름
+      // 고르개를 열면 다른 게임들이 보인다
+      await tester.tap(find.byIcon(Icons.arrow_drop_down_rounded));
+      await settle(tester, rounds: 6);
       expect(find.text('스도쿠'), findsOneWidget);
-      expect(find.text('프리셀'), findsOneWidget);
       expect(find.text('직소퍼즐'), findsOneWidget);
       expect(find.text('고블렛'), findsOneWidget);
     });

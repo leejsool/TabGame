@@ -51,6 +51,14 @@ Future<void> settle(WidgetTester tester, {int rounds = 10}) async {
   }
 }
 
+/// 기록 화면에서 위쪽 게임 고르개를 눌러 [name] 게임으로 바꾼다.
+Future<void> switchRecordsTo(WidgetTester tester, String name) async {
+  await tester.tap(find.byIcon(Icons.arrow_drop_down_rounded));
+  await settle(tester, rounds: 6);
+  await tester.tap(find.text(name).last);
+  await settle(tester, rounds: 6);
+}
+
 void main() {
   group('날짜 표시', () {
     test('올해는 연도를 생략하고, 다른 해는 연도를 붙인다', () {
@@ -116,6 +124,36 @@ void main() {
   });
 
   group('기록 보드 화면', () {
+    testWidgets('게임이 많아도 이름이 잘리지 않는다: 위에 이름이 통째로 보이고, 누르면 모든 게임이 목록으로 나온다', (tester) async {
+      addTearDown(tester.view.reset);
+      for (final size in const [Size(360, 740), Size(800, 1280)]) {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        SharedPreferences.setMockInitialValues({});
+        await tester.pumpWidget(const SizedBox()); // 앞 크기에서 바뀐 화면 상태가 남지 않게
+        await tester.pumpWidget(await appWith(const RecordsScreen(initialGame: 'ultimate_tictactoe')));
+        await settle(tester, rounds: 3);
+        // 긴 이름도 통째로 보인다
+        expect(find.text('궁극 틱택토'), findsOneWidget);
+        // 눌러서 목록을 열면 모든 게임이 보이고, 고르면 그 게임으로 바뀐다
+        await tester.tap(find.text('궁극 틱택토'));
+        await settle(tester, rounds: 6);
+        for (final name in ['스도쿠', '프리셀', '지뢰찾기', '솔리테어', '직소퍼즐', '겟 컬러', '궁극 틱택토', '고블렛', '콩나물', '민들레']) {
+          expect(find.text(name), findsWidgets, reason: name);
+        }
+        await tester.tap(find.text('민들레').last);
+        await settle(tester, rounds: 6);
+        expect(find.text('민들레'), findsOneWidget); // 위에 고른 게임 이름
+        expect(find.text('10/10'), findsOneWidget);
+        // 옆 화살표로 이웃 게임으로
+        await tester.tap(find.byTooltip('다음 게임'));
+        await settle(tester, rounds: 6);
+        expect(find.text('스도쿠'), findsOneWidget);
+        expect(find.text('1/10'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets('스도쿠: 요약과 목록이 보이고, "다시 풀기"는 같은 판을 연다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
@@ -288,8 +326,7 @@ void main() {
       await tester.pumpWidget(await appWith(const RecordsScreen()));
       await settle(tester, rounds: 4);
       expect(find.textContaining('아직 완성한 판이 없어요'), findsOneWidget);
-      await tester.tap(find.text('고블렛'));
-      await settle(tester, rounds: 3);
+      await switchRecordsTo(tester, '고블렛');
       expect(find.textContaining('아직 끝낸 판이 없어요'), findsOneWidget);
     });
 
@@ -321,11 +358,9 @@ void main() {
         await tester.pumpWidget(await appWith(const RecordsScreen()));
         await settle(tester, rounds: 4);
         expect(tester.takeException(), isNull);
-        await tester.tap(find.text('직소퍼즐'));
-        await settle(tester, rounds: 6);
+        await switchRecordsTo(tester, '직소퍼즐');
         expect(tester.takeException(), isNull);
-        await tester.tap(find.text('고블렛'));
-        await settle(tester, rounds: 3);
+        await switchRecordsTo(tester, '고블렛');
         expect(tester.takeException(), isNull);
       });
     });

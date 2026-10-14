@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../core/mines_rules.dart' show CellMark;
 import '../game/mines_controller.dart';
 import 'mines_painter.dart';
 
 /// 지뢰찾기 판: 칸을 톡 치면 열기(숫자는 코드). 꾹 누르면 원형 메뉴가 뜬다: 가운데에서 떼면 취소,
 /// 위쪽 120도는 열기, 오른쪽 아래 120도는 깃발, 왼쪽 아래 120도는 물음표(?). 두 손가락으로 확대/이동.
+/// 확대한 상태에서는 이미 열린 칸을 한 손가락으로 잡고 끌어도 화면이 움직인다 (톡 치면 코드).
 class MinesBoardView extends StatefulWidget {
   const MinesBoardView({super.key, required this.controller});
 
@@ -31,8 +33,21 @@ class _MinesBoardState extends State<MinesBoardView> with SingleTickerProviderSt
   Timer? _showTimer;
   final ValueNotifier<MinesPress?> _press = ValueNotifier(null);
 
-  /// 두 손가락일 때만 판을 끌어서 옮긴다 (한 손가락 끌기는 깃발·물음표에 쓰이므로).
+  /// 두 손가락일 때만 InteractiveViewer가 판을 옮긴다 (한 손가락 끌기는 깃발·물음표에 쓰이므로).
   bool _panOk = false;
+
+  // 확대했을 때 이미 열린 칸을 한 손가락으로 끌어서 화면을 옮기는 중
+  int? _panPointer;
+  Offset _panLast = Offset.zero;
+  double _panMoved = 0;
+  Offset _panAccum = Offset.zero; // 끌기로 인정되기 전까지 움직인 만큼 (인정되면 한꺼번에 옮겨서 끊김이 없게)
+  bool _panning = false;
+  Size _area = Size.zero;
+
+  /// 이만큼 움직여야 "끌기"로 본다 (손가락이 조금 떨리는 것은 톡 치기).
+  static const _panSlop = 10.0;
+
+  bool get _zoomed => _zoom.value.getMaxScaleOnAxis() > 1.01;
 
   /// 이만큼 눌러야 안내가 나타난다 (톡 치는 탭에서는 번쩍이지 않게).
   static const _showDelay = Duration(milliseconds: 220);
@@ -72,11 +87,21 @@ class _MinesBoardState extends State<MinesBoardView> with SingleTickerProviderSt
     _pointers.add(e.pointer);
     if (_pointers.length >= 2) {
       _cancelPress();
+      _panPointer = null;
+      _panning = false;
       if (!_panOk) setState(() => _panOk = true);
       return;
     }
-    if (!c.canAct) return;
     final i = layout.cellAt(e.localPosition);
+    // 확대한 판에서 이미 열린 칸(또는 끝난 판의 아무 칸)을 잡으면, 끌었을 때 화면이 움직이게 준비한다
+    if (_zoomed && (i == null || !c.canAct || c.board.marks[i] == CellMark.revealed)) {
+      _panPointer = e.pointer;
+      _panLast = e.position;
+      _panMoved = 0;
+      _panAccum = Offset.zero;
+      _panning = false;
+    }
+    if (!c.canAct) return;
     if (i == null) return;
     _pressPointer = e.pointer;
     _pressStart = e.position;
@@ -95,7 +120,36 @@ class _MinesBoardState extends State<MinesBoardView> with SingleTickerProviderSt
     });
   }
 
+  /// 화면(확대한 판)을 [d]만큼 옮긴다. 판 가장자리 밖으로는 못 간다.
+  void _panBy(Offset d) {
+    final m = _zoom.value.clone();
+    final s = m.getMaxScaleOnAxis();
+    final tx = (m.entry(0, 3) + d.dx).clamp(_area.width * (1 - s), 0.0);
+    final ty = (m.entry(1, 3) + d.dy).clamp(_area.height * (1 - s), 0.0);
+    m
+      ..setEntry(0, 3, tx)
+      ..setEntry(1, 3, ty);
+    _zoom.value = m;
+  }
+
   void _pointerMove(PointerMoveEvent e) {
+    if (e.pointer == _panPointer && _pointers.length < 2) {
+      final d = e.position - _panLast;
+      _panLast = e.position;
+      _panMoved += d.distance;
+      _panAccum += d;
+      if (!_panning && _panMoved > _panSlop) {
+        // 끌기가 시작됐다: 칸 누르기(코드)는 취소하고, 지금까지 움직인 만큼 화면을 옮긴다
+        _panning = true;
+        _cancelPress();
+        _panBy(_panAccum);
+        return;
+      }
+      if (_panning) {
+        _panBy(d);
+        return;
+      }
+    }
     final p = _press.value;
     if (p == null || e.pointer != _pressPointer) return;
     final d = e.position - _pressStart;
@@ -111,6 +165,12 @@ class _MinesBoardState extends State<MinesBoardView> with SingleTickerProviderSt
   void _pointerUp(PointerEvent e) {
     final removed = _pointers.remove(e.pointer);
     if (_pointers.length < 2 && _panOk) setState(() => _panOk = false);
+    if (e.pointer == _panPointer) {
+      final wasPanning = _panning;
+      _panPointer = null;
+      _panning = false;
+      if (wasPanning) return; // 끌기였으니 칸은 누르지 않은 것으로 한다
+    }
     final p = _press.value;
     if (!removed || p == null || e.pointer != _pressPointer) return;
     final cancelled = e is PointerCancelEvent;
@@ -141,6 +201,7 @@ class _MinesBoardState extends State<MinesBoardView> with SingleTickerProviderSt
     return LayoutBuilder(
       builder: (context, box) {
         final area = box.biggest;
+        _area = area;
         final layout = MinesLayout(area, c.board.rows, c.board.cols);
         final repaint = Listenable.merge([c, _frame]);
         return InteractiveViewer(

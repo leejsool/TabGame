@@ -36,6 +36,18 @@ enum CardBackStyle {
   final String description;
 }
 
+/// 무늬 색깔 묶음. 설정에서 고르고, 프리셀·솔리테어의 모든 카드가 따른다.
+enum SuitPalette {
+  twoColor('기본 (두 색)', '검정 · 빨강 두 가지'),
+  fourColor('4색', '무늬마다 다른 색'),
+  family('4색 (계열 유지)', '검정 계열 · 빨강 계열');
+
+  const SuitPalette(this.label, this.detail);
+
+  final String label;
+  final String detail;
+}
+
 /// 지금 선택된 카드 모양. (그리는 쪽에서 바로 읽을 수 있게 전역으로 둔다. [Settings]가 바뀔 때 갱신한다)
 class CardLook {
   CardLook._();
@@ -54,6 +66,6 @@ class CardLook {
         CardLayout.auto => shortestSide < 600,
       };
 
-  /// 무늬마다 다른 색 (♠ 검정, ♥ 빨강, ♣ 초록, ♦ 파랑)으로 구분하기 쉽게.
-  static bool fourColor = false;
+  /// 무늬 색깔 (기본 두 색 / 4색 / 4색 계열 유지).
+  static SuitPalette palette = SuitPalette.twoColor;
 }

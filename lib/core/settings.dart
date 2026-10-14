@@ -17,13 +17,22 @@ class Settings extends ChangeNotifier {
         _cardStyle = _readCardStyle(_prefs.getString(_kCardStyle)),
         _cardBackStyle = _readCardBackStyle(_prefs.getString(_kCardBackStyle)),
         _cardLayout = _readCardLayout(_prefs.getString(_kCardLayout)),
-        _fourColor = _prefs.getBool(_kFourColor) ?? false,
+        _suitPalette = _readSuitPalette(_prefs),
         _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true,
         _showTutorials = _prefs.getBool(_kShowTutorials) ?? true {
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
     CardLook.layout = _cardLayout;
-    CardLook.fourColor = _fourColor;
+    CardLook.palette = _suitPalette;
+  }
+
+  /// 예전 "무늬 4색으로 보기"(켜짐/꺼짐) 설정도 이어받는다.
+  static SuitPalette _readSuitPalette(SharedPreferences prefs) {
+    final name = prefs.getString(_kSuitPalette);
+    for (final p in SuitPalette.values) {
+      if (p.name == name) return p;
+    }
+    return (prefs.getBool(_kFourColor) ?? false) ? SuitPalette.fourColor : SuitPalette.twoColor;
   }
 
   static CardLayout _readCardLayout(String? name) {
@@ -56,7 +65,8 @@ class Settings extends ChangeNotifier {
   static const _kCardStyle = 'cardStyle';
   static const _kCardBackStyle = 'cardBackStyle';
   static const _kCardLayout = 'cardLayout';
-  static const _kFourColor = 'cardFourColor';
+  static const _kFourColor = 'cardFourColor'; // 예전 설정 (켜짐/꺼짐)
+  static const _kSuitPalette = 'suitPalette';
   static const _kAutoUpdateCheck = 'autoUpdateCheck';
   static const _kLastUpdateCheck = 'lastUpdateCheckMs';
   static const _kShowTutorials = 'showTutorials';
@@ -71,7 +81,7 @@ class Settings extends ChangeNotifier {
   CardStyle _cardStyle;
   CardBackStyle _cardBackStyle;
   CardLayout _cardLayout;
-  bool _fourColor;
+  SuitPalette _suitPalette;
   bool _autoUpdateCheck;
   bool _showTutorials;
 
@@ -127,13 +137,13 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 무늬마다 다른 색으로 카드를 구분하기 쉽게.
-  bool get fourColor => _fourColor;
+  /// 무늬 색깔 (기본 두 색 / 4색 / 4색 계열 유지).
+  SuitPalette get suitPalette => _suitPalette;
 
-  set fourColor(bool v) {
-    _fourColor = v;
-    CardLook.fourColor = v;
-    _prefs.setBool(_kFourColor, v);
+  set suitPalette(SuitPalette v) {
+    _suitPalette = v;
+    CardLook.palette = v;
+    _prefs.setString(_kSuitPalette, v.name);
     notifyListeners();
   }
 

@@ -82,13 +82,7 @@ class SettingsScreen extends StatelessWidget {
             _CardStylePicker(settings: settings),
             _CardLayoutPicker(settings: settings),
             _CardBackStylePicker(settings: settings),
-            SwitchListTile(
-              secondary: const Icon(Icons.palette_rounded),
-              title: const Text('무늬 4색으로 보기'),
-              subtitle: const Text('♠ 검정 · ♥ 빨강 · ♣ 초록 · ♦ 파랑으로 구분하기 쉬워요'),
-              value: settings.fourColor,
-              onChanged: (v) => settings.fourColor = v,
-            ),
+            _SuitColorPicker(settings: settings),
             const Divider(height: 24),
             ListTile(
               leading: const Icon(Icons.brightness_6_rounded),
@@ -120,6 +114,126 @@ class SettingsScreen extends StatelessWidget {
       )),
     );
   }
+}
+
+/// 무늬 색 고르기: 기본(두 색) / 4색 / 4색(계열 유지)를 위아래로 나란히 보여 주고, 누르면 바로 바뀐다.
+/// 설정 화면에서 바로 차이가 보이게, 각 줄에 무늬 네 개를 실제 색으로 그린다.
+class _SuitColorPicker extends StatelessWidget {
+  const _SuitColorPicker({required this.settings});
+
+  final Settings settings;
+
+  // 보여 주는 순서: ♠ ♥ ♣ ♦ (무늬 번호는 ♣=0 ♦=1 ♥=2 ♠=3)
+  static const _order = [3, 2, 0, 1];
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.palette_rounded, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 16),
+              const Text('무늬 색깔', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final p in SuitPalette.values) ...[
+            _SuitColorTile(palette: p, selected: settings.suitPalette == p, onTap: () => settings.suitPalette = p),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            switch (settings.suitPalette) {
+              SuitPalette.twoColor => '전통 카드처럼 스페이드·클로버는 검정, 하트·다이아는 빨강이에요.',
+              SuitPalette.fourColor => '작은 카드에서도 스페이드와 클로버, 하트와 다이아를 색으로 바로 알아봐요.',
+              SuitPalette.family => '검정 계열(스페이드·클로버)과 빨강 계열(하트·다이아)은 지키면서 무늬도 색으로 구분해요. 번갈아 쌓는 규칙을 볼 때 편해요.',
+            },
+            style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuitColorTile extends StatelessWidget {
+  const _SuitColorTile({required this.palette, required this.selected, required this.onTap});
+
+  final SuitPalette palette;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected ? scheme.primaryContainer.withValues(alpha: 0.55) : scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant, width: selected ? 2.5 : 1),
+          ),
+          child: Row(
+            children: [
+              Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, size: 22, color: selected ? scheme.primary : scheme.outline),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(palette.label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                    Text(palette.detail, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 흰 카드 위에 무늬 네 개를 실제 색으로
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0x22000000)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final suit in _SuitColorPicker._order)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: SizedBox(width: 24, height: 24, child: CustomPaint(painter: _SuitGlyphPainter(suit, paletteSuitColor(palette, suit)))),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SuitGlyphPainter extends CustomPainter {
+  const _SuitGlyphPainter(this.suit, this.color);
+
+  final int suit;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) => drawSuit(canvas, suit, Offset.zero & size, Paint()..color = color);
+
+  @override
+  bool shouldRepaint(_SuitGlyphPainter old) => old.suit != suit || old.color != color;
 }
 
 class _CardBackStylePicker extends StatelessWidget {
@@ -239,7 +353,7 @@ class _CardLayoutPicker extends StatelessWidget {
                         layout: layout,
                         selected: settings.cardLayout == layout,
                         style: settings.cardStyle,
-                        fourColor: settings.fourColor,
+                        palette: settings.suitPalette,
                         onTap: () => settings.cardLayout = layout,
                       ),
                     ),
@@ -254,12 +368,12 @@ class _CardLayoutPicker extends StatelessWidget {
 }
 
 class _LayoutTile extends StatelessWidget {
-  const _LayoutTile({required this.layout, required this.selected, required this.style, required this.fourColor, required this.onTap});
+  const _LayoutTile({required this.layout, required this.selected, required this.style, required this.palette, required this.onTap});
 
   final CardLayout layout;
   final bool selected;
   final CardStyle style;
-  final bool fourColor;
+  final SuitPalette palette;
   final VoidCallback onTap;
 
   @override
@@ -274,7 +388,7 @@ class _LayoutTile extends StatelessWidget {
     Widget mini(int card) => SizedBox(
           width: 46,
           height: 64,
-          child: CustomPaint(painter: PlayingCardPainter(card, style: style, fourColor: fourColor, compact: compact)),
+          child: CustomPaint(painter: PlayingCardPainter(card, style: style, palette: palette, compact: compact)),
         );
     return Material(
       color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
@@ -351,7 +465,7 @@ class _CardStylePicker extends StatelessWidget {
                       child: _StyleTile(
                         style: style,
                         selected: settings.cardStyle == style,
-                        fourColor: settings.fourColor,
+                        palette: settings.suitPalette,
                         onTap: () => settings.cardStyle = style,
                       ),
                     ),
@@ -366,11 +480,11 @@ class _CardStylePicker extends StatelessWidget {
 }
 
 class _StyleTile extends StatelessWidget {
-  const _StyleTile({required this.style, required this.selected, required this.fourColor, required this.onTap});
+  const _StyleTile({required this.style, required this.selected, required this.palette, required this.onTap});
 
   final CardStyle style;
   final bool selected;
-  final bool fourColor;
+  final SuitPalette palette;
   final VoidCallback onTap;
 
   @override
@@ -379,7 +493,7 @@ class _StyleTile extends StatelessWidget {
     Widget mini(int card) => SizedBox(
           width: 46,
           height: 64,
-          child: CustomPaint(painter: PlayingCardPainter(card, style: style, fourColor: fourColor)),
+          child: CustomPaint(painter: PlayingCardPainter(card, style: style, palette: palette)),
         );
     return Material(
       color: selected ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: 0.5),

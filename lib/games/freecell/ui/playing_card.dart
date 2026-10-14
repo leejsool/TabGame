@@ -9,10 +9,20 @@ import 'court_painter.dart';
 const Color kCardRed = Color(0xFFD62F3A);
 const Color kCardBlack = Color(0xFF1E2430);
 
-/// 4색 모드의 색: ♣ 초록, ♦ 파랑, ♥ 빨강, ♠ 검정.
+/// 4색의 색: ♣ 초록, ♦ 파랑, ♥ 빨강, ♠ 검정.
 const List<Color> kFourColors = [Color(0xFF2E8B4F), Color(0xFF2F6FDB), kCardRed, kCardBlack];
 
-Color suitColor(int suit) => CardLook.fourColor ? kFourColors[suit] : (isRedSuit(suit) ? kCardRed : kCardBlack);
+/// 4색 (계열 유지)의 색: 검정 계열은 ♠ 검정 · ♣ 진초록, 빨강 계열은 ♥ 빨강 · ♦ 주황. 프리셀·솔리테어의 "검정/빨강 번갈아 쌓기"를 색 계열로도 알아볼 수 있다.
+const List<Color> kFamilyColors = [Color(0xFF1B7A3A), Color(0xFFEE7D12), kCardRed, kCardBlack];
+
+/// [palette]에서 무늬([suit]: ♣=0 ♦=1 ♥=2 ♠=3)의 색.
+Color paletteSuitColor(SuitPalette palette, int suit) => switch (palette) {
+      SuitPalette.twoColor => isRedSuit(suit) ? kCardRed : kCardBlack,
+      SuitPalette.fourColor => kFourColors[suit],
+      SuitPalette.family => kFamilyColors[suit],
+    };
+
+Color suitColor(int suit) => paletteSuitColor(CardLook.palette, suit);
 
 /// 무늬마다 모양이 달라 같은 칸에 그리면 크기가 달라 보인다 (클로버가 크고 다이아가 작다).
 /// 실제로 칠해진 면적이 비슷해지도록 무늬별로 크기와 세로 위치를 보정한다. (♣ ♦ ♥ ♠)
@@ -157,13 +167,12 @@ void drawCard(
   Color? glow,
   double glowWidth = 3,
   CardStyle? style,
-  bool? fourColor,
+  SuitPalette? palette,
   bool compact = false,
 }) {
   final w = size.width, h = size.height;
   final rank = rankOf(card), suit = suitOf(card);
-  final four = fourColor ?? CardLook.fourColor;
-  final color = four ? kFourColors[suit] : (isRedSuit(suit) ? kCardRed : kCardBlack);
+  final color = paletteSuitColor(palette ?? CardLook.palette, suit);
   final rr = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(w * 0.12));
 
   canvas.drawShadow(Path()..addRRect(rr), Colors.black, 1.6, true);
@@ -301,9 +310,9 @@ void _drawCompactFace(Canvas canvas, Size size, int rank, int suit, Color color,
 }
 
 class PlayingCardPainter extends CustomPainter {
-  PlayingCardPainter(this.card, {this.glow, CardStyle? style, bool? fourColor, this.compact = false})
+  PlayingCardPainter(this.card, {this.glow, CardStyle? style, SuitPalette? palette, this.compact = false})
       : style = style ?? CardLook.style,
-        fourColor = fourColor ?? CardLook.fourColor;
+        palette = palette ?? CardLook.palette;
 
   /// 폰용 간결한 앞면 (숫자·무늬를 맨 위 한 줄에 크게).
   final bool compact;
@@ -313,16 +322,16 @@ class PlayingCardPainter extends CustomPainter {
 
   /// 만들 때의 카드 모양 (설정이 바뀌면 다시 그리려고).
   final CardStyle style;
-  final bool fourColor;
+  final SuitPalette palette;
 
   @override
-  void paint(Canvas canvas, Size size) => drawCard(canvas, card, size, glow: glow, style: style, fourColor: fourColor, compact: compact);
+  void paint(Canvas canvas, Size size) => drawCard(canvas, card, size, glow: glow, style: style, palette: palette, compact: compact);
 
   @override
   bool shouldRepaint(PlayingCardPainter old) =>
       old.card != card ||
       old.glow != glow ||
       old.style != style ||
-      old.fourColor != fourColor ||
+      old.palette != palette ||
       old.compact != compact;
 }

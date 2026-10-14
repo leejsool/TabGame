@@ -294,6 +294,50 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('확대했을 때 이미 열린 칸을 잡고 끌면 화면이 움직이고(칸은 눌리지 않고), 닫힌 칸을 끌면 움직이지 않는다', (tester) async {
+      final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]);
+      await pumpScreen(tester, const Size(800, 1280), c);
+      await tester.tapAt(cellCenter(tester, c, 0)); // 위쪽이 열린다
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(c.board.marks[0], CellMark.revealed);
+      final zoom = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer)).transformationController!;
+      Offset t() => Offset(zoom.value.entry(0, 3), zoom.value.entry(1, 3));
+      zoom.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0); // 2배 확대 (왼쪽 위 기준)
+      await tester.pump();
+      final view = tester.getTopLeft(find.byType(MinesBoardView));
+      Offset onScreen(int cell) => view + (cellCenter(tester, c, cell) - view) * 2;
+
+      // 열린 칸을 잡고 왼쪽 위로 끌기
+      final flaggedBefore = c.board.flagCount;
+      final g = await tester.startGesture(onScreen(10));
+      await g.moveBy(const Offset(-30, -20));
+      await g.moveBy(const Offset(-50, -40));
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(t().dx, closeTo(-80, 1));
+      expect(t().dy, closeTo(-60, 1));
+      expect(c.board.flagCount, flaggedBefore);
+
+      // 판 가장자리 밖으로는 안 나간다
+      final g2 = await tester.startGesture(onScreen(10));
+      await g2.moveBy(const Offset(-3000, -3000));
+      await g2.up();
+      await tester.pump();
+      final area = tester.getSize(find.byType(MinesBoardView));
+      expect(t().dx, closeTo(-area.width, 1));
+      expect(t().dy, closeTo(-area.height, 1));
+
+      // 닫힌 칸(깃발·열기 메뉴용)을 끌면 화면은 그대로
+      zoom.value = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+      await tester.pump();
+      final g3 = await tester.startGesture(onScreen(72));
+      await g3.moveBy(const Offset(-60, -40));
+      await g3.up();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(t(), Offset.zero);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('지뢰를 밟으면 터지는 연출 뒤 결과 창이 뜬다', (tester) async {
       final c = fixed([40]);
       await pumpScreen(tester, const Size(800, 1280), c);
