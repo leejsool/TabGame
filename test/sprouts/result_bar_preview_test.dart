@@ -47,7 +47,7 @@ void main() {
         ),
       ));
       await tester.pump(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(seconds: 3));
+      await tester.pump(const Duration(milliseconds: 900));
       await tester.runAsync(() async {
         final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         final image = await boundary.toImage(pixelRatio: 1.0);

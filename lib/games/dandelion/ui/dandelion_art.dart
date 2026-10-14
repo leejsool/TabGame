@@ -335,28 +335,31 @@ class DandScenePainter extends CustomPainter {
     }
   }
 
+  /// 바람이 부는 모습: 돌돌 말리는 바람 줄([paintWindGust])들이 부는 방향으로 판을 가로질러 간다.
   void _paintWind(Canvas canvas, double s, WindDir dir, double t, double alpha) {
     final v = Offset(dir.dCol.toDouble(), dir.dRow.toDouble());
     final vn = v / v.distance;
     final n = Offset(-vn.dy, vn.dx);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = s * 0.018
-      ..color = Colors.white.withValues(alpha: alpha);
+    final angle = atan2(dir.dRow.toDouble(), dir.dCol.toDouble()); // 바람 줄 그림은 오른쪽이 앞이다
     final mid = Offset(s / 2, s / 2);
-    for (var k = -3; k <= 3; k++) {
-      final off = n * (k * s * 0.15);
-      final phase = (t * 1.25 - k.abs() * 0.04) % 1.4;
-      final along = (-0.75 + phase * 1.1) * s;
-      final head = mid + off + vn * along;
-      final len = s * (0.16 + 0.04 * (k % 2).abs());
-      final tail = head - vn * len;
-      final bend = n * (s * 0.025);
-      final path = Path()
-        ..moveTo(tail.dx, tail.dy)
-        ..quadraticBezierTo((tail.dx + head.dx) / 2 + bend.dx, (tail.dy + head.dy) / 2 + bend.dy, head.dx, head.dy);
-      canvas.drawPath(path, paint);
+    final size = s * 0.3;
+    for (var k = -2; k <= 2; k++) {
+      // 줄마다 조금씩 늦게 출발해서 흩어져 날아가는 느낌을 낸다
+      final phase = ((t * 1.3 - (k + 2) * 0.07) % 1.5).clamp(0.0, 1.0);
+      final along = (-0.72 + phase * 1.44) * s;
+      final center = mid + n * (k * s * 0.19) + vn * along;
+      final fade = sin(phase * pi).clamp(0.0, 1.0);
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      // 왼쪽으로 부는 바람은 그림을 뒤집지 않고 좌우만 바꿔서, 늘 바로 서 있게 한다
+      if (cos(angle) < -1e-6) {
+        canvas.rotate(angle - pi);
+        canvas.scale(-1, 1);
+      } else {
+        canvas.rotate(angle);
+      }
+      paintWindGust(canvas, Rect.fromCenter(center: Offset.zero, width: size, height: size), Colors.white.withValues(alpha: alpha * (0.35 + 0.65 * fade)), thickness: 0.085);
+      canvas.restore();
     }
   }
 

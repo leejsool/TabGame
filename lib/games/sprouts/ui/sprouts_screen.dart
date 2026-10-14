@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -161,7 +163,9 @@ class _SproutsScreenState extends State<SproutsScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
+          child: Stack(
+            children: [
+              Column(
             children: [
               _topBar(),
               _playerChips(),
@@ -169,14 +173,47 @@ class _SproutsScreenState extends State<SproutsScreen> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
-                  child: SproutsBoardView(key: ValueKey(c), controller: c),
+                  child: _glow(SproutsBoardView(key: ValueKey(c), controller: c)),
                 ),
               ),
               _bottomBar(),
             ],
           ),
+              // 이기면 색종이가 터진다 (손가락은 그대로 통과한다)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ListenableBuilder(
+                    listenable: c,
+                    builder: (context, _) => _celebrate
+                        ? FinishConfetti(key: ValueKey('confetti-${c.moveCount}-${c.winner}'), color: sproutsColor(c.winner!))
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// 끝나면 판 둘레가 승자 색으로 반짝인다 (그림은 가리지 않는다).
+  Widget _glow(Widget board) {
+    return ListenableBuilder(
+      listenable: c,
+      builder: (context, _) {
+        if (!c.isOver || c.resigned) return board;
+        final color = sproutsColor(c.winner!);
+        return _Pulse(
+          builder: (context, pulse) => DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35 + 0.3 * pulse), blurRadius: 14 + 16 * pulse, spreadRadius: 2 + 3 * pulse)],
+            ),
+            child: board,
+          ),
+        );
+      },
     );
   }
 
@@ -262,6 +299,29 @@ class _SproutsScreenState extends State<SproutsScreen> {
       builder: (context, _) {
         final bad = c.message != null;
         final color = bad ? const Color(0xFFE5484D) : sproutsColor(c.isOver ? (c.winner ?? 0) : c.turn);
+        if (c.isOver && !bad) {
+          // 끝났다: 승자 색으로 꽉 채우고 크게
+          return _Pulse(
+            active: !c.resigned,
+            builder: (context, pulse) => Container(
+              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [color, Color.lerp(color, Colors.white, 0.25)!]),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35 + 0.25 * pulse), blurRadius: 10 + 10 * pulse)],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(c.resigned ? Icons.flag_rounded : Icons.emoji_events_rounded, color: Colors.white, size: 22),
+                  const SizedBox(width: 8),
+                  Flexible(child: Text(_status, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white))),
+                ],
+              ),
+            ),
+          );
+        }
         return AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -277,7 +337,10 @@ class _SproutsScreenState extends State<SproutsScreen> {
     );
   }
 
-  /// 판이 끝났을 때 아래에 나오는 안내: 창으로 가리지 않고, 그림은 그대로 보이게 한다.
+  /// 내가 이겼거나(CPU 대결) 둘이서 한 판이면 축하 연출을 한다. CPU에게 졌을 때는 차분하게.
+  bool get _celebrate => c.isOver && !c.resigned && (!c.vsCpu || c.winner == c.humanSide);
+
+  /// 판이 끝났을 때 아래에 나오는 안내: 창으로 가리지 않고, 그림은 그대로 보이게 하면서 크고 화려하게 알린다.
   Widget _resultBar() {
     final w = c.winner!;
     final String head, body;
@@ -286,45 +349,79 @@ class _SproutsScreenState extends State<SproutsScreen> {
       body = c.vsCpu ? 'CPU ${c.level.label} · 점 ${c.dotCount}개 · ${c.moveCount}수 · 기록에 남겼어요' : '${_name(c.turn)} 기권 · ${c.moveCount}수 · 기록에 남겼어요';
     } else if (c.vsCpu) {
       final me = w == c.humanSide;
-      head = me ? '더 이을 곳이 없어요!' : '더 이을 곳이 없어졌어요';
-      body = '${me ? '내가 마지막으로 두었어요' : 'CPU가 마지막으로 두었어요. 다음엔 꼭 이겨 봐요!'} (점 ${c.dotCount}개 · ${c.moveCount}수)';
+      head = me ? '이겼어요! 🎉' : 'CPU가 이겼어요';
+      body = '${me ? '더 이을 곳이 없어요. 내가 마지막으로 두었어요' : '더 이을 곳이 없어졌어요. 다음엔 꼭 이겨 봐요!'} (점 ${c.dotCount}개 · ${c.moveCount}수)';
     } else {
-      head = '더 이을 곳이 없어요!';
-      body = '마지막으로 수를 둔 사람: ${_name(w)} (점 ${c.dotCount}개 · ${c.moveCount}수)';
+      head = '${_name(w)} 승리! 🎉';
+      body = '더 이을 곳이 없어요. 마지막으로 수를 둔 사람이 이겼어요 (점 ${c.dotCount}개 · ${c.moveCount}수)';
     }
     final color = sproutsColor(w);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
+    final icon = c.resigned
+        ? Icons.flag_rounded
+        : (_celebrate ? Icons.emoji_events_rounded : Icons.sentiment_dissatisfied_rounded);
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('result-${c.moveCount}-${c.winner}'),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.elasticOut,
+      builder: (context, v, child) => Transform.scale(
+        scale: 0.8 + 0.2 * v,
+        child: Opacity(opacity: v.clamp(0.0, 1.0), child: child),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(head, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
-          const SizedBox(height: 6),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 6,
+      child: _Pulse(
+        active: !c.resigned,
+        builder: (context, pulse) => Container(
+          margin: const EdgeInsets.fromLTRB(14, 2, 14, 10),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [color.withValues(alpha: 0.30), Theme.of(context).colorScheme.surface.withValues(alpha: 0.95)],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: color, width: 2.5),
+            boxShadow: [BoxShadow(color: color.withValues(alpha: 0.30 + 0.30 * pulse), blurRadius: 12 + 14 * pulse, spreadRadius: 1 + 2 * pulse)],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (!c.resigned)
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                  onPressed: c.canUndo ? c.undo : null,
-                  icon: const Icon(Icons.undo_rounded, size: 20),
-                  label: const Text('되돌리기'),
-                ),
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('메뉴로')),
-              FilledButton(onPressed: _newGame, child: const Text('한 판 더')),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 34 + 3 * pulse, color: _celebrate ? const Color(0xFFF2A900) : color),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(head, textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 8),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 6,
+                children: [
+                  if (!c.resigned)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                      onPressed: c.canUndo ? c.undo : null,
+                      icon: const Icon(Icons.undo_rounded, size: 20),
+                      label: const Text('되돌리기'),
+                    ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('메뉴로')),
+                  FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: color),
+                    onPressed: _newGame,
+                    child: const Text('한 판 더'),
+                  ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -417,4 +514,137 @@ Future<void> showSproutsRules(BuildContext context) {
       ],
     ),
   );
+}
+
+/// 0~1~0을 되풀이하는 숨쉬기 값을 만들어 [builder]에 넘긴다 (끝 표시가 살아 있는 느낌이 나게).
+class _Pulse extends StatefulWidget {
+  const _Pulse({required this.builder, this.active = true});
+
+  final Widget Function(BuildContext context, double pulse) builder;
+
+  /// false면 숨쉬지 않고 가만히 있다 (기권처럼 차분해야 할 때).
+  final bool active;
+
+  @override
+  State<_Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.active) _c.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => widget.builder(context, widget.active ? Curves.easeInOut.transform(_c.value) : 0.0),
+      );
+}
+
+/// 이겼을 때 판 위로 터졌다가 떨어지는 색종이. 짧게(약 3초) 흩날리고 사라진다.
+class FinishConfetti extends StatefulWidget {
+  const FinishConfetti({super.key, required this.color});
+
+  final Color color;
+
+  @override
+  State<FinishConfetti> createState() => _FinishConfettiState();
+}
+
+class _FinishConfettiState extends State<FinishConfetti> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => CustomPaint(painter: _ConfettiPainter(_c.value, widget.color)),
+      );
+}
+
+class _ConfettiPainter extends CustomPainter {
+  _ConfettiPainter(this.t, this.color) : _pieces = _make(color);
+
+  final double t;
+  final Color color;
+  final List<_Piece> _pieces;
+
+  static List<_Piece> _make(Color base) {
+    final rng = Random(7);
+    final palette = [base, const Color(0xFFFFC21A), const Color(0xFFFF6FAE), const Color(0xFF3DD6A5), const Color(0xFF5AA9FF), Colors.white];
+    return [
+      for (var i = 0; i < 90; i++)
+        _Piece(
+          x: 0.12 + rng.nextDouble() * 0.76,
+          vx: (rng.nextDouble() - 0.5) * 0.9,
+          vy: -(0.9 + rng.nextDouble() * 1.1),
+          size: 6 + rng.nextDouble() * 7,
+          spin: (rng.nextDouble() - 0.5) * 14,
+          phase: rng.nextDouble() * 6.28,
+          circle: rng.nextBool(),
+          color: palette[rng.nextInt(palette.length)],
+          delay: rng.nextDouble() * 0.12,
+        ),
+    ];
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in _pieces) {
+      final u = ((t - p.delay) / (1 - p.delay)).clamp(0.0, 1.0);
+      if (u <= 0) continue;
+      final time = u * 2.6;
+      final x = size.width * (p.x + p.vx * time * 0.35) + sin(time * 3 + p.phase) * 14;
+      // 아래 가운데에서 위로 솟았다가 중력으로 떨어진다
+      final y = size.height * (0.9 + p.vy * time * 0.45 + 0.95 * time * time * 0.45);
+      final alpha = u > 0.78 ? (1 - u) / 0.22 : 1.0;
+      if (alpha <= 0 || y > size.height + 20) continue;
+      final paint = Paint()..color = p.color.withValues(alpha: alpha.clamp(0.0, 1.0));
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(p.spin * time + p.phase);
+      if (p.circle) {
+        canvas.drawCircle(Offset.zero, p.size * 0.45, paint);
+      } else {
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.55), const Radius.circular(1.5)), paint);
+      }
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.t != t;
+}
+
+class _Piece {
+  const _Piece({
+    required this.x,
+    required this.vx,
+    required this.vy,
+    required this.size,
+    required this.spin,
+    required this.phase,
+    required this.circle,
+    required this.color,
+    required this.delay,
+  });
+
+  final double x, vx, vy, size, spin, phase, delay;
+  final bool circle;
+  final Color color;
 }

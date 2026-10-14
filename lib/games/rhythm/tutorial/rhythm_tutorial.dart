@@ -58,14 +58,54 @@ GameTutorial rhythmTutorial() => GameTutorial(
       ],
     );
 
-/// 캐릭터 그림 (없으면 아이콘으로 대신한다).
-Widget _sprite(String name, {required double height}) => Image.asset(
-      'assets/rhythm/art/$name.png',
-      height: height,
-      fit: BoxFit.contain,
-      alignment: Alignment.bottomCenter,
-      errorBuilder: (_, _, _) => Icon(Icons.person_rounded, size: height * 0.5, color: _ink),
-    );
+/// 그림별 "인게임에서 그려지는 높이" (그림 높이 × art.json의 scale). 튜토리얼에서도 인게임과 같은 비율로 그리려고 쓴다.
+/// (그림마다 원래 키가 달라서, 높이를 똑같이 맞춰 그리면 교관이 제일 크다는 비율이 깨진다.)
+const Map<String, double> _gameHeight = {
+  'c0_idle': 451.1,
+  'c0_side_ready': 363.5,
+  'c0_side_swing': 360.6,
+  'c0_strike': 402.0,
+  'c0_windup': 529.0,
+  'c1_idle': 416.4,
+  'c1_side_ready': 348.4,
+  'c1_side_swing': 342.4,
+  'c1_strike': 372.0,
+  'c1_windup': 537.0,
+  'c2_idle': 443.5,
+  'c2_side_ready': 354.2,
+  'c2_side_swing': 348.2,
+  'c2_strike': 395.0,
+  'c2_windup': 538.0,
+  'c3_idle': 437.7,
+  'c3_side_ready': 364.7,
+  'c3_side_swing': 355.3,
+  'c3_strike': 390.0,
+  'c3_windup': 538.0,
+  'slime_attack': 364.0,
+  'slime_hit': 371.0,
+  'slime_idle': 346.0,
+  'slime_ready': 355.0,
+  'slime_red_attack': 364.0,
+  'slime_red_hit': 371.0,
+  'slime_red_idle': 346.0,
+  'slime_red_ready': 355.0,
+};
+
+/// 인게임 그림 한 픽셀이 튜토리얼 그림에서 차지하는 크기.
+const double _spriteK = 0.27;
+
+/// 캐릭터 그림 (없으면 아이콘으로 대신한다). 모든 그림이 인게임과 같은 비율로 그려진다.
+/// [mult]는 한 장면의 그림들을 함께 키울 때 쓴다 (서로의 비율은 그대로).
+Widget _sprite(String name, {double mult = 1}) {
+  final height = (_gameHeight[name] ?? 400) * _spriteK * mult;
+  return Image.asset(
+    'assets/rhythm/art/$name.png',
+    height: height,
+    fit: BoxFit.contain,
+    alignment: Alignment.bottomCenter,
+    errorBuilder: (_, _, _) => Icon(Icons.person_rounded, size: height * 0.5, color: _ink),
+  );
+}
 
 Widget _numberBadge(String t, {bool me = false}) => Container(
       width: 40,
@@ -92,7 +132,7 @@ class _SquadArt extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              SizedBox(height: 150, child: Align(alignment: Alignment.bottomCenter, child: _sprite(sprite, height: me ? 148 : 130))),
+              SizedBox(height: 150, child: Align(alignment: Alignment.bottomCenter, child: _sprite(sprite, mult: 1.2))),
               const SizedBox(height: 8),
               _numberBadge(badge, me: me),
             ],
@@ -105,10 +145,10 @@ class _SquadArt extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            member('c0_strike', '1'),
-            member('c1_strike', '2'),
-            member('c2_strike', '3'),
-            member('c3_windup', '나', me: true),
+            member('c0_idle', '1'),
+            member('c1_idle', '2'),
+            member('c2_idle', '3'),
+            member('c3_idle', '나', me: true),
           ],
         ),
         const SizedBox(height: 20),
@@ -238,7 +278,7 @@ class _HoldArt extends StatelessWidget {
           children: [
             Column(
               children: [
-                SizedBox(height: 150, child: _sprite('c3_windup', height: 148)),
+                SizedBox(height: 150, child: _sprite('c3_windup')),
                 const SizedBox(height: 6),
                 const TapPulse(size: 90, hold: true, color: _rhythmColor),
                 const Text('꾹 누르면 힘이 모여요', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
@@ -250,7 +290,7 @@ class _HoldArt extends StatelessWidget {
             ),
             Column(
               children: [
-                SizedBox(height: 150, child: _sprite('c3_strike', height: 112)),
+                SizedBox(height: 150, child: _sprite('c3_strike')),
                 const SizedBox(height: 6),
                 const Icon(Icons.back_hand_outlined, size: 56, color: _rhythmColor),
                 const Text('손을 떼면 쾅!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
@@ -275,12 +315,12 @@ class _SwipeArt extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            SizedBox(height: 150, child: _sprite('c3_side_ready', height: 140)),
+            SizedBox(height: 150, child: _sprite('c3_side_ready')),
             const Padding(
               padding: EdgeInsets.only(bottom: 50),
               child: Icon(Icons.swipe_right_alt_rounded, size: 64, color: _rhythmColor),
             ),
-            SizedBox(height: 150, child: _sprite('c3_side_swing', height: 130)),
+            SizedBox(height: 150, child: _sprite('c3_side_swing')),
           ],
         ),
         const SizedBox(height: 14),
@@ -302,12 +342,12 @@ class _GuardArt extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            SizedBox(height: 120, child: _sprite('slime_red_ready', height: 116)),
+            SizedBox(height: 120, child: _sprite('slime_red_ready', mult: 1.22)),
             const Padding(
               padding: EdgeInsets.only(bottom: 30),
               child: Icon(Icons.swipe_up_rounded, size: 64, color: _rhythmColor),
             ),
-            SizedBox(height: 150, child: _sprite('c3_windup', height: 148)),
+            SizedBox(height: 150, child: _sprite('c3_windup')),
           ],
         ),
         const SizedBox(height: 12),
