@@ -133,21 +133,97 @@ class SproutsBoard {
     idx = PointIndex(kClear);
     for (final c in curves) {
       for (final p in c.pts) {
-        if (dots.every((d) => d.pos.dist(p) > kInnerR)) idx.add(p);
+        if (dots.every((d) => d.pos.dist(p) > kNearDot)) idx.add(p);
       }
     }
     return _obstacles = idx;
   }
 
+  /// 궤적 [stroke]이 끝나는 점. 손가락이 점을 살짝 지나쳐서 멀어진 곳에서 떼었다면, 끝에서부터 거슬러 올라가
+  /// 점 위를 지나간 자리를 찾아 그 점으로 본다. ([startDot]은 출발한 점이라 건너뛴다: 짧은 궤적에서 시작점이 끝점으로 오인되지 않게)
+  int endDotFor(List<P> stroke, int startDot) {
+    final last = stroke.last;
+    final cand = nearestDot(last);
+    if (cand >= 0 && dots[cand].pos.dist(last) <= kDotR * 1.6) return cand; // 점 위에서 뗐다
+    // 고리(출발한 점으로 돌아오기)는 충분히 길게 그렸을 때만 인정한다
+    final loopOk = pathLength(stroke) >= 90;
+    var walked = 0.0;
+    for (var i = stroke.length - 1; i > 0 && walked <= 70; i--) {
+      walked += stroke[i].dist(stroke[i - 1]);
+      final d = nearestDot(stroke[i - 1], within: kDotR * 1.6);
+      if (d >= 0 && d != cand && (d != startDot || loopOk)) return d;
+    }
+    return cand;
+  }
+
   /// 손가락 궤적 [stroke]에 양 끝(점의 한가운데)을 붙여 촘촘히 다시 찍은 곡선.
-  List<P> _pathFor(int s, int e, List<P> stroke) {
+  List<P> pathFor(int s, int e, List<P> stroke) {
     final sp = dots[s].pos, ep = dots[e].pos;
     // 점 안쪽에서 찍힌 궤적 점은 버리고, 양 끝은 점의 한가운데로 맞춘다
     final inner = <P>[
-      for (final p in stroke)
+      for (final p in trimWobble(stroke, sp, ep, kSnap * pow(max(1.0, bounds.scale), 0.8)))
         if (p.dist(sp) > kDotR * 0.8 && p.dist(ep) > kDotR * 0.8) p,
     ];
     return resample([sp, ...inner, ep]);
+  }
+
+  /// 손가락이 점을 살짝 지나치거나(끝) 점 뒤쪽에서 출발해 점을 거치는(처음) 궤적의 군더더기를 잘라 낸다.
+  ///
+  /// 점 [sp]·[ep] 둘레 [zone] 안에서만 맴도는 처음/끝 부분은, 점 가까이([kKeepOut] 안)로 처음 들어온
+  /// (끝) / 마지막으로 나간(처음) 자리에서 끊는다. 그러면 곡선은 점에 닿는 순간 끝나고, 점을 지나쳐 돌아오는
+  /// 부분 때문에 "점에 너무 가까워요"라고 하지 않는다.
+  static List<P> trimWobble(List<P> stroke, P sp, P ep, double zone) {
+    final n = stroke.length;
+    if (n < 3) return stroke;
+    final near = kKeepOut * 0.95;
+    final loop = sp == ep;
+
+    // 처음: 시작 점 둘레 안에서 맴도는 구간
+    var run = 0;
+    while (run < n && stroke[run].dist(sp) <= zone) {
+      run++;
+    }
+    var headLimit = run;
+    if (run == n) {
+      // 궤적 전체가 점 둘레 안이다 (가까운 두 점 사이, 또는 작은 고리)
+      if (loop) return stroke;
+      headLimit = _closest(stroke, ep); // 도착 점에 가장 가까워지기 전까지만 본다
+    }
+    var headCut = -1;
+    for (var i = 0; i < headLimit; i++) {
+      if (stroke[i].dist(sp) < near) headCut = i;
+    }
+
+    // 끝: 도착 점 둘레 안에서 끝나는 구간
+    var tailStart = n;
+    while (tailStart > 0 && stroke[tailStart - 1].dist(ep) <= zone) {
+      tailStart--;
+    }
+    var from = tailStart;
+    if (tailStart == 0) from = _closest(stroke, sp); // 시작 점에서 가장 멀어진 뒤부터만 본다
+    from = max(from, headCut + 1);
+    var tailCut = n;
+    for (var i = from; i < n; i++) {
+      if (stroke[i].dist(ep) < near) {
+        tailCut = i;
+        break;
+      }
+    }
+    if (headCut + 1 >= tailCut) return const <P>[]; // 두 점이 가까워서 사이에 남는 게 없다: 곧은 선으로 잇는다
+    return stroke.sublist(headCut + 1, tailCut);
+  }
+
+  static int _closest(List<P> pts, P q) {
+    var best = 0;
+    var bd = double.infinity;
+    for (var i = 0; i < pts.length; i++) {
+      final d = pts[i].dist(q);
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    }
+    return best;
   }
 
   /// [s]에서 [e]로 가는 곡선 [stroke](손가락 궤적, 양 끝점은 없어도 된다)가 규칙에 맞는지 본다.
@@ -157,7 +233,7 @@ class SproutsBoard {
   StrokeResult validate(int s, int e, List<P> stroke, {bool relax = true}) {
     final strict = _validateStrict(s, e, stroke);
     if (strict.ok || !relax || !strict.fixable) return strict;
-    return relaxForStroke(this, s, e, _pathFor(s, e, stroke)) ?? strict;
+    return relaxForStroke(this, s, e, pathFor(s, e, stroke)) ?? strict;
   }
 
   StrokeResult _validateStrict(int s, int e, List<P> stroke) {
@@ -171,7 +247,7 @@ class SproutsBoard {
     if (dots[e].lives < 1) return const StrokeResult.fail('끝난 점에는 더 이을 수 없어요 (선이 이미 3개예요)');
 
     final sp = dots[s].pos, ep = dots[e].pos;
-    final path = _pathFor(s, e, stroke);
+    final path = pathFor(s, e, stroke);
     if (path.length < 4) return const StrokeResult.fail('선이 너무 짧아요');
 
     final total = pathLength(path);
@@ -186,7 +262,7 @@ class SproutsBoard {
     }
 
     final obs = obstacles;
-    bool nearEnd(P p) => p.dist(sp) <= kInnerR || p.dist(ep) <= kInnerR;
+    bool nearEnd(P p) => p.dist(sp) <= kNearDot || p.dist(ep) <= kNearDot;
     for (var i = 0; i < path.length; i++) {
       final p = path[i];
       if (p.x < bounds.x0 + kMargin || p.y < bounds.y0 + kMargin || p.x > bounds.x1 - kMargin || p.y > bounds.y1 - kMargin) {

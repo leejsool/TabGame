@@ -182,7 +182,8 @@ class _GetColorBoardState extends State<GetColorBoard> with TickerProviderStateM
       _seenPour = 0;
     } else if (p.serial != _seenPour) {
       _seenPour = p.serial;
-      _pour.duration = Duration(milliseconds: 620 + 130 * p.count);
+      // 붓는 시간 (예전의 70%)
+      _pour.duration = Duration(milliseconds: ((620 + 130 * p.count) * 0.7).round());
       _pour.forward(from: 0);
     }
     if (c.selected != _selected) {

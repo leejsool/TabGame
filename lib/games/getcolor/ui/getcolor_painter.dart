@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/getcolor_rules.dart';
 
 /// 물 색깔 13가지 (색 번호 → 색). 비슷해 보이는 짝(빨강/분홍, 연두/초록, 청록/하늘, 파랑/남색…)은
-/// 색을 최대한 벌려 놓았고, 그래도 헷갈릴 수 있는 색에는 아래 [kWaterPatterns] 무늬를 겹쳐 그린다.
+/// 색을 최대한 벌려 놓았고, 파랑과 헷갈리는 남색에만 아래 [kWaterPatterns] 무늬를 겹쳐 그린다.
 const List<Color> kWaterColors = [
   Color(0xFFDB2F36), // 0 빨강
   Color(0xFFF5841F), // 1 주황
@@ -22,23 +22,23 @@ const List<Color> kWaterColors = [
   Color(0xFF1B2766), // 12 남색 (13번째 — 매우 어려움에서만 쓴다)
 ];
 
-/// 물에 겹쳐 그리는 무늬 (색 번호 → 무늬). 색이 비슷한 짝은 서로 다른 무늬(또는 한쪽만 무늬 없음)가 되게 짰다.
+/// 물에 겹쳐 그리는 무늬. 비슷해서 헷갈리는 것은 파랑과 남색뿐이라, 남색에만 격자 무늬를 입힌다 (나머지는 무늬 없음).
 enum WaterPattern { solid, slash, dots, backslash, bars, grid }
 
 const List<WaterPattern> kWaterPatterns = [
   WaterPattern.solid, // 0 빨강
   WaterPattern.solid, // 1 주황
   WaterPattern.solid, // 2 노랑
-  WaterPattern.slash, // 3 연두 (노랑·초록과 구별)
+  WaterPattern.solid, // 3 연두
   WaterPattern.solid, // 4 초록
-  WaterPattern.dots, // 5 청록 (초록·하늘과 구별)
+  WaterPattern.solid, // 5 청록
   WaterPattern.solid, // 6 하늘
   WaterPattern.solid, // 7 파랑
   WaterPattern.solid, // 8 보라
-  WaterPattern.backslash, // 9 분홍 (빨강과 구별)
-  WaterPattern.bars, // 10 갈색 (주황과 구별)
-  WaterPattern.dots, // 11 회색 (하늘과 구별)
-  WaterPattern.grid, // 12 남색 (파랑·보라와 구별)
+  WaterPattern.solid, // 9 분홍
+  WaterPattern.solid, // 10 갈색
+  WaterPattern.solid, // 11 회색
+  WaterPattern.grid, // 12 남색 (파랑과 구별)
 ];
 
 Color waterColor(int c) => kWaterColors[c % kWaterColors.length];

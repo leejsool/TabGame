@@ -294,7 +294,7 @@ SproutsMove? _direct(SproutsBoard b, int s, int e, bool relax, [List<double> ben
   return null;
 }
 
-SproutsMove? _toMove(_Grid g, SproutsBoard b, int s, int e, List<int> cells, bool relax) {
+SproutsMove? _toMove(_Grid g, SproutsBoard b, int s, int e, List<int> cells, bool relax, {void Function(List<P> source)? onSource}) {
   if (cells.isEmpty) return null;
   final raw = <P>[for (final k in cells) g.center(k % g.cols, k ~/ g.cols)];
 
@@ -345,11 +345,184 @@ SproutsMove? _toMove(_Grid g, SproutsBoard b, int s, int e, List<int> cells, boo
   }
 
   for (final candidate in [smooth(pulled, 2), pulled, raw]) {
-    final r = b.validate(s, e, resample(candidate), relax: relax);
-    if (r.ok) return SproutsMove(s, e, r);
+    final source = resample(candidate);
+    final r = b.validate(s, e, source, relax: relax);
+    if (r.ok) {
+      onSource?.call(source);
+      return SproutsMove(s, e, r);
+    }
   }
   return null;
 }
 
 /// 둘 수 있는 수가 하나라도 있나.
 bool hasMove(SproutsBoard b, {bool allowRelax = true}) => findMoves(b, firstOnly: true, allowRelax: allowRelax).isNotEmpty;
+
+/// 사람이 그은 곡선 [stroke]은 규칙에 안 맞지만 [s]에서 [e]로 이을 수는 있을 때, 그 곡선을 최대한 따라가면서
+/// 규칙에 맞는 길을 알아서 찾아 준다 (살짝 선을 스치거나 좁은 틈을 빠듯하게 지나간 선을 바로잡는다).
+///
+/// 격자 위에서 "손으로 그은 선에서 멀수록 비싼" 길찾기를 하고, 찾은 길은 [_toMove]가 다듬어 규칙 판정까지 한다.
+/// 바로잡은 선이 손으로 그은 선에서 [maxDeviation] 넘게 벗어나면 (선을 가로질러 크게 돌아가야 하면) 고치지 않고 null을 돌려준다.
+SproutsMove? guidedMove(SproutsBoard b, int s, int e, List<P> stroke, {double maxDeviation = 45}) =>
+    guidedFix(b, s, e, stroke, maxDeviation: maxDeviation)?.move;
+
+/// [guidedMove]와 같되, 판정을 통과한 곡선의 원래 모양([source], 판을 밀기 전의 좌표)도 함께 돌려준다.
+/// ([source]를 다시 [SproutsBoard.validate]에 넣으면 같은 수가 나온다: 다른 isolate에서 찾아 온 뒤 여기서 확정할 때 쓴다.)
+({SproutsMove move, List<P> source})? guidedFix(SproutsBoard b, int s, int e, List<P> stroke, {double maxDeviation = 45}) {
+  if (s == e || s < 0 || e < 0 || stroke.length < 2) return null;
+  if (b.dots[s].lives < 1 || b.dots[e].lives < 1) return null;
+  final guide = PointIndex(12);
+  for (final p in resample(stroke, 4)) {
+    guide.add(p);
+  }
+  const plans = <(double, double, double, bool)>[
+    (5.0, kClear + 3, kKeepOut, false),
+    (2.5, kClear + 1, kKeepOut, false),
+    (3.0, 2.5, kDotR + 3, true),
+  ];
+  for (final (g, reach, zoneR, relax) in plans) {
+    final grid = _Grid(b, g, reach, zoneR);
+    final cells = _guidedRoute(grid, b, s, e, guide);
+    if (cells == null) continue;
+    List<P>? source;
+    final move = _toMove(grid, b, s, e, cells, relax, onSource: (p) => source = p);
+    if (move == null || source == null) continue;
+    if (_deviation(b, s, e, stroke, move.path) <= maxDeviation) return (move: move, source: source!);
+  }
+  return null;
+}
+
+/// isolate에서 쓰는 형태: [판 데이터, 시작 점, 끝 점, 손으로 그은 선(x, y, x, y, …)] → 바로잡은 곡선의 원래 모양(x, y, …). 없으면 빈 목록.
+List<double> sproutsGuideTask(List<Object> args) {
+  final board = SproutsBoard.fromData(List<double>.from(args[0] as List));
+  final flat = List<double>.from(args[3] as List);
+  final stroke = <P>[for (var i = 0; i + 1 < flat.length; i += 2) P(flat[i], flat[i + 1])];
+  final fix = guidedFix(board, args[1] as int, args[2] as int, stroke);
+  if (fix == null) return const [];
+  return [for (final p in fix.source) ...[p.x, p.y]];
+}
+
+/// 손으로 그은 선 [stroke]이 고쳐진 [path]에서 가장 멀리 벗어난 거리 (점 둘레의 군더더기는 뺀다).
+double _deviation(SproutsBoard b, int s, int e, List<P> stroke, List<P> path) {
+  final idx = PointIndex(12);
+  for (final p in path) {
+    idx.add(p);
+  }
+  var worst = 0.0;
+  for (final p in stroke) {
+    if (p.dist(b.dots[s].pos) < 30 || p.dist(b.dots[e].pos) < 30) continue;
+    worst = max(worst, idx.nearest(p, 300));
+  }
+  return worst;
+}
+
+/// [s]의 둘레에서 [e]의 둘레까지, 손으로 그은 선([guide])에서 멀수록 비용이 큰 칸 길 (없으면 null).
+List<int>? _guidedRoute(_Grid g, SproutsBoard b, int s, int e, PointIndex guide) {
+  final cols = g.cols, rows = g.rows;
+  final n = cols * rows;
+  final cost = Float64List(n)..fillRange(0, n, double.infinity);
+  final parent = Int32List(n)..fillRange(0, n, -2);
+  final done = Uint8List(n);
+  // 이진 힙 (비용, 칸)
+  final hk = <double>[], hv = <int>[];
+  void push(double c, int v) {
+    hk.add(c);
+    hv.add(v);
+    var i = hk.length - 1;
+    while (i > 0) {
+      final p = (i - 1) >> 1;
+      if (hk[p] <= hk[i]) break;
+      final tk = hk[p], tv = hv[p];
+      hk[p] = hk[i];
+      hv[p] = hv[i];
+      hk[i] = tk;
+      hv[i] = tv;
+      i = p;
+    }
+  }
+
+  int pop() {
+    final top = hv.first;
+    final lk = hk.removeLast(), lv = hv.removeLast();
+    if (hk.isNotEmpty) {
+      hk[0] = lk;
+      hv[0] = lv;
+      var i = 0;
+      for (;;) {
+        final l = 2 * i + 1, r = l + 1;
+        var m = i;
+        if (l < hk.length && hk[l] < hk[m]) m = l;
+        if (r < hk.length && hk[r] < hk[m]) m = r;
+        if (m == i) break;
+        final tk = hk[m], tv = hv[m];
+        hk[m] = hk[i];
+        hv[m] = hv[i];
+        hk[i] = tk;
+        hv[i] = tv;
+        i = m;
+      }
+    }
+    return top;
+  }
+
+  double stepCost(int k, double len) {
+    final d = guide.nearest(g.center(k % cols, k ~/ cols), 80);
+    return len * (1 + d / 8);
+  }
+
+  final sp = b.dots[s].pos;
+  const ring = kDotR + 7;
+  final span = (ring / g.g).ceil() + 1;
+  final scx = ((sp.x - g.ox) / g.g).floor(), scy = ((sp.y - g.oy) / g.g).floor();
+  for (var r = max(0, scy - span); r <= min(rows - 1, scy + span); r++) {
+    for (var c = max(0, scx - span); c <= min(cols - 1, scx + span); c++) {
+      final k = r * cols + c;
+      if (g.blocked[k] != 0) continue;
+      final z = g.zone[k];
+      if (z >= 0 && z != s) continue;
+      final d = g.center(c, r).dist(sp);
+      if (d >= kDotR && d <= ring) {
+        parent[k] = -1;
+        cost[k] = stepCost(k, g.g);
+        push(cost[k], k);
+      }
+    }
+  }
+  const dirs = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)];
+  while (hk.isNotEmpty) {
+    final k = pop();
+    if (done[k] != 0) continue;
+    done[k] = 1;
+    final c = k % cols, r = k ~/ cols;
+    final zk = g.zone[k];
+    if (zk == e && g.zoneDist[k] <= ring) {
+      final path = <int>[];
+      for (var q = k; q >= 0; q = parent[q]) {
+        path.add(q);
+        if (parent[q] == -1) break;
+      }
+      return path.reversed.toList();
+    }
+    for (final (dc, dr) in dirs) {
+      final nc = c + dc, nr = r + dr;
+      if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue;
+      final nk = nr * cols + nc;
+      if (done[nk] != 0 || g.blocked[nk] != 0) continue;
+      if (dc != 0 && dr != 0 && (g.blocked[r * cols + nc] != 0 || g.blocked[nr * cols + c] != 0)) continue;
+      final nz = g.zone[nk];
+      if (nz >= 0 && nz != s) {
+        if (nz != e) continue; // 다른 점의 둘레는 지나갈 수 없다
+        if (zk == nz && g.zoneDist[nk] >= g.zoneDist[k]) continue; // 도착 점 둘레에서는 가운데 쪽으로만
+      } else if (zk == e) {
+        continue; // 도착 점 둘레에 들어갔으면 거기서 나오지 않는다
+      }
+      final nc2 = cost[k] + stepCost(nk, (dc != 0 && dr != 0 ? 1.4142 : 1.0) * g.g);
+      if (nc2 < cost[nk]) {
+        cost[nk] = nc2;
+        parent[nk] = k;
+        push(nc2, nk);
+      }
+    }
+  }
+  return null;
+}

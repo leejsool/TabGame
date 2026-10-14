@@ -90,7 +90,6 @@ class _SproutsScreenState extends State<SproutsScreen> {
         level: c.vsCpu ? c.level : null,
         human: c.vsCpu ? c.humanSide : null,
       ));
-      Future<void>.delayed(const Duration(milliseconds: 1400), _showResult);
     } else if (!c.isOver) {
       _resultHandled = false;
     }
@@ -107,21 +106,6 @@ class _SproutsScreenState extends State<SproutsScreen> {
     old.dispose();
     setState(() {});
     c.start();
-  }
-
-  Future<void> _showResult() async {
-    if (!mounted || !c.isOver) return;
-    final again = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _ResultDialog(controller: c),
-    );
-    if (!mounted) return;
-    if (again == true) {
-      _newGame();
-    } else {
-      Navigator.of(context).pop();
-    }
   }
 
   Future<void> _resign() async {
@@ -145,20 +129,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
       human: c.vsCpu ? c.humanSide : null,
       resigned: true,
     ));
-    if (!mounted) return;
-    final again = await showGaveUpDialog(
-      context,
-      summary: c.vsCpu ? 'CPU ${c.level.label} · 점 ${c.dotCount}개 · ${c.moveCount}수' : '${_name(loser)} 기권 · ${c.moveCount}수',
-      againLabel: '새 판',
-      retry: false,
-      verb: '기권',
-    );
-    if (!mounted) return;
-    if (again) {
-      _newGame();
-    } else {
-      Navigator.of(context).pop();
-    }
+    if (mounted) setState(() {});
   }
 
   /// 플레이어 이름: 둘이서는 "플레이어 1/2", CPU 대결은 "나/CPU".
@@ -166,6 +137,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
 
   String get _status {
     if (c.message != null) return c.message!;
+    if (c.notice != null && !c.isOver) return '${c.notice!} · ${_name(c.turn)} 차례';
     if (c.isOver) {
       if (c.vsCpu) return c.winner == c.humanSide ? '이겼어요! 🎉' : 'CPU가 이겼어요';
       return '${_name(c.winner!)} 승리! 🎉';
@@ -305,6 +277,58 @@ class _SproutsScreenState extends State<SproutsScreen> {
     );
   }
 
+  /// 판이 끝났을 때 아래에 나오는 안내: 창으로 가리지 않고, 그림은 그대로 보이게 한다.
+  Widget _resultBar() {
+    final w = c.winner!;
+    final String head, body;
+    if (c.resigned) {
+      head = '기권했어요';
+      body = c.vsCpu ? 'CPU ${c.level.label} · 점 ${c.dotCount}개 · ${c.moveCount}수 · 기록에 남겼어요' : '${_name(c.turn)} 기권 · ${c.moveCount}수 · 기록에 남겼어요';
+    } else if (c.vsCpu) {
+      final me = w == c.humanSide;
+      head = me ? '더 이을 곳이 없어요!' : '더 이을 곳이 없어졌어요';
+      body = '${me ? '내가 마지막으로 두었어요' : 'CPU가 마지막으로 두었어요. 다음엔 꼭 이겨 봐요!'} (점 ${c.dotCount}개 · ${c.moveCount}수)';
+    } else {
+      head = '더 이을 곳이 없어요!';
+      body = '마지막으로 수를 둔 사람: ${_name(w)} (점 ${c.dotCount}개 · ${c.moveCount}수)';
+    }
+    final color = sproutsColor(w);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(head, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 6),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 6,
+            children: [
+              if (!c.resigned)
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                  onPressed: c.canUndo ? c.undo : null,
+                  icon: const Icon(Icons.undo_rounded, size: 20),
+                  label: const Text('되돌리기'),
+                ),
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('메뉴로')),
+              FilledButton(onPressed: _newGame, child: const Text('한 판 더')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _bottomBar() {
     final compact = OutlinedButton.styleFrom(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -312,7 +336,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
     );
     return ListenableBuilder(
       listenable: c,
-      builder: (context, _) => Padding(
+      builder: (context, _) => c.isOver ? _resultBar() : Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
         // 좁은 화면(폰)에서는 단추가 다음 줄로 넘어간다
         child: Wrap(
@@ -347,47 +371,6 @@ class _SproutsScreenState extends State<SproutsScreen> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ResultDialog extends StatelessWidget {
-  const _ResultDialog({required this.controller});
-
-  final SproutsController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = controller;
-    final w = c.winner!;
-    String title, body;
-    if (c.vsCpu) {
-      final me = w == c.humanSide;
-      title = me ? '이겼어요! 🎉' : 'CPU가 이겼어요';
-      body = me ? 'CPU가 더 이을 곳이 없게 만들었어요!' : '다음엔 꼭 이겨 봐요!';
-    } else {
-      title = '플레이어 ${w + 1} 승리! 🎉';
-      body = '마지막으로 수를 두었어요. 축하해요!';
-    }
-    return AlertDialog(
-      title: Text(title, textAlign: TextAlign.center),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 8,
-            decoration: BoxDecoration(color: sproutsColor(w), borderRadius: BorderRadius.circular(4)),
-          ),
-          const SizedBox(height: 12),
-          Text('$body\n(점 ${c.dotCount}개 · ${c.moveCount}수)', textAlign: TextAlign.center),
-        ],
-      ),
-      actionsAlignment: MainAxisAlignment.center,
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('메뉴로')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('한 판 더')),
-      ],
     );
   }
 }

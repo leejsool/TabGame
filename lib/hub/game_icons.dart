@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../games/freecell/ui/playing_card.dart';
+import '../games/dandelion/ui/dandelion_art.dart' show paintWindGust;
 import '../games/getcolor/ui/getcolor_painter.dart';
 
 const Color _ink = Color(0xFF1A1523);
@@ -352,16 +353,11 @@ void _sprouts(Canvas c, double s) {
 
 // ── 민들레: 노란 꽃과 바람에 날아가는 씨앗 ──
 void _dandelion(Canvas c, double s) {
-  // 바람 줄무늬
-  for (final (y, x0, x1) in [(0.16, 0.5, 0.92), (0.9, 0.12, 0.5)]) {
-    final p = Path()
-      ..moveTo(x0, y)
-      ..quadraticBezierTo((x0 + x1) / 2, y - 0.07, x1, y);
-    c.drawPath(p, _line(Colors.white.withValues(alpha: 0.85), 0.035));
-  }
+  // 바람: 위쪽 오른쪽과 아래쪽 왼쪽에 돌돌 말리는 바람 줄
+  paintWindGust(c, const Rect.fromLTWH(0.44, 0.0, 0.54, 0.54), Colors.white.withValues(alpha: 0.92), thickness: 0.08);
   // 꽃
-  const center = Offset(0.37, 0.52);
-  const r = 0.27;
+  const center = Offset(0.29, 0.66);
+  const r = 0.25;
   for (final (w, color) in [(0.1, _ink), (0.062, const Color(0xFFFFD84D))]) {
     for (var i = 0; i < 14; i++) {
       final a = i * 2 * pi / 14;
@@ -383,7 +379,7 @@ void _dandelion(Canvas c, double s) {
     c.drawOval(Rect.fromCenter(center: p + Offset(0, 0.035 * k), width: 0.034 * k, height: 0.07 * k), _fill(_ink));
   }
 
-  seed(const Offset(0.8, 0.36), 1.05);
-  seed(const Offset(0.86, 0.62), 0.9);
-  seed(const Offset(0.68, 0.84), 0.8);
+  seed(const Offset(0.72, 0.72), 1.0);
+  seed(const Offset(0.9, 0.82), 0.85);
+  seed(const Offset(0.7, 0.93), 0.7);
 }

@@ -218,8 +218,7 @@ void main() {
     final stroke = line(const P(150, 200), const P(250, 200));
     final r = b.validate(0, 1, stroke);
     expect(r.ok, isTrue, reason: '${r.reason} / $lastRelaxFailure');
-    expect(r.layout?.bounds, isNotNull, reason: '판을 넓혀야 했을 거예요');
-    expect(r.layout!.bounds!.width, greaterThan(small.width));
+    // (판 안에서 밀어서 되면 넓히지 않고, 안 되면 넓힌다: 어느 쪽이든 아래가 지켜져야 한다)
     b.apply(0, 1, r, 0);
     expect(boardIsPlanar(b), isTrue);
     expect(countTopology(b).balanced, isTrue, reason: countTopology(b).toString());

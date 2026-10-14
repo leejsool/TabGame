@@ -97,6 +97,7 @@ class _SproutsBoardViewState extends State<SproutsBoardView> with TickerProvider
 
   void _down(PointerDownEvent e, Size size) {
     if (_pointer != null || !c.humanCanAct) return;
+    c.cancelRepair(); // 새로 긋기 시작하면 앞선 선을 바로잡는 일은 그만둔다
     final p = _toBoard(e.localPosition, size);
     if (c.board.nearestDot(p) < 0) {
       c.tryStroke([p, p]); // "점에서 시작해 주세요" 안내

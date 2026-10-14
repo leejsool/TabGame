@@ -195,6 +195,10 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
     await tester.pumpAndSettle();
     expect(find.text('기권했어요'), findsOneWidget);
+    // 끝났다는 안내는 창이 아니라 아래 막대로: 그림을 가리지 않는다
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('한 판 더'), findsOneWidget);
+    expect(find.text('메뉴로'), findsOneWidget);
     final h = await tester.runAsync(SproutsHistory.load);
     expect(h!.single.resigned, isTrue);
     expect(h.single.winner, 0);

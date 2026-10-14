@@ -413,24 +413,13 @@ class _RoleIconPainter extends CustomPainter {
   bool shouldRepaint(_RoleIconPainter old) => old.role != role;
 }
 
-/// 민들레는 꽃, 바람은 바람 줄무늬 두 줄.
+/// 민들레는 꽃, 바람은 돌돌 말리는 바람 줄 ([paintWindGust]).
 void paintRoleIcon(Canvas canvas, Size size, Role role) {
   if (role == Role.dandelion) {
     drawFlower(canvas, size.center(Offset.zero), size.width * 0.5);
     return;
   }
-  final p = Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeCap = StrokeCap.round
-    ..strokeWidth = size.width * 0.11
-    ..color = kWindColor;
-  final w = size.width, h = size.height;
-  for (final (y, len) in [(0.3, 0.85), (0.52, 0.7), (0.74, 0.55)]) {
-    final path = Path()
-      ..moveTo(w * 0.08, h * y)
-      ..quadraticBezierTo(w * len * 0.55, h * (y - 0.14), w * len, h * y);
-    canvas.drawPath(path, p);
-  }
+  paintWindGust(canvas, Offset.zero & size, kWindColor, thickness: 0.1);
 }
 
 class _ResultDialog extends StatelessWidget {

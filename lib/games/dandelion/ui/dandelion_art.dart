@@ -97,6 +97,39 @@ void drawSeed(Canvas canvas, Offset c, double r, {double alpha = 1, double angle
   canvas.restore();
 }
 
+/// 바람 아이콘: 가로줄 세 개가 오른쪽(앞)에서 돌돌 말려 올라가거나 내려가는 모양. 줄이 뒤에 흩날리고 말린 끝이 앞이라 방향이 보인다.
+/// [r] 안에 가득 그린다 (정사각형에 맞춰 그린다).
+void paintWindGust(Canvas canvas, Rect r, Color color, {double thickness = 0.09}) {
+  final s = min(r.width, r.height);
+  final o = Offset(r.left + (r.width - s) / 2, r.top + (r.height - s) / 2);
+  Offset p(double x, double y) => Offset(o.dx + x * s, o.dy + y * s);
+  Rect circle(double x, double y, double rad) => Rect.fromCircle(center: p(x, y), radius: rad * s);
+  final stroke = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round
+    ..strokeWidth = s * thickness
+    ..color = color;
+  // 위쪽 줄: 오른쪽 끝이 위로 말려 올라간다
+  final top = Path()
+    ..moveTo(p(0.06, 0.34).dx, p(0.06, 0.34).dy)
+    ..lineTo(p(0.52, 0.34).dx, p(0.52, 0.34).dy)
+    ..arcTo(circle(0.52, 0.23, 0.11), pi / 2, -1.4 * pi, false);
+  // 가운데 줄: 가장 길고, 큰 원으로 말려 올라간다
+  final mid = Path()
+    ..moveTo(p(0.06, 0.54).dx, p(0.06, 0.54).dy)
+    ..lineTo(p(0.72, 0.54).dx, p(0.72, 0.54).dy)
+    ..arcTo(circle(0.72, 0.38, 0.16), pi / 2, -1.45 * pi, false);
+  // 아래쪽 줄: 중간에서 아래로 말려 내려간다
+  final bottom = Path()
+    ..moveTo(p(0.06, 0.74).dx, p(0.06, 0.74).dy)
+    ..lineTo(p(0.44, 0.74).dx, p(0.44, 0.74).dy)
+    ..arcTo(circle(0.44, 0.85, 0.11), -pi / 2, 1.4 * pi, false);
+  for (final path in [top, mid, bottom]) {
+    canvas.drawPath(path, stroke);
+  }
+}
+
 /// 판 하나를 그리는 그림. 게임 화면과 안내 그림이 함께 쓴다.
 class DandScenePainter extends CustomPainter {
   DandScenePainter({

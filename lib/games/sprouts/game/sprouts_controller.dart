@@ -59,6 +59,9 @@ class SproutsController extends ChangeNotifier {
   /// 안 되는 수를 그렸을 때의 안내 (다음 동작에서 지워진다).
   String? message;
 
+  /// 손으로 그은 선을 알아서 바로잡아 두었을 때의 알림 (다음 수에서 지워진다).
+  String? notice;
+
   /// 방금 둔 수 (애니메이션용): 번호와 새 점.
   int moveSerial = 0;
   int lastMid = -1;
@@ -103,13 +106,44 @@ class SproutsController extends ChangeNotifier {
       return _bad('점에서 점으로 곡선을 그어 주세요');
     }
     final s = board.nearestDot(stroke.first);
-    final e = board.nearestDot(stroke.last);
+    final e = board.endDotFor(stroke, s);
     if (s < 0) return _bad('점에서 시작해 주세요');
     if (e < 0) return _bad('점에서 끝내 주세요');
     final r = board.validate(s, e, stroke);
-    if (!r.ok) return _bad(r.reason);
+    if (!r.ok) {
+      // 규칙에 살짝 어긋난 선(선을 스쳤거나 좁은 틈을 빠듯하게 지나감)은, 이을 수만 있다면 알아서 바로잡아 그린다
+      // (찾는 데 시간이 걸릴 수 있어서 화면이 멈추지 않게 따로 계산한다. 안 되는 이유는 먼저 보여 준다)
+      if (s != e && board.dots[s].lives >= 1 && board.dots[e].lives >= 1) _repair(s, e, stroke);
+      return _bad(r.reason);
+    }
     _commit(s, e, r, byHuman: true);
     return true;
+  }
+
+  int _repairEpoch = 0;
+
+  /// 바로잡는 중인 것을 취소한다 (새로 선을 긋기 시작했을 때).
+  void cancelRepair() => _repairEpoch++;
+
+  Future<void> _repair(int s, int e, List<P> stroke) async {
+    final epoch = ++_repairEpoch;
+    final serial = moveSerial;
+    final List<double> out;
+    try {
+      out = await compute(sproutsGuideTask, <Object>[
+        board.toData(),
+        s,
+        e,
+        [for (final p in stroke) ...[p.x, p.y]],
+      ]);
+    } catch (_) {
+      return;
+    }
+    if (_disposed || epoch != _repairEpoch || serial != moveSerial || !humanCanAct || out.isEmpty) return;
+    final source = <P>[for (var i = 0; i + 1 < out.length; i += 2) P(out[i], out[i + 1])];
+    final r = board.validate(s, e, source);
+    if (!r.ok) return;
+    _commit(s, e, r, byHuman: false, notice: '선을 알아서 맞춰 그렸어요');
   }
 
   bool _bad(String reason) {
@@ -119,10 +153,11 @@ class SproutsController extends ChangeNotifier {
     return false;
   }
 
-  void _commit(int s, int e, StrokeResult r, {required bool byHuman}) {
+  void _commit(int s, int e, StrokeResult r, {required bool byHuman, String? notice}) {
     final before = board.copy();
     _history.add(_Snapshot(before, turn, moveCount));
     message = null;
+    this.notice = notice;
     lastMid = board.apply(s, e, r, turn);
     // 점과 선이 밀렸거나 판의 범위(화면의 확대·축소)가 바뀌었으면 천천히 옮겨 가는 모습을 보여 준다
     morphFrom = (r.layout != null || before.bounds != board.bounds) ? before : null;
@@ -195,10 +230,12 @@ class SproutsController extends ChangeNotifier {
     winner = null;
     resigned = false;
     message = null;
+    notice = null;
     morphFrom = null;
     lastMid = -1;
     moveSerial++;
     _epoch++;
+    _repairEpoch++;
     _clearHint();
     notifyListeners();
   }

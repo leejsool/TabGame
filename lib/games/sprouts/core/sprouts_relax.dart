@@ -243,7 +243,7 @@ StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> pa
         for (var ax = max(0, cx - 1); ax <= min(gcols - 1, cx + 1); ax++) {
           for (var k = head[ay * gcols + ax]; k >= 0; k = nextIn[k]) {
             final ddx = px[k] - dx[d], ddy = py[k] - dy[d];
-            if (ddx * ddx + ddy * ddy <= kInnerR * kInnerR * 1.3) nearDot[k] = true;
+            if (ddx * ddx + ddy * ddy <= kNearDot * kNearDot) nearDot[k] = true;
           }
         }
       }
@@ -386,10 +386,9 @@ StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> pa
       }
     }
   }
-  if (!converged) {
-    lastRelaxFailure = '간격이 벌어지지 않았어요 ($maxIter번 밀어도) 선-선 $lastPair, 점-선 $lastDot, 점-점 $lastDots';
-    return null;
-  }
+  // 넉넉한 목표 간격(판정보다 조금 더 큼)까지는 못 벌렸어도, 실제 규칙 판정만 통과하면 된다:
+  // 아래에서 정확히 다시 확인한다. (좁은 틈을 빠듯하게 지나가는 선도 둘 수 있게)
+  final note = converged ? '' : '목표 간격까지는 안 벌어졌어요 (선-선 $lastPair, 점-선 $lastDot, 점-점 $lastDots) ';
 
   // 결과를 모으고, 정말 아무 선도 만나지 않았는지 정확히 확인한다
   final newCurves = <List<P>>[];
@@ -397,7 +396,7 @@ StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> pa
     newCurves.add([for (var i = 0; i < curves[c].x.length; i++) P(px[offset[c] + i] + ox, py[offset[c] + i] + oy)]);
   }
   if (!_planar(newCurves)) {
-    lastRelaxFailure = '밀다가 선이 서로 가로질렀어요';
+    lastRelaxFailure = '$note밀다가 선이 서로 가로질렀어요';
     return null;
   }
 
@@ -410,7 +409,25 @@ StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> pa
   final newPath = newCurves.last;
   final r = relaxed.validate(s, e, newPath.sublist(1, newPath.length - 1), relax: false);
   if (!r.ok) {
-    lastRelaxFailure = '밀린 뒤에도 규칙에 안 맞아요: ${r.reason}';
+    final diag = StringBuffer();
+    {
+      final sp = relaxed.dots[s].pos, ep = relaxed.dots[e].pos;
+      final chk = relaxed.pathFor(s, e, newPath.sublist(1, newPath.length - 1));
+      for (var i = 0; i < chk.length; i++) {
+        final p = chk[i];
+        if (p.dist(sp) <= kNearDot || p.dist(ep) <= kNearDot) continue;
+        final dn = relaxed.obstacles.nearest(p, kClear);
+        if (dn < kClear) {
+          var dd = 1e9;
+          for (final d in relaxed.dots) {
+            dd = min(dd, d.pos.dist(p));
+          }
+          diag.write(' [점$i/${chk.length} 선간격 ${dn.toStringAsFixed(1)} 시작거리 ${p.dist(sp).toStringAsFixed(0)} 끝거리 ${p.dist(ep).toStringAsFixed(0)} 가까운점 ${dd.toStringAsFixed(0)}]');
+          break;
+        }
+      }
+    }
+    lastRelaxFailure = '$note밀린 뒤에도 규칙에 안 맞아요: ${r.reason}$diag';
     return null;
   }
   return StrokeResult.ok(
