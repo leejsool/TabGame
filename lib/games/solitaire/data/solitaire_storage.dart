@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../game/solitaire_controller.dart';
 
-/// 완성한 판의 기록.
+/// 한 판의 기록: 완성했거나, 포기한 판.
 class SolitaireRecord {
   const SolitaireRecord({
     required this.at,
@@ -12,6 +12,7 @@ class SolitaireRecord {
     required this.draw,
     required this.seconds,
     required this.moves,
+    this.gaveUp = false,
   });
 
   final int at;
@@ -22,7 +23,17 @@ class SolitaireRecord {
   final int seconds;
   final int moves;
 
-  Map<String, dynamic> toJson() => {'at': at, 'deal': deal, 'draw': draw, 'sec': seconds, 'mv': moves};
+  /// 포기한 판인가 (그러면 [deal]·[draw]로 다시 도전할 수 있고, [seconds]·[moves]는 포기하기까지의 값).
+  final bool gaveUp;
+
+  Map<String, dynamic> toJson() => {
+        'at': at,
+        'deal': deal,
+        'draw': draw,
+        'sec': seconds,
+        'mv': moves,
+        if (gaveUp) 'gu': 1,
+      };
 
   static SolitaireRecord fromJson(Map<String, dynamic> j) => SolitaireRecord(
         at: j['at'] as int,
@@ -30,6 +41,7 @@ class SolitaireRecord {
         draw: j['draw'] as int,
         seconds: j['sec'] as int,
         moves: j['mv'] as int,
+        gaveUp: j['gu'] == 1,
       );
 }
 
@@ -59,7 +71,7 @@ class SolitaireStorage {
   static void setActive(SolitaireController c) => _active = c;
 
   static Future<void> save(SolitaireController c) async {
-    if (!identical(c, _active) || c.completed || c.untouched) return;
+    if (!identical(c, _active) || c.completed || c.gaveUp || c.untouched) return;
     final json = jsonEncode(c.toJson());
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_saveKey, json);
@@ -127,11 +139,27 @@ class SolitaireStorage {
       await prefs.setInt('solitaire.bestMoves$d', r.moves);
       best = true;
     }
-    final list = await loadHistory();
-    list.insert(0, r);
-    if (list.length > maxHistory) list.removeRange(maxHistory, list.length);
-    await prefs.setString(_historyKey, jsonEncode([for (final e in list) e.toJson()]));
+    await _addToHistory(prefs, r);
     return best;
+  }
+
+  /// 포기한 판을 기록에 남긴다 (같은 판을 또 포기하면 가장 최근 것만 남는다).
+  static Future<void> recordGiveUp(SolitaireRecord r) async {
+    assert(r.gaveUp);
+    await _addToHistory(await SharedPreferences.getInstance(), r);
+  }
+
+  /// 같은 판(번호 + 뽑기 장수)의 포기 기록은 지우고(포기했던 판을 완성했거나 또 포기한 경우) 맨 앞에 더한다.
+  /// 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다).
+  static Future<void> _addToHistory(SharedPreferences prefs, SolitaireRecord r) async {
+    final list = await loadHistory();
+    list.removeWhere((e) => e.gaveUp && e.deal == r.deal && e.draw == r.draw);
+    list.insert(0, r);
+    while (list.length > maxHistory) {
+      final i = list.lastIndexWhere((e) => !e.gaveUp);
+      list.removeAt(i < 0 ? list.length - 1 : i);
+    }
+    await prefs.setString(_historyKey, jsonEncode([for (final e in list) e.toJson()]));
   }
 
   /// 최신 순.

@@ -158,6 +158,8 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
     _song
       ..stop()
       ..reset();
+    _holdPointer = null;
+    _swipePointer = null;
     c.restart();
     _begin();
   }
@@ -273,7 +275,7 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
                       onExit: () => Navigator.of(context).pop(),
                     );
                   }
-                  if (_paused) return _PauseCard(quitLabel: _course.foe == Foe.dummy ? '훈련 그만두기' : '그만두기', onResume: _resume, onExit: () => Navigator.of(context).pop());
+                  if (_paused) return _PauseCard(quitLabel: _course.foe == Foe.dummy ? '훈련 그만두기' : '그만두기', onResume: _resume, onRestart: _restart, onExit: () => Navigator.of(context).pop());
                   return const SizedBox.shrink();
                 },
               ),
@@ -720,9 +722,12 @@ class _Hearts extends StatelessWidget {
 }
 
 class _PauseCard extends StatelessWidget {
-  const _PauseCard({required this.quitLabel, required this.onResume, required this.onExit});
+  const _PauseCard({required this.quitLabel, required this.onResume, required this.onRestart, required this.onExit});
   final String quitLabel;
   final VoidCallback onResume;
+
+  /// 이 스테이지를 처음부터 다시 한다.
+  final VoidCallback onRestart;
   final VoidCallback onExit;
 
   @override
@@ -738,6 +743,15 @@ class _PauseCard extends StatelessWidget {
             child: FilledButton(onPressed: onResume, child: const Padding(padding: EdgeInsets.all(10), child: Text('계속하기', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)))),
           ),
           const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onRestart,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Padding(padding: EdgeInsets.all(8), child: Text('처음부터 다시', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+            ),
+          ),
+          const SizedBox(height: 4),
           TextButton(onPressed: onExit, child: Text(quitLabel)),
         ],
       ),

@@ -25,7 +25,7 @@ class SudokuStorage {
   static void setActive(SudokuGame game) => _active = game;
 
   static Future<void> save(SudokuGame game) async {
-    if (!identical(game, _active) || game.completed) return;
+    if (!identical(game, _active) || game.completed || game.gaveUp) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_saveKey, jsonEncode(game.toJson()));
   }

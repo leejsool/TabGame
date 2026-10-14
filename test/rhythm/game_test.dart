@@ -326,6 +326,26 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('일시정지 → 처음부터 다시: 스테이지가 처음부터(카운트다운부터) 다시 시작된다', (tester) async {
+      final c = RhythmController(sfx: RecordingSfx());
+      await pumpApp(tester, const Size(1000, 700), RhythmScreen(controller: c, art: RhythmArt.empty()));
+      await tester.tap(find.text('훈련 시작!'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(c.status, RhythmStatus.playing);
+      await tester.tap(find.byIcon(Icons.pause_rounded));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('잠깐 쉬어요'), findsOneWidget);
+      expect(find.text('처음부터 다시'), findsOneWidget);
+      await tester.tap(find.text('처음부터 다시'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('잠깐 쉬어요'), findsNothing);
+      expect(c.status, RhythmStatus.playing);
+      expect(c.now, lessThan(0.5)); // 처음 박자 앞 (다시 카운트다운 중)
+      expect(c.judge.perfect + c.judge.good + c.judge.miss, 0);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('3코스 화면: 슬라임 코스 안내 → 출발 → 놓쳐도 깨지지 않는다', (tester) async {
       final c = RhythmController(chart: RhythmChart.course(2), sfx: RecordingSfx());
       await pumpApp(tester, const Size(1000, 700), RhythmScreen(course: 2, controller: c, art: RhythmArt.empty()));

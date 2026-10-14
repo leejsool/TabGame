@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../data/getcolor_storage.dart';
 import '../game/getcolor_controller.dart';
@@ -63,6 +64,48 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
   void _onChanged() {
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 500), () => GetColorStorage.save(c));
+    // 더 부을 곳이 없고 병도 더할 수 없으면 막다른 길이다
+    if (c.noMoves && !c.canAddBottle && !_stuckShown) _onStuck();
+  }
+
+  bool _stuckShown = false;
+
+  /// 막다른 길: 어떻게 할지 묻는다 (병 더하기가 남아 있으면 안내 문구만 띄우고 묻지 않는다).
+  Future<void> _onStuck() async {
+    _stuckShown = true;
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (!mounted || !c.noMoves || c.canAddBottle || c.paused) {
+      _stuckShown = false;
+      return;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('더 부을 곳이 없어요'),
+        content: const Text('이 상태에서는 더 이상 부을 수 없어요. 되돌려서 다른 길을 찾아볼까요?'),
+        actionsOverflowAlignment: OverflowBarAlignment.center,
+        actions: c.untouched
+            ? [FilledButton(onPressed: () => Navigator.pop(ctx, 'new'), child: const Text('새 판'))]
+            : [
+                TextButton(onPressed: () => Navigator.pop(ctx, 'giveup'), child: const Text('포기')),
+                TextButton(onPressed: () => Navigator.pop(ctx, 'restart'), child: const Text('처음부터')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, 'undo'), child: const Text('되돌리기')),
+              ],
+      ),
+    );
+    _stuckShown = false;
+    if (!mounted) return;
+    switch (choice) {
+      case 'undo':
+        c.undo();
+      case 'restart':
+        await GetColorStorage.clearSave(c);
+        c.restart();
+      case 'giveup':
+        await _giveUp();
+      case 'new':
+        await _newPuzzle();
+    }
   }
 
   void _feedback(String kind) {
@@ -129,6 +172,36 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
     );
     if (!mounted) return;
     if (again ?? false) {
+      await startGetColor(context, c.level, replace: true);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  // ── 포기 ──
+
+  Future<void> _giveUp() async {
+    if (c.completed || c.gaveUp || c.untouched) return;
+    final ok = await confirmGiveUp(context, detail: '${c.moveCount}번 부었고, ${c.doneCount}개의 병을 모았어요.');
+    if (!ok || !mounted || !c.giveUp()) return;
+    final seconds = c.elapsed.value;
+    await GetColorStorage.clearSave(c);
+    await GetColorStorage.recordGiveUp(GetColorRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      level: c.level,
+      seconds: seconds,
+      moves: c.moveCount,
+      gaveUp: true,
+      initial: [for (final b in c.initial.bottles) List<int>.of(b)],
+    ));
+    if (!mounted) return;
+    final again = await showGaveUpDialog(
+      context,
+      summary: '${c.level.label} · ${formatTime(seconds)} · ${c.moveCount}번 부음',
+      againLabel: '새 판',
+    );
+    if (!mounted) return;
+    if (again) {
       await startGetColor(context, c.level, replace: true);
     } else {
       Navigator.of(context).pop();
@@ -301,11 +374,17 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (v) {
                 if (v == 'new') _newPuzzle();
+                if (v == 'giveup') _giveUp();
                 if (v == 'rules') getColorTutorial().open(context);
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
-                PopupMenuItem(value: 'rules', child: Text('게임 방법')),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+                PopupMenuItem(
+                  value: 'giveup',
+                  enabled: !c.completed && !c.gaveUp && !c.untouched,
+                  child: const Text('포기하기'),
+                ),
+                const PopupMenuItem(value: 'rules', child: Text('게임 방법')),
               ],
             ),
           ],

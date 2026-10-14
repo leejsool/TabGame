@@ -6,6 +6,7 @@ import '../games/goblet/ui/goblet_records_tab.dart';
 import '../games/jigsaw/ui/jigsaw_records_tab.dart';
 import '../games/minesweeper/ui/mines_records_tab.dart';
 import '../games/solitaire/ui/solitaire_records_tab.dart';
+import '../games/sprouts/ui/sprouts_records_tab.dart';
 import '../games/sudoku/ui/sudoku_records_tab.dart';
 import '../games/uttt/ui/uttt_records_tab.dart';
 
@@ -23,8 +24,9 @@ class RecordsScreen extends StatelessWidget {
     (id: 'solitaire', title: '솔리테어', icon: Icons.style_rounded, tab: (_) => const SolitaireRecordsTab()),
     (id: 'jigsaw', title: '직소퍼즐', icon: Icons.extension_rounded, tab: (_) => const JigsawRecordsTab()),
     (id: 'get_color', title: '겟 컬러', icon: Icons.local_drink_rounded, tab: (_) => const GetColorRecordsTab()),
-    (id: 'ultimate_tictactoe', title: '얼티밋 틱택토', icon: Icons.tag_rounded, tab: (_) => const UtttRecordsTab()),
+    (id: 'ultimate_tictactoe', title: '궁극 틱택토', icon: Icons.tag_rounded, tab: (_) => const UtttRecordsTab()),
     (id: 'goblet_gobblers', title: '고블렛', icon: Icons.layers_rounded, tab: (_) => const GobbletRecordsTab()),
+    (id: 'sprouts', title: '콩나물', icon: Icons.scatter_plot_rounded, tab: (_) => const SproutsRecordsTab()),
   ];
 
   @override
@@ -42,9 +44,9 @@ class RecordsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: SafeArea(top: false, child: TabBarView(
           children: [for (final b in _boards) b.tab(context)],
-        ),
+        )),
       ),
     );
   }

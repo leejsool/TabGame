@@ -17,7 +17,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('설정')),
-      body: ListenableBuilder(
+      body: SafeArea(top: false, child: ListenableBuilder(
         listenable: settings,
         builder: (context, _) => ListView(
           // 맨 아래 항목이 태블릿의 아래 시스템 바(내비게이션 바)에 가리지 않게 그만큼 띄운다
@@ -117,7 +117,7 @@ class SettingsScreen extends StatelessWidget {
             ],
           ],
         ),
-      ),
+      )),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../data/jigsaw_history.dart';
 import '../data/jigsaw_storage.dart';
@@ -63,7 +64,7 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
   }
 
   int? _bestIn(int target) {
-    final s = [for (final r in _all) if (r.target == target) r.seconds];
+    final s = [for (final r in _all) if (!r.gaveUp && r.target == target) r.seconds];
     return s.isEmpty ? null : s.reduce((a, b) => a < b ? a : b);
   }
 
@@ -75,8 +76,10 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
+    final gaveUps = [for (final r in _all) if (r.gaveUp) r];
+    final cleared = [for (final r in _all) if (!r.gaveUp) r];
     final list = [
-      for (final r in _all)
+      for (final r in cleared)
         if (_filter == null || r.target == _filter) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
@@ -103,6 +106,19 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
               ),
           ],
         ),
+        if (gaveUps.isNotEmpty) ...[
+          const SectionTitle('포기한 퍼즐'),
+          for (final r in gaveUps)
+            GiveUpTile(
+              icon: Icons.extension_rounded,
+              iconColor: _countColors[r.target] ?? const Color(0xFFE09F3E),
+              title: '${r.pieces}조각',
+              subtitle: r.canReplay ? '${r.placed}조각 맞춤' : '${r.placed}조각 맞춤 · 그림이 남아 있지 않아요',
+              seconds: r.seconds,
+              at: r.at,
+              onRetry: r.canReplay ? () => _replay(r) : null,
+            ),
+        ],
         const SectionTitle('완성한 퍼즐'),
         Wrap(
           spacing: 8,
@@ -133,9 +149,9 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
         if (list.isEmpty)
           EmptyRecords(
             icon: Icons.extension_rounded,
-            message: _all.isEmpty && _wins.values.any((n) => n > 0)
+            message: cleared.isEmpty && _wins.values.any((n) => n > 0)
                 ? '판 목록 기능이 생기기 전에 완성한 퍼즐은 목록에 없어요.\n이제부터 완성하는 퍼즐은 여기에 쌓이고, 같은 그림으로 다시 해볼 수 있어요!'
-                : _all.isEmpty
+                : cleared.isEmpty
                     ? '아직 완성한 퍼즐이 없어요.\n한 장 완성하면 여기에 기록되고, 같은 그림으로 다시 해볼 수 있어요!'
                     : '이 조각 수로 완성한 퍼즐이 아직 없어요.',
           )

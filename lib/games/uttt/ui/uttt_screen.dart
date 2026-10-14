@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/uttt_tutorial.dart';
 import '../../../records/records_screen.dart';
@@ -10,6 +11,7 @@ import '../core/uttt_rules.dart';
 import '../data/uttt_history.dart';
 import '../game/uttt_controller.dart';
 import 'uttt_board.dart';
+import 'uttt_lesson_screen.dart';
 
 const _boardNames = [
   '왼쪽 위', '가운데 위', '오른쪽 위',
@@ -17,7 +19,7 @@ const _boardNames = [
   '왼쪽 아래', '가운데 아래', '오른쪽 아래',
 ];
 
-/// 얼티밋 틱택토 플레이 화면.
+/// 궁극 틱택토 플레이 화면.
 class UtttScreen extends StatefulWidget {
   const UtttScreen({
     super.key,
@@ -84,6 +86,43 @@ class _UtttScreenState extends State<UtttScreen> {
       Future<void>.delayed(const Duration(milliseconds: 1500), _showResult);
     } else if (!c.isOver) {
       _resultHandled = false;
+    }
+  }
+
+  Future<void> _resign() async {
+    if (!c.canResign) return;
+    final side = c.resigningSide;
+    final ok = await confirmGiveUp(
+      context,
+      detail: c.vsCpu ? 'CPU의 승리로 기록돼요.' : '${sideLabel(side)}가 기권하고, ${sideLabel(1 - side)}의 승리로 기록돼요.',
+      retry: c.vsCpu,
+      verb: '기권',
+    );
+    if (!ok || !mounted || !c.resign()) return;
+    _resultHandled = true; // (끝난 판으로 한 번 더 기록되지 않게)
+    await UtttHistory.add(UtttRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      vsCpu: c.vsCpu,
+      winner: 1 - side,
+      moves: c.moveCount,
+      level: c.vsCpu ? c.level : null,
+      human: c.vsCpu ? c.humanSide : null,
+      resigned: true,
+    ));
+    if (!mounted) return;
+    final again = await showGaveUpDialog(
+      context,
+      summary: c.vsCpu ? 'CPU ${c.level.label} · ${c.moveCount}수' : '${sideLabel(side)} 기권 · ${c.moveCount}수',
+      againLabel: '새 판',
+      retry: false,
+      verb: '기권',
+    );
+    if (!mounted) return;
+    if (again) {
+      _resultHandled = false;
+      c.restart();
+    } else {
+      Navigator.of(context).pop();
     }
   }
 
@@ -204,13 +243,18 @@ class _UtttScreenState extends State<UtttScreen> {
           ),
           Flexible(
             child: Text(
-              '얼티밋 틱택토',
+              '궁극 틱택토',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           const Spacer(),
+          IconButton(
+            tooltip: '교과학습',
+            icon: const Icon(Icons.menu_book_rounded),
+            onPressed: () => openUtttLesson(context),
+          ),
           IconButton(
             tooltip: '내 기록',
             icon: const Icon(Icons.emoji_events_rounded),
@@ -297,23 +341,37 @@ class _UtttScreenState extends State<UtttScreen> {
   }
 
   Widget _bottomBar() {
+    final compact = OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      visualDensity: VisualDensity.compact,
+    );
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        // 좁은 화면(폰·옆 칸)에서는 단추가 다음 줄로 넘어간다
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
+          runSpacing: 6,
           children: [
             OutlinedButton.icon(
+              style: compact,
               onPressed: c.canUndo ? c.undo : null,
-              icon: const Icon(Icons.undo_rounded),
+              icon: const Icon(Icons.undo_rounded, size: 20),
               label: const Text('되돌리기'),
             ),
-            const SizedBox(width: 12),
             OutlinedButton.icon(
+              style: compact,
               onPressed: () => c.restart(),
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
               label: const Text('새 판'),
+            ),
+            OutlinedButton.icon(
+              style: compact,
+              onPressed: c.canResign ? _resign : null,
+              icon: const Icon(Icons.flag_outlined, size: 20),
+              label: const Text('기권'),
             ),
           ],
         ),
@@ -397,7 +455,7 @@ Future<void> showUtttRules(BuildContext context) {
   return showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('얼티밋 틱택토 규칙'),
+      title: const Text('궁극 틱택토 규칙'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

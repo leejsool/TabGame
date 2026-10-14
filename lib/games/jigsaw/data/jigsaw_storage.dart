@@ -164,7 +164,7 @@ class JigsawStorage {
 
   /// 진행 중인 판을 저장한다. 이 그림이 보관함에 없으면 새로 넣는다.
   static Future<void> save(JigsawController c, JigsawSource source, int pieceTarget) async {
-    if (!identical(c, _active) || c.completed || source.kind == 'none') return;
+    if (!identical(c, _active) || c.completed || c.gaveUp || source.kind == 'none') return;
     // 화면이 정리되기 전에 지금 상태를 먼저 굳혀 둔다.
     final state = jsonDecode(jsonEncode(c.toJson())) as Map<String, dynamic>;
     final prefs = await SharedPreferences.getInstance();
@@ -192,6 +192,22 @@ class JigsawStorage {
         clearState: true,
         wins: list[at].wins + 1,
       );
+    } else {
+      list.removeAt(at);
+    }
+    await _commit(prefs, list);
+  }
+
+  /// 판을 포기했을 때: 이어하던 판을 지운다 (완성한 것이 아니니 완성 횟수는 올리지 않는다).
+  /// 갤러리 사진은 보관함에 남기고, 샘플은 보관함에서도 뺀다. 다시 하려면 기록의 "포기한 판"에서 한다.
+  static Future<void> abandon(JigsawController c, JigsawSource source) async {
+    if (!identical(c, _active)) return;
+    final prefs = await SharedPreferences.getInstance();
+    final list = _read(prefs);
+    final at = list.indexWhere((e) => e.sameSource(source));
+    if (at < 0) return;
+    if (source.kind == 'file') {
+      list[at] = list[at].copyWith(updatedAt: DateTime.now().millisecondsSinceEpoch, clearState: true);
     } else {
       list.removeAt(at);
     }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/freecell_tutorial.dart';
@@ -176,6 +177,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
         title: const Text('더 움직일 수 없어요'),
         content: const Text('놓을 수 있는 곳이 없어요. 되돌려서 다른 길을 시도해 볼까요?'),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'giveup'), child: const Text('포기')),
           TextButton(onPressed: () => Navigator.pop(ctx, 'restart'), child: const Text('처음부터')),
           TextButton(onPressed: () => Navigator.pop(ctx, 'new'), child: const Text('새 게임')),
           FilledButton(onPressed: () => Navigator.pop(ctx, 'undo'), child: const Text('되돌리기')),
@@ -191,6 +193,8 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
         c.restart();
       case 'new':
         _startNewGame();
+      case 'giveup':
+        _giveUp();
     }
   }
 
@@ -200,6 +204,33 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
     final deal = await pickDeal(level);
     if (!mounted) return;
     await startFreecellDeal(context, deal, replace: true);
+  }
+
+  Future<void> _giveUp() async {
+    if (c.completed || c.gaveUp || c.untouched) return;
+    final ok = await confirmGiveUp(context, detail: '#${c.deal} 판 · ${c.moveCount}수를 두었어요.');
+    if (!ok || !mounted || !c.giveUp()) return;
+    final seconds = c.elapsed.value;
+    await FreecellStorage.clearSave(c);
+    await FreecellStorage.recordGiveUp(FreecellRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      deal: c.deal,
+      seconds: seconds,
+      moves: c.moveCount,
+      gaveUp: true,
+    ));
+    if (!mounted) return;
+    final again = await showGaveUpDialog(
+      context,
+      summary: '#${c.deal}${_level == null ? '' : ' · ${_level!.label}'} · ${formatTime(seconds)} · ${c.moveCount}수',
+      againLabel: '새 게임',
+    );
+    if (!mounted) return;
+    if (again) {
+      _startNewGame();
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _confirmRestart() async {
@@ -347,12 +378,18 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
       onSelected: (v) {
         if (v == 'restart') _confirmRestart();
         if (v == 'new') _startNewGame();
+        if (v == 'giveup') _giveUp();
         if (v == 'rules') showFreecellRules(context);
       },
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
-        PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
-        PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
+      itemBuilder: (_) => [
+        const PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
+        const PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+        PopupMenuItem(
+          value: 'giveup',
+          enabled: !c.completed && !c.gaveUp && !c.untouched,
+          child: const Text('포기하기'),
+        ),
+        const PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
       ],
     );
   }

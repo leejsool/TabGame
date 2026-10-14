@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../core/getcolor_rules.dart';
 import '../data/getcolor_storage.dart';
+import '../getcolor_entry.dart';
 import 'getcolor_menu_screen.dart' show levelColors;
 
 /// 겟 컬러 기록 보드: 난이도별 요약 + 최근 클리어 목록.
@@ -40,13 +42,19 @@ class _GetColorRecordsTabState extends State<GetColorRecordsTab> {
     });
   }
 
+  Future<void> _retry(GetColorRecord r) async {
+    await retryGetColor(context, r);
+    if (mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final scheme = Theme.of(context).colorScheme;
+    final gaveUps = [for (final r in _all) if (r.gaveUp) r];
     final list = [
       for (final r in _all)
-        if (_filter == null || r.level == _filter) r,
+        if (!r.gaveUp && (_filter == null || r.level == _filter)) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
     final best = list.isEmpty ? null : list.map((r) => r.seconds).reduce((a, b) => a < b ? a : b);
@@ -63,14 +71,28 @@ class _GetColorRecordsTabState extends State<GetColorRecordsTab> {
                 child: StatCard(
                   title: l.label,
                   value: _stats[l]!.bestSeconds == null ? '-' : formatTime(_stats[l]!.bestSeconds!),
-                  sub: _stats[l]!.wins == 0
-                      ? '아직 클리어한 판이 없어요'
-                      : '클리어 ${_stats[l]!.wins} · 최소 ${_stats[l]!.bestMoves}번',
+                  sub: (_stats[l]!.wins == 0
+                          ? '아직 클리어한 판이 없어요'
+                          : '클리어 ${_stats[l]!.wins} · 최소 ${_stats[l]!.bestMoves}번') +
+                      (_stats[l]!.gaveUps == 0 ? '' : ' · 포기 ${_stats[l]!.gaveUps}'),
                   color: levelColors[l]!,
                 ),
               ),
           ],
         ),
+        if (gaveUps.isNotEmpty) ...[
+          const SectionTitle('포기한 판'),
+          for (final r in gaveUps)
+            GiveUpTile(
+              icon: Icons.local_drink_rounded,
+              iconColor: levelColors[r.level]!,
+              title: r.level.label,
+              subtitle: '${r.moves}번 부음',
+              seconds: r.seconds,
+              at: r.at,
+              onRetry: r.initial == null ? null : () => _retry(r),
+            ),
+        ],
         const SectionTitle('클리어한 판'),
         Wrap(
           spacing: 8,

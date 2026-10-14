@@ -5,9 +5,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/getcolor_rules.dart';
 import '../game/getcolor_controller.dart';
 
-/// 클리어한 판의 기록.
+/// 한 판의 기록: 클리어했거나, 포기한 판.
 class GetColorRecord {
-  const GetColorRecord({required this.at, required this.level, required this.seconds, required this.moves});
+  const GetColorRecord({
+    required this.at,
+    required this.level,
+    required this.seconds,
+    required this.moves,
+    this.gaveUp = false,
+    this.initial,
+  });
 
   final int at;
   final GcLevel level;
@@ -16,22 +23,43 @@ class GetColorRecord {
   /// 붓기 횟수.
   final int moves;
 
-  Map<String, dynamic> toJson() => {'at': at, 'lv': level.index, 'sec': seconds, 'mv': moves};
+  /// 포기한 판인가 (그러면 [initial]로 같은 판에 다시 도전할 수 있다).
+  final bool gaveUp;
+
+  /// 처음 병 상태. 포기한 판에만 저장한다 (클리어 기록에서는 같은 판의 포기 기록을 지우는 데만 쓴다).
+  final List<List<int>>? initial;
+
+  /// 같은 판인지 알아보는 열쇠 (병 순서가 달라도 같은 판이면 같다).
+  String? get boardKey => initial == null ? null : WaterState([for (final b in initial!) b]).key;
+
+  Map<String, dynamic> toJson() => {
+        'at': at,
+        'lv': level.index,
+        'sec': seconds,
+        'mv': moves,
+        if (gaveUp) 'gu': 1,
+        if (gaveUp && initial != null) 'init': initial,
+      };
 
   static GetColorRecord fromJson(Map<String, dynamic> j) => GetColorRecord(
         at: j['at'] as int,
         level: GcLevel.values[(j['lv'] as int).clamp(0, GcLevel.values.length - 1)],
         seconds: j['sec'] as int,
         moves: j['mv'] as int,
+        gaveUp: j['gu'] == 1,
+        initial: j['init'] == null ? null : [for (final b in j['init'] as List) List<int>.from(b as List)],
       );
 }
 
 class GetColorStats {
-  const GetColorStats({this.wins = 0, this.bestSeconds, this.bestMoves});
+  const GetColorStats({this.wins = 0, this.bestSeconds, this.bestMoves, this.gaveUps = 0});
 
   final int wins;
   final int? bestSeconds;
   final int? bestMoves;
+
+  /// 포기한 횟수.
+  final int gaveUps;
 }
 
 /// 새 기록이 어떤 최고 기록을 깼는지.
@@ -104,6 +132,7 @@ class GetColorStorage {
       wins: prefs.getInt('getcolor.wins$i') ?? 0,
       bestSeconds: prefs.getInt('getcolor.best$i'),
       bestMoves: prefs.getInt('getcolor.bestMoves$i'),
+      gaveUps: prefs.getInt('getcolor.giveups$i') ?? 0,
     );
   }
 
@@ -124,10 +153,34 @@ class GetColorStorage {
       bestMoves = true;
     }
     final list = await loadHistory();
+    // 포기했던 판을 이번에 클리어했으면 "포기한 판"에서 뺀다
+    final key = r.boardKey;
+    if (key != null) list.removeWhere((e) => e.gaveUp && e.boardKey == key);
     list.insert(0, r);
-    if (list.length > maxHistory) list.removeRange(maxHistory, list.length);
-    await prefs.setString(_historyKey, jsonEncode([for (final e in list) e.toJson()]));
+    await _saveHistory(prefs, list);
     return GetColorBest(time: bestTime, moves: bestMoves);
+  }
+
+  /// 포기한 판을 기록에 남긴다 (같은 판을 또 포기하면 가장 최근 것만 남는다).
+  static Future<void> recordGiveUp(GetColorRecord r) async {
+    assert(r.gaveUp && r.initial != null);
+    final prefs = await SharedPreferences.getInstance();
+    final i = r.level.index;
+    await prefs.setInt('getcolor.giveups$i', (prefs.getInt('getcolor.giveups$i') ?? 0) + 1);
+    final list = await loadHistory();
+    final key = r.boardKey;
+    list.removeWhere((e) => e.gaveUp && e.boardKey == key);
+    list.insert(0, r);
+    await _saveHistory(prefs, list);
+  }
+
+  /// 오래된 것부터 줄이되, 아직 다시 도전할 수 있는 포기한 판은 되도록 남긴다.
+  static Future<void> _saveHistory(SharedPreferences prefs, List<GetColorRecord> list) async {
+    while (list.length > maxHistory) {
+      final at = list.lastIndexWhere((e) => !e.gaveUp);
+      list.removeAt(at < 0 ? list.length - 1 : at);
+    }
+    await prefs.setString(_historyKey, jsonEncode([for (final e in list) e.toJson()]));
   }
 
   /// 최신 순.

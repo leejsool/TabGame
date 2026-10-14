@@ -42,7 +42,7 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
         title: const Text('심화 기술 연습', style: TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.transparent,
       ),
-      body: Center(
+      body: SafeArea(top: false, child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
           child: ListView(
@@ -78,7 +78,7 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

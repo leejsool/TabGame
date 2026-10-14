@@ -29,6 +29,19 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "tabgame"
+        manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+    }
+
+    // 개발용 빌드 (tool/build_dev.ps1): 릴리즈 앱과 나란히 설치되도록 앱 ID를 따로 쓰고,
+    // 아이콘에 '개발' 띠를 붙인다. 환경변수 TABGAME_DEV=1 일 때만 적용된다.
+    if (System.getenv("TABGAME_DEV") == "1") {
+        defaultConfig {
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            manifestPlaceholders["appLabel"] = "tabgame 개발"
+            manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_dev"
+        }
     }
 
     // Release keystore lives outside the repo (F:\MyApp\key); secrets are never committed.
@@ -54,7 +67,10 @@ android {
     buildTypes {
         release {
             // Falls back to debug signing when the key folder is missing.
-            signingConfig = if (hasReleaseKey) {
+            signingConfig = if (System.getenv("TABGAME_DEV") == "1") {
+                // 개발용 빌드는 릴리즈 키를 쓰지 않는다
+                signingConfigs.getByName("debug")
+            } else if (hasReleaseKey) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")

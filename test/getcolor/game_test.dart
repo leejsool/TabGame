@@ -284,6 +284,143 @@ void main() {
     });
   });
 
+  group('포기', () {
+    test('한 수도 두지 않았으면 포기할 수 없고, 둔 뒤에는 포기하면 더 손댈 수 없다', () {
+      final c = make(tiny());
+      expect(c.giveUp(), isFalse);
+      expect(c.gaveUp, isFalse);
+      c.pourTo(0, 2);
+      expect(c.giveUp(), isTrue);
+      expect(c.gaveUp, isTrue);
+      expect(c.canAct, isFalse);
+      expect(c.canUndo, isFalse);
+      expect(c.canAddBottle, isFalse);
+      final before = c.elapsed.value;
+      c.tick();
+      expect(c.elapsed.value, before);
+      expect(c.pourTo(1, 2), isFalse);
+      expect(c.giveUp(), isFalse);
+      c.restart();
+      expect(c.gaveUp, isFalse);
+      expect(c.canAct, isTrue);
+    });
+
+    test('포기 기록: 같은 판은 하나만 남고, 최고 기록·클리어 횟수에는 들어가지 않는다', () async {
+      final init = [
+        [0, 0, 1, 1],
+        [1, 1, 0, 0],
+        <int>[],
+      ];
+      GetColorRecord gave(int at, List<List<int>> i) =>
+          GetColorRecord(at: at, level: GcLevel.easy, seconds: 30, moves: 3, gaveUp: true, initial: i);
+      await GetColorStorage.recordGiveUp(gave(1, init));
+      await GetColorStorage.recordGiveUp(gave(2, [
+        [1, 1, 0, 0],
+        <int>[],
+        [0, 0, 1, 1],
+      ])); // 병 순서만 다른 같은 판
+      await GetColorStorage.recordGiveUp(gave(3, [
+        [0, 1, 0, 1],
+        [1, 0, 1, 0],
+        <int>[],
+      ]));
+      var h = await GetColorStorage.loadHistory();
+      expect(h.map((e) => e.at), [3, 2]);
+      expect(h.every((e) => e.gaveUp && e.initial != null), isTrue);
+      var st = await GetColorStorage.stats(GcLevel.easy);
+      expect(st.gaveUps, 3);
+      expect(st.wins, 0);
+      expect(st.bestSeconds, isNull);
+
+      // 포기했던 판을 클리어하면 "포기한 판"에서 빠진다
+      await GetColorStorage.recordWin(
+          GetColorRecord(at: 4, level: GcLevel.easy, seconds: 50, moves: 4, initial: init));
+      h = await GetColorStorage.loadHistory();
+      expect(h.map((e) => e.at), [4, 3]);
+      expect(h.first.gaveUp, isFalse);
+      expect(h.first.initial, isNull); // 클리어 기록에는 판을 저장하지 않는다 (JSON 으로)
+      st = await GetColorStorage.stats(GcLevel.easy);
+      expect(st.wins, 1);
+      expect(st.bestSeconds, 50);
+    });
+
+    testWidgets('화면 메뉴 → 포기하기: 확인하면 기록에 남고, 기록 탭에서 다시 도전하면 같은 판이다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(tiny());
+      await tester.pumpWidget(await appWith(GetColorScreen(controller: c)));
+      await settle(tester, rounds: 3);
+
+      // 아직 한 수도 안 뒀으면 메뉴의 포기하기는 눌러도 아무 일이 없다
+      await tester.tap(find.byIcon(Icons.more_vert_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('포기하기'), warnIfMissed: false); // 비활성
+      await tester.pumpAndSettle();
+      expect(find.text('이 판을 포기할까요?'), findsNothing);
+      await tester.tapAt(const Offset(10, 700)); // 메뉴 닫기
+      await tester.pumpAndSettle();
+
+      c.pourTo(0, 2);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.more_vert_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('포기하기'));
+      await tester.pumpAndSettle();
+      expect(find.text('이 판을 포기할까요?'), findsOneWidget);
+      await tester.tap(find.text('계속하기'));
+      await tester.pumpAndSettle();
+      expect(c.gaveUp, isFalse);
+
+      await tester.tap(find.byIcon(Icons.more_vert_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('포기하기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '포기'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pumpAndSettle();
+      expect(c.gaveUp, isTrue);
+      expect(find.text('포기했어요'), findsOneWidget);
+
+      final h = await tester.runAsync(GetColorStorage.loadHistory);
+      expect(h!.length, 1);
+      expect(h.first.gaveUp, isTrue);
+      expect(WaterState(h.first.initial!).key, c.initial.key);
+    });
+
+    testWidgets('기록 탭: 포기한 판 목록에 다시 도전 단추가 있고, 누르면 같은 판이 열린다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final rec = GetColorRecord(
+        at: 1760000000000,
+        level: GcLevel.easy,
+        seconds: 75,
+        moves: 5,
+        gaveUp: true,
+        initial: tiny(),
+      );
+      SharedPreferences.setMockInitialValues({'getcolor.history': jsonEncode([rec.toJson()]), 'getcolor.giveups0': 1});
+      final settings = await Settings.load();
+      await tester.pumpWidget(SettingsScope(
+        settings: settings,
+        child: const MaterialApp(home: Scaffold(body: GetColorRecordsTab())),
+      ));
+      await settle(tester, rounds: 4);
+      expect(find.text('포기한 판'), findsOneWidget);
+      expect(find.text('포기'), findsOneWidget);
+      expect(find.textContaining('포기 1'), findsOneWidget);
+      expect(find.textContaining('아직 클리어한 판이 없어요.'), findsOneWidget);
+
+      await tester.tap(find.text('다시 도전'));
+      await settle(tester, rounds: 6);
+      final screen = tester.widget<GetColorScreen>(find.byType(GetColorScreen));
+      expect(screen.controller.initial.key, WaterState(tiny()).key);
+      expect(screen.controller.gaveUp, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('매우 어려움 (컨트롤러)', () {
     test('병이 15개라 병 더하기를 쓸 수 없고, 이어하기 저장·복원이 된다', () async {
       final c = await GetColorController.create(GcLevel.veryHard, rng: Random(4));

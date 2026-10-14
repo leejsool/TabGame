@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/goblet_tutorial.dart';
 import '../../../records/records_screen.dart';
@@ -86,11 +87,25 @@ class _GobbletScreenState extends State<GobbletScreen> {
         level: c.vsCpu ? c.level : null,
         human: c.vsCpu ? c.humanTeam : null,
         byReveal: r.byReveal,
+        resigned: r.resigned,
       ));
       Future<void>.delayed(const Duration(milliseconds: 1300), _showResult);
     } else if (r == null) {
       _resultShown = false;
     }
+  }
+
+  Future<void> _resign() async {
+    if (!c.canResign) return;
+    final team = c.resigningTeam;
+    final ok = await confirmGiveUp(
+      context,
+      detail: c.vsCpu ? 'CPU의 승리로 기록돼요.' : '${team.label}이 기권하고, ${team.other.label}의 승리로 기록돼요.',
+      retry: false,
+      verb: '기권',
+    );
+    if (!ok || !mounted) return;
+    c.resign(); // 끝난 판으로 기록되고 결과 창이 뜬다
   }
 
   Future<void> _showResult() async {
@@ -235,23 +250,37 @@ class _GobbletScreenState extends State<GobbletScreen> {
   }
 
   Widget _bottomBar() {
+    final compact = OutlinedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      visualDensity: VisualDensity.compact,
+    );
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        // 좁은 화면(폰·옆 칸)에서는 단추가 다음 줄로 넘어간다
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 10,
+          runSpacing: 6,
           children: [
             OutlinedButton.icon(
+              style: compact,
               onPressed: c.canUndo ? c.undo : null,
-              icon: const Icon(Icons.undo_rounded),
+              icon: const Icon(Icons.undo_rounded, size: 20),
               label: const Text('되돌리기'),
             ),
-            const SizedBox(width: 12),
             OutlinedButton.icon(
+              style: compact,
               onPressed: () => c.restart(),
-              icon: const Icon(Icons.refresh_rounded),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
               label: const Text('새 판'),
+            ),
+            OutlinedButton.icon(
+              style: compact,
+              onPressed: c.canResign ? _resign : null,
+              icon: const Icon(Icons.flag_outlined, size: 20),
+              label: const Text('기권'),
             ),
           ],
         ),
@@ -275,6 +304,11 @@ class _ResultDialog extends StatelessWidget {
     if (r.kind == ResultKind.draw) {
       title = '무승부';
       body = '같은 모양이 3번 나와서 비겼어요.';
+    } else if (r.resigned) {
+      // 기권: 진 쪽이 기권했다 (기록에도 남았다)
+      title = c.vsCpu ? '기권했어요' : '${r.winner!.other.label}이 기권했어요';
+      body = c.vsCpu ? '기록에 남겨 두었어요. 다음엔 끝까지 도전해 봐요!' : '${r.winner!.label}의 승리로 기록했어요.';
+      face = r.winner;
     } else if (c.vsCpu) {
       final me = r.winner == c.humanTeam;
       title = me ? '이겼어요! 🎉' : 'CPU가 이겼어요';
@@ -354,7 +388,7 @@ Future<void> showGobbletRules(BuildContext context) {
             const SizedBox(height: 6),
             const _RuleLine('말은 크기가 3가지(점 1·2·3개)이고, 크기마다 2개씩 있어요.'),
             const _RuleLine('큰 말은 작은 말을 덮을 수 있어요. 내 말도, 상대 말도요!'),
-            const _RuleLine('덮인 말은 보이지 않아요. 아래 깔린 말은 칸 모서리의 작은 점으로 알 수 있어요.'),
+            const _RuleLine('덮인 말은 보이지 않고, 아래에 뭐가 깔렸는지 표시도 없어요. 무엇을 덮었는지 기억해 두세요!'),
             const _RuleLine('내 차례에 대기 중인 말을 올리거나, 판 위의 내 말(맨 위에 보이는 것)을 옮겨요.'),
             const _RuleLine('조심! 말을 들어 올렸을 때 상대 줄이 드러나면, 막지 못하는 한 상대가 이겨요.'),
             const _RuleLine('같은 모양이 3번 반복되면 무승부예요.'),

@@ -62,6 +62,9 @@ class GetColorController extends ChangeNotifier {
   bool paused = false;
   bool completed = false;
 
+  /// 포기한 판 (더 이상 손댈 수 없다).
+  bool gaveUp = false;
+
   /// 지금 골라 둔 병 (들어 올려진 병).
   int? selected;
 
@@ -85,15 +88,15 @@ class GetColorController extends ChangeNotifier {
   int get moveCount => _history.where((s) => s.move != null).length;
 
   bool get extraUsed => _history.any((s) => s.move == null);
-  bool get canAddBottle => !completed && !extraUsed && state.count < 15;
-  bool get canUndo => _history.isNotEmpty && !completed;
-  bool get canAct => !completed && !paused;
+  bool get canAddBottle => !completed && !gaveUp && !extraUsed && state.count < 15;
+  bool get canUndo => _history.isNotEmpty && !completed && !gaveUp;
+  bool get canAct => !completed && !paused && !gaveUp;
 
   /// 이 판에서 아직 한 수도 두지 않았는가.
   bool get untouched => _history.isEmpty;
 
   /// 더 부을 수 있는 곳이 하나도 없는 막다른 상태.
-  bool get noMoves => !completed && state.legalMoves().isEmpty;
+  bool get noMoves => !completed && !gaveUp && state.legalMoves().isEmpty;
 
   /// 끝난 병(한 가지 색으로 가득)의 수.
   int get doneCount => [for (var i = 0; i < state.count; i++) state.isDone(i)].where((d) => d).length;
@@ -180,7 +183,18 @@ class GetColorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── 되돌리기 / 다시 ──
+  // ── 포기 / 되돌리기 / 다시 ──
+
+  /// 이 판을 포기한다 (한 수라도 둔 판만). 포기했으면 true.
+  bool giveUp() {
+    if (completed || gaveUp || untouched) return false;
+    gaveUp = true;
+    selected = null;
+    lastPour = null;
+    _clearHint();
+    notifyListeners();
+    return true;
+  }
 
   void undo() {
     if (!canUndo) return;
@@ -199,6 +213,7 @@ class GetColorController extends ChangeNotifier {
     selected = null;
     lastPour = null;
     completed = false;
+    gaveUp = false;
     paused = false;
     elapsed.value = 0;
     _clearHint();
@@ -271,12 +286,12 @@ class GetColorController extends ChangeNotifier {
   // ── 시계 ──
 
   void tick() {
-    if (paused || completed) return;
+    if (paused || completed || gaveUp) return;
     elapsed.value++;
   }
 
   void setPaused(bool v) {
-    if (completed || paused == v) return;
+    if (completed || gaveUp || paused == v) return;
     paused = v;
     selected = null;
     notifyListeners();

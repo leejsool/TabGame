@@ -9,8 +9,16 @@ enum MinesStatus { ready, playing, won, lost }
 
 /// 지뢰찾기 한 판의 진행.
 class MinesController extends ChangeNotifier {
-  MinesController({required this.level, MinesBoard? board, int elapsedSeconds = 0, Random? rng})
-      : board = board ?? MinesBoard.forLevel(level),
+  MinesController({
+    required this.level,
+    MinesBoard? board,
+    int elapsedSeconds = 0,
+    Random? rng,
+    List<int>? presetMines,
+    List<int>? retryOf,
+  })  : board = board ?? MinesBoard.forLevel(level),
+        _preset = presetMines,
+        retryOf = retryOf ?? presetMines,
         elapsed = ValueNotifier<int>(elapsedSeconds),
         _rng = rng ?? Random() {
     if (this.board.minesPlaced) status = MinesStatus.playing;
@@ -20,6 +28,18 @@ class MinesController extends ChangeNotifier {
   MinesBoard board;
   final ValueNotifier<int> elapsed;
   final Random _rng;
+
+  /// 다시 도전하는 판의 지뢰 배치 (첫 칸을 열 때 쓰고 비운다).
+  List<int>? _preset;
+
+  /// 포기했던 판에 다시 도전하는 중이면 그 판의 원래 지뢰 배치 (클리어/다시 포기할 때 같은 판임을 알아본다).
+  List<int>? retryOf;
+
+  /// 기록에 남길 이 판의 지뢰 배치: 다시 도전 중이면 원래 배치, 아니면 지금 배치.
+  List<int> get recordMines => retryOf ?? mineCells;
+
+  /// 포기한 판 (더 이상 손댈 수 없다).
+  bool gaveUp = false;
 
   MinesStatus status = MinesStatus.ready;
   bool paused = false;
@@ -56,7 +76,7 @@ class MinesController extends ChangeNotifier {
 
   int get minesLeft => board.minesLeft;
   bool get isOver => status == MinesStatus.won || status == MinesStatus.lost;
-  bool get canAct => !isOver && !paused;
+  bool get canAct => !isOver && !paused && !gaveUp;
 
   /// 지금 칸이 (애니메이션까지 포함해) 열려 보이는가.
   bool shownRevealed(int i, int now) {
@@ -112,7 +132,13 @@ class MinesController extends ChangeNotifier {
 
   void _open(int i) {
     if (status == MinesStatus.ready) {
-      board.placeMines(i, _rng);
+      final preset = _preset;
+      _preset = null;
+      if (preset == null) {
+        board.placeMines(i, _rng);
+      } else {
+        board.placePresetMines(preset, i, _rng);
+      }
       status = MinesStatus.playing;
       onStarted?.call();
     }
@@ -198,11 +224,29 @@ class MinesController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ── 포기 ──
+
+  /// 이 판을 포기한다 (칸을 연 판만). 포기했으면 true.
+  bool giveUp() {
+    if (status != MinesStatus.playing || gaveUp) return false;
+    gaveUp = true;
+    hint = null;
+    hintMessage = null;
+    notifyListeners();
+    return true;
+  }
+
+  /// 지금 판의 지뢰 위치 (첫 칸을 열기 전에는 빈 목록).
+  List<int> get mineCells => [for (var i = 0; i < board.size; i++) if (board.mine[i]) i];
+
   // ── 새 판 / 시계 ──
 
   /// 같은 난이도의 새 판.
   void restart() {
     board = MinesBoard.forLevel(level);
+    _preset = null;
+    retryOf = null;
+    gaveUp = false;
     status = MinesStatus.ready;
     paused = false;
     hint = null;
@@ -218,12 +262,12 @@ class MinesController extends ChangeNotifier {
   }
 
   void tick() {
-    if (paused || status != MinesStatus.playing) return;
+    if (paused || gaveUp || status != MinesStatus.playing) return;
     elapsed.value++;
   }
 
   void setPaused(bool v) {
-    if (isOver || status == MinesStatus.ready || paused == v) return;
+    if (isOver || gaveUp || status == MinesStatus.ready || paused == v) return;
     paused = v;
     notifyListeners();
   }
@@ -231,13 +275,14 @@ class MinesController extends ChangeNotifier {
   // ── 저장 ──
 
   /// 진행 중(첫 칸을 연 뒤)인 판만 저장한다.
-  bool get saveable => status == MinesStatus.playing;
+  bool get saveable => status == MinesStatus.playing && !gaveUp;
 
   Map<String, dynamic> toJson() => {
         'level': level.index,
         'mines': [for (var i = 0; i < board.size; i++) if (board.mine[i]) i],
         'marks': board.marks.map((m) => m.index).join(),
         'elapsed': elapsed.value,
+        if (retryOf != null) 'retry': retryOf,
       };
 
   static MinesController fromJson(Map<String, dynamic> j) {
@@ -250,7 +295,12 @@ class MinesController extends ChangeNotifier {
       if (m == CellMark.revealed) board.revealedCount++;
       if (m == CellMark.flagged) board.flagCount++;
     }
-    return MinesController(level: level, board: board, elapsedSeconds: j['elapsed'] as int);
+    return MinesController(
+      level: level,
+      board: board,
+      elapsedSeconds: j['elapsed'] as int,
+      retryOf: j['retry'] == null ? null : List<int>.from(j['retry'] as List),
+    );
   }
 
   @override

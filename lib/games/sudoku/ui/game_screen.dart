@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../data/sudoku_history.dart';
 import '../data/sudoku_storage.dart';
@@ -142,6 +143,37 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
     }
   }
 
+  Future<void> _giveUp() async {
+    if (game.completed || game.gaveUp || !game.canUndo) return;
+    game.timerHold = true;
+    final ok = await confirmGiveUp(context, detail: '지금까지 ${formatTime(game.elapsed.value)} 풀었어요.');
+    game.timerHold = false;
+    if (!ok || !mounted || game.completed) return;
+    game.gaveUp = true;
+    _saveDebounce?.cancel();
+    final seconds = game.elapsed.value;
+    final diff = game.puzzle.difficulty;
+    await SudokuStorage.clearSave(game);
+    await SudokuHistory.add(SudokuRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      difficulty: diff,
+      seconds: seconds,
+      mistakes: game.mistakes,
+      hints: game.hintsUsed,
+      givens: game.puzzle.givensString,
+      solution: game.puzzle.solutionString,
+      gaveUp: true,
+    ));
+    if (!mounted) return;
+    final again = await showGaveUpDialog(context, summary: '${diff.label} · ${formatTime(seconds)}');
+    if (!mounted) return;
+    if (again) {
+      startSudokuGame(context, diff, replace: true);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _confirmRestart() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -203,13 +235,19 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
             icon: const Icon(Icons.more_vert_rounded),
             onSelected: (v) {
               if (v == 'restart') _confirmRestart();
+              if (v == 'giveup') _giveUp();
               if (v == 'new') {
                 startSudokuGame(context, game.puzzle.difficulty, replace: true);
               }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
-              PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
+              const PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+              PopupMenuItem(
+                value: 'giveup',
+                enabled: game.canUndo && !game.completed && !game.gaveUp,
+                child: const Text('포기하기'),
+              ),
             ],
           ),
         ],

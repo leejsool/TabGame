@@ -9,9 +9,9 @@ import '../ui/uttt_board.dart' show UtttLayout, drawMark, kOColor, kXColor, side
 
 const Color _utttColor = Color(0xFFD1495B);
 
-/// 얼티밋 틱택토 게임 방법.
+/// 궁극 틱택토 게임 방법.
 GameTutorial utttTutorial() => GameTutorial(
-      title: '얼티밋 틱택토',
+      title: '궁극 틱택토',
       color: _utttColor,
       steps: [
         TutorialStep(

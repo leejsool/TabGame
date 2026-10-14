@@ -42,20 +42,48 @@ void main() {
       expect(w.canPour(2, 1), isFalse); // 위 색이 다르다(0 vs 2)
     });
 
-    test('맨 위 같은 색 덩어리를 한꺼번에, 받는 병에 들어갈 만큼만 붓는다', () {
+    test('맨 위 같은 색 덩어리는 통째로만 붓고, 다 들어갈 자리가 없으면 일부만 붓지 않는다', () {
       final w = s([
         [1, 0, 0, 0],
         [0, 0],
         [],
       ]);
       expect(w.topRun(0), 3);
-      expect(w.pourAmount(0, 1), 2); // 빈 자리 2칸만
+      expect(w.canPour(0, 1), isFalse); // 빈 자리가 2칸뿐이라 3칸 덩어리는 못 들어간다
+      expect(w.pourAmount(0, 1), 0);
+      expect(w.pour(0, 1), 0);
+      expect(w.bottles[0], [1, 0, 0, 0]);
+      expect(w.bottles[1], [0, 0]);
       expect(w.pourAmount(0, 2), 3);
-      expect(w.pour(0, 1), 2);
-      expect(w.bottles[0], [1, 0]);
-      expect(w.bottles[1], [0, 0, 0, 0]);
-      expect(w.isDone(1), isTrue);
-      expect(w.pour(0, 1), 0); // 이제 못 붓는다
+      expect(w.pour(0, 2), 3);
+      expect(w.bottles[0], [1]);
+      expect(w.bottles[2], [0, 0, 0]);
+      // 이제 한 칸 남은 병 [0,0,0]에 0 한 칸은 들어간다
+      final v = s([
+        [1, 0],
+        [0, 0, 0],
+      ]);
+      expect(v.canPour(0, 1), isTrue);
+      expect(v.pour(0, 1), 1);
+      expect(v.isDone(1), isTrue);
+    });
+
+    test('남은 자리가 모자라면 같은 색이어도 못 붓는다 (a-a-d-e 를 자리 1칸짜리 a-b-c 위에)', () {
+      // 병은 아래→위: 받는 병 [c, b, a] (자리 1칸), 보내는 병 [e, d, a, a]
+      final w = s([
+        [2, 1, 0],
+        [4, 3, 0, 0],
+      ]);
+      expect(w.canPour(1, 0), isFalse);
+      expect(w.legalMoves().contains(const GcMove(1, 0)), isFalse);
+      // 받는 병이 비어 있으면(자리 4칸) 같은 덩어리가 들어간다
+      final v = s([
+        [2, 1, 0],
+        [4, 3, 0, 0],
+        [],
+      ]);
+      expect(v.canPour(1, 2), isTrue);
+      expect(v.pourAmount(1, 2), 2);
     });
 
     test('풀린 판: 병마다 비었거나 한 가지 색으로 가득', () {

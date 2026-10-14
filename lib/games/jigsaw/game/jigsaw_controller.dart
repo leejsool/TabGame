@@ -51,6 +51,9 @@ class JigsawController extends ChangeNotifier {
   bool paused = false;
   bool completed = false;
 
+  /// 포기한 판 (더 이상 저장하거나 시간을 재지 않는다).
+  bool gaveUp = false;
+
   /// 지금 끌고 있는 조각.
   int? dragging;
   Offset _grab = Offset.zero;
@@ -327,12 +330,12 @@ class JigsawController extends ChangeNotifier {
   // ── 시계 ──
 
   void tick() {
-    if (paused || completed) return;
+    if (paused || completed || gaveUp) return;
     elapsed.value++;
   }
 
   void setPaused(bool v) {
-    if (completed || paused == v) return;
+    if (completed || gaveUp || paused == v) return;
     paused = v;
     notifyListeners();
   }

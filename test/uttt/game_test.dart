@@ -108,7 +108,7 @@ void main() {
       testWidgets('넘치지 않고 그려진다 $size', (tester) async {
         final c = await pumpScreen(tester, size);
         expect(tester.takeException(), isNull);
-        expect(find.text('얼티밋 틱택토'), findsOneWidget);
+        expect(find.text('궁극 틱택토'), findsOneWidget);
         expect(find.textContaining('차례'), findsWidgets);
         c.play(40);
         await tester.pump(const Duration(milliseconds: 400));
@@ -169,7 +169,7 @@ void main() {
       await pumpScreen(tester, const Size(360, 740));
       await tester.tap(find.byTooltip('규칙'));
       await tester.pump(const Duration(milliseconds: 400)); // 판의 반짝임은 끝나지 않으므로 settle 불가
-      expect(find.text('얼티밋 틱택토 규칙'), findsOneWidget);
+      expect(find.text('궁극 틱택토 규칙'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
@@ -194,7 +194,7 @@ void main() {
       await tester.tap(find.text('시작하기'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.text('얼티밋 틱택토'), findsOneWidget);
+      expect(find.text('궁극 틱택토'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

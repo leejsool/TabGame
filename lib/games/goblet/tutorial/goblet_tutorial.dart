@@ -69,7 +69,7 @@ GameTutorial gobletTutorial() => GameTutorial(
         TutorialStep(
           title: '큰 말은 작은 말을 덮어요',
           body: '큰 말은 작은 말 위에 덮어씌울 수 있어요. 내 말도, 상대 말도요!\n'
-              '덮인 말은 보이지 않아요. 아래에 깔린 말은 칸 모서리의 작은 점으로 알 수 있어요. '
+              '덮인 말은 보이지 않고, 아래에 뭐가 깔려 있다는 표시도 없어요. 무엇을 덮었는지는 기억해야 해요! '
               '같은 크기끼리는 덮을 수 없어요.',
           art: (context, accent) => ArtCanvas(
             width: 340,
@@ -204,7 +204,7 @@ Widget _piece(Team t, int size, double px, {bool lift = false}) {
   );
 }
 
-/// 칸 하나: [stack]은 아래부터 쌓인 말들. 덮인 말은 모서리의 작은 점으로 보인다.
+/// 칸 하나: [stack]은 아래부터 쌓인 말들. 맨 위 말만 보이고, 덮인 말은 표시하지 않는다.
 Widget _cell(List<(Team, int)> stack, double px) {
   return Container(
     width: px,
@@ -217,20 +217,6 @@ Widget _cell(List<(Team, int)> stack, double px) {
     child: Stack(
       children: [
         Positioned.fill(child: _piece(stack.last.$1, stack.last.$2, px - 8)),
-        for (var i = 0; i < stack.length - 1; i++)
-          Positioned(
-            left: 6.0 + i * 14,
-            top: 6,
-            child: Container(
-              width: 11,
-              height: 11,
-              decoration: BoxDecoration(
-                color: TeamPalette.of(stack[i].$1).main,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-            ),
-          ),
       ],
     ),
   );
@@ -299,20 +285,6 @@ Widget _cellContent(List<(Team, int)> stack, double px) {
     child: Stack(
       children: [
         Positioned.fill(child: _piece(stack.last.$1, stack.last.$2, px - 4)),
-        for (var i = 0; i < stack.length - 1; i++)
-          Positioned(
-            left: 3.0 + i * 8,
-            top: 3,
-            child: Container(
-              width: px * 0.14,
-              height: px * 0.14,
-              decoration: BoxDecoration(
-                color: TeamPalette.of(stack[i].$1).main,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-            ),
-          ),
       ],
     ),
   );

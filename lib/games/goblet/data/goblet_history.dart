@@ -15,6 +15,7 @@ class GobbletRecord {
     this.level,
     this.human,
     this.byReveal = false,
+    this.resigned = false,
   });
 
   final int at;
@@ -31,6 +32,9 @@ class GobbletRecord {
   /// 말을 들어 올리는 바람에 상대 줄이 드러나서 결정된 경우.
   final bool byReveal;
 
+  /// 진 쪽이 기권해서 끝난 판인가.
+  final bool resigned;
+
   bool get isDraw => winner == null;
 
   /// CPU 대결에서 내가 이겼는가 (CPU 대결이 아니면 null).
@@ -44,6 +48,7 @@ class GobbletRecord {
         'lv': level?.name,
         'h': human?.name,
         'rv': byReveal,
+        if (resigned) 'rs': 1,
       };
 
   static GobbletRecord fromJson(Map<String, dynamic> j) => GobbletRecord(
@@ -54,6 +59,7 @@ class GobbletRecord {
         level: j['lv'] == null ? null : CpuLevel.values.byName(j['lv'] as String),
         human: j['h'] == null ? null : Team.values.byName(j['h'] as String),
         byReveal: j['rv'] as bool? ?? false,
+        resigned: j['rs'] == 1,
       );
 }
 

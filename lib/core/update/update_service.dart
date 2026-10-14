@@ -228,5 +228,9 @@ class UpdateService {
   }
 }
 
-/// 안드로이드 앱에서만 업데이트를 지원한다 (웹·데스크톱 개발 화면에서는 끈다).
-bool get updatesSupported => !kIsWeb && Platform.isAndroid;
+/// 개발용 빌드인가 (`tool/build_dev.ps1`이 `--dart-define=TABGAME_DEV=true`로 만든다).
+/// 개발용 앱은 릴리즈 앱과 다른 앱(`.dev`)으로 설치되고, 릴리즈 업데이트 안내는 쓰지 않는다.
+const bool kDevBuild = bool.fromEnvironment('TABGAME_DEV');
+
+/// 안드로이드 앱에서만 업데이트를 지원한다 (웹·데스크톱 개발 화면과 개발용 빌드에서는 끈다).
+bool get updatesSupported => !kIsWeb && !kDevBuild && Platform.isAndroid;

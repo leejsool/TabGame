@@ -22,7 +22,7 @@ void main() {
     await tester.tap(find.byTooltip('함께'));
     await tester.pumpAndSettle();
     expect(find.text('스도쿠'), findsNothing);
-    expect(find.text('얼티밋 틱택토'), findsOneWidget);
+    expect(find.text('궁극 틱택토'), findsOneWidget);
   });
 
   testWidgets('폰 세로·작은 화면에서도 허브가 넘치지 않는다', (tester) async {
@@ -49,9 +49,9 @@ void main() {
     await tester.pumpWidget(TabGameApp(settings: settings));
     await tester.tap(find.byTooltip('함께')); // 화면이 낮아 "함께 놀기" 카드만 보이게 한다
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('얼티밋 틱택토'));
+    await tester.ensureVisible(find.text('궁극 틱택토'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('얼티밋 틱택토'));
+    await tester.tap(find.text('궁극 틱택토'));
     await tester.pumpAndSettle();
     expect(find.text('CPU와 대결'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -65,14 +65,14 @@ void main() {
     final settings = await Settings.load();
     await tester.pumpWidget(TabGameApp(settings: settings));
 
-    await tester.tap(find.text('얼티밋 틱택토'));
+    await tester.tap(find.text('궁극 틱택토'));
     await tester.pumpAndSettle();
     expect(find.text('CPU와 대결'), findsOneWidget);
 
     await tester.tap(find.text('CPU와 대결'));
     await tester.pumpAndSettle();
     // 처음 여는 게임이라 게임 방법 안내가 먼저 나오고, 건너뛸 수 있다 (자세한 건 tutorial/first_run_test.dart)
-    expect(find.text('얼티밋 틱택토 게임 방법'), findsOneWidget);
+    expect(find.text('궁극 틱택토 게임 방법'), findsOneWidget);
     await tester.tap(find.text('건너뛰기'));
     await tester.pumpAndSettle();
     expect(find.text('내 표시'), findsOneWidget);

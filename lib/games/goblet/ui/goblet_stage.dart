@@ -295,7 +295,6 @@ class _GobbletStageState extends State<GobbletStage> with SingleTickerProviderSt
             covers: c.topAt(cell) != null,
             hovered: _hover == cell,
             winning: win.contains(cell),
-            stack: [for (final id in c.stackAt(cell)) id],
             pulse: _pulse,
             onTap: () => _onCellTap(cell),
           ),
@@ -452,7 +451,6 @@ class _Tile extends StatelessWidget {
     required this.covers,
     required this.hovered,
     required this.winning,
-    required this.stack,
     required this.pulse,
     required this.onTap,
   });
@@ -464,7 +462,6 @@ class _Tile extends StatelessWidget {
   final bool covers;
   final bool hovered;
   final bool winning;
-  final List<PieceId> stack;
   final Animation<double> pulse;
   final VoidCallback onTap;
 
@@ -506,44 +503,10 @@ class _Tile extends StatelessWidget {
                   ],
                 ),
               ),
-              // 덮여 있는 말 표시 (작은 점)
-              if (stack.length > 1) _CoverDots(cell: cell, covered: stack.sublist(0, stack.length - 1)),
+              // 덮인 말은 일부러 표시하지 않는다: 아래에 뭐가 깔렸는지는 플레이어가 기억해야 한다
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// 맨 위 말 아래에 깔린 말들을 작은 점으로 보여준다 (팀 색, 크기 순).
-class _CoverDots extends StatelessWidget {
-  const _CoverDots({required this.cell, required this.covered});
-
-  final double cell;
-  final List<PieceId> covered;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: cell * 0.07,
-      bottom: cell * 0.06,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final id in covered)
-            Container(
-              margin: EdgeInsets.only(right: cell * 0.03),
-              width: cell * (0.06 + 0.035 * sizeOfPiece(id)),
-              height: cell * (0.06 + 0.035 * sizeOfPiece(id)),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: TeamPalette.of(teamOfPiece(id)).main,
-                border: Border.all(color: Colors.white, width: 1.2),
-              ),
-            ),
-        ],
       ),
     );
   }

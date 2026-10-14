@@ -7,7 +7,7 @@ import '../../../core/game_info.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
 
-/// 얼티밋 틱택토 한 판의 진행(규칙 + CPU + 되돌리기).
+/// 궁극 틱택토 한 판의 진행(규칙 + CPU + 되돌리기).
 class UtttController extends ChangeNotifier {
   UtttController({
     required this.mode,
@@ -119,6 +119,23 @@ class UtttController extends ChangeNotifier {
     if (_disposed || epoch != _epoch) return;
     thinking = false;
     _apply(results[0] as int);
+  }
+
+  // ── 기권 ──
+
+  /// 기권할 수 있는가 (한 수라도 둔 진행 중인 판).
+  bool get canResign => !isOver && moves.isNotEmpty;
+
+  /// 기권하는 쪽: CPU 대결이면 사람, 둘이서 할 때는 지금 차례인 쪽.
+  int get resigningSide => vsCpu ? humanSide : state.turn;
+
+  /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
+  bool resign() {
+    if (!canResign) return false;
+    _epoch++;
+    thinking = false;
+    notifyListeners();
+    return true;
   }
 
   // ── 되돌리기 ──

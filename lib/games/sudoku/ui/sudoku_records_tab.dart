@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../core/generator.dart';
 import '../data/sudoku_history.dart';
@@ -52,12 +53,12 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
 
   /// 난이도별 최단 기록 (이 목록 안에서).
   int? _bestIn(Difficulty d) {
-    final s = [for (final r in _all) if (r.difficulty == d) r.seconds];
+    final s = [for (final r in _all) if (!r.gaveUp && r.difficulty == d) r.seconds];
     return s.isEmpty ? null : s.reduce((a, b) => a < b ? a : b);
   }
 
   String _avgText(Difficulty d) {
-    final s = [for (final r in _all) if (r.difficulty == d) r.seconds];
+    final s = [for (final r in _all) if (!r.gaveUp && r.difficulty == d) r.seconds];
     if (s.isEmpty) return '';
     final avg = s.reduce((a, b) => a + b) ~/ s.length;
     return ' · 평균 ${formatTime(avg)}';
@@ -71,9 +72,10 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
+    final gaveUps = [for (final r in _all) if (r.gaveUp) r];
     final list = [
       for (final r in _all)
-        if (_filter == null || r.difficulty == _filter) r,
+        if (!r.gaveUp && (_filter == null || r.difficulty == _filter)) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
 
@@ -94,6 +96,19 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
             ],
           ],
         ),
+        if (gaveUps.isNotEmpty) ...[
+          const SectionTitle('포기한 판'),
+          for (final r in gaveUps)
+            GiveUpTile(
+              icon: Icons.grid_on_rounded,
+              iconColor: _levelColors[r.difficulty]!,
+              title: r.difficulty.label,
+              subtitle: '실수 ${r.mistakes} · 힌트 ${r.hints}',
+              seconds: r.seconds,
+              at: r.at,
+              onRetry: () => _replay(r),
+            ),
+        ],
         const SectionTitle('완성한 판'),
         Wrap(
           spacing: 8,
@@ -124,9 +139,9 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
         if (list.isEmpty)
           EmptyRecords(
             icon: Icons.grid_on_rounded,
-            message: _all.isEmpty && _stats.values.any((s) => s.wins > 0)
+            message: _all.every((r) => r.gaveUp) && _stats.values.any((s) => s.wins > 0)
                 ? '판 목록 기능이 생기기 전에 완성한 판은 목록에 없어요.\n이제부터 완성하는 판은 여기에 쌓이고, 같은 판을 다시 풀어볼 수 있어요!'
-                : _all.isEmpty
+                : _all.every((r) => r.gaveUp)
                     ? '아직 완성한 판이 없어요.\n한 판 끝내면 여기에 기록되고, 같은 판을 다시 풀어볼 수 있어요!'
                     : '이 난이도로 완성한 판이 아직 없어요.',
           )

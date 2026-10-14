@@ -116,7 +116,7 @@ class _JigsawSetupScreenState extends State<JigsawSetupScreen> {
         title: const Text('퍼즐 만들기', style: TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.transparent,
       ),
-      body: LayoutBuilder(
+      body: SafeArea(top: false, child: LayoutBuilder(
         builder: (context, box) {
           final wide = box.maxWidth > 760;
           return SingleChildScrollView(
@@ -147,7 +147,7 @@ class _JigsawSetupScreenState extends State<JigsawSetupScreen> {
             ),
           );
         },
-      ),
+      )),
     );
   }
 }

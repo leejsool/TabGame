@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../data/jigsaw_history.dart';
 import '../data/jigsaw_storage.dart';
@@ -131,6 +132,34 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
           ),
         ],
       ),
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _giveUp() async {
+    final c = s.controller;
+    if (c.completed || c.gaveUp) return;
+    final ok = await confirmGiveUp(context, detail: '${c.placedCount}/${c.geometry.count}조각을 맞췄어요.');
+    if (!ok || !mounted || c.completed) return;
+    c.gaveUp = true;
+    _saveDebounce?.cancel();
+    final seconds = c.elapsed.value;
+    await JigsawStorage.abandon(c, s.source);
+    await JigsawHistory.add(JigsawRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      target: s.pieceTarget,
+      pieces: c.geometry.count,
+      seconds: seconds,
+      source: s.source,
+      gaveUp: true,
+      placed: c.placedCount,
+    ));
+    await JigsawStorage.pruneAfterHistoryChange();
+    if (!mounted) return;
+    await showGaveUpDialog(
+      context,
+      summary: '${c.geometry.count}조각 · ${formatTime(seconds)} · ${c.placedCount}조각 맞춤',
+      offerAgain: false,
     );
     if (mounted) Navigator.of(context).pop();
   }
@@ -269,6 +298,25 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
                 size: 30,
               ),
               onPressed: c.completed ? null : () => c.setPaused(!c.paused),
+            ),
+            PopupMenuButton<String>(
+              tooltip: '메뉴',
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(34, 40),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (v) {
+                if (v == 'giveup') _giveUp();
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'giveup',
+                  enabled: !c.completed && !c.gaveUp && c.placedCount > 0,
+                  child: const Text('포기하기'),
+                ),
+              ],
             ),
           ],
         ),

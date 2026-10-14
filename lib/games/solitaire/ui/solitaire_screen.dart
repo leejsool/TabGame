@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/solitaire_tutorial.dart';
 import '../data/solitaire_storage.dart';
@@ -165,6 +166,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
         title: const Text('더 움직일 수 없어요'),
         content: const Text('더미를 끝까지 넘겨 봐도 놓을 수 있는 곳이 없어요. 되돌려서 다른 길을 시도해 볼까요?'),
         actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 'giveup'), child: const Text('포기')),
           TextButton(onPressed: () => Navigator.pop(ctx, 'restart'), child: const Text('처음부터')),
           TextButton(onPressed: () => Navigator.pop(ctx, 'new'), child: const Text('새 게임')),
           FilledButton(onPressed: () => Navigator.pop(ctx, 'undo'), child: const Text('되돌리기')),
@@ -180,12 +182,42 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
         c.restart();
       case 'new':
         _startNewGame();
+      case 'giveup':
+        _giveUp();
     }
   }
 
   /// 같은 뽑기 장수로 무작위 새 판을 시작한다 (이 화면을 새 판으로 바꾼다).
   Future<void> _startNewGame() async {
     await startSolitaireDeal(context, randomSolitaireDeal(), c.draw, replace: true);
+  }
+
+  Future<void> _giveUp() async {
+    if (c.completed || c.gaveUp || c.untouched) return;
+    final ok = await confirmGiveUp(context, detail: '#${c.deal} 판 · ${c.moveCount}수를 두었어요.');
+    if (!ok || !mounted || !c.giveUp()) return;
+    final seconds = c.elapsed.value;
+    await SolitaireStorage.clearSave(c);
+    await SolitaireStorage.recordGiveUp(SolitaireRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      deal: c.deal,
+      draw: c.draw,
+      seconds: seconds,
+      moves: c.moveCount,
+      gaveUp: true,
+    ));
+    if (!mounted) return;
+    final again = await showGaveUpDialog(
+      context,
+      summary: '#${c.deal} · ${c.draw}장 뽑기 · ${formatTime(seconds)} · ${c.moveCount}수',
+      againLabel: '새 게임',
+    );
+    if (!mounted) return;
+    if (again) {
+      _startNewGame();
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _confirmRestart() async {
@@ -332,12 +364,18 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
               onSelected: (v) {
                 if (v == 'restart') _confirmRestart();
                 if (v == 'new') _startNewGame();
+                if (v == 'giveup') _giveUp();
                 if (v == 'rules') showSolitaireRules(context);
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
-                PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
-                PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'restart', child: Text('처음부터 다시하기')),
+                const PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+                PopupMenuItem(
+                  value: 'giveup',
+                  enabled: !c.completed && !c.gaveUp && !c.untouched,
+                  child: const Text('포기하기'),
+                ),
+                const PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
               ],
             ),
           ],

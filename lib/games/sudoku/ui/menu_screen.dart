@@ -84,7 +84,7 @@ class _SudokuMenuScreenState extends State<SudokuMenuScreen> {
           ),
         ],
       ),
-      body: !_loaded
+      body: SafeArea(top: false, child: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -156,7 +156,7 @@ class _SudokuMenuScreenState extends State<SudokuMenuScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

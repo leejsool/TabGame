@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../core/mines_rules.dart';
 import '../data/mines_storage.dart';
+import '../minesweeper_entry.dart';
 import 'mines_menu_screen.dart' show levelColors;
 
 /// 지뢰찾기 기록 보드: 난이도별 요약 + 최근 클리어 목록.
@@ -40,13 +42,19 @@ class _MinesRecordsTabState extends State<MinesRecordsTab> {
     });
   }
 
+  Future<void> _retry(MinesRecord r) async {
+    await retryMines(context, r);
+    if (mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final scheme = Theme.of(context).colorScheme;
+    final gaveUps = [for (final r in _all) if (r.gaveUp) r];
     final list = [
       for (final r in _all)
-        if (_filter == null || r.level == _filter) r,
+        if (!r.gaveUp && (_filter == null || r.level == _filter)) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
     final best = list.isEmpty ? null : list.map((r) => r.seconds).reduce((a, b) => a < b ? a : b);
@@ -70,6 +78,19 @@ class _MinesRecordsTabState extends State<MinesRecordsTab> {
             ],
           ],
         ),
+        if (gaveUps.isNotEmpty) ...[
+          const SectionTitle('포기한 판'),
+          for (final r in gaveUps)
+            GiveUpTile(
+              icon: Icons.flag_rounded,
+              iconColor: levelColors[r.level]!,
+              title: r.level.label,
+              subtitle: '안전한 칸 ${r.opened}/${r.level.rows * r.level.cols - r.level.mines}칸',
+              seconds: r.seconds,
+              at: r.at,
+              onRetry: r.mines == null ? null : () => _retry(r),
+            ),
+        ],
         const SectionTitle('클리어한 판'),
         Wrap(
           spacing: 8,

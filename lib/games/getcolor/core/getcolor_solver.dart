@@ -195,7 +195,8 @@ Future<GcSolution> solveWater(
         } else if (top[j] != top[i]) {
           continue;
         }
-        final amount = min(run[i], _cap - len[j]);
+        if (run[i] > _cap - len[j]) continue; // 같은 색 덩어리가 통째로 들어갈 자리가 있어야 한다
+        final amount = run[i];
         final cells = Uint8List.fromList(node.cells);
         for (var k = 0; k < amount; k++) {
           cells[j * _cap + len[j] + k] = top[i];

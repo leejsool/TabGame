@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
 
-/// 끝난 얼티밋 틱택토 한 판의 결과.
+/// 끝난 궁극 틱택토 한 판의 결과.
 class UtttRecord {
   const UtttRecord({
     required this.at,
@@ -14,10 +14,14 @@ class UtttRecord {
     required this.moves,
     this.level,
     this.human,
+    this.resigned = false,
   });
 
   final int at;
   final bool vsCpu;
+
+  /// 진 쪽이 기권해서 끝난 판인가.
+  final bool resigned;
 
   /// 이긴 쪽 (kX / kO). null이면 무승부.
   final int? winner;
@@ -39,6 +43,7 @@ class UtttRecord {
         'm': moves,
         'lv': level?.name,
         'h': human,
+        if (resigned) 'rs': 1,
       };
 
   static UtttRecord fromJson(Map<String, dynamic> j) => UtttRecord(
@@ -48,6 +53,7 @@ class UtttRecord {
         moves: j['m'] as int,
         level: j['lv'] == null ? null : UttLevel.values.byName(j['lv'] as String),
         human: j['h'] as int?,
+        resigned: j['rs'] == 1,
       );
 }
 

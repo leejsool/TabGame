@@ -84,7 +84,7 @@ class _GetColorMenuScreenState extends State<GetColorMenuScreen> {
           ),
         ],
       ),
-      body: !_loaded
+      body: SafeArea(top: false, child: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -113,7 +113,7 @@ class _GetColorMenuScreenState extends State<GetColorMenuScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

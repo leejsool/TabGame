@@ -4,24 +4,46 @@ import 'package:flutter/material.dart';
 
 import '../core/getcolor_rules.dart';
 
-/// 물 색깔 13가지 (색 번호 → 색). 서로 헷갈리지 않게 골랐다.
+/// 물 색깔 13가지 (색 번호 → 색). 비슷해 보이는 짝(빨강/분홍, 연두/초록, 청록/하늘, 파랑/남색…)은
+/// 색을 최대한 벌려 놓았고, 그래도 헷갈릴 수 있는 색에는 아래 [kWaterPatterns] 무늬를 겹쳐 그린다.
 const List<Color> kWaterColors = [
-  Color(0xFFE5484D), // 빨강
-  Color(0xFFF28C28), // 주황
-  Color(0xFFF5D547), // 노랑
-  Color(0xFF9BD14B), // 연두
-  Color(0xFF2FA84F), // 초록
-  Color(0xFF1FB5A5), // 청록
-  Color(0xFF55C1F2), // 하늘
-  Color(0xFF3E63DD), // 파랑
-  Color(0xFF8E4EC6), // 보라
-  Color(0xFFF06BA8), // 분홍
-  Color(0xFF9A6B43), // 갈색
-  Color(0xFFB9C2CF), // 회색
-  Color(0xFF243A8F), // 남색 (13번째 — 매우 어려움에서만 쓴다)
+  Color(0xFFDB2F36), // 0 빨강
+  Color(0xFFF5841F), // 1 주황
+  Color(0xFFFFE23D), // 2 노랑
+  Color(0xFFB4E03A), // 3 연두
+  Color(0xFF1C8C3E), // 4 초록
+  Color(0xFF12A89A), // 5 청록
+  Color(0xFF7FD6FF), // 6 하늘
+  Color(0xFF2F6BF0), // 7 파랑
+  Color(0xFF9B4DCA), // 8 보라
+  Color(0xFFFF8CC4), // 9 분홍
+  Color(0xFF7A4A24), // 10 갈색
+  Color(0xFFB3BAC6), // 11 회색
+  Color(0xFF1B2766), // 12 남색 (13번째 — 매우 어려움에서만 쓴다)
+];
+
+/// 물에 겹쳐 그리는 무늬 (색 번호 → 무늬). 색이 비슷한 짝은 서로 다른 무늬(또는 한쪽만 무늬 없음)가 되게 짰다.
+enum WaterPattern { solid, slash, dots, backslash, bars, grid }
+
+const List<WaterPattern> kWaterPatterns = [
+  WaterPattern.solid, // 0 빨강
+  WaterPattern.solid, // 1 주황
+  WaterPattern.solid, // 2 노랑
+  WaterPattern.slash, // 3 연두 (노랑·초록과 구별)
+  WaterPattern.solid, // 4 초록
+  WaterPattern.dots, // 5 청록 (초록·하늘과 구별)
+  WaterPattern.solid, // 6 하늘
+  WaterPattern.solid, // 7 파랑
+  WaterPattern.solid, // 8 보라
+  WaterPattern.backslash, // 9 분홍 (빨강과 구별)
+  WaterPattern.bars, // 10 갈색 (주황과 구별)
+  WaterPattern.dots, // 11 회색 (하늘과 구별)
+  WaterPattern.grid, // 12 남색 (파랑·보라와 구별)
 ];
 
 Color waterColor(int c) => kWaterColors[c % kWaterColors.length];
+
+WaterPattern waterPattern(int c) => kWaterPatterns[c % kWaterPatterns.length];
 
 /// 병의 가로세로 비율 (높이 = 너비 × 이 값).
 const double kBottleAspect = 3.0;
@@ -119,6 +141,7 @@ void paintBottle(
     final top = y - units * unit;
     final base = waterColor(color);
     canvas.drawRect(Rect.fromLTRB(0, top, w, y + 1), Paint()..color = base);
+    _paintPattern(canvas, w, Rect.fromLTRB(0, top, w, y), base, waterPattern(color));
     // 수면 쪽이 살짝 밝게
     canvas.drawRect(
       Rect.fromLTRB(0, top, w, min(y, top + unit * 0.22)),
@@ -192,4 +215,58 @@ void paintBottleShadow(Canvas canvas, double w) {
       ..color = Colors.black.withValues(alpha: 0.22)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.06),
   );
+}
+
+/// 물 덩어리 [area] 안에 [pattern] 무늬를 그린다. 무늬는 병 좌표에 붙어 있어서, 같은 색이 이어진 덩어리는 끊김 없이 이어진다.
+void _paintPattern(Canvas canvas, double w, Rect area, Color base, WaterPattern pattern) {
+  if (pattern == WaterPattern.solid || area.height <= 0.5) return;
+  // 바탕이 밝으면 어두운 선, 어두우면 밝은 선
+  final light = base.computeLuminance() > 0.45;
+  final ink = (light ? Colors.black : Colors.white).withValues(alpha: light ? 0.34 : 0.42);
+  final line = Paint()
+    ..color = ink
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = max(1.4, w * 0.045)
+    ..strokeCap = StrokeCap.butt;
+  final fill = Paint()..color = ink;
+  final gap = w * 0.17;
+
+  canvas.save();
+  canvas.clipRect(area);
+  switch (pattern) {
+    case WaterPattern.solid:
+      break;
+    case WaterPattern.slash:
+    case WaterPattern.backslash:
+      final dir = pattern == WaterPattern.slash ? 1.0 : -1.0;
+      final h = w * kBottleAspect;
+      for (var x = -h; x < w + h; x += gap * 1.5) {
+        canvas.drawLine(Offset(x, h), Offset(x + dir * h, 0), line);
+      }
+    case WaterPattern.bars:
+      final start = (area.top / gap).floor() * gap;
+      for (var y = start; y < area.bottom; y += gap) {
+        canvas.drawLine(Offset(0, y + gap * 0.5), Offset(w, y + gap * 0.5), line);
+      }
+    case WaterPattern.dots:
+      final r = max(1.3, w * 0.04);
+      final startY = (area.top / gap).floor();
+      for (var row = startY; row * gap < area.bottom; row++) {
+        final y = row * gap + gap * 0.5;
+        final shift = row.isOdd ? gap * 0.5 : 0.0;
+        for (var x = shift + gap * 0.25; x < w; x += gap) {
+          canvas.drawCircle(Offset(x, y), r, fill);
+        }
+      }
+    case WaterPattern.grid:
+      final step = gap * 1.1;
+      final startY = (area.top / step).floor() * step;
+      for (var y = startY; y < area.bottom; y += step) {
+        canvas.drawLine(Offset(0, y), Offset(w, y), line);
+      }
+      for (var x = step * 0.5; x < w; x += step) {
+        canvas.drawLine(Offset(x, area.top), Offset(x, area.bottom), line);
+      }
+  }
+  canvas.restore();
 }

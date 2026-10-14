@@ -97,7 +97,7 @@ class _SolitaireMenuScreenState extends State<SolitaireMenuScreen> {
           ),
         ],
       ),
-      body: !_loaded
+      body: SafeArea(top: false, child: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -196,7 +196,7 @@ class _SolitaireMenuScreenState extends State<SolitaireMenuScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

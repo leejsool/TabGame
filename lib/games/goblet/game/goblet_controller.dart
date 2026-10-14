@@ -17,13 +17,14 @@ int sizeOfPiece(PieceId id) => (id % 6) ~/ 2 + 1;
 enum ResultKind { win, draw }
 
 class GobbletResult {
-  const GobbletResult.win(this.winner, this.line, {this.byReveal = false})
+  const GobbletResult.win(this.winner, this.line, {this.byReveal = false, this.resigned = false})
       : kind = ResultKind.win;
   const GobbletResult.draw()
       : kind = ResultKind.draw,
         winner = null,
         line = const [],
-        byReveal = false;
+        byReveal = false,
+        resigned = false;
 
   final ResultKind kind;
   final Team? winner;
@@ -31,6 +32,9 @@ class GobbletResult {
 
   /// 상대가 말을 들어 올리는 바람에 내 줄이 드러나서 이긴 경우.
   final bool byReveal;
+
+  /// 상대가 기권해서 이긴 경우.
+  final bool resigned;
 }
 
 class _Snapshot {
@@ -122,6 +126,26 @@ class GobbletController extends ChangeNotifier {
     _reset();
     notifyListeners();
     _maybeCpu();
+  }
+
+  // ── 기권 ──
+
+  /// 기권할 수 있는가 (한 수라도 둔 진행 중인 판).
+  bool get canResign => !isOver && _history.isNotEmpty;
+
+  /// 기권하는 팀: CPU 대결이면 사람, 둘이서 할 때는 지금 차례인 팀.
+  Team get resigningTeam => vsCpu ? humanTeam : turn;
+
+  /// 기권한다 (상대가 이긴 것으로 끝난다). CPU가 생각 중이었으면 그 수는 버린다.
+  bool resign() {
+    if (!canResign) return false;
+    _epoch++;
+    thinking = false;
+    selected = null;
+    targets = {};
+    result = GobbletResult.win(resigningTeam.other, const [], resigned: true);
+    notifyListeners();
+    return true;
   }
 
   // ── 조회 ──

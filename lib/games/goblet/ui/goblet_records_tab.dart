@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
+import '../../../core/game_info.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../core/goblet_ai.dart';
 import '../core/goblet_rules.dart';
 import '../data/goblet_history.dart';
 import 'goblet_piece.dart';
+import 'goblet_screen.dart';
 
 /// 고블렛 고블러스 기록 보드: CPU 난이도별 전적 + 2인 대결 요약 + 최근 결과.
 /// (고블렛은 판을 다시 하는 의미가 적어서 "다시 하기"는 없다.)
@@ -53,7 +56,15 @@ class _GobbletRecordsTabState extends State<GobbletRecordsTab> {
             message: '아직 끝낸 판이 없어요.\n한 판 끝내면 여기에 전적이 쌓여요!',
           )
         else
-          for (final r in _all.take(30)) _ResultTile(record: r),
+          for (final r in _all.take(30))
+            _ResultTile(
+              record: r,
+              onRetry: r.resigned && r.vsCpu
+                  ? () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => GobbletScreen(mode: PlayMode.vsCpu, humanTeam: r.human!, level: r.level!),
+                      ))
+                  : null,
+            ),
       ],
     );
   }
@@ -156,9 +167,12 @@ class _TwoPlayerCard extends StatelessWidget {
 }
 
 class _ResultTile extends StatelessWidget {
-  const _ResultTile({required this.record});
+  const _ResultTile({required this.record, this.onRetry});
 
   final GobbletRecord record;
+
+  /// 기권한 CPU 대결을 같은 설정(난이도·맡은 팀)으로 다시 해 본다.
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -175,11 +189,11 @@ class _ResultTile extends StatelessWidget {
       final won = r.humanWon!;
       icon = won ? Icons.emoji_events_rounded : Icons.sentiment_dissatisfied_rounded;
       color = won ? const Color(0xFFF2A900) : scheme.error;
-      title = '${won ? '이겼어요' : '졌어요'} · CPU ${r.level!.label}';
+      title = '${won ? '이겼어요' : r.resigned ? '기권했어요' : '졌어요'} · CPU ${r.level!.label}';
     } else {
       icon = Icons.emoji_events_rounded;
       color = TeamPalette.of(r.winner!).main;
-      title = '${r.winner!.label} 승리';
+      title = r.resigned ? '${r.winner!.other.label} 기권 · ${r.winner!.label} 승리' : '${r.winner!.label} 승리';
     }
     final detail = [
       formatDate(r.at),
@@ -202,8 +216,16 @@ class _ResultTile extends StatelessWidget {
           decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
           child: Icon(icon, color: color),
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Row(
+          children: [
+            Flexible(child: Text(title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+            if (r.resigned) ...[const SizedBox(width: 6), const GiveUpChip()],
+          ],
+        ),
         subtitle: Text(detail, style: const TextStyle(fontSize: 12.5)),
+        trailing: r.resigned && r.vsCpu && onRetry != null
+            ? IconButton.filledTonal(tooltip: '다시 도전', onPressed: onRetry, icon: const Icon(Icons.replay_rounded))
+            : null,
       ),
     );
   }

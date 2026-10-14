@@ -141,7 +141,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> with SingleTicker
     final measuring = _running && _played > _countIn;
     return Scaffold(
       appBar: AppBar(title: const Text('박자 보정', style: TextStyle(fontWeight: FontWeight.w800))),
-      body: Listener(
+      body: SafeArea(top: false, child: Listener(
         behavior: HitTestBehavior.opaque,
         onPointerDown: (_) => _tap(),
         child: Center(
@@ -235,7 +235,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> with SingleTicker
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 }

@@ -4,6 +4,7 @@ import '../../core/game_info.dart';
 import '../../records/record_widgets.dart';
 import 'core/mines_rules.dart';
 import 'data/mines_storage.dart';
+import 'game/mines_controller.dart';
 import 'ui/mines_menu_screen.dart';
 import 'ui/mines_screen.dart';
 
@@ -39,5 +40,22 @@ Future<void> startMines(
 Future<void> resumeMines(BuildContext context, Map<String, dynamic> saved) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(builder: (_) => MinesScreen(saved: saved)),
+  );
+}
+
+/// 포기했던 판([record])에 같은 지뢰 배치로 다시 도전한다 (첫 칸은 늘 안전하다).
+/// 이어하던 판이 있으면 먼저 묻는다.
+Future<void> retryMines(BuildContext context, MinesRecord record) async {
+  final mines = record.mines;
+  if (mines == null) return;
+  final saved = await MinesStorage.loadSaved();
+  if (saved != null && context.mounted) {
+    final ok = await confirmOverwrite(context, gameName: '지뢰찾기');
+    if (!ok) return;
+  }
+  if (!context.mounted) return;
+  final controller = MinesController(level: record.level, presetMines: mines);
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => MinesScreen(controller: controller)),
   );
 }

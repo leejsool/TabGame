@@ -177,7 +177,7 @@ class _JigsawMenuScreenState extends State<JigsawMenuScreen> {
           ),
         ],
       ),
-      body: !_loaded
+      body: SafeArea(top: false, child: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -272,7 +272,7 @@ class _JigsawMenuScreenState extends State<JigsawMenuScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

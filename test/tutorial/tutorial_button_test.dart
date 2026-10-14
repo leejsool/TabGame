@@ -11,6 +11,8 @@ import 'package:tabgame/games/minesweeper/ui/mines_menu_screen.dart';
 import 'package:tabgame/games/rhythm/ui/rhythm_menu_screen.dart';
 import 'package:tabgame/games/solitaire/ui/solitaire_menu_screen.dart';
 import 'package:tabgame/games/uttt/ui/uttt_setup_screen.dart';
+import 'package:tabgame/games/sprouts/ui/sprouts_setup_screen.dart';
+import 'package:tabgame/core/game_info.dart';
 import 'package:tabgame/tutorial/tutorial_screen.dart';
 
 /// 게임 첫 화면(난이도·설정을 고르는 곳)마다 "튜토리얼 보기" 버튼이 눈에 띄게 있고, 누르면 안내가 열린다.
@@ -23,7 +25,8 @@ void main() {
     '직소퍼즐': () => const JigsawMenuScreen(),
     '리듬 검사단': () => const RhythmMenuScreen(),
     '고블렛 고블러스': () => const GobbletSetupScreen(),
-    '얼티밋 틱택토': () => const UtttSetupScreen(),
+    '궁극 틱택토': () => const UtttSetupScreen(),
+    '콩나물': () => const SproutsSetupScreen(mode: PlayMode.vsCpu),
   };
 
   for (final MapEntry(key: name, value: build) in screens.entries) {

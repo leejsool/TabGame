@@ -6,6 +6,7 @@ import '../../../records/records_screen.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
 import '../tutorial/uttt_tutorial.dart';
+import 'uttt_lesson_screen.dart';
 import 'uttt_board.dart';
 import 'uttt_screen.dart';
 
@@ -46,7 +47,7 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
           ),
         ],
       ),
-      body: Center(
+      body: SafeArea(top: false, child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: ListView(
@@ -85,10 +86,21 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
               ),
               const SizedBox(height: 10),
               const TutorialButton(tutorial: utttTutorial),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => openUtttLesson(context),
+                icon: const Icon(Icons.menu_book_rounded),
+                label: const Text('교과학습'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+              ),
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

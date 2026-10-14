@@ -14,7 +14,7 @@ class ComingSoonScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(game.title)),
-      body: Center(
+      body: SafeArea(top: false, child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -31,7 +31,7 @@ class ComingSoonScreen extends StatelessWidget {
             const Text('아직 만드는 중이에요. 곧 만나요!'),
           ],
         ),
-      ),
+      )),
     );
   }
 }

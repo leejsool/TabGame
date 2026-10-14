@@ -45,7 +45,7 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
           ),
         ],
       ),
-      body: Center(
+      body: SafeArea(top: false, child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: ListView(
@@ -96,7 +96,7 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

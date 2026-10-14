@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/mines_tutorial.dart';
 import '../core/mines_rules.dart';
@@ -99,6 +100,7 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
       at: DateTime.now().millisecondsSinceEpoch,
       level: c.level,
       seconds: seconds,
+      mines: c.retryOf, // 포기했던 판을 클리어한 거면 그 판의 포기 기록이 지워진다
     ));
     await Future<void>.delayed(const Duration(milliseconds: 2400));
     if (!mounted) return;
@@ -162,6 +164,35 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
         c.restart();
       case 'menu':
         Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _giveUp() async {
+    if (c.status != MinesStatus.playing || c.gaveUp) return;
+    final total = c.board.size - c.level.mines;
+    final ok = await confirmGiveUp(context, detail: '안전한 칸 ${c.board.revealedCount}/$total칸을 열었어요.');
+    if (!ok || !mounted || !c.giveUp()) return;
+    final seconds = c.elapsed.value;
+    await MinesStorage.clearSave(c);
+    await MinesStorage.recordGiveUp(MinesRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      level: c.level,
+      seconds: seconds,
+      gaveUp: true,
+      mines: c.recordMines,
+      opened: c.board.revealedCount,
+    ));
+    if (!mounted) return;
+    final again = await showGaveUpDialog(
+      context,
+      summary: '${c.level.label} · ${formatTime(seconds)} · 안전한 칸 ${c.board.revealedCount}/$total칸',
+      againLabel: '새 판',
+    );
+    if (!mounted) return;
+    if (again) {
+      c.restart();
+    } else {
+      Navigator.of(context).pop();
     }
   }
 
@@ -310,11 +341,17 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (v) {
                 if (v == 'new') _confirmRestart();
+                if (v == 'giveup') _giveUp();
                 if (v == 'rules') showMinesRules(context);
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
-                PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'new', child: Text('새 판으로 시작')),
+                PopupMenuItem(
+                  value: 'giveup',
+                  enabled: c.status == MinesStatus.playing && !c.gaveUp,
+                  child: const Text('포기하기'),
+                ),
+                const PopupMenuItem(value: 'rules', child: Text('규칙 보기')),
               ],
             ),
           ],

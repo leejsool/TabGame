@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../data/solitaire_storage.dart';
 import '../solitaire_entry.dart';
@@ -49,8 +50,10 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final scheme = Theme.of(context).colorScheme;
+    final gaveUps = [for (final r in _all) if (r.gaveUp) r];
+    final cleared = [for (final r in _all) if (!r.gaveUp) r];
     final list = [
-      for (final r in _all)
+      for (final r in cleared)
         if (_filter == null || r.draw == _filter) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
@@ -86,6 +89,19 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
         statRow(1, const Color(0xFF3FA796)),
         const SizedBox(height: 10),
         statRow(3, const Color(0xFF8E5BC4)),
+        if (gaveUps.isNotEmpty) ...[
+          const SectionTitle('포기한 판'),
+          for (final r in gaveUps)
+            GiveUpTile(
+              icon: Icons.style_rounded,
+              iconColor: const Color(0xFF2E7D5B),
+              title: '#${r.deal}',
+              subtitle: '${r.moves}수 · ${r.draw}장 뽑기',
+              seconds: r.seconds,
+              at: r.at,
+              onRetry: () => _replay(r),
+            ),
+        ],
         const SectionTitle('완성한 판'),
         Wrap(
           spacing: 8,
@@ -108,7 +124,7 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
         if (list.isEmpty)
           EmptyRecords(
             icon: Icons.style_rounded,
-            message: _all.isEmpty
+            message: cleared.isEmpty
                 ? '아직 완성한 판이 없어요.\n한 판 끝내면 번호와 함께 기록되고, 같은 번호로 다시 해볼 수 있어요!'
                 : '이 방식으로 완성한 판이 아직 없어요.',
           )

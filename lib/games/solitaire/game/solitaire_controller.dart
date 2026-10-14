@@ -57,6 +57,9 @@ class SolitaireController extends ChangeNotifier {
   bool completed = false;
   bool paused = false;
 
+  /// 포기한 판 (더 이상 손댈 수 없다).
+  bool gaveUp = false;
+
   /// 자동 이동이 진행 중이라 사용자 입력을 잠시 받지 않는다.
   bool busy = false;
 
@@ -85,8 +88,8 @@ class SolitaireController extends ChangeNotifier {
   /// 사용자가 둔 수 (자동 이동은 제외).
   int get moveCount => _history.where((s) => !s.auto).length;
 
-  bool get canUndo => _history.isNotEmpty && !completed;
-  bool get canAct => !completed && !paused && !busy;
+  bool get canUndo => _history.isNotEmpty && !completed && !gaveUp;
+  bool get canAct => !completed && !paused && !busy && !gaveUp;
 
   /// 이 판에서 아직 한 수도 두지 않았는가.
   bool get untouched => _history.isEmpty;
@@ -296,12 +299,24 @@ class SolitaireController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 이 판을 포기한다 (한 수라도 둔 판만). 포기했으면 true.
+  bool giveUp() {
+    if (completed || gaveUp || untouched) return false;
+    gaveUp = true;
+    _autoTimer?.cancel();
+    hint = null;
+    hintMessage = null;
+    notifyListeners();
+    return true;
+  }
+
   /// 같은 번호의 판을 처음부터 다시.
   void restart() {
     _autoTimer?.cancel();
     state = SolState.deal(deal, draw: draw);
     _history.clear();
     completed = false;
+    gaveUp = false;
     busy = false;
     noMoves = false;
     paused = false;
@@ -396,12 +411,12 @@ class SolitaireController extends ChangeNotifier {
   // ── 시계 ──
 
   void tick() {
-    if (paused || completed) return;
+    if (paused || completed || gaveUp) return;
     elapsed.value++;
   }
 
   void setPaused(bool v) {
-    if (completed || paused == v) return;
+    if (completed || gaveUp || paused == v) return;
     paused = v;
     notifyListeners();
   }

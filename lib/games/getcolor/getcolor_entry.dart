@@ -44,3 +44,22 @@ Future<void> resumeGetColor(BuildContext context, Map<String, dynamic> saved) {
     MaterialPageRoute<void>(builder: (_) => GetColorScreen(controller: controller)),
   );
 }
+
+/// 포기했던 판([record])에 같은 병 배치로 다시 도전한다. 이어하던 판이 있으면 먼저 묻는다.
+Future<void> retryGetColor(BuildContext context, GetColorRecord record) async {
+  final initial = record.initial;
+  if (initial == null) return;
+  final saved = await GetColorStorage.loadSaved();
+  if (saved != null && context.mounted) {
+    final ok = await confirmOverwrite(context, gameName: '겟 컬러');
+    if (!ok) return;
+  }
+  if (!context.mounted) return;
+  final controller = GetColorController(
+    level: record.level,
+    initial: WaterState([for (final b in initial) List<int>.of(b)]),
+  );
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => GetColorScreen(controller: controller)),
+  );
+}

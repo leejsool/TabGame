@@ -15,6 +15,8 @@ import '../games/minesweeper/tutorial/mines_tutorial.dart';
 import '../games/rhythm/rhythm_entry.dart';
 import '../games/rhythm/tutorial/rhythm_tutorial.dart';
 import '../games/solitaire/solitaire_entry.dart';
+import '../games/sprouts/sprouts_entry.dart';
+import '../games/sprouts/tutorial/sprouts_tutorial.dart';
 import '../games/solitaire/tutorial/solitaire_tutorial.dart';
 import '../games/sudoku/sudoku_entry.dart';
 import '../games/sudoku/tutorial/sudoku_tutorial.dart';
@@ -107,7 +109,7 @@ const List<GameInfo> allGames = [
   // ── 함께 놀기 ('아주 이상한 수학책' 게임들) ──
   GameInfo(
     id: 'ultimate_tictactoe',
-    title: '얼티밋 틱택토',
+    title: '궁극 틱택토',
     tagline: '틱택토 속의 틱택토',
     icon: Icons.tag_rounded,
     color: Color(0xFFD1495B),
@@ -124,5 +126,15 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildGoblet,
     tutorial: gobletTutorial,
+  ),
+  GameInfo(
+    id: 'sprouts',
+    title: '콩나물',
+    tagline: '점을 잇고 새 점을 찍어요',
+    icon: Icons.scatter_plot_rounded,
+    color: Color(0xFF5E9E2F),
+    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    builder: buildSprouts,
+    tutorial: sproutsTutorial,
   ),
 ];

@@ -73,7 +73,7 @@ class _MinesMenuScreenState extends State<MinesMenuScreen> {
           ),
         ],
       ),
-      body: !_loaded
+      body: SafeArea(top: false, child: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
@@ -102,7 +102,7 @@ class _MinesMenuScreenState extends State<MinesMenuScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

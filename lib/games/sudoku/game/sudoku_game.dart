@@ -97,6 +97,9 @@ class SudokuGame extends ChangeNotifier {
   bool paused = false;
   bool completed = false;
 
+  /// 포기한 판 (더 이상 저장하거나 시간을 재지 않는다).
+  bool gaveUp = false;
+
   /// 대화상자 등으로 시계를 잠시 멈춤.
   bool timerHold = false;
 
@@ -427,6 +430,7 @@ class SudokuGame extends ChangeNotifier {
     hintsUsed = 0;
     ignoreLimit = false;
     completed = false;
+    gaveUp = false;
     paused = false;
     timerHold = false;
     selected = -1;
@@ -441,7 +445,7 @@ class SudokuGame extends ChangeNotifier {
   // ── 시계 ──
 
   void tick() {
-    if (paused || completed || timerHold) return;
+    if (paused || completed || gaveUp || timerHold) return;
     elapsed.value++;
   }
 

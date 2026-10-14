@@ -75,6 +75,17 @@ class MinesBoard {
     setMines(candidates.take(mineCount));
   }
 
+  /// 정해 둔 지뢰 배치[preset]를 쓰되, 첫 칸 [safe]와 (자리가 충분하면) 그 이웃은 안전하게 한다.
+  /// 그 자리에 있던 지뢰는 다른 빈 칸으로 옮긴다 (포기했던 판에 다시 도전할 때 쓴다).
+  void placePresetMines(Iterable<int> preset, int safe, Random rng) {
+    final banned = <int>{safe};
+    if (size - 9 >= mineCount) banned.addAll(neighbors(safe));
+    final kept = <int>{for (final m in preset) if (!banned.contains(m)) m};
+    final moved = preset.length - kept.length;
+    final spare = [for (var i = 0; i < size; i++) if (!banned.contains(i) && !kept.contains(i)) i]..shuffle(rng);
+    setMines([...kept, ...spare.take(moved)]);
+  }
+
   /// 지뢰 위치를 정해 놓고 주변 숫자를 계산한다 (저장 복원/테스트용).
   void setMines(Iterable<int> mines) {
     mine.fillRange(0, size, false);

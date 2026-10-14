@@ -14,6 +14,7 @@ class SudokuRecord {
     required this.hints,
     required this.givens,
     required this.solution,
+    this.gaveUp = false,
   });
 
   /// 완성한 시각 (epoch ms).
@@ -25,6 +26,9 @@ class SudokuRecord {
   final String givens;
   final String solution;
 
+  /// 포기한 판인가 (그러면 [seconds]는 포기하기까지 걸린 시간).
+  final bool gaveUp;
+
   SudokuPuzzle get puzzle => SudokuPuzzle.fromStrings(givens, solution, difficulty);
 
   Map<String, dynamic> toJson() => {
@@ -35,6 +39,7 @@ class SudokuRecord {
         'hint': hints,
         'g': givens,
         's': solution,
+        if (gaveUp) 'gu': 1,
       };
 
   static SudokuRecord fromJson(Map<String, dynamic> j) => SudokuRecord(
@@ -45,6 +50,7 @@ class SudokuRecord {
         hints: j['hint'] as int,
         givens: j['g'] as String,
         solution: j['s'] as String,
+        gaveUp: j['gu'] == 1,
       );
 }
 
@@ -71,10 +77,16 @@ class SudokuHistory {
     }
   }
 
+  /// 기록을 더한다. 같은 문제의 포기 기록은 하나만 남기고, 포기했던 문제를 완성하면 포기 기록은 지운다.
   static Future<void> add(SudokuRecord r) async {
     final list = await load();
+    list.removeWhere((e) => e.gaveUp && e.givens == r.givens);
     list.insert(0, r);
-    if (list.length > maxEntries) list.removeRange(maxEntries, list.length);
+    // 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다)
+    while (list.length > maxEntries) {
+      final i = list.lastIndexWhere((e) => !e.gaveUp);
+      list.removeAt(i < 0 ? list.length - 1 : i);
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode([for (final e in list) e.toJson()]));
   }

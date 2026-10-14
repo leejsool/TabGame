@@ -5,13 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/freecell_difficulty.dart';
 import '../game/freecell_controller.dart';
 
-/// 완성한 판의 기록.
+/// 한 판의 기록: 완성했거나, 포기한 판.
 class FreecellRecord {
   const FreecellRecord({
     required this.at,
     required this.deal,
     required this.seconds,
     required this.moves,
+    this.gaveUp = false,
   });
 
   final int at;
@@ -19,13 +20,23 @@ class FreecellRecord {
   final int seconds;
   final int moves;
 
-  Map<String, dynamic> toJson() => {'at': at, 'deal': deal, 'sec': seconds, 'mv': moves};
+  /// 포기한 판인가 (그러면 [deal] 번호로 다시 도전할 수 있고, [seconds]·[moves]는 포기하기까지의 값).
+  final bool gaveUp;
+
+  Map<String, dynamic> toJson() => {
+        'at': at,
+        'deal': deal,
+        'sec': seconds,
+        'mv': moves,
+        if (gaveUp) 'gu': 1,
+      };
 
   static FreecellRecord fromJson(Map<String, dynamic> j) => FreecellRecord(
         at: j['at'] as int,
         deal: j['deal'] as int,
         seconds: j['sec'] as int,
         moves: j['mv'] as int,
+        gaveUp: j['gu'] == 1,
       );
 }
 
@@ -60,7 +71,7 @@ class FreecellStorage {
   static void setActive(FreecellController c) => _active = c;
 
   static Future<void> save(FreecellController c) async {
-    if (!identical(c, _active) || c.completed || c.untouched) return;
+    if (!identical(c, _active) || c.completed || c.gaveUp || c.untouched) return;
     final json = jsonEncode(c.toJson()); // 화면이 정리되기 전에 지금 상태를 굳혀 둔다
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_saveKey, json);
@@ -135,11 +146,27 @@ class FreecellStorage {
       await prefs.setInt('freecell.bestMoves', r.moves);
       best = true;
     }
-    final list = await loadHistory();
-    list.insert(0, r);
-    if (list.length > maxHistory) list.removeRange(maxHistory, list.length);
-    await prefs.setString(_historyKey, jsonEncode([for (final e in list) e.toJson()]));
+    await _addToHistory(prefs, r);
     return best;
+  }
+
+  /// 포기한 판을 기록에 남긴다 (같은 번호를 또 포기하면 가장 최근 것만 남는다).
+  static Future<void> recordGiveUp(FreecellRecord r) async {
+    assert(r.gaveUp);
+    await _addToHistory(await SharedPreferences.getInstance(), r);
+  }
+
+  /// 같은 번호의 포기 기록은 지우고(포기했던 판을 완성했거나 또 포기한 경우) 맨 앞에 더한다.
+  /// 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다).
+  static Future<void> _addToHistory(SharedPreferences prefs, FreecellRecord r) async {
+    final list = await loadHistory();
+    list.removeWhere((e) => e.gaveUp && e.deal == r.deal);
+    list.insert(0, r);
+    while (list.length > maxHistory) {
+      final i = list.lastIndexWhere((e) => !e.gaveUp);
+      list.removeAt(i < 0 ? list.length - 1 : i);
+    }
+    await prefs.setString(_historyKey, jsonEncode([for (final e in list) e.toJson()]));
   }
 
   /// 최신 순.

@@ -2,6 +2,7 @@
 ///
 /// 병마다 물(색 칸)이 아래에서 위로 쌓여 있고, 한 병에는 최대 [kBottleCapacity]칸이 들어간다.
 /// 병의 맨 위 색을 다른 병으로 부어서, 한 병에 한 가지 색만 가득 차게 모으면 이긴다.
+/// 맨 위에 같은 색이 여러 칸 이어져 있으면 그 덩어리를 통째로 붓는다 (일부만 따로 옮길 수는 없다).
 library;
 
 import 'dart:math';
@@ -140,19 +141,17 @@ class WaterState {
     return n;
   }
 
+  /// 붓기: 받는 병이 비었거나 맨 위 색이 같고, 맨 위 같은 색 덩어리 전체가 들어갈 자리가 있어야 한다.
+  /// (자리가 모자라 덩어리 일부만 들어가는 붓기는 허용하지 않는다.)
   bool canPour(int from, int to) {
     if (from == to || from < 0 || to < 0 || from >= count || to >= count) return false;
     if (isEmpty(from) || isFull(to)) return false;
-    return isEmpty(to) || topColor(to) == topColor(from);
+    if (!isEmpty(to) && topColor(to) != topColor(from)) return false;
+    return topRun(from) <= kBottleCapacity - bottles[to].length;
   }
 
-  /// 붓는 칸 수: 맨 위 같은 색 덩어리 중 받는 병에 들어갈 만큼.
-  int pourAmount(int from, int to) {
-    if (!canPour(from, to)) return 0;
-    final room = kBottleCapacity - bottles[to].length;
-    final run = topRun(from);
-    return run < room ? run : room;
-  }
+  /// 붓는 칸 수: 맨 위 같은 색 덩어리 전체 (붓지 못하면 0).
+  int pourAmount(int from, int to) => canPour(from, to) ? topRun(from) : 0;
 
   /// 붓는다. 합법이 아니면 0을 돌려주고 아무것도 하지 않는다. 옮긴 칸 수를 돌려준다.
   int pour(int from, int to) {

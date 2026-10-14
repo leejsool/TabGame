@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
+import '../../../core/give_up.dart';
 import '../../../records/record_widgets.dart';
 import '../core/freecell_difficulty.dart';
 import '../data/freecell_storage.dart';
@@ -52,7 +53,7 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
 
   /// 난이도별 (완성한 판 수, 최단 시간) — 목록에 남아 있는 기록 기준.
   (int, int?) _levelSummary(FcLevel l) {
-    final secs = [for (final r in _all) if (_levelOf(r) == l) r.seconds];
+    final secs = [for (final r in _all) if (!r.gaveUp && _levelOf(r) == l) r.seconds];
     return (secs.length, secs.isEmpty ? null : secs.reduce((a, b) => a < b ? a : b));
   }
 
@@ -65,12 +66,14 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final scheme = Theme.of(context).colorScheme;
+    final gaveUps = [for (final r in _all) if (r.gaveUp) r];
+    final cleared = [for (final r in _all) if (!r.gaveUp) r];
     final list = [
-      for (final r in _all)
+      for (final r in cleared)
         if (_filter == null || _levelOf(r) == _filter) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
-    final bestSeconds = _all.isEmpty ? null : _all.map((r) => r.seconds).reduce((a, b) => a < b ? a : b);
+    final bestSeconds = cleared.isEmpty ? null : cleared.map((r) => r.seconds).reduce((a, b) => a < b ? a : b);
     final s = _stats;
 
     return RecordsList(
@@ -123,6 +126,19 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
             ],
           ),
         ],
+        if (gaveUps.isNotEmpty) ...[
+          const SectionTitle('포기한 판'),
+          for (final r in gaveUps)
+            GiveUpTile(
+              icon: Icons.style_rounded,
+              iconColor: const Color(0xFF2A7F58),
+              title: '#${r.deal}',
+              subtitle: '${r.moves}수${_levelOf(r) == null ? '' : ' · ${_levelOf(r)!.label}'}',
+              seconds: r.seconds,
+              at: r.at,
+              onRetry: () => _replay(r),
+            ),
+        ],
         const SectionTitle('완성한 판'),
         Wrap(
           spacing: 8,
@@ -155,9 +171,9 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
         if (list.isEmpty)
           EmptyRecords(
             icon: Icons.style_rounded,
-            message: _all.isEmpty && s.wins > 0
+            message: cleared.isEmpty && s.wins > 0
                 ? '판 목록 기능이 생기기 전에 완성한 판은 목록에 없어요.\n이제부터 완성하는 판은 번호와 함께 쌓여요!'
-                : _all.isEmpty
+                : cleared.isEmpty
                     ? '아직 완성한 판이 없어요.\n한 판 끝내면 번호와 함께 기록되고, 같은 번호로 다시 해볼 수 있어요!'
                     : '이 난이도로 완성한 판이 아직 없어요.',
           )
