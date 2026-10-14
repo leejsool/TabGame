@@ -40,6 +40,7 @@ class RhythmJudge {
     this.goodWindow = 0.15,
     this.matchWindow = 0.2,
     this.swipeSlack = 1.3,
+    this.guardSlack = 1.5,
   }) : _expected = expected.toList() {
     _done = List.filled(_expected.length, false);
     _pressed = List.filled(_expected.length, false);
@@ -54,7 +55,10 @@ class RhythmJudge {
   /// 옆으로 긋기는 손가락이 일정 거리를 가야 해서 탭보다 늦게 잡힌다 — 판정 폭을 이만큼 넓힌다.
   final double swipeSlack;
 
-  double _slack(ChartEvent e) => (e.isSwipe || e.isGuard) ? swipeSlack : 1.0;
+  /// 위로 밀어 막기는 긋기보다 조금 더 넉넉하게 본다.
+  final double guardSlack;
+
+  double _slack(ChartEvent e) => e.isGuard ? guardSlack : (e.isSwipe ? swipeSlack : 1.0);
 
   final List<ChartEvent> _expected;
   late final List<bool> _done;
@@ -198,7 +202,7 @@ class RhythmJudge {
     for (var i = 0; i < _expected.length; i++) {
       final e = _expected[i];
       if (_done[i] || !e.isGuard) continue;
-      if ((t - _ref(i)).abs() > matchWindow * swipeSlack) continue;
+      if ((t - _ref(i)).abs() > matchWindow * guardSlack) continue;
       if (pick == null || _ref(i) < _ref(pick)) pick = i;
     }
     if (pick == null) {

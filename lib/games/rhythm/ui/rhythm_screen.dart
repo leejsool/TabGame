@@ -180,16 +180,16 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
     if (_c == null || e.pointer != _swipePointer || _paused) return;
     final d = e.localPosition - _swipeFrom;
     if (c.armedGuard) {
-      // 막기: 어느 손이든 위로 화면 높이의 12%(최소 70px) 이상, 가로보다 세로로 더 많이 밀면 성공
-      final need = (height * 0.12).clamp(70.0, 220.0);
-      if (-d.dy < need || -d.dy < d.dx.abs() * 1.2) return;
+      // 막기: 어느 손이든 위로 화면 높이의 9%(최소 55px) 이상, 가로보다 세로로 더 많이 밀면 성공
+      final need = (height * 0.09).clamp(55.0, 170.0);
+      if (-d.dy < need || -d.dy < d.dx.abs() * 1.0) return;
       _swipePointer = null;
       c.guard(_songTime());
       return;
     }
-    // 가로로 화면 너비의 20%(최소 100px) 이상, 세로보다 가로로 더 많이 움직이면 "그었다"
-    final need = (width * 0.2).clamp(100.0, 320.0);
-    if (d.dx.abs() < need || d.dx.abs() < d.dy.abs() * 1.2) return;
+    // 가로로 화면 너비의 14%(최소 70px) 이상, 세로보다 가로로 더 많이 움직이면 "그었다"
+    final need = (width * 0.14).clamp(70.0, 220.0);
+    if (d.dx.abs() < need || d.dx.abs() < d.dy.abs() * 1.0) return;
     _swipePointer = null;
     c.swipe(d.dx > 0 ? Side.right : Side.left, _songTime());
   }

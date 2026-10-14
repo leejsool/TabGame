@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../games/dandelion/dandelion_entry.dart';
+import '../games/dandelion/tutorial/dandelion_tutorial.dart';
 import '../games/freecell/freecell_entry.dart';
 import '../games/getcolor/getcolor_entry.dart';
 import '../games/getcolor/tutorial/getcolor_tutorial.dart';
@@ -136,5 +138,15 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildSprouts,
     tutorial: sproutsTutorial,
+  ),
+  GameInfo(
+    id: 'dandelion',
+    title: '민들레',
+    tagline: '꽃을 심고 바람에 씨앗을 날려요',
+    icon: Icons.local_florist_rounded,
+    color: Color(0xFFD99A00),
+    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    builder: buildDandelion,
+    tutorial: dandelionTutorial,
   ),
 ];

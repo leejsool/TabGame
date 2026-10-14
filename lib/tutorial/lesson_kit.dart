@@ -320,8 +320,17 @@ class LessonDepthExplorerState extends State<LessonDepthExplorer> {
 
 /// 객관식 퀴즈 한 문제.
 class LessonQuiz extends StatefulWidget {
-  const LessonQuiz({super.key, required this.question, required this.options, required this.answer, required this.explain});
+  const LessonQuiz({
+    super.key,
+    required this.question,
+    required this.options,
+    required this.answer,
+    required this.explain,
+    this.figure,
+  });
 
+  /// 문제를 이해하는 데 도움이 되는 그림 (문제 글 아래에 가운데로 놓인다).
+  final Widget? figure;
   final String question;
   final List<String> options;
   final int answer;
@@ -353,6 +362,7 @@ class LessonQuizState extends State<LessonQuiz> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(widget.question, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.4)),
+            if (widget.figure != null) Padding(padding: const EdgeInsets.only(top: 10), child: Center(child: widget.figure)),
             const SizedBox(height: 8),
             for (var i = 0; i < widget.options.length; i++)
               Padding(

@@ -30,6 +30,7 @@ class GameIcon extends StatelessWidget {
     'ultimate_tictactoe': _uttt,
     'goblet_gobblers': _goblet,
     'sprouts': _sprouts,
+    'dandelion': _dandelion,
   };
 
   static bool hasArt(String id) => _painters.containsKey(id) || id == 'rhythm_swords';
@@ -347,4 +348,42 @@ void _sprouts(Canvas c, double s) {
     c.drawCircle(dot, big ? 0.085 : 0.06, _fill(big ? _ink : Colors.white));
     c.drawCircle(dot, big ? 0.085 : 0.06, _line(big ? Colors.white : _ink, 0.03));
   }
+}
+
+// ── 민들레: 노란 꽃과 바람에 날아가는 씨앗 ──
+void _dandelion(Canvas c, double s) {
+  // 바람 줄무늬
+  for (final (y, x0, x1) in [(0.16, 0.5, 0.92), (0.9, 0.12, 0.5)]) {
+    final p = Path()
+      ..moveTo(x0, y)
+      ..quadraticBezierTo((x0 + x1) / 2, y - 0.07, x1, y);
+    c.drawPath(p, _line(Colors.white.withValues(alpha: 0.85), 0.035));
+  }
+  // 꽃
+  const center = Offset(0.37, 0.52);
+  const r = 0.27;
+  for (final (w, color) in [(0.1, _ink), (0.062, const Color(0xFFFFD84D))]) {
+    for (var i = 0; i < 14; i++) {
+      final a = i * 2 * pi / 14;
+      final d = Offset(cos(a), sin(a));
+      c.drawLine(center + d * r * 0.36, center + d * r * 0.94, _line(color, w));
+    }
+  }
+  c.drawCircle(center, r * 0.44, _fill(const Color(0xFFF08A00)));
+  c.drawCircle(center, r * 0.44, _line(_ink, 0.035));
+  c.drawCircle(center + const Offset(-0.03, -0.03), 0.03, _fill(Colors.white.withValues(alpha: 0.6)));
+  // 날아가는 씨앗
+  void seed(Offset p, double k) {
+    for (var i = -2; i <= 2; i++) {
+      final a = -pi / 2 + i * 0.5;
+      final end = p + Offset(cos(a), sin(a)) * 0.1 * k;
+      c.drawLine(p, end, _line(_ink, 0.03 * k));
+      c.drawCircle(end, 0.02 * k, _fill(Colors.white));
+    }
+    c.drawOval(Rect.fromCenter(center: p + Offset(0, 0.035 * k), width: 0.034 * k, height: 0.07 * k), _fill(_ink));
+  }
+
+  seed(const Offset(0.8, 0.36), 1.05);
+  seed(const Offset(0.86, 0.62), 0.9);
+  seed(const Offset(0.68, 0.84), 0.8);
 }

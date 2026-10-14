@@ -117,7 +117,8 @@ void main() {
       final j = RhythmJudge([guardEv(1.0)]);
       expect(j.guard(0.2).rating, Rating.stray);
       expect(j.expire(1.0 + 0.2 + 0.01), isEmpty);
-      final missed = j.expire(1.0 + 0.2 * 1.3 + 0.01);
+      expect(j.expire(1.0 + 0.2 * 1.3 + 0.01), isEmpty);
+      final missed = j.expire(1.0 + 0.2 * 1.5 + 0.01);
       expect(missed.length, 1);
       expect(missed.single.event!.isGuard, isTrue);
     });

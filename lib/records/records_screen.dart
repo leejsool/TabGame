@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../games/dandelion/ui/dandelion_records_tab.dart';
 import '../games/freecell/ui/freecell_records_tab.dart';
 import '../games/getcolor/ui/getcolor_records_tab.dart';
 import '../games/goblet/ui/goblet_records_tab.dart';
@@ -27,6 +28,7 @@ class RecordsScreen extends StatelessWidget {
     (id: 'ultimate_tictactoe', title: '궁극 틱택토', icon: Icons.tag_rounded, tab: (_) => const UtttRecordsTab()),
     (id: 'goblet_gobblers', title: '고블렛', icon: Icons.layers_rounded, tab: (_) => const GobbletRecordsTab()),
     (id: 'sprouts', title: '콩나물', icon: Icons.scatter_plot_rounded, tab: (_) => const SproutsRecordsTab()),
+    (id: 'dandelion', title: '민들레', icon: Icons.local_florist_rounded, tab: (_) => const DandelionRecordsTab()),
   ];
 
   @override
