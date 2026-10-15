@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 코스 한 번의 결과.
@@ -17,20 +16,31 @@ class RhythmStorage {
 
   static const _kOffset = 'rhythm.offsetMs';
 
+  /// 기본 보정값을 70ms에서 0ms로 바꾸면서 한 번 정리했다는 표시.
+  static const _kOffsetReset = 'rhythm.offsetMs.defaultZero';
+
   /// 코스 0(훈련소 입소)은 예전 키를 그대로 쓰고, 그 뒤 코스는 'rhythm.c1.' 처럼 구분한다.
   static String _p(int course) => course == 0 ? 'rhythm.' : 'rhythm.c$course.';
 
-  /// 보정을 한 적이 없을 때의 기본값: 안드로이드는 소리·터치 지연이 평균적으로 있어서 조금 빼 준다.
-  static int get defaultOffsetMs => defaultTargetPlatform == TargetPlatform.android ? 70 : 0;
+  /// 보정을 한 적이 없을 때의 기본값. (예전에는 안드로이드에서 70ms를 뺐지만, 기기마다 달라서 0으로 두고 박자 보정으로 맞춘다)
+  static const int defaultOffsetMs = 0;
 
   /// 탭 보정(밀리초). 양수 = 기기가 늦게 반응해서 그만큼 빼 준다.
+  ///
+  /// 예전 기본값(70ms)이 저장돼 있는 기기는 한 번만 0으로 돌린다. 직접 보정했는지 구별할 수 없어서
+  /// 70ms인 경우만 옛 기본값으로 보고 지우고, 그 밖의 값(직접 잰 값)은 그대로 둔다.
   static Future<int> loadOffsetMs() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_kOffsetReset) ?? false)) {
+      await prefs.setBool(_kOffsetReset, true);
+      if (prefs.getInt(_kOffset) == 70) await prefs.remove(_kOffset);
+    }
     return prefs.getInt(_kOffset) ?? defaultOffsetMs;
   }
 
   static Future<void> saveOffsetMs(int ms) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kOffsetReset, true); // 이제부터 저장된 값은 사람이 정한 값이다
     await prefs.setInt(_kOffset, ms.clamp(-300, 300));
   }
 

@@ -138,18 +138,18 @@ void main() {
         // 눌러서 목록을 열면 모든 게임이 보이고, 고르면 그 게임으로 바뀐다
         await tester.tap(find.text('궁극 틱택토'));
         await settle(tester, rounds: 6);
-        for (final name in ['스도쿠', '프리셀', '지뢰찾기', '솔리테어', '직소퍼즐', '겟 컬러', '리듬 검사단', '궁극 틱택토', '고블렛', '콩나물', '민들레']) {
+        for (final name in ['스도쿠', '프리셀', '지뢰찾기', '솔리테어', '직소퍼즐', '겟 컬러', '리듬 검사단', '궁극 틱택토', '고블렛', '콩나물', '민들레', '예언']) {
           expect(find.text(name), findsWidgets, reason: name);
         }
-        await tester.tap(find.text('민들레').last);
+        await tester.tap(find.text('예언').last);
         await settle(tester, rounds: 6);
-        expect(find.text('민들레'), findsOneWidget); // 위에 고른 게임 이름
-        expect(find.text('11/11'), findsOneWidget);
+        expect(find.text('예언'), findsOneWidget); // 위에 고른 게임 이름
+        expect(find.text('12/12'), findsOneWidget);
         // 옆 화살표로 이웃 게임으로
         await tester.tap(find.byTooltip('다음 게임'));
         await settle(tester, rounds: 6);
         expect(find.text('스도쿠'), findsOneWidget);
-        expect(find.text('1/11'), findsOneWidget);
+        expect(find.text('1/12'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     });

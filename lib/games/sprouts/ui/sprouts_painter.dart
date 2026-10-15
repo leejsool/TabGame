@@ -228,10 +228,16 @@ SproutsBoard lerpBoard(SproutsBoard from, SproutsBoard to, double t) {
         to: to.curves[i].to,
         mid: to.curves[i].mid,
         owner: to.curves[i].owner,
-        pts: from.curves[i].pts.length == to.curves[i].pts.length
-            ? [for (var j = 0; j < to.curves[i].pts.length; j++) mix(from.curves[i].pts[j], to.curves[i].pts[j])]
-            : to.curves[i].pts,
+        pts: _mixPath(from.curves[i].pts, to.curves[i].pts, mix),
       ),
   ];
   return SproutsBoard(dots, curves, bounds: Bounds.lerp(from.bounds, to.bounds, k));
+}
+
+/// 점 수가 달라도 (선 정리하기로 짧아진 곡선) 길이를 따라 같은 개수로 맞춰 섞는다.
+List<P> _mixPath(List<P> a, List<P> b, P Function(P, P) mix) {
+  if (a.length == b.length) return [for (var j = 0; j < b.length; j++) mix(a[j], b[j])];
+  final n = max(a.length, b.length);
+  P at(List<P> pts, double f) => pointAtArc(pts, pathLength(pts) * f);
+  return [for (var j = 0; j < n; j++) mix(at(a, j / (n - 1)), at(b, j / (n - 1)))];
 }

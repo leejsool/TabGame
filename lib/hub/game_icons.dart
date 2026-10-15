@@ -367,3 +367,49 @@ void paintDandelionIcon(Canvas c, double s) {
   seed(const Offset(0.9, 0.82), 0.85);
   seed(const Offset(0.7, 0.93), 0.7);
 }
+
+// ── 예언: 숫자가 적힌 표, 맞힌 숫자는 동그라미와 화살표 ──
+void paintProphecyIcon(Canvas c, double s) {
+  const pink = Color(0xFFC2306B), teal = Color(0xFF0F7C86);
+  const l = 0.1, t = 0.12, w = 0.8, h = 0.76;
+  final box = RRect.fromRectAndRadius(const Rect.fromLTWH(l, t, w, h), const Radius.circular(0.07));
+  _shadow(c, Path()..addRRect(box));
+  c.drawRRect(box, _fill(Colors.white));
+  final grid = _line(const Color(0xFF9AA5B8), 0.02, cap: StrokeCap.butt);
+  for (final k in [1, 2]) {
+    c.drawLine(Offset(l + w * k / 3, t), Offset(l + w * k / 3, t + h), grid);
+    c.drawLine(Offset(l, t + h * k / 3), Offset(l + w, t + h * k / 3), grid);
+  }
+  c.drawRRect(box, _line(_ink, 0.04));
+  Offset at(int col, int row) => Offset(l + w * (col + 0.5) / 3, t + h * (row + 0.5) / 3 + 0.012);
+  void num(String n, int col, int row, Color color, {bool bold = false}) {
+    final p = at(col, row);
+    final tp = TextPainter(
+      text: TextSpan(text: n, style: TextStyle(fontFamily: 'NanumGothic', fontSize: 0.2, fontWeight: bold ? FontWeight.w900 : FontWeight.w500, color: color, height: 1.0)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(c, p - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  num('3', 0, 0, pink);
+  num('1', 1, 0, teal, bold: true);
+  c.drawLine(at(2, 0) + const Offset(-0.06, -0.06), at(2, 0) + const Offset(0.06, 0.06), _line(_ink, 0.025));
+  c.drawLine(at(2, 0) + const Offset(0.06, -0.06), at(2, 0) + const Offset(-0.06, 0.06), _line(_ink, 0.025));
+  num('2', 0, 1, teal, bold: true);
+  num('3', 1, 1, teal, bold: true);
+  num('1', 2, 1, pink);
+  c.drawLine(at(0, 2) + const Offset(-0.06, -0.06), at(0, 2) + const Offset(0.06, 0.06), _line(_ink, 0.025));
+  c.drawLine(at(0, 2) + const Offset(0.06, -0.06), at(0, 2) + const Offset(-0.06, 0.06), _line(_ink, 0.025));
+  num('2', 1, 2, pink);
+  num('3', 2, 2, teal, bold: true);
+  // 맞힌 예언: 가운데 3에 동그라미와 좌우 화살표 (행에서 숫자가 3개)
+  final m = at(1, 1);
+  c.drawCircle(m, 0.095, _line(teal, 0.03));
+  for (final d in [-1.0, 1.0]) {
+    final from = m + Offset(d * 0.095, 0), to = m + Offset(d * 0.135, 0);
+    c.drawLine(from, to, _line(teal, 0.03));
+    c.drawLine(to, to + Offset(-d * 0.03, -0.025), _line(teal, 0.03));
+    c.drawLine(to, to + Offset(-d * 0.03, 0.025), _line(teal, 0.03));
+  }
+}
+

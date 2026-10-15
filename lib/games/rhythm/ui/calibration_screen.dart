@@ -8,7 +8,7 @@ import '../data/rhythm_storage.dart';
 const _ink = Color(0xFF1A1523);
 const _gold = Color(0xFFFFD21F);
 
-/// 박자 보정: 똑딱 소리를 4번 듣고, 이어지는 10번에 맞춰 탭하면
+/// 박자 보정: 똑딱 소리 4번을 "4, 3, 2, 1"로 세며 듣고, 이어지는 10번에 맞춰 탭하면
 /// 기기의 소리·터치 지연을 재서 저장한다.
 class CalibrationScreen extends StatefulWidget {
   const CalibrationScreen({super.key});
@@ -61,6 +61,8 @@ class _CalibrationScreenState extends State<CalibrationScreen> with SingleTicker
   }
 
   void _start() {
+    // 첫 소리(1.4초 뒤)가 늦지 않도록 오디오 출력을 미리 깨운다
+    _sfx?.warmUp();
     _errors.clear();
     _played = 0;
     _done = false;
@@ -125,13 +127,14 @@ class _CalibrationScreenState extends State<CalibrationScreen> with SingleTicker
     if (mounted) setState(() => _savedMs = v);
   }
 
-  /// 가운데 원에 보여 줄 글자: 준비 → 1 2 3 4(듣기) → 탭!(측정)
+  /// 가운데 원에 보여 줄 글자: 준비 → 4 3 2 1(듣기 카운트다운) → 탭!(측정)
   (String, String) get _bubble {
     if (_done) return ('끝!', '');
     if (!_running) return ('준비', '시작을 누르세요');
     final t = _now;
     if (t < _firstAt - 0.05) return ('준비', '잠시 뒤 소리가 나요');
-    if (_played <= _countIn) return ('${_played.clamp(1, _countIn)}', '들어 보세요 (탭하지 마세요)');
+    // 듣기 박자는 남은 박 수를 거꾸로 센다: 첫 소리가 4, 마지막이 1 — 1 다음 박자부터 탭하면 된다
+    if (_played <= _countIn) return ('${_countIn + 1 - _played.clamp(1, _countIn)}', '들어 보세요 (탭하지 마세요)');
     return ('탭!', '소리에 맞춰 탭하세요');
   }
 
@@ -153,7 +156,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> with SingleTicker
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
-                    '기기마다 소리가 나오는 속도와 화면이 반응하는 속도가 조금씩 달라요.\n"똑딱" 소리를 4번 듣고, 이어지는 10번에 맞춰 화면을 탭하세요.',
+                    '기기마다 소리가 나오는 속도와 화면이 반응하는 속도가 조금씩 달라요.\n"똑딱" 소리를 4, 3, 2, 1로 세며 듣고, 그다음부터 이어지는 10번에 맞춰 화면을 탭하세요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(height: 1.4),
                   ),

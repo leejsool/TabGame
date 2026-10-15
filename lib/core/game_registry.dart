@@ -14,6 +14,9 @@ import '../games/jigsaw/jigsaw_entry.dart';
 import '../games/jigsaw/tutorial/jigsaw_tutorial.dart';
 import '../games/minesweeper/minesweeper_entry.dart';
 import '../games/minesweeper/tutorial/mines_tutorial.dart';
+import '../games/prophecy/prophecy_entry.dart';
+import '../games/prophecy/tutorial/prophecy_tutorial.dart';
+import '../games/prophecy/ui/prophecy_records_tab.dart';
 import '../games/rhythm/rhythm_entry.dart';
 import '../games/rhythm/tutorial/rhythm_tutorial.dart';
 import '../games/solitaire/solitaire_entry.dart';
@@ -188,5 +191,17 @@ const List<GameInfo> allGames = [
     tutorial: dandelionTutorial,
     iconPainter: paintDandelionIcon,
     recordsTab: DandelionRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'prophecy',
+    title: '예언',
+    tagline: '숫자로 미래를 맞혀요',
+    icon: Icons.auto_awesome_rounded,
+    color: Color(0xFF4B5FC6),
+    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    builder: buildProphecy,
+    tutorial: prophecyTutorial,
+    iconPainter: paintProphecyIcon,
+    recordsTab: ProphecyRecordsTab.new,
   ),
 ];

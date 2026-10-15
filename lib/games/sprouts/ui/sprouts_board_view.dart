@@ -67,7 +67,10 @@ class _SproutsBoardViewState extends State<SproutsBoardView> with TickerProvider
         // 자리를 만드느라 점과 선이 밀렸다: 먼저 옮겨 가고, 그 뒤에 새 곡선이 나타난다
         _draw.value = 1;
         _pop.value = 1;
-        _morph.forward(from: 0).whenComplete(_showNewCurve);
+        // (선 정리하기는 새 곡선이 없으니 옮겨 가기만 한다)
+        _morph.forward(from: 0).whenComplete(() {
+          if (!c.lastWasTidy) _showNewCurve();
+        });
       } else {
         _showNewCurve();
       }

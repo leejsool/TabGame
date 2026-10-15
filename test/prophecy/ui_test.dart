@@ -1,0 +1,445 @@
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/core/game_info.dart';
+import 'package:tabgame/core/settings.dart';
+import 'package:tabgame/core/settings_scope.dart';
+import 'package:tabgame/games/prophecy/core/prophecy_ai.dart';
+import 'package:tabgame/games/prophecy/core/prophecy_examples.dart';
+import 'package:tabgame/games/prophecy/core/prophecy_lessons.dart';
+import 'package:tabgame/games/prophecy/core/prophecy_rules.dart';
+import 'package:tabgame/games/prophecy/data/prophecy_history.dart';
+import 'package:tabgame/games/prophecy/game/prophecy_controller.dart';
+import 'package:tabgame/games/prophecy/ui/prophecy_board.dart';
+import 'package:tabgame/games/prophecy/ui/prophecy_lesson_screen.dart';
+import 'package:tabgame/games/prophecy/ui/prophecy_records_tab.dart';
+import 'package:tabgame/games/prophecy/ui/prophecy_screen.dart';
+import 'package:tabgame/games/prophecy/ui/prophecy_setup_screen.dart';
+import 'package:tabgame/games/prophecy/ui/table_picker.dart';
+
+Future<Widget> app(Widget home) async {
+  SharedPreferences.setMockInitialValues({});
+  final settings = await Settings.load();
+  return SettingsScope(
+    settings: settings,
+    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+  );
+}
+
+Future<void> settle(WidgetTester tester, {int rounds = 6}) async {
+  for (var i = 0; i < rounds; i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+    await tester.pump(const Duration(milliseconds: 60));
+  }
+}
+
+/// 표 화면 좌표: 칸 [cell]의 가운데.
+Offset cellCenter(WidgetTester tester, ProphecyController c, int cell) {
+  final rect = tester.getRect(find.byType(ProphBoard));
+  final layout = ProphLayout(rect.size, c.rows, c.cols);
+  return rect.topLeft + layout.cellRect(cell).center;
+}
+
+void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final loader = FontLoader('NanumGothic');
+    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
+      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
+    }
+    await loader.load();
+  });
+
+  group('예시 판과 교과학습 계산', () {
+    test('안내 그림: 같은 숫자 두 번은 안 되고, 마지막 숫자를 쓰면 막힌 칸이 저절로 X가 된다', () {
+      final rep = repeatBoard();
+      expect(rep.canPlay(kRepeatCell, 4), isFalse);
+      expect(rep.canPlay(kRepeatCell, 2), isTrue);
+
+      final before = deadCellBefore();
+      expect(before.cells[0], kBlank);
+      expect(before.canPlay(8, 4), isTrue);
+      final after = before.copy()..play(8, 4);
+      expect(after.cells[0], kCross);
+      expect(after.owners[0], kNoOwner);
+      expect(deadCellAfter().cells[0], kCross);
+    });
+
+    test('책의 표는 12 : 19점이고, 행 4개와 열 4개에서 맞았다', () {
+      final s = bookBoard();
+      expect(s.scores(), [12, 19]);
+      expect(s.hits().where((h) => h.byRow).length, 4);
+      expect(s.hits().where((h) => h.byCol).length, 4);
+    });
+
+    test('폰 노이만의 수: 0={}, 1={{}}, 2={{}, {{}}}, 중괄호 쌍은 2의 n제곱', () {
+      expect(vonNeumann(0), '{}');
+      expect(vonNeumann(1), '{{}}');
+      expect(vonNeumann(2), '{{}, {{}}}');
+      expect(vonNeumann(3), '{{}, {{}}, {{}, {{}}}}');
+      for (var n = 0; n <= 5; n++) {
+        expect(braceCount(n), pow(2, n), reason: 'n=$n');
+      }
+    });
+
+    test('자기 설명 표: 칸이 3개까지는 답이 없고, 4칸부터 답이 있다 (2·3·2·1, 3·1·3·1)', () {
+      for (var k = 1; k <= 3; k++) {
+        expect(selfDescribingTables(k), isEmpty, reason: '칸 $k개');
+      }
+      final four = selfDescribingTables(4);
+      expect(four, containsAll([[2, 3, 2, 1], [3, 1, 3, 1]]));
+      expect(four.length, 2);
+      expect(selfDescribing([1, 2, 3, 4], [2, 3, 2, 1]), isTrue);
+      expect(selfDescribing([1, 2, 3, 4], [1, 1, 1, 1]), isFalse);
+      expect(selfDescribingTables(5), isNotEmpty);
+    });
+
+    test('자기 글자 수를 세는 문장은 정말 열여덟 글자, 베리의 문장은 스무 글자보다 짧다', () {
+      expect(letterCount(kSelfCountingSentence), 18);
+      expect(kSelfCountingSentence, contains('열여덟'));
+      expect(letterCount(kBerryPhrase), lessThan(20));
+    });
+
+    test('맛보기 노트의 줄 [4, X, ?, 3]: 무엇을 써도 2는 맞을 수 없고, 1이나 2를 쓰면 3이 맞는다', () {
+      for (final v in [1, 2]) {
+        final o = rowOutcome([4, kCross, v, 3]);
+        expect(o.count, 3);
+        expect(o.correct, [3]);
+      }
+      final x = rowOutcome([4, kCross, kCross, 3]);
+      expect(x.count, 2);
+      expect(x.correct, isEmpty);
+    });
+  });
+
+  group('표 크기 고르개', () {
+    testWidgets('누르거나 끌면 그 칸까지 행×열이 정해지고, 4×4보다 작게는 안 된다', (tester) async {
+      tester.view.physicalSize = const Size(430, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      var rows = 5, cols = 5;
+      await tester.pumpWidget(await app(StatefulBuilder(
+        builder: (context, setState) => Scaffold(
+          body: Center(child: TablePicker(rows: rows, cols: cols, onChanged: (r, c) => setState(() {
+            rows = r;
+            cols = c;
+          }))),
+        ),
+      )));
+      expect(find.text('5행 × 5열  ·  칸 25개'), findsOneWidget);
+      final grid = tester.getRect(find.byType(CustomPaint).last);
+      // 격자 왼쪽 위(번호 칸 22px 뒤)에서 한 칸의 크기: 위젯 폭에서 계산
+      final side = grid.width;
+      final cell = (side - 22) / kMaxSide;
+      Offset at(int r, int c) => grid.topLeft + Offset(22 + (c - 0.5) * cell, 22 + (r - 0.5) * cell);
+
+      await tester.tapAt(at(7, 6)); // 7행 6열
+      await tester.pump();
+      expect((rows, cols), (7, 6));
+      expect(find.text('7행 × 6열  ·  칸 42개'), findsOneWidget);
+
+      await tester.tapAt(at(2, 1)); // 너무 작으면 4×4로
+      await tester.pump();
+      expect((rows, cols), (4, 4));
+
+      // 끌어서 8×8까지
+      final g = await tester.startGesture(at(4, 4));
+      await g.moveTo(at(6, 7));
+      await g.moveTo(at(8, 8));
+      await g.up();
+      await tester.pump();
+      expect((rows, cols), (8, 8));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('게임 화면', () {
+    testWidgets('칸을 누르고 숫자를 쓰면 차례가 넘어가고, 같은 줄에 있는 숫자는 숫자판에서 막힌다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = ProphecyController(mode: PlayMode.local2p, rows: 4, cols: 5);
+      await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(find.textContaining('플레이어 1 차례'), findsWidgets);
+      expect(find.textContaining('빈칸을 눌러'), findsWidgets);
+
+      // 0번 칸을 눌러 4를 쓴다
+      await tester.tapAt(cellCenter(tester, c, 0));
+      await tester.pump();
+      expect(c.selected, 0);
+      expect(find.textContaining('1행 1열에 쓸 숫자나 X를 고르세요'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, '4'));
+      await tester.pump();
+      expect(c.state.cells[0], 4);
+      expect(c.state.owners[0], 0);
+      expect(c.state.turn, 1);
+      expect(c.selected, -1);
+      expect(find.textContaining('플레이어 2 차례'), findsWidgets);
+
+      // 같은 행의 다음 칸에서는 4가 막힌다 (줄이 그어진 숫자 버튼은 눌러도 안 써진다)
+      await tester.tapAt(cellCenter(tester, c, 1));
+      await tester.pump();
+      final four = tester.widget<FilledButton>(find.widgetWithText(FilledButton, '4'));
+      expect(four.onPressed, isNull);
+      expect(find.text('5'), findsWidgets); // 가장 긴 줄(5칸)까지의 숫자가 있다
+      await tester.tap(find.widgetWithText(FilledButton, 'X'));
+      await tester.pump();
+      expect(c.state.cells[1], kCross);
+      expect(c.moveCount, 2);
+
+      // 되돌리기 → 방금 쓴 X가 사라지고 다시 플레이어 2 차례
+      await tester.tap(find.text('되돌리기'));
+      await tester.pump();
+      expect(c.state.cells[1], kBlank);
+      expect(c.moveCount, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('끝까지 두면 점수가 나오고 기록이 남는다 (동그라미와 화살표가 그려진다)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = ProphecyController(mode: PlayMode.local2p, rows: 4, cols: 4);
+      await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      final rng = Random(3);
+      while (!c.isOver) {
+        final ms = c.state.legalMoves();
+        final m = ms[rng.nextInt(ms.length)];
+        c.select(moveCell(m));
+        expect(c.write(moveValue(m)), isTrue);
+      }
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 3000)); // 점수 표시가 차례로 나타난다
+      final sc = c.state.scores();
+      expect(find.text('${sc[0]}점'), findsWidgets);
+      expect(find.text('${sc[1]}점'), findsWidgets);
+      expect(find.text('한 판 더'), findsOneWidget);
+      expect(find.textContaining('좌우 화살표는 행'), findsOneWidget);
+      final h = await tester.runAsync(ProphHistory.load);
+      expect(h!.length, 1);
+      expect(h.single.score0, sc[0]);
+      expect(h.single.score1, sc[1]);
+      expect(h.single.rows, 4);
+      expect(h.single.winner, c.state.winner);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('한 판 더'));
+      await tester.pump();
+      expect(c.moveCount, 0);
+      expect(c.isOver, isFalse);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('CPU 대결: 사람이 쓰면 CPU가 이어서 쓴다 (쉬움·보통·어려움 모두 규칙대로)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      for (final level in ProphLevel.values) {
+        final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 0, level: level);
+        await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
+        await settle(tester, rounds: 2);
+        c.select(5);
+        expect(c.write(2), isTrue);
+        expect(c.thinking, isTrue);
+        expect(c.humanCanAct, isFalse);
+        await settle(tester, rounds: 30);
+        expect(c.thinking, isFalse, reason: level.label);
+        expect(c.moveCount, 2, reason: level.label);
+        expect(c.state.owners[moveCell(c.moves.last)], 1);
+        expect(c.humanCanAct, isTrue);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    });
+
+    testWidgets('CPU가 먼저 쓰는 판이면 열자마자 CPU가 쓴다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 1, level: ProphLevel.easy);
+      await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
+      await settle(tester, rounds: 30);
+      expect(c.moveCount, 1);
+      expect(c.state.owners[moveCell(c.moves.first)], 0);
+      expect(c.humanCanAct, isTrue);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    for (final (name, size) in const [
+      ('폰 세로', Size(360, 740)),
+      ('작은 가로', Size(740, 360)),
+      ('태블릿 가로', Size(1280, 800)),
+    ]) {
+      testWidgets('8×8 표도 넘침 없이 그려진다 ($name)', (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        final c = ProphecyController(mode: PlayMode.local2p, rows: 8, cols: 8);
+        await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
+        await settle(tester, rounds: 2);
+        c.select(10);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  });
+
+  group('설정 화면', () {
+    testWidgets('크기를 고르고 시작하면 그 크기의 판이 열린다 (CPU 대결은 쓰는 순서와 난이도도)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(await app(const ProphecySetupScreen(mode: PlayMode.vsCpu)));
+      await settle(tester, rounds: 2);
+      expect(find.text('표의 크기'), findsOneWidget);
+      expect(find.text('5행 × 5열  ·  칸 25개'), findsOneWidget);
+      expect(find.text('먼저 쓰기'), findsOneWidget);
+      await tester.tap(find.text('어려움'));
+      await tester.pump();
+      await tester.tap(find.text('시작하기'));
+      await settle(tester, rounds: 4);
+      final screen = tester.widget<ProphecyScreen>(find.byType(ProphecyScreen));
+      expect((screen.rows, screen.cols, screen.humanSide, screen.level), (5, 5, 0, ProphLevel.hard));
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('둘이서는 크기만 고른다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(await app(const ProphecySetupScreen(mode: PlayMode.local2p)));
+      await settle(tester, rounds: 2);
+      expect(find.text('CPU 난이도'), findsNothing);
+      expect(find.text('튜토리얼 보기'), findsOneWidget);
+      expect(find.text('교과학습'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
+  group('기록 탭', () {
+    testWidgets('전적과 최근 결과가 보인다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final page = await app(const Scaffold(body: ProphecyRecordsTab()));
+      await tester.runAsync(() async {
+        await ProphHistory.add(const ProphRecord(
+          at: 1760000000000,
+          vsCpu: true,
+          rows: 5,
+          cols: 5,
+          score0: 20,
+          score1: 12,
+          winner: 0,
+          moves: 25,
+          level: ProphLevel.hard,
+          human: 0,
+        ));
+        await ProphHistory.add(const ProphRecord(
+          at: 1760000100000,
+          vsCpu: false,
+          rows: 4,
+          cols: 6,
+          score0: 9,
+          score1: 9,
+          winner: null,
+          moves: 24,
+        ));
+      });
+      await tester.pumpWidget(page);
+      await settle(tester, rounds: 6);
+      expect(find.textContaining('이겼어요 · CPU 어려움'), findsOneWidget);
+      expect(find.text('무승부'), findsWidgets);
+      expect(find.textContaining('표 5×5'), findsOneWidget);
+      expect(find.textContaining('20 : 12'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('교과학습 화면', () {
+    Future<void> pumpLesson(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(430, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(await app(const ProphecyLessonScreen()));
+      await tester.pump();
+    }
+
+    testWidgets('모든 단원이 오류 없이 열린다', (tester) async {
+      await pumpLesson(tester);
+      expect(find.text('교과학습'), findsOneWidget);
+      await tester.tap(find.textContaining('1. 예언 한눈에 보기'));
+      await tester.pumpAndSettle();
+      for (var i = 1; i < 12; i++) {
+        expect(tester.takeException(), isNull, reason: '$i번째 단원');
+        await tester.scrollUntilVisible(find.textContaining('다음:'), 300, scrollable: find.byType(Scrollable).first);
+        await tester.ensureVisible(find.textContaining('다음:'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.textContaining('다음:'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.textContaining('퀴즈로 확인하기'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    Future<void> openUnit(WidgetTester tester, String title) async {
+      await tester.scrollUntilVisible(find.textContaining(title), 200, scrollable: find.byType(Scrollable).first);
+      await tester.tap(find.textContaining(title));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> tapVisible(WidgetTester tester, Finder f) async {
+      await tester.scrollUntilVisible(f, 200, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(f);
+      await tester.pumpAndSettle();
+      await tester.tap(f);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('맛보기 노트: 2를 쓰면 3이 맞고, X를 쓰면 아무도 못 맞힌다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '3. 맛보기 노트');
+      await tapVisible(tester, find.text('2 쓰기'));
+      expect(find.textContaining('2를 쓰는 순간 숫자가 3개가 되어'), findsWidgets);
+      expect(find.textContaining('이 행의 숫자: 3개'), findsOneWidget);
+      await tapVisible(tester, find.text('X 쓰기'));
+      expect(find.textContaining('맞은 예언은 하나도 없어요'), findsOneWidget);
+      expect(find.textContaining('이 행의 숫자: 2개'), findsOneWidget);
+    });
+
+    testWidgets('자기 설명 표: 정답 보기로 4칸 표가 맞춰진다, 3칸 표는 답이 없다고 알려 준다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '4. 자기 자신을 설명하는 표');
+      await tapVisible(tester, find.text('정답 보기'));
+      expect(find.textContaining('성공!'), findsOneWidget);
+      await tapVisible(tester, find.widgetWithText(ChoiceChip, '3'));
+      await tapVisible(tester, find.text('정답 보기'));
+      expect(find.text('칸이 3개일 때는 답이 없어요'), findsOneWidget);
+      await tester.tap(find.text('알겠어요'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('러셀·이발사·정지 문제 장치가 모두 모순을 보여 준다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '8. 러셀의 역설과 이발사');
+      await tapVisible(tester, find.text('이발사가 스스로 깎는다'));
+      expect(find.textContaining('자기 규칙을 어겨요'), findsOneWidget);
+      await tapVisible(tester, find.text('다른 사람이 깎아 준다'));
+      expect(find.textContaining('또 모순!'), findsWidgets);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await openUnit(tester, '10. 괴델과 튜링');
+      await tapVisible(tester, find.text('"멈춘다"'));
+      expect(find.textContaining('H의 예언이 틀렸어요'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+}

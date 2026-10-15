@@ -205,6 +205,64 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('선 정리하기: 구불구불한 선이 위상은 그대로 단순해지고, 안내 문구가 나온다', (tester) async {
+    tester.view.physicalSize = const Size(800, 1280);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final c = SproutsController(mode: PlayMode.local2p, dotCount: 3, rng: Random(6));
+    await tester.pumpWidget(await app(SproutsScreen(controller: c)));
+    await settle(tester, rounds: 2);
+
+    // 그은 선이 없으면 누를 수 없다
+    expect(c.canTidy, isFalse);
+    expect(tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, '선 정리하기')).onPressed, isNull);
+
+    // 사람이 손으로 구불구불 긋듯이: 가운데가 크게 출렁이는 선
+    final m = findMoves(c.board).firstWhere((m) => !m.isLoop);
+    final base = m.path;
+    var arc = 0.0;
+    final wiggly = <P>[];
+    for (var i = 0; i < base.length; i++) {
+      if (i > 0) arc += base[i].dist(base[i - 1]);
+      final prev = base[max(0, i - 1)], next = base[min(base.length - 1, i + 1)];
+      final dx = next.x - prev.x, dy = next.y - prev.y;
+      final l = max(1e-6, sqrt(dx * dx + dy * dy));
+      final off = 30 * sin(pi * i / (base.length - 1)) * sin(arc / 9);
+      wiggly.add(P(base[i].x - dy / l * off, base[i].y + dx / l * off));
+    }
+    await dragStroke(tester, wiggly);
+    expect(c.moveCount, 1);
+    final before = pathLength(c.board.curves.single.pts);
+    final turn = c.turn;
+    final mid = c.board.dots[c.board.curves.single.mid].pos;
+
+    await tester.tap(find.text('선 정리하기'));
+    await tester.pump();
+    expect(find.textContaining('위상적으로 동일한 상황으로 선과 점을 정리합니다'), findsOneWidget);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 700)); // 옮겨 가는 동안
+    expect(pathLength(c.board.curves.single.pts), lessThan(before * 0.9));
+    expect(c.moveCount, 1); // 수가 아니다
+    expect(c.turn, turn); // 차례도 그대로
+    expect(c.board.dots[c.board.curves.single.mid].pos, mid); // 새 점도 제자리
+    expect(c.board.dots.length, 4);
+    expect(tester.takeException(), isNull);
+
+    // 한 번 더 누르면 더 정리할 게 없다고 알려 준다
+    await tester.tap(find.text('선 정리하기'));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.textContaining('이미 단순해서 더 정리할 선이 없어요'), findsOneWidget);
+
+    // 정리한 판에서도 이어서 둘 수 있다
+    await dragStroke(tester, findMoves(c.board).first.path);
+    expect(c.moveCount, 2);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('설정 화면: 점의 수를 고르고 시작하면 그 수의 점으로 판이 열린다 (CPU 대결은 난이도·먼저/나중도)', (tester) async {
     tester.view.physicalSize = const Size(800, 1280);
     tester.view.devicePixelRatio = 1.0;

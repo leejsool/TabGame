@@ -9,6 +9,7 @@ import '../core/sprouts_ai.dart';
 import '../core/sprouts_board.dart';
 import '../core/sprouts_geometry.dart';
 import '../core/sprouts_planner.dart';
+import '../core/sprouts_tidy.dart';
 
 class _Snapshot {
   _Snapshot(this.board, this.turn, this.moves);
@@ -73,6 +74,12 @@ class SproutsController extends ChangeNotifier {
   /// 자리를 만들려고 점과 선을 밀었다면, 밀기 전의 판 (화면이 천천히 옮겨 가는 모습을 보여 줄 때 쓴다).
   SproutsBoard? morphFrom;
 
+  /// 방금 한 일이 "선 정리하기"인가 (그렇다면 새 곡선·새 점 애니메이션 없이 옮겨 가기만 한다).
+  bool lastWasTidy = false;
+
+  /// 선 정리하기를 계산하는 중.
+  bool tidying = false;
+
   /// 방금 둔 수를 사람이 직접 그었는가 (그렇다면 곡선을 다시 그려 보이지 않고 새 점만 나타낸다).
   bool lastByHuman = false;
 
@@ -90,10 +97,13 @@ class SproutsController extends ChangeNotifier {
   bool get isOver => winner != null;
 
   /// 지금 사람이 그을 수 있는가.
-  bool get humanCanAct => !isOver && !thinking && (!vsCpu || turn == humanSide);
+  bool get humanCanAct => !isOver && !thinking && !tidying && (!vsCpu || turn == humanSide);
 
   bool get canUndo => !thinking && _undoTo() != null;
   bool get canResign => !isOver && moveCount > 0;
+
+  /// 선 정리하기를 누를 수 있는가 (그어진 선이 있고, 계산 중이 아닐 때).
+  bool get canTidy => !isOver && !thinking && !tidying && board.curves.isNotEmpty;
 
   /// 남은 목숨의 합 (한 수마다 1씩 줄어든다).
   int get livesLeft => board.totalLives;
@@ -155,7 +165,46 @@ class SproutsController extends ChangeNotifier {
     return false;
   }
 
+  /// 선 정리하기: 점과 선을 위상은 그대로(어느 점이 어떤 순서로 이어졌는지, 어느 영역에 있는지) 두고 단순한 모양으로 정리한다.
+  /// 차례도 수도 바뀌지 않는다. 정리할 것이 없었으면 false.
+  Future<bool> tidy() async {
+    if (!canTidy) return false;
+    _clearHint();
+    cancelRepair();
+    tidying = true;
+    message = null;
+    notice = '위상적으로 동일한 상황으로 선과 점을 정리합니다';
+    notifyListeners();
+    final serial = moveSerial;
+    List<double> out;
+    try {
+      out = await compute(sproutsTidyTask, board.toData());
+    } catch (_) {
+      out = const <double>[];
+    }
+    if (_cpu.disposed) return false;
+    tidying = false;
+    if (serial != moveSerial) {
+      notifyListeners();
+      return false;
+    }
+    if (out.isEmpty) {
+      notice = '이미 단순해서 더 정리할 선이 없어요';
+      notifyListeners();
+      return false;
+    }
+    final before = board;
+    board = SproutsBoard.fromData(out);
+    morphFrom = before;
+    lastWasTidy = true;
+    message = null;
+    moveSerial++;
+    notifyListeners();
+    return true;
+  }
+
   void _commit(int s, int e, StrokeResult r, {required bool byHuman, String? notice}) {
+    lastWasTidy = false;
     final before = board.copy();
     _history.add(_Snapshot(before, turn, moveCount));
     message = null;
@@ -231,6 +280,7 @@ class SproutsController extends ChangeNotifier {
     message = null;
     notice = null;
     morphFrom = null;
+    lastWasTidy = false;
     lastMid = -1;
     moveSerial++;
     _cpu.cancel();

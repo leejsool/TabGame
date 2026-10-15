@@ -134,6 +134,9 @@ class _SproutsScreenState extends State<SproutsScreen> {
     if (mounted) setState(() {});
   }
 
+  /// 선 정리하기: 선과 점을 위상은 그대로 두고 단순하게 정리한다. (안내 문구는 위쪽 상태 줄에 나온다)
+  Future<void> _tidy() => c.tidy();
+
   /// 플레이어 이름: 둘이서는 "플레이어 1/2", CPU 대결은 "나/CPU".
   String _name(int side) => c.vsCpu ? (side == c.humanSide ? '나' : 'CPU') : '플레이어 ${side + 1}';
 
@@ -452,6 +455,12 @@ class _SproutsScreenState extends State<SproutsScreen> {
               onPressed: c.humanCanAct ? c.showHint : null,
               icon: const Icon(Icons.lightbulb_rounded, size: 20),
               label: const Text('힌트'),
+            ),
+            OutlinedButton.icon(
+              style: compact,
+              onPressed: c.canTidy ? _tidy : null,
+              icon: const Icon(Icons.auto_fix_high_rounded, size: 20),
+              label: const Text('선 정리하기'),
             ),
             OutlinedButton.icon(
               style: compact,
