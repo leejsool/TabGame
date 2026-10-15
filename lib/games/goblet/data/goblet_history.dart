@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/json_history.dart';
 
 import '../core/goblet_ai.dart';
 import '../core/goblet_rules.dart';
@@ -66,29 +64,19 @@ class GobbletRecord {
 class GobbletHistory {
   GobbletHistory._();
 
-  static const _key = 'goblet.history';
   static const maxEntries = 200;
 
-  /// 최신 순.
-  static Future<List<GobbletRecord>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return [];
-    try {
-      return [
-        for (final e in jsonDecode(raw) as List) GobbletRecord.fromJson(e as Map<String, dynamic>),
-      ];
-    } catch (_) {
-      await prefs.remove(_key);
-      return [];
-    }
-  }
+  static const _store = JsonHistoryStore<GobbletRecord>(
+    key: 'goblet.history',
+    fromJson: GobbletRecord.fromJson,
+    toJson: _toJson,
+    maxEntries: maxEntries,
+  );
 
-  static Future<void> add(GobbletRecord r) async {
-    final list = await load();
-    list.insert(0, r);
-    if (list.length > maxEntries) list.removeRange(maxEntries, list.length);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode([for (final e in list) e.toJson()]));
-  }
+  static Map<String, dynamic> _toJson(GobbletRecord r) => r.toJson();
+
+  /// 최신 순.
+  static Future<List<GobbletRecord>> load() => _store.load();
+
+  static Future<void> add(GobbletRecord r) => _store.add(r);
 }

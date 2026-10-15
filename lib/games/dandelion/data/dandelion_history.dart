@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/json_history.dart';
 
 import '../core/dandelion_ai.dart';
 import '../core/dandelion_rules.dart';
@@ -65,29 +63,19 @@ class DandelionRecord {
 class DandelionHistory {
   DandelionHistory._();
 
-  static const _key = 'dandelion.history';
   static const maxEntries = 200;
 
-  /// 최신 순.
-  static Future<List<DandelionRecord>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return [];
-    try {
-      return [
-        for (final e in jsonDecode(raw) as List) DandelionRecord.fromJson(e as Map<String, dynamic>),
-      ];
-    } catch (_) {
-      await prefs.remove(_key);
-      return [];
-    }
-  }
+  static const _store = JsonHistoryStore<DandelionRecord>(
+    key: 'dandelion.history',
+    fromJson: DandelionRecord.fromJson,
+    toJson: _toJson,
+    maxEntries: maxEntries,
+  );
 
-  static Future<void> add(DandelionRecord r) async {
-    final list = await load();
-    list.insert(0, r);
-    if (list.length > maxEntries) list.removeRange(maxEntries, list.length);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode([for (final e in list) e.toJson()]));
-  }
+  static Map<String, dynamic> _toJson(DandelionRecord r) => r.toJson();
+
+  /// 최신 순.
+  static Future<List<DandelionRecord>> load() => _store.load();
+
+  static Future<void> add(DandelionRecord r) => _store.add(r);
 }

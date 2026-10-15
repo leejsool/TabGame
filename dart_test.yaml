@@ -1,0 +1,6 @@
+# 느린 테스트(CPU끼리 여러 판 겨루기, 무작위 판 수백 개 …)에는 tags: 'slow' 를 붙인다.
+#   빠르게 확인:  flutter test --exclude-tags slow      (tool/test.ps1 -Quick)
+#   전부 확인:    flutter test                          (릴리즈 전)
+tags:
+  slow:
+    timeout: 4x

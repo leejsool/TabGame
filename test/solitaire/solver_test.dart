@@ -43,12 +43,16 @@ bool? bruteForceWins(SolState start, {int limit = 400000}) {
   return false;
 }
 
+/// 시계로 끊지 않는다: 탐색 한도는 노드 수로만 정해서, 컴퓨터가 바쁘든 한가하든 결과가 같다.
+/// (시계로 끊으면 다른 무거운 테스트와 함께 돌 때 "모른다"가 나와 판 수가 모자라 실패하곤 했다)
+const noClock = Duration(days: 1);
+
 void main() {
   group('솔리테어 풀이기', () {
     test('막힌 판은 망했다고 판정한다', () async {
       final s = deadState();
       expect(s.legalMoves(), isEmpty);
-      final r = await solveSolitaire(s);
+      final r = await solveSolitaire(s, maxTime: noClock);
       expect(r.verdict, SolVerdict.lost);
       expect(r.firstMove, isNull);
     });
@@ -57,7 +61,7 @@ void main() {
       var winnable = 0;
       for (var deal = 1; deal <= 25; deal++) {
         final start = SolState.deal(deal, draw: deal.isEven ? 1 : 3);
-        final r = await solveSolitaire(start);
+        final r = await solveSolitaire(start, maxTime: noClock);
         if (r.verdict != SolVerdict.winnable) continue;
         winnable++;
         final s = start.copy();
@@ -74,7 +78,7 @@ void main() {
         expect(start.found.every((n) => n == 0), isTrue, reason: '원본 상태는 건드리지 않는다');
       }
       expect(winnable, greaterThanOrEqualTo(8)); // 대부분의 판은 이길 수 있다
-    });
+    }, tags: 'slow');
 
     test('한도가 너무 작으면 모른다고 답한다', () async {
       final r = await solveSolitaire(SolState.deal(617), maxNodes: 3);
@@ -100,7 +104,7 @@ void main() {
           if (moves.isEmpty) break;
           s.apply(moves[rng.nextInt(moves.length)]);
         }
-        final r = await solveSolitaire(s, maxNodes: 20000);
+        final r = await solveSolitaire(s, maxNodes: 20000, maxTime: noClock);
         if (r.verdict == SolVerdict.unknown) continue;
         final brute = bruteForceWins(s, limit: 40000);
         if (brute == null) continue;
@@ -112,7 +116,7 @@ void main() {
         }
       }
       expect(checkedLost + checkedWin, greaterThan(0));
-    }, timeout: const Timeout(Duration(minutes: 5)));
+    }, timeout: const Timeout(Duration(minutes: 5)), tags: 'slow');
   });
 
   group('솔리테어 힌트 (컨트롤러)', () {

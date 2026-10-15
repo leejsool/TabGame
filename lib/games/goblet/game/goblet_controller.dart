@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/game_info.dart';
+import '../../../versus/cpu_turn.dart';
 import '../core/goblet_ai.dart';
 import '../core/goblet_rules.dart';
 
@@ -79,7 +80,10 @@ class GobbletController extends ChangeNotifier {
   GobbletResult? result;
   PieceId? selected;
   Set<int> targets = {};
-  bool thinking = false;
+  final CpuTurnRunner _cpu = CpuTurnRunner();
+
+  /// CPU가 수를 고르는 중인가.
+  bool get thinking => _cpu.thinking;
 
   /// 마지막으로 움직인 말과 움직임 번호 (화면 애니메이션·겹침 순서용).
   PieceId? lastMoved;
@@ -87,8 +91,6 @@ class GobbletController extends ChangeNotifier {
 
   final Map<String, int> _seen = {};
   final List<_Snapshot> _history = [];
-  int _epoch = 0;
-  bool _disposed = false;
   final Random _rng = Random();
 
   /// 말을 집거나 놓을 때 알림 (진동 등).
@@ -111,13 +113,12 @@ class GobbletController extends ChangeNotifier {
     result = null;
     selected = null;
     targets = {};
-    thinking = false;
     lastMoved = null;
     _history.clear();
     _seen
       ..clear()
       ..[board.key] = 1;
-    _epoch++;
+    _cpu.cancel();
   }
 
   /// 새 판. [swapStart]면 먼저 시작하는 팀을 바꾼다.
@@ -139,8 +140,7 @@ class GobbletController extends ChangeNotifier {
   /// 기권한다 (상대가 이긴 것으로 끝난다). CPU가 생각 중이었으면 그 수는 버린다.
   bool resign() {
     if (!canResign) return false;
-    _epoch++;
-    thinking = false;
+    _cpu.cancel();
     selected = null;
     targets = {};
     result = GobbletResult.win(resigningTeam.other, const [], resigned: true);
@@ -290,24 +290,20 @@ class GobbletController extends ChangeNotifier {
   void start() => _maybeCpu();
 
   void _maybeCpu() {
-    if (_disposed || !vsCpu || isOver || turn != cpuTeam) return;
+    if (_cpu.disposed || !vsCpu || isOver || turn != cpuTeam) return;
     _cpuTurn();
   }
 
   Future<void> _cpuTurn() async {
-    final epoch = _epoch;
-    thinking = true;
-    notifyListeners();
     final owners = List<int>.of(board.owners);
     final args = [board.turn, level.index, _rng.nextInt(1 << 30), ...owners];
-    final results = await Future.wait([
-      compute(_cpuTask, args),
-      Future<void>.delayed(const Duration(milliseconds: 700)),
-    ]);
-    if (_disposed || epoch != _epoch) return;
-    final r = results[0] as List<int>;
+    final r = await _cpu.run(
+      task: () => compute(_cpuTask, args),
+      minTime: const Duration(milliseconds: 700),
+      onStart: notifyListeners,
+    );
+    if (r == null) return;
     final move = r[0] < 0 ? GobbletMove.place(r[2], r[1]) : GobbletMove.slide(r[0], r[1], r[2]);
-    thinking = false;
     _applyMove(move, _idForMove(move));
     onFeedback?.call('drop');
   }
@@ -339,13 +335,13 @@ class GobbletController extends ChangeNotifier {
     selected = null;
     targets = {};
     lastMoved = null;
-    _epoch++;
+    _cpu.cancel();
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _disposed = true;
+    _cpu.dispose();
     super.dispose();
   }
 }

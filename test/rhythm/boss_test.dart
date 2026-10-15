@@ -9,6 +9,8 @@ class FakeSfx implements RhythmSfx {
   @override
   Future<void> load() async {}
   @override
+  Future<void> warmUp() async {}
+  @override
   void play(Sfx sfx) => played.add(sfx);
   @override
   Future<void> dispose() async {}

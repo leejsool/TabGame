@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../games/dandelion/ui/dandelion_records_tab.dart';
-import '../games/freecell/ui/freecell_records_tab.dart';
-import '../games/getcolor/ui/getcolor_records_tab.dart';
-import '../games/goblet/ui/goblet_records_tab.dart';
-import '../games/jigsaw/ui/jigsaw_records_tab.dart';
-import '../games/minesweeper/ui/mines_records_tab.dart';
-import '../games/solitaire/ui/solitaire_records_tab.dart';
-import '../games/sprouts/ui/sprouts_records_tab.dart';
-import '../games/sudoku/ui/sudoku_records_tab.dart';
-import '../games/uttt/ui/uttt_records_tab.dart';
+import '../core/game_info.dart';
+import '../core/game_registry.dart';
 
-/// 게임별 기록 보드 모음. 새 게임이 기록을 갖게 되면 [_boards]에 한 줄만 추가하면 된다.
+
+/// 게임별 기록 보드 모음. 보드는 게임 등록(`GameInfo.recordsTab`)에서 가져오니, 새 게임은 등록만 하면 여기에 올라온다.
 ///
 /// 게임이 늘어도 글자가 잘리지 않도록 탭 줄 대신 "게임 고르개"를 쓴다: 위쪽에 지금 보는 게임의 이름이 통째로
 /// 보이고, 누르면 모든 게임이 격자로 나오는 목록이 열린다. (양옆 화살표로 이웃 게임으로도 넘어간다)
@@ -21,18 +14,8 @@ class RecordsScreen extends StatefulWidget {
   /// 처음에 보여줄 게임의 id (game_registry의 id).
   final String initialGame;
 
-  static final List<({String id, String title, IconData icon, WidgetBuilder tab})> _boards = [
-    (id: 'sudoku', title: '스도쿠', icon: Icons.grid_on_rounded, tab: (_) => const SudokuRecordsTab()),
-    (id: 'freecell', title: '프리셀', icon: Icons.view_column_rounded, tab: (_) => const FreecellRecordsTab()),
-    (id: 'minesweeper', title: '지뢰찾기', icon: Icons.flag_rounded, tab: (_) => const MinesRecordsTab()),
-    (id: 'solitaire', title: '솔리테어', icon: Icons.style_rounded, tab: (_) => const SolitaireRecordsTab()),
-    (id: 'jigsaw', title: '직소퍼즐', icon: Icons.extension_rounded, tab: (_) => const JigsawRecordsTab()),
-    (id: 'get_color', title: '겟 컬러', icon: Icons.local_drink_rounded, tab: (_) => const GetColorRecordsTab()),
-    (id: 'ultimate_tictactoe', title: '궁극 틱택토', icon: Icons.tag_rounded, tab: (_) => const UtttRecordsTab()),
-    (id: 'goblet_gobblers', title: '고블렛', icon: Icons.layers_rounded, tab: (_) => const GobbletRecordsTab()),
-    (id: 'sprouts', title: '콩나물', icon: Icons.scatter_plot_rounded, tab: (_) => const SproutsRecordsTab()),
-    (id: 'dandelion', title: '민들레', icon: Icons.local_florist_rounded, tab: (_) => const DandelionRecordsTab()),
-  ];
+  /// 기록 보드가 있는 게임들 (등록 순서).
+  static final List<GameInfo> boards = [for (final g in allGames) if (g.hasRecords) g];
 
   @override
   State<RecordsScreen> createState() => _RecordsScreenState();
@@ -40,11 +23,12 @@ class RecordsScreen extends StatefulWidget {
 
 class _RecordsScreenState extends State<RecordsScreen> {
   late int _index = () {
-    final i = RecordsScreen._boards.indexWhere((b) => b.id == widget.initialGame);
+    final i = _boards.indexWhere((b) => b.id == widget.initialGame);
+    assert(i >= 0, "기록 보드가 없는 게임 id: '${widget.initialGame}' (game_registry의 recordsTab을 확인하세요)");
     return i < 0 ? 0 : i;
   }();
 
-  List<({String id, String title, IconData icon, WidgetBuilder tab})> get _boards => RecordsScreen._boards;
+  List<GameInfo> get _boards => RecordsScreen.boards;
 
   void _go(int i) => setState(() => _index = (i + _boards.length) % _boards.length);
 
@@ -55,7 +39,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       constraints: const BoxConstraints(maxWidth: 720),
-      builder: (_) => _GamePicker(boards: [for (final b in _boards) (title: b.title, icon: b.icon)], selected: _index),
+      builder: (_) => _GamePicker(boards: [for (final b in _boards) (title: b.recordsTitle ?? b.title, icon: b.icon)], selected: _index),
     );
     if (chosen != null) _go(chosen);
   }
@@ -89,7 +73,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                board.title,
+                                board.recordsTitle ?? board.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
@@ -110,7 +94,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
           ),
         ),
       ),
-      body: SafeArea(top: false, child: KeyedSubtree(key: ValueKey(board.id), child: board.tab(context))),
+      body: SafeArea(top: false, child: KeyedSubtree(key: ValueKey(board.id), child: board.recordsTab!())),
     );
   }
 }

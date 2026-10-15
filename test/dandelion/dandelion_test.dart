@@ -107,7 +107,7 @@ void main() {
         }
         expect(s.winner, isNotNull);
       }
-    });
+    }, tags: 'slow');
 
     test('빈칸이 하나 남았으면 꽃을 심어 메운다', () {
       final s = DandState();

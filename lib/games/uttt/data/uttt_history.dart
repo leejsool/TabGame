@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/json_history.dart';
 
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
@@ -60,31 +58,21 @@ class UtttRecord {
 class UtttHistory {
   UtttHistory._();
 
-  static const _key = 'uttt.history';
   static const maxEntries = 200;
 
-  /// 최신 순.
-  static Future<List<UtttRecord>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return [];
-    try {
-      return [
-        for (final e in jsonDecode(raw) as List) UtttRecord.fromJson(e as Map<String, dynamic>),
-      ];
-    } catch (_) {
-      await prefs.remove(_key);
-      return [];
-    }
-  }
+  static const _store = JsonHistoryStore<UtttRecord>(
+    key: 'uttt.history',
+    fromJson: UtttRecord.fromJson,
+    toJson: _toJson,
+    maxEntries: maxEntries,
+  );
 
-  static Future<void> add(UtttRecord r) async {
-    final list = await load();
-    list.insert(0, r);
-    if (list.length > maxEntries) list.removeRange(maxEntries, list.length);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode([for (final e in list) e.toJson()]));
-  }
+  static Map<String, dynamic> _toJson(UtttRecord r) => r.toJson();
+
+  /// 최신 순.
+  static Future<List<UtttRecord>> load() => _store.load();
+
+  static Future<void> add(UtttRecord r) => _store.add(r);
 }
 
 /// 결과를 사람이 읽는 이름으로.

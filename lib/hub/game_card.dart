@@ -70,7 +70,7 @@ class _GameCardState extends State<GameCard> {
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: GameIcon(id: game.id, fallback: game.icon, size: 50),
+                        child: GameIcon(game: game, size: 50),
                       ),
                       if (!game.isReady) const _SoonBadge(),
                     ],

@@ -231,7 +231,7 @@ void main() {
         }
         expect(s.isOver, isTrue);
       }
-    });
+    }, tags: 'slow');
 
     /// [a]가 X, [b]가 O로 한 판 두고 결과를 돌려준다.
     Outcome duel(UttLevel? a, UttLevel? b, Random rng) {
@@ -265,7 +265,7 @@ void main() {
       print('어려움 vs 무작위: 승 $wins / 패 $losses / 무 ${n - wins - losses} (${sw.elapsedMilliseconds}ms)');
       expect(wins, greaterThanOrEqualTo(11));
       expect(losses, 0);
-    }, timeout: const Timeout(Duration(minutes: 4)));
+    }, timeout: const Timeout(Duration(minutes: 4)), tags: 'slow');
 
     test('난이도 순서: 어려움 ≥ 보통 ≥ 쉬움 (서로 겨루기)', () {
       final rng = Random(9);
@@ -290,6 +290,6 @@ void main() {
       print('보통 vs 쉬움 점수 $normalVsEasy/12, 어려움 vs 보통 점수 $hardVsNormal/12');
       expect(normalVsEasy, greaterThan(6)); // 이긴 판이 더 많다
       expect(hardVsNormal, greaterThanOrEqualTo(6)); // 적어도 밀리지 않는다
-    }, timeout: const Timeout(Duration(minutes: 6)));
+    }, timeout: const Timeout(Duration(minutes: 6)), tags: 'slow');
   });
 }

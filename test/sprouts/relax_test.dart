@@ -94,7 +94,7 @@ void main() {
     }
     // ignore: avoid_print
     print('밀어서 둔 수 $relaxedMoves / 전체 $total수, ${watch.elapsedMilliseconds}ms');
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: const Timeout(Duration(minutes: 5)), tags: 'slow');
 
   test('사람이 아무렇게나 그은 곧은 선들로 판을 채워도 (밀기 포함) 위상이 매번 유지된다', () {
     var relaxed = 0, strictOk = 0, rejected = 0;
@@ -137,7 +137,7 @@ void main() {
     // ignore: avoid_print
     print('그대로 가능 $strictOk · 밀어서 가능 $relaxed · 안 됨 $rejected');
     expect(strictOk + relaxed, greaterThan(20));
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: const Timeout(Duration(minutes: 5)), tags: 'slow');
 
   test('바짝 붙은 두 점(목숨 1개씩)도 이을 수 있는 수로 찾는다 (끝났다고 하면 안 된다)', () {
     for (final gap in [22.0, 30.0, 45.0]) {
@@ -204,7 +204,7 @@ void main() {
     }
     // ignore: avoid_print
     print('끝난 판 $ended개 검사, 놓친 수 $missed개');
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: const Timeout(Duration(minutes: 5)), tags: 'slow');
 
   test('판이 너무 좁으면 판을 넓혀서(화면은 멀어져 보인다) 점과 선을 바깥으로 밀어 자리를 만든다', () {
     // 작은 판(160×200) 안에 점이 빽빽하다: 판 안에서만 밀어서는 어렵다
@@ -253,5 +253,5 @@ void main() {
     }
     // ignore: avoid_print
     print('판이 넓어진 상태로 둔 수: $grew');
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: const Timeout(Duration(minutes: 5)), tags: 'slow');
 }

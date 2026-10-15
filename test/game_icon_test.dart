@@ -7,7 +7,7 @@ import 'package:tabgame/hub/game_icons.dart';
 void main() {
   test('허브에 오른 모든 게임에 직접 그린 아이콘이 있다', () {
     for (final g in allGames) {
-      expect(GameIcon.hasArt(g.id), isTrue, reason: '${g.title}(${g.id}) 아이콘이 없어요');
+      expect(g.hasIconArt, isTrue, reason: '${g.title}(${g.id}) 아이콘이 없어요');
     }
   });
 
@@ -38,7 +38,7 @@ void main() {
       // 큰 아이콘(준비 중 화면용)도 같은 그림으로 그려진다
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: Wrap(children: [for (final g in allGames) GameIcon(id: g.id, fallback: g.icon, size: 120)]),
+          body: Wrap(children: [for (final g in allGames) GameIcon(game: g, size: 120)]),
         ),
       ));
       await tester.pump(const Duration(milliseconds: 300));

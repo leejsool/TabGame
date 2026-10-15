@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/game_info.dart';
+import '../../../versus/cpu_turn.dart';
 import '../core/sprouts_ai.dart';
 import '../core/sprouts_board.dart';
 import '../core/sprouts_geometry.dart';
@@ -54,7 +55,10 @@ class SproutsController extends ChangeNotifier {
   bool resigned = false;
 
   /// CPU가 생각하는 중.
-  bool thinking = false;
+  final CpuTurnRunner _cpu = CpuTurnRunner();
+
+  /// CPU가 수를 고르는 중인가.
+  bool get thinking => _cpu.thinking;
 
   /// 안 되는 수를 그렸을 때의 안내 (다음 동작에서 지워진다).
   String? message;
@@ -80,8 +84,6 @@ class SproutsController extends ChangeNotifier {
   void Function(String kind)? onFeedback;
 
   final List<_Snapshot> _history = [];
-  int _epoch = 0;
-  bool _disposed = false;
 
   bool get vsCpu => mode == PlayMode.vsCpu;
   int get cpuSide => 1 - humanSide;
@@ -139,7 +141,7 @@ class SproutsController extends ChangeNotifier {
     } catch (_) {
       return;
     }
-    if (_disposed || epoch != _repairEpoch || serial != moveSerial || !humanCanAct || out.isEmpty) return;
+    if (_cpu.disposed || epoch != _repairEpoch || serial != moveSerial || !humanCanAct || out.isEmpty) return;
     final source = <P>[for (var i = 0; i + 1 < out.length; i += 2) P(out[i], out[i + 1])];
     final r = board.validate(s, e, source);
     if (!r.ok) return;
@@ -182,22 +184,19 @@ class SproutsController extends ChangeNotifier {
   void start() => _maybeCpu();
 
   void _maybeCpu() {
-    if (_disposed || !vsCpu || isOver || turn != cpuSide) return;
+    if (_cpu.disposed || !vsCpu || isOver || turn != cpuSide) return;
     _cpuTurn();
   }
 
   Future<void> _cpuTurn() async {
-    final epoch = _epoch;
-    thinking = true;
-    notifyListeners();
     final args = <Object>[board.toData(), level.index, _rng.nextInt(1 << 30)];
-    final results = await Future.wait<Object?>([
-      compute(sproutsCpuTask, args),
-      Future<void>.delayed(const Duration(milliseconds: 700)),
-    ]);
-    if (_disposed || epoch != _epoch) return;
-    thinking = false;
-    final move = decodeCpuMove(results[0]! as List<double>);
+    final r = await _cpu.run(
+      task: () => compute(sproutsCpuTask, args),
+      minTime: const Duration(milliseconds: 700),
+      onStart: notifyListeners,
+    );
+    if (r == null) return;
+    final move = decodeCpuMove(r);
     if (move == null) {
       // 둘 곳이 없다 (정상이라면 직전에 끝났을 것이다): 상대가 이긴 것으로 끝낸다
       winner = 1 - turn;
@@ -234,7 +233,7 @@ class SproutsController extends ChangeNotifier {
     morphFrom = null;
     lastMid = -1;
     moveSerial++;
-    _epoch++;
+    _cpu.cancel();
     _repairEpoch++;
     _clearHint();
     notifyListeners();
@@ -252,7 +251,7 @@ class SproutsController extends ChangeNotifier {
     message = null;
     _hintTimer?.cancel();
     _hintTimer = Timer(const Duration(seconds: 3), () {
-      if (_disposed) return;
+      if (_cpu.disposed) return;
       _clearHint();
       notifyListeners();
     });
@@ -269,8 +268,7 @@ class SproutsController extends ChangeNotifier {
   /// 기권한다: 상대(또는 CPU)가 이긴 것으로 끝난다. CPU가 생각 중이었으면 그 수는 버린다.
   bool resign() {
     if (!canResign) return false;
-    _epoch++;
-    thinking = false;
+    _cpu.cancel();
     resigned = true;
     final loser = vsCpu ? humanSide : turn;
     winner = 1 - loser;
@@ -289,7 +287,7 @@ class SproutsController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _disposed = true;
+    _cpu.dispose();
     _hintTimer?.cancel();
     super.dispose();
   }

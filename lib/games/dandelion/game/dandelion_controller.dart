@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/game_info.dart';
+import '../../../versus/cpu_turn.dart';
 import '../core/dandelion_ai.dart';
 import '../core/dandelion_rules.dart';
 
@@ -30,7 +31,10 @@ class DandelionController extends ChangeNotifier {
   final List<int> moves = [];
 
   late DandState state;
-  bool thinking = false;
+  final CpuTurnRunner _cpu = CpuTurnRunner();
+
+  /// CPU가 수를 고르는 중인가.
+  bool get thinking => _cpu.thinking;
 
   /// 방금 심은 꽃의 칸 (없으면 -1).
   int lastPlanted = -1;
@@ -42,8 +46,6 @@ class DandelionController extends ChangeNotifier {
   /// 수를 둘 때마다 늘어나는 번호 (애니메이션을 다시 시작하는 신호).
   int moveSerial = 0;
 
-  int _epoch = 0;
-  bool _disposed = false;
   final Random _rng = Random();
 
   /// 수를 둘 때/끝났을 때 알림 ('plant' | 'wind' | 'win').
@@ -65,11 +67,10 @@ class DandelionController extends ChangeNotifier {
 
   void restart() {
     moves.clear();
-    thinking = false;
     lastPlanted = -1;
     lastWind = null;
     lastSeeds = const [];
-    _epoch++;
+    _cpu.cancel();
     moveSerial++;
     _rebuild();
     notifyListeners();
@@ -115,22 +116,19 @@ class DandelionController extends ChangeNotifier {
   // ── CPU ──
 
   void _maybeCpu() {
-    if (_disposed || !vsCpu || isOver || state.turn != cpuRole) return;
+    if (_cpu.disposed || !vsCpu || isOver || state.turn != cpuRole) return;
     _cpuTurn();
   }
 
   Future<void> _cpuTurn() async {
-    final epoch = _epoch;
-    thinking = true;
-    notifyListeners();
     final args = [level.index, _rng.nextInt(1 << 30), ...moves];
-    final results = await Future.wait([
-      compute(_cpuTask, args),
-      Future<void>.delayed(const Duration(milliseconds: 700)),
-    ]);
-    if (_disposed || epoch != _epoch) return;
-    thinking = false;
-    _apply(results[0] as int);
+    final move = await _cpu.run(
+      task: () => compute(_cpuTask, args),
+      minTime: const Duration(milliseconds: 700),
+      onStart: notifyListeners,
+    );
+    if (move == null) return;
+    _apply(move);
     _maybeCpu();
   }
 
@@ -145,8 +143,7 @@ class DandelionController extends ChangeNotifier {
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
   bool resign() {
     if (!canResign) return false;
-    _epoch++;
-    thinking = false;
+    _cpu.cancel();
     notifyListeners();
     return true;
   }
@@ -172,7 +169,7 @@ class DandelionController extends ChangeNotifier {
     final k = _undoTarget;
     if (k == null || isOver) return;
     moves.length = k;
-    _epoch++;
+    _cpu.cancel();
     _rebuild();
     lastPlanted = -1;
     lastWind = null;
@@ -184,7 +181,7 @@ class DandelionController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _disposed = true;
+    _cpu.dispose();
     super.dispose();
   }
 }

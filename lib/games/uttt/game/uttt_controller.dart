@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/game_info.dart';
+import '../../../versus/cpu_turn.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
 
@@ -34,7 +35,10 @@ class UtttController extends ChangeNotifier {
   final List<int> moves = [];
 
   late UttState state;
-  bool thinking = false;
+  final CpuTurnRunner _cpu = CpuTurnRunner();
+
+  /// CPU가 수를 고르는 중인가.
+  bool get thinking => _cpu.thinking;
 
   /// 방금 둔 수 (없으면 -1)와 두는 횟수 (애니메이션 트리거용).
   int lastMove = -1;
@@ -43,8 +47,6 @@ class UtttController extends ChangeNotifier {
   /// 방금 둔 수로 차지(또는 무승부로 닫힘)된 작은 판 (없으면 -1).
   int lastCaptured = -1;
 
-  int _epoch = 0;
-  bool _disposed = false;
   final Random _rng = Random();
 
   /// 수를 둘 때/이겼을 때 알림 ('place' | 'win').
@@ -68,10 +70,9 @@ class UtttController extends ChangeNotifier {
   void restart({bool swapStart = true}) {
     if (swapStart) firstTurn = 1 - firstTurn;
     moves.clear();
-    thinking = false;
     lastMove = -1;
     lastCaptured = -1;
-    _epoch++;
+    _cpu.cancel();
     _rebuild();
     notifyListeners();
     _maybeCpu();
@@ -103,22 +104,19 @@ class UtttController extends ChangeNotifier {
   // ── CPU ──
 
   void _maybeCpu() {
-    if (_disposed || !vsCpu || isOver || state.turn != cpuSide) return;
+    if (_cpu.disposed || !vsCpu || isOver || state.turn != cpuSide) return;
     _cpuTurn();
   }
 
   Future<void> _cpuTurn() async {
-    final epoch = _epoch;
-    thinking = true;
-    notifyListeners();
     final args = [level.index, _rng.nextInt(1 << 30), firstTurn, ...moves];
-    final results = await Future.wait([
-      compute(_cpuTask, args),
-      Future<void>.delayed(const Duration(milliseconds: 650)),
-    ]);
-    if (_disposed || epoch != _epoch) return;
-    thinking = false;
-    _apply(results[0] as int);
+    final move = await _cpu.run(
+      task: () => compute(_cpuTask, args),
+      minTime: const Duration(milliseconds: 650),
+      onStart: notifyListeners,
+    );
+    if (move == null) return;
+    _apply(move);
   }
 
   // ── 기권 ──
@@ -132,8 +130,7 @@ class UtttController extends ChangeNotifier {
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
   bool resign() {
     if (!canResign) return false;
-    _epoch++;
-    thinking = false;
+    _cpu.cancel();
     notifyListeners();
     return true;
   }
@@ -158,7 +155,7 @@ class UtttController extends ChangeNotifier {
     final k = _undoTarget;
     if (k == null) return;
     moves.length = k;
-    _epoch++;
+    _cpu.cancel();
     _rebuild();
     lastMove = moves.isEmpty ? -1 : moves.last;
     lastCaptured = -1;
@@ -168,7 +165,7 @@ class UtttController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _disposed = true;
+    _cpu.dispose();
     super.dispose();
   }
 }

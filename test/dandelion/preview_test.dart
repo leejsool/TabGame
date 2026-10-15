@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
+import 'package:tabgame/core/game_registry.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/dandelion/core/dandelion_ai.dart';
@@ -92,7 +93,7 @@ void main() {
     }
 
     await pumpHome(Scaffold(
-      body: Center(child: Container(color: const Color(0xFFD99A00), child: const GameIcon(id: 'dandelion', fallback: Icons.local_florist_rounded, size: 200))),
+      body: Center(child: Container(color: const Color(0xFFD99A00), child: GameIcon(game: allGames.firstWhere((g) => g.id == 'dandelion'), size: 200))),
     ));
     await _shot(tester, key, '$dir/icon.png');
 

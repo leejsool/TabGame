@@ -18,7 +18,7 @@ class ComingSoonScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GameIcon(id: game.id, fallback: game.icon, size: 120),
+            GameIcon(game: game, size: 120),
             const SizedBox(height: 24),
             Text(
               '${game.title} · ${mode.label}',

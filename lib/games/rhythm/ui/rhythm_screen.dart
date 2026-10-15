@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -134,6 +135,8 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
   }
 
   void _begin() {
+    // 첫 박자(0.9초 뒤)의 소리가 늦지 않도록 오디오 출력을 미리 깨운다
+    unawaited(c.sfx.warmUp());
     _song
       ..reset()
       ..start();

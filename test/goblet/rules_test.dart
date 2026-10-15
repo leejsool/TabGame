@@ -161,7 +161,7 @@ void main() {
         }
         expect(steps < 80 || winner != 0, isTrue);
       }
-    });
+    }, tags: 'slow');
 
     test('어려움 CPU는 무작위 상대에게 지지 않는다 (먼저/나중 모두)', () {
       final rng = Random(21);
@@ -196,6 +196,6 @@ void main() {
           '(${sw.elapsedMilliseconds}ms)');
       expect(cpuLosses, 0);
       expect(cpuWins, greaterThanOrEqualTo(17));
-    });
+    }, tags: 'slow');
   });
 }

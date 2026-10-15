@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/json_history.dart';
 
 import '../ui/jigsaw_images.dart';
 
@@ -60,40 +58,30 @@ class JigsawRecord {
 class JigsawHistory {
   JigsawHistory._();
 
-  static const _key = 'jigsaw.history';
-
   /// 사진 파일을 함께 보관하므로 개수를 적게 제한한다.
   static const maxEntries = 30;
 
+  static const _store = JsonHistoryStore<JigsawRecord>(
+    key: 'jigsaw.history',
+    fromJson: JigsawRecord.fromJson,
+    toJson: _toJson,
+    maxEntries: maxEntries,
+  );
+
+  static Map<String, dynamic> _toJson(JigsawRecord r) => r.toJson();
+
   /// 최신 순.
-  static Future<List<JigsawRecord>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return [];
-    try {
-      return [
-        for (final e in jsonDecode(raw) as List) JigsawRecord.fromJson(e as Map<String, dynamic>),
-      ];
-    } catch (_) {
-      await prefs.remove(_key);
-      return [];
-    }
-  }
+  static Future<List<JigsawRecord>> load() => _store.load();
 
   /// 기록을 더한다. 같은 그림·조각 수의 포기 기록은 하나만 남기고, 포기했던 판을 완성하면 포기 기록은 지운다.
-  static Future<void> add(JigsawRecord r) async {
-    final list = await load();
-    if (r.source.kind != 'none') {
-      list.removeWhere((e) =>
-          e.gaveUp && e.target == r.target && e.source.kind == r.source.kind && e.source.ref == r.source.ref);
-    }
-    list.insert(0, r);
-    // 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다)
-    while (list.length > maxEntries) {
-      final i = list.lastIndexWhere((e) => !e.gaveUp);
-      list.removeAt(i < 0 ? list.length - 1 : i);
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode([for (final e in list) e.toJson()]));
-  }
+  /// 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다).
+  static Future<void> add(JigsawRecord r) => _store.add(
+        r,
+        beforeInsert: (list) {
+          if (r.source.kind == 'none') return;
+          list.removeWhere((e) =>
+              e.gaveUp && e.target == r.target && e.source.kind == r.source.kind && e.source.ref == r.source.ref);
+        },
+        protect: (e) => e.gaveUp,
+      );
 }

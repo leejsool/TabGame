@@ -30,6 +30,12 @@ enum Sfx {
 /// 소리를 내는 쪽. 테스트나 소리 끔 상태에서는 [SilentSfx]를 쓴다.
 abstract class RhythmSfx {
   Future<void> load();
+
+  /// 곧 첫 소리가 날 테니 오디오 출력을 미리 깨워 둔다. (소리는 나지 않는다)
+  ///
+  /// 안드로이드는 한동안 소리가 없으면 출력 장치를 재우는데, 깨어나는 데 0.1초 안팎이 걸려서 맨 처음 소리만
+  /// 늦게 들린다. 그러면 첫 음과 둘째 음 사이가 짧게 느껴진다. 게임을 시작하는 순간(첫 박자 0.9초 전)에 부른다.
+  Future<void> warmUp();
   void play(Sfx sfx);
   Future<void> dispose();
 }
@@ -38,6 +44,8 @@ class SilentSfx implements RhythmSfx {
   const SilentSfx();
   @override
   Future<void> load() async {}
+  @override
+  Future<void> warmUp() async {}
   @override
   void play(Sfx sfx) {}
   @override
@@ -52,6 +60,7 @@ class SilentSfx implements RhythmSfx {
 class PoolSfx implements RhythmSfx {
   final Map<Sfx, List<AudioPlayer>> _voices = {};
   final Map<Sfx, int> _next = {};
+  AudioPlayer? _warm;
   bool _ready = false;
 
   static final AudioContext _context = AudioContext(
@@ -89,10 +98,25 @@ class PoolSfx implements RhythmSfx {
             _voices[s] = list;
           }(),
       ]);
+      // 출력 깨우기용: 소리 크기 0으로 짧은 틱을 틀기만 하는 전용 플레이어
+      final warm = AudioPlayer();
+      await warm.setPlayerMode(PlayerMode.lowLatency);
+      await warm.setReleaseMode(ReleaseMode.stop);
+      await warm.setAudioContext(_context);
+      await warm.setSource(AssetSource('rhythm/${Sfx.tick.file}.wav'));
+      await warm.setVolume(0);
+      _warm = warm;
       _ready = true;
     } catch (e) {
       debugPrint('리듬 효과음을 불러오지 못했어요: $e');
     }
+  }
+
+  @override
+  Future<void> warmUp() async {
+    final p = _warm;
+    if (!_ready || p == null) return;
+    await _start(p);
   }
 
   @override
@@ -123,5 +147,9 @@ class PoolSfx implements RhythmSfx {
       }
     }
     _voices.clear();
+    try {
+      await _warm?.dispose();
+    } catch (_) {}
+    _warm = null;
   }
 }

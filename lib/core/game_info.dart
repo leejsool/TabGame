@@ -14,6 +14,12 @@ enum PlayMode {
   final IconData icon;
 }
 
+/// 허브 카드·준비 중 화면에 그리는 아이콘 그림. 좌표는 0~1 안에서 그린다.
+typedef GameIconPainter = void Function(Canvas canvas, double size);
+
+/// 기록 화면에서 이 게임의 기록 보드를 만드는 함수.
+typedef RecordsTabBuilder = Widget Function();
+
 /// 게임 화면을 만드는 함수. 새 게임은 이 형태로 화면만 제공하면 허브에 붙는다.
 typedef GameScreenBuilder = Widget Function(BuildContext context, PlayMode mode);
 
@@ -28,6 +34,10 @@ class GameInfo {
     required this.modes,
     this.builder,
     this.tutorial,
+    this.iconPainter,
+    this.iconImage,
+    this.recordsTab,
+    this.recordsTitle,
   });
 
   final String id;
@@ -45,6 +55,20 @@ class GameInfo {
   /// (그림을 그리는 함수가 들어 있어 const로 못 만드니, 만드는 함수를 받는다.)
   final GameTutorial Function()? tutorial;
 
+  /// 직접 그린 아이콘 그림. [iconImage]나 이것이 없으면 [icon]을 대신 보여 준다.
+  final GameIconPainter? iconPainter;
+
+  /// 아이콘을 그림 파일로 보여 줄 때의 에셋 경로 ([iconPainter] 대신).
+  final String? iconImage;
+
+  /// 기록 보드. 있으면 "내 기록" 화면에 이 게임이 올라간다. (게임 안에서 `openRecords(context, game: id)`로 연다)
+  final RecordsTabBuilder? recordsTab;
+
+  /// 기록 화면의 게임 고르개에 보일 이름이 [title]과 다를 때 (좁은 칸에 맞춘 짧은 이름).
+  final String? recordsTitle;
+
+  bool get hasIconArt => iconPainter != null || iconImage != null;
+  bool get hasRecords => recordsTab != null;
   bool get isReady => builder != null;
   bool get hasSolo => modes.contains(PlayMode.solo);
   bool get hasMulti =>

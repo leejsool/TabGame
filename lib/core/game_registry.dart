@@ -22,11 +22,27 @@ import '../games/sprouts/tutorial/sprouts_tutorial.dart';
 import '../games/solitaire/tutorial/solitaire_tutorial.dart';
 import '../games/sudoku/sudoku_entry.dart';
 import '../games/sudoku/tutorial/sudoku_tutorial.dart';
+import '../games/dandelion/ui/dandelion_records_tab.dart';
+import '../games/freecell/ui/freecell_records_tab.dart';
+import '../games/getcolor/ui/getcolor_records_tab.dart';
+import '../games/goblet/ui/goblet_records_tab.dart';
+import '../games/jigsaw/ui/jigsaw_records_tab.dart';
+import '../games/minesweeper/ui/mines_records_tab.dart';
+import '../games/rhythm/ui/rhythm_records_tab.dart';
+import '../games/solitaire/ui/solitaire_records_tab.dart';
+import '../games/sprouts/ui/sprouts_records_tab.dart';
+import '../games/sudoku/ui/sudoku_records_tab.dart';
+import '../games/uttt/ui/uttt_records_tab.dart';
+import '../hub/game_icons.dart';
 import 'game_info.dart';
 
 /// 앱에 들어갈 모든 게임 목록.
 ///
-/// 새 게임을 만들면 해당 항목에 `builder:`만 연결하면 된다.
+/// 새 게임은 이 목록에 항목 하나만 추가하면 허브 카드·모드 고르기·기록 화면까지 모두 붙는다.
+///  - `builder`: 게임 화면 (없으면 "준비 중"으로 표시)
+///  - `tutorial`: 게임 방법 안내
+///  - `iconPainter` / `iconImage`: 허브 카드의 큰 그림 (없으면 `icon`)
+///  - `recordsTab`: "내 기록" 화면의 기록 보드 (게임 안에서는 `openRecords(context, game: id)`로 연다)
 const List<GameInfo> allGames = [
   // ── 혼자 놀기 ──
   GameInfo(
@@ -38,6 +54,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildSudoku,
     tutorial: sudokuTutorial,
+    iconPainter: paintSudokuIcon,
+    recordsTab: SudokuRecordsTab.new,
   ),
   GameInfo(
     id: 'minesweeper',
@@ -48,6 +66,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildMinesweeper,
     tutorial: minesTutorial,
+    iconPainter: paintMinesIcon,
+    recordsTab: MinesRecordsTab.new,
   ),
   GameInfo(
     id: 'solitaire',
@@ -58,6 +78,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildSolitaire,
     tutorial: solitaireTutorial,
+    iconPainter: paintSolitaireIcon,
+    recordsTab: SolitaireRecordsTab.new,
   ),
   GameInfo(
     id: 'freecell',
@@ -68,6 +90,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildFreecell,
     tutorial: freecellTutorial,
+    iconPainter: paintFreecellIcon,
+    recordsTab: FreecellRecordsTab.new,
   ),
   GameInfo(
     id: 'jigsaw',
@@ -78,6 +102,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildJigsaw,
     tutorial: jigsawTutorial,
+    iconPainter: paintJigsawIcon,
+    recordsTab: JigsawRecordsTab.new,
   ),
   GameInfo(
     id: 'get_color',
@@ -88,6 +114,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildGetColor,
     tutorial: getColorTutorial,
+    iconPainter: paintGetColorIcon,
+    recordsTab: GetColorRecordsTab.new,
   ),
   GameInfo(
     id: 'rhythm_swords',
@@ -98,6 +126,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.solo],
     builder: buildRhythm,
     tutorial: rhythmTutorial,
+    iconImage: 'assets/rhythm/art/c3_side_swing.png',
+    recordsTab: RhythmRecordsTab.new,
   ),
   GameInfo(
     id: 'pinball',
@@ -106,6 +136,7 @@ const List<GameInfo> allGames = [
     icon: Icons.blur_circular_rounded,
     color: Color(0xFF1B998B),
     modes: [PlayMode.solo],
+    iconPainter: paintPinballIcon,
   ),
 
   // ── 함께 놀기 ('아주 이상한 수학책' 게임들) ──
@@ -118,6 +149,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildUttt,
     tutorial: utttTutorial,
+    iconPainter: paintUtttIcon,
+    recordsTab: UtttRecordsTab.new,
   ),
   GameInfo(
     id: 'goblet_gobblers',
@@ -128,6 +161,9 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildGoblet,
     tutorial: gobletTutorial,
+    iconPainter: paintGobletIcon,
+    recordsTab: GobbletRecordsTab.new,
+    recordsTitle: '고블렛',
   ),
   GameInfo(
     id: 'sprouts',
@@ -138,6 +174,8 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildSprouts,
     tutorial: sproutsTutorial,
+    iconPainter: paintSproutsIcon,
+    recordsTab: SproutsRecordsTab.new,
   ),
   GameInfo(
     id: 'dandelion',
@@ -148,5 +186,7 @@ const List<GameInfo> allGames = [
     modes: [PlayMode.local2p, PlayMode.vsCpu],
     builder: buildDandelion,
     tutorial: dandelionTutorial,
+    iconPainter: paintDandelionIcon,
+    recordsTab: DandelionRecordsTab.new,
   ),
 ];

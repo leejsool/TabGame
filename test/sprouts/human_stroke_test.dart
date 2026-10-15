@@ -204,7 +204,7 @@ void main() {
       expect(tried, greaterThan(10));
       // ignore: avoid_print
       print('안 되는 곧은 선 $tried개 중 $fixed개를 바로잡았어요');
-    }, timeout: const Timeout(Duration(minutes: 4)));
+    }, timeout: const Timeout(Duration(minutes: 4)), tags: 'slow');
   });
 
   test('플래너의 수를 사람처럼 그리면(지나침·점 뒤 시작·손떨림) 거의 다 받아들여진다', () {
@@ -270,5 +270,5 @@ void main() {
       if (Platform.environment['SPROUTS_FUZZ_SEEDS'] != null) print('$v: $bad / ${tried[v]} 거절');
       expect(bad / tried[v]!, lessThan(0.015), reason: '$v: $bad / ${tried[v]} 거절');
     }
-  }, timeout: const Timeout(Duration(minutes: 4)));
+  }, timeout: const Timeout(Duration(minutes: 4)), tags: 'slow');
 }

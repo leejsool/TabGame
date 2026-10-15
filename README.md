@@ -31,8 +31,36 @@ flutter test
 flutter build apk --release
 ```
 
-구조: `lib/core`(공통), `lib/hub`(첫 화면), `lib/records`(기록), `lib/tutorial`(게임 방법 안내의 공통 틀), `lib/games/<게임>/{core,game,ui,data,tutorial}`.
+구조: `lib/core`(공통), `lib/hub`(첫 화면), `lib/records`(기록), `lib/tutorial`(게임 방법 안내의 공통 틀), `lib/versus`(대결 게임 공통: CPU 생각 관리·설정 화면 틀), `lib/games/<게임>/{core,game,ui,data,tutorial}`.
 규칙 엔진은 순수 Dart로 분리되어 있어 화면 없이 테스트돼요.
+
+### 이 컴퓨터에서 테스트·빌드할 때 (한글 사용자 폴더)
+
+사용자 폴더 이름이 한글이라 그대로 두면 `flutter_tester`가 죽고 안드로이드 네이티브(jni) 빌드도 실패해요. 임시 폴더와 패키지 캐시를 영문 경로로 돌려야 해요.
+아래 스크립트가 대신 해 주니 되도록 이걸 쓰세요.
+
+```
+powershell -ExecutionPolicy Bypass -File tool/test.ps1          # 빠른 테스트 (느린 것 제외, 약 1분 반)
+powershell -ExecutionPolicy Bypass -File tool/test.ps1 -All     # 전부 (릴리즈 전, 약 4~5분)
+powershell -ExecutionPolicy Bypass -File tool/build_dev.ps1     # 개발용 앱을 만들어 태블릿에 설치
+```
+
+직접 돌릴 때는 `TEMP`/`TMP`를 `C:\ftmp`로, `PUB_CACHE`를 `C:\pubcache`로 바꾼 뒤 실행해요.
+CPU끼리 겨루는 AI 검사처럼 오래 걸리는 테스트에는 `tags: 'slow'`를 붙여요 (`dart_test.yaml`). 빠른 확인은 `flutter test --exclude-tags slow`.
+
+### 새 게임 추가 체크리스트
+
+1. `lib/games/<게임>/`을 만든다: `core`(규칙, 순수 Dart) → `game`(컨트롤러) → `ui` → `data`(저장). 화면을 여는 `<게임>_entry.dart`에 `Widget build<게임>(BuildContext, PlayMode)`를 둔다.
+2. `lib/core/game_registry.dart`의 `allGames`에 `GameInfo` 항목 하나를 더한다. 허브 카드, 모드 고르기, 기록 화면은 여기서 모두 이어진다.
+   - `builder`(게임 화면), `tutorial`(게임 방법 안내 — 처음 열 때 자동으로 뜬다)
+   - `iconPainter`(`lib/hub/game_icons.dart`에 `paint<게임>Icon`을 그려 연결) 또는 `iconImage`
+   - `recordsTab`(기록 보드) — 게임 안에서는 `openRecords(context, game: id)`로 연다. 기록을 안 남기는 게임이면 `test/records/registry_test.dart`의 "준비된 게임은 모두 기록 보드를 가진다"에서 빼야 한다.
+3. 기록 저장은 `JsonHistoryStore`(`lib/core/json_history.dart`)에 맡긴다: 기록 클래스에 `toJson`/`fromJson`만 있으면 읽기·쓰기·깨진 데이터 처리·개수 제한이 된다 (예: `UtttHistory`).
+4. **대결 게임(CPU와 / 둘이서)** 이면 공통 틀을 쓴다:
+   - 컨트롤러: `CpuTurnRunner`(`lib/versus/cpu_turn.dart`) — CPU 계산을 isolate에서 돌리고, 새 판·되돌리기·기권 때 낡은 결과를 버린다. `thinking`/`cancel()`/`dispose()` 사용법은 파일 맨 위 설명 참고.
+   - 설정 화면: `VsSetupScaffold` + `VsChoiceCard` + `VsLevelPicker`(`lib/versus/vs_setup.dart`).
+   - 기록 보드: `VsRecordsBoard`(`lib/records/vs_records.dart`) — 기록 한 개를 `VsTile`로 바꾸는 함수만 쓰면 된다.
+5. 테스트: 규칙은 화면 없이 `test/<게임>/`에. 오래 걸리면 `tags: 'slow'`. 등록이 빠짐없이 됐는지는 `test/game_icon_test.dart`, `test/records/registry_test.dart`가 확인한다.
 
 ## 업데이트 (안드로이드)
 

@@ -1,6 +1,4 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/json_history.dart';
 
 import '../core/generator.dart';
 
@@ -57,37 +55,26 @@ class SudokuRecord {
 class SudokuHistory {
   SudokuHistory._();
 
-  static const _key = 'sudoku.history';
-
   /// 최근 이만큼만 보관한다.
   static const maxEntries = 100;
 
+  static const _store = JsonHistoryStore<SudokuRecord>(
+    key: 'sudoku.history',
+    fromJson: SudokuRecord.fromJson,
+    toJson: _toJson,
+    maxEntries: maxEntries,
+  );
+
+  static Map<String, dynamic> _toJson(SudokuRecord r) => r.toJson();
+
   /// 최신 순.
-  static Future<List<SudokuRecord>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null) return [];
-    try {
-      return [
-        for (final e in jsonDecode(raw) as List) SudokuRecord.fromJson(e as Map<String, dynamic>),
-      ];
-    } catch (_) {
-      await prefs.remove(_key);
-      return [];
-    }
-  }
+  static Future<List<SudokuRecord>> load() => _store.load();
 
   /// 기록을 더한다. 같은 문제의 포기 기록은 하나만 남기고, 포기했던 문제를 완성하면 포기 기록은 지운다.
-  static Future<void> add(SudokuRecord r) async {
-    final list = await load();
-    list.removeWhere((e) => e.gaveUp && e.givens == r.givens);
-    list.insert(0, r);
-    // 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다)
-    while (list.length > maxEntries) {
-      final i = list.lastIndexWhere((e) => !e.gaveUp);
-      list.removeAt(i < 0 ? list.length - 1 : i);
-    }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode([for (final e in list) e.toJson()]));
-  }
+  /// 넘치면 오래된 완성 기록부터 지운다 (다시 도전할 수 있는 포기한 판은 되도록 남긴다).
+  static Future<void> add(SudokuRecord r) => _store.add(
+        r,
+        beforeInsert: (list) => list.removeWhere((e) => e.gaveUp && e.givens == r.givens),
+        protect: (e) => e.gaveUp,
+      );
 }

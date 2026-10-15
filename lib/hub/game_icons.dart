@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../core/game_info.dart';
 import '../games/freecell/ui/playing_card.dart';
 import '../games/dandelion/ui/dandelion_art.dart' show paintWindGust;
 import '../games/getcolor/ui/getcolor_painter.dart';
@@ -11,48 +12,31 @@ const Color _ink = Color(0xFF1A1523);
 /// 허브 게임 카드의 큰 그림 아이콘.
 ///
 /// 머티리얼 아이콘 대신 게임 안에서 쓰는 그림 그대로(겟 컬러의 병, 솔리테어·프리셀의 카드, 리듬 검사단의
-/// 검사 …)나 직접 그린 그림을 쓴다. 그림이 없는 게임은 [fallback] 아이콘을 보여 준다.
+/// 검사 …)나 직접 그린 그림을 쓴다. 그림은 게임 등록(`GameInfo.iconPainter` / `iconImage`)에서 정하고,
+/// 없는 게임은 [GameInfo.icon]을 보여 준다. 그림 함수는 이 파일의 `paint…Icon`들.
 class GameIcon extends StatelessWidget {
-  const GameIcon({super.key, required this.id, required this.fallback, this.size = 56});
+  const GameIcon({super.key, required this.game, this.size = 56});
 
-  final String id;
-  final IconData fallback;
+  final GameInfo game;
   final double size;
-
-  /// 게임 번호(id) → 그림. 좌표는 0~1 안에서 그리고, 카드·병처럼 픽셀 단위로 그리는 것은 안에서 다시 키운다.
-  static final Map<String, void Function(Canvas c, double s)> _painters = {
-    'sudoku': _sudoku,
-    'minesweeper': _mines,
-    'solitaire': _solitaire,
-    'freecell': _freecell,
-    'jigsaw': _jigsaw,
-    'get_color': _getColor,
-    'pinball': _pinball,
-    'ultimate_tictactoe': _uttt,
-    'goblet_gobblers': _goblet,
-    'sprouts': _sprouts,
-    'dandelion': _dandelion,
-  };
-
-  static bool hasArt(String id) => _painters.containsKey(id) || id == 'rhythm_swords';
 
   @override
   Widget build(BuildContext context) {
-    if (id == 'rhythm_swords') {
-      // 게임 속 그림 그대로: 푸른 궤적과 함께 옆으로 휘두르는 검사
+    final image = game.iconImage;
+    if (image != null) {
       return SizedBox(
         width: size,
         height: size,
         child: Image.asset(
-          'assets/rhythm/art/c3_side_swing.png',
+          image,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
-          errorBuilder: (_, _, _) => Icon(fallback, size: size * 0.7, color: Colors.white),
+          errorBuilder: (_, _, _) => Icon(game.icon, size: size * 0.7, color: Colors.white),
         ),
       );
     }
-    final paint = _painters[id];
-    if (paint == null) return Icon(fallback, size: size * 0.7, color: Colors.white);
+    final paint = game.iconPainter;
+    if (paint == null) return Icon(game.icon, size: size * 0.7, color: Colors.white);
     return SizedBox(width: size, height: size, child: CustomPaint(painter: _IconPainter(paint)));
   }
 }
@@ -108,7 +92,7 @@ void _pixels(Canvas c, double s, Offset origin, void Function() draw) {
 }
 
 // ── 스도쿠: 숫자가 든 3×3 칸 ──
-void _sudoku(Canvas c, double s) {
+void paintSudokuIcon(Canvas c, double s) {
   final box = RRect.fromRectAndRadius(const Rect.fromLTWH(0.08, 0.08, 0.84, 0.84), const Radius.circular(0.09));
   _shadow(c, Path()..addRRect(box));
   c.drawRRect(box, _fill(Colors.white));
@@ -129,7 +113,7 @@ void _sudoku(Canvas c, double s) {
 }
 
 // ── 지뢰찾기: 도화선이 타는 지뢰 ──
-void _mines(Canvas c, double s) {
+void paintMinesIcon(Canvas c, double s) {
   const center = Offset(0.48, 0.58);
   const r = 0.2;
   for (var k = 0; k < 8; k++) {
@@ -160,7 +144,7 @@ void _mines(Canvas c, double s) {
 }
 
 // ── 솔리테어: 펼친 카드 세 장 (게임의 실제 카드 그림) ──
-void _solitaire(Canvas c, double s) {
+void paintSolitaireIcon(Canvas c, double s) {
   const cw = 0.4, ch = 0.56;
   const pivot = Offset(0.5, 0.95);
   void card(int id, double angle) {
@@ -179,7 +163,7 @@ void _solitaire(Canvas c, double s) {
 }
 
 // ── 프리셀: 숫자가 이어지는 카드 줄 (실제 카드 그림) + 빈 칸 ──
-void _freecell(Canvas c, double s) {
+void paintFreecellIcon(Canvas c, double s) {
   const cw = 0.37, ch = 0.52;
   // 위쪽 빈 칸 두 개
   for (final x in [0.56, 0.76]) {
@@ -214,7 +198,7 @@ Path _piece(Rect r, {int top = 0, int right = 0, int bottom = 0, int left = 0}) 
   return p;
 }
 
-void _jigsaw(Canvas c, double s) {
+void paintJigsawIcon(Canvas c, double s) {
   final a = _piece(const Rect.fromLTWH(0.07, 0.3, 0.4, 0.4), right: 1, top: 1);
   final b = _piece(const Rect.fromLTWH(0.49, 0.3, 0.44, 0.4), left: -1, bottom: 1);
   for (final (path, color) in [(a, const Color(0xFF55C1F2)), (b, Colors.white)]) {
@@ -225,7 +209,7 @@ void _jigsaw(Canvas c, double s) {
 }
 
 // ── 겟 컬러: 게임에서 쓰는 병 모양 그대로, 물이 든 병 세 개 ──
-void _getColor(Canvas c, double s) {
+void paintGetColorIcon(Canvas c, double s) {
   const w = 0.28;
   void bottle(double x, double y, List<int> colors, {bool done = false}) {
     _pixels(c, s, Offset(x, y), () => paintBottle(c, w * s, layersOf(colors), done: done));
@@ -237,7 +221,7 @@ void _getColor(Canvas c, double s) {
 }
 
 // ── 핀볼: 은색 공, 범퍼, 플리퍼 ──
-void _pinball(Canvas c, double s) {
+void paintPinballIcon(Canvas c, double s) {
   // 범퍼
   c.drawCircle(const Offset(0.24, 0.3), 0.12, _fill(const Color(0xFFFF6B6B)));
   c.drawCircle(const Offset(0.24, 0.3), 0.12, _line(_ink, 0.035));
@@ -266,7 +250,7 @@ void _pinball(Canvas c, double s) {
 }
 
 // ── 궁극 틱택토: # 판 위의 X와 O ──
-void _uttt(Canvas c, double s) {
+void paintUtttIcon(Canvas c, double s) {
   final hash = _line(Colors.white, 0.07);
   for (final t in [0.37, 0.63]) {
     c.drawLine(Offset(t, 0.1), Offset(t, 0.9), hash);
@@ -301,7 +285,7 @@ void _uttt(Canvas c, double s) {
 }
 
 // ── 고블렛 고블러스: 크기가 다른 컵 세 개 ──
-void _goblet(Canvas c, double s) {
+void paintGobletIcon(Canvas c, double s) {
   void cup(double cx, double h, Color color) {
     const base = 0.92;
     final bw = h * 0.64; // 컵 입구 너비
@@ -329,7 +313,7 @@ void _goblet(Canvas c, double s) {
 }
 
 // ── 콩나물: 점 셋과 두 가닥 곡선, 선 위에 새로 찍힌 점 ──
-void _sprouts(Canvas c, double s) {
+void paintSproutsIcon(Canvas c, double s) {
   const a = Offset(0.2, 0.7), b = Offset(0.78, 0.76), d = Offset(0.5, 0.2);
   final green = Path()
     ..moveTo(a.dx, a.dy)
@@ -352,7 +336,7 @@ void _sprouts(Canvas c, double s) {
 }
 
 // ── 민들레: 노란 꽃과 바람에 날아가는 씨앗 ──
-void _dandelion(Canvas c, double s) {
+void paintDandelionIcon(Canvas c, double s) {
   // 바람: 위쪽 오른쪽과 아래쪽 왼쪽에 돌돌 말리는 바람 줄
   paintWindGust(c, const Rect.fromLTWH(0.44, 0.0, 0.54, 0.54), Colors.white.withValues(alpha: 0.92), thickness: 0.08);
   // 꽃

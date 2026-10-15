@@ -69,5 +69,5 @@ void main() {
       }
     }
     expect(checked, greaterThan(100));
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  }, timeout: const Timeout(Duration(minutes: 5)), tags: 'slow');
 }
