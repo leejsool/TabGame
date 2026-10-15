@@ -16,6 +16,7 @@ import 'sprouts_geometry.dart';
 
 /// (진단용) 마지막으로 밀기에 실패한 이유.
 String? lastRelaxFailure;
+String _topoWhy = '';
 
 /// 두 선분이 한 점에서 가로지르는가 (끝점만 닿는 것은 아니다).
 bool _segCross(P a, P b, P c, P d) {
@@ -32,14 +33,20 @@ bool strokeTopologyOk(SproutsBoard b, int s, int e, List<P> path) {
   for (var d = 0; d < b.dots.length; d++) {
     if (d == s || d == e) continue;
     for (final p in path) {
-      if (p.dist(b.dots[d].pos) < kDotR) return false;
+      if (p.dist(b.dots[d].pos) < kDotR) {
+        _topoWhy = '점 $d 위를 지나감';
+        return false;
+      }
     }
   }
   // 자기 자신
   for (var i = 0; i + 1 < path.length; i++) {
     for (var j = i + 2; j + 1 < path.length; j++) {
       if (i == 0 && j + 2 == path.length && s == e) continue; // 고리의 처음과 끝은 같은 점에서 만난다
-      if (_segCross(path[i], path[i + 1], path[j], path[j + 1])) return false;
+      if (_segCross(path[i], path[i + 1], path[j], path[j + 1])) {
+        _topoWhy = '자기 자신과 교차 i=$i j=$j';
+        return false;
+      }
     }
   }
   // 기존 선
@@ -52,9 +59,13 @@ bool strokeTopologyOk(SproutsBoard b, int s, int e, List<P> path) {
         final a = path[i], bb = path[i + 1];
         if (max(a.x, bb.x) < minX || min(a.x, bb.x) > maxX || max(a.y, bb.y) < minY || min(a.y, bb.y) > maxY) continue;
         if (!_segCross(a, bb, c0, c1)) continue;
-        // 점의 한가운데에서 모이는 선들은 서로 닿는 것이 아니다
-        final m = P((c0.x + c1.x) / 2, (c0.y + c1.y) / 2);
-        if (m.dist(sp) < 4 || m.dist(ep) < 4) continue;
+        // 점의 한가운데에서 모이는 선들은 서로 닿는 것이 아니다 (만나는 자리가 점 한가운데 바로 옆일 때만 봐준다)
+        final o1 = (bb.x - a.x) * (c0.y - a.y) - (bb.y - a.y) * (c0.x - a.x);
+        final o2 = (bb.x - a.x) * (c1.y - a.y) - (bb.y - a.y) * (c1.x - a.x);
+        final t = o1 / (o1 - o2);
+        final m = P(c0.x + (c1.x - c0.x) * t, c0.y + (c1.y - c0.y) * t);
+        if (m.dist(sp) < 1.5 || m.dist(ep) < 1.5) continue;
+        _topoWhy = '기존 선과 교차 at ${a.x.round()},${a.y.round()} (경로 $i/${path.length})';
         return false;
       }
     }
@@ -105,23 +116,23 @@ class _Curve {
 /// 새 곡선 [path]를 두기 위해 점과 선을 밀어 본다. 성공하면 밀린 판 위의 수(곡선·새 점 자리·밀린 배치)를 돌려준다.
 ///
 /// 판 안에서 밀어도 자리가 안 나면, 판을 조금씩 넓혀 가며(화면에서는 멀어져 보인다) 점과 선이 바깥쪽 빈 곳으로 밀려 나가게 한다.
-StrokeResult? relaxForStroke(SproutsBoard b, int s, int e, List<P> path, {int maxIter = 240}) {
+StrokeResult? relaxForStroke(SproutsBoard b, int s, int e, List<P> path, {int maxIter = 240, bool trim = true}) {
   if (!strokeTopologyOk(b, s, e, path)) {
-    lastRelaxFailure = '위상 문제 (선을 가로지르거나 점 위를 지나감)';
+    lastRelaxFailure = '위상 문제 (선을 가로지르거나 점 위를 지나감): $_topoWhy';
     return null;
   }
   StrokeResult? last;
   for (final f in const [1.0, 1.4, 1.9, 2.6]) {
     final grown = f == 1.0 ? b.bounds : b.bounds.grown(f);
     if (f > 1.0 && grown.scale <= b.bounds.scale + 1e-9) break; // 더는 못 넓힌다
-    final r = _relaxOnce(b, grown, s, e, path, maxIter);
+    final r = _relaxOnce(b, grown, s, e, path, maxIter, trim);
     if (r != null) return r;
     last = r;
   }
   return last;
 }
 
-StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> path, int maxIter) {
+StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> path, int maxIter, bool trim) {
   final ox = bounds.x0, oy = bounds.y0;
   final bw = bounds.width, bh = bounds.height;
 
@@ -407,12 +418,12 @@ StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> pa
   ];
   final relaxed = SproutsBoard(dots2, old2, bounds: bounds);
   final newPath = newCurves.last;
-  final r = relaxed.validate(s, e, newPath.sublist(1, newPath.length - 1), relax: false);
+  final r = relaxed.validate(s, e, newPath.sublist(1, newPath.length - 1), relax: false, trim: trim);
   if (!r.ok) {
     final diag = StringBuffer();
     {
       final sp = relaxed.dots[s].pos, ep = relaxed.dots[e].pos;
-      final chk = relaxed.pathFor(s, e, newPath.sublist(1, newPath.length - 1));
+      final chk = relaxed.pathFor(s, e, newPath.sublist(1, newPath.length - 1), trim: trim);
       for (var i = 0; i < chk.length; i++) {
         final p = chk[i];
         if (p.dist(sp) <= kNearDot || p.dist(ep) <= kNearDot) continue;
@@ -428,6 +439,11 @@ StrokeResult? _relaxOnce(SproutsBoard b, Bounds bounds, int s, int e, List<P> pa
       }
     }
     lastRelaxFailure = '$note밀린 뒤에도 규칙에 안 맞아요: ${r.reason}$diag';
+    return null;
+  }
+  // 판정을 거치며 곡선을 다시 찍었으니, 최종 곡선까지 넣어 선이 가로지르지 않는지 마지막으로 정확히 확인한다
+  if (!_planar([for (final c in old2) c.pts, r.path!])) {
+    lastRelaxFailure = '$note다시 찍은 곡선이 다른 선을 가로질렀어요';
     return null;
   }
   return StrokeResult.ok(

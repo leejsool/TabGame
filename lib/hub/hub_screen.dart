@@ -196,6 +196,7 @@ class _HubScreenState extends State<HubScreen> {
   }
 
   List<Widget> _section(BuildContext context, String title, IconData icon, List<GameInfo> games) {
+    final compact = MediaQuery.sizeOf(context).width < 600;
     return [
       SliverToBoxAdapter(
         child: Padding(
@@ -213,18 +214,27 @@ class _HubScreenState extends State<HubScreen> {
           ]),
         ),
       ),
+      // 폰처럼 좁은 화면에서는 카드 폭을 절반으로 줄여 한 줄에 두 장씩 놓는다 (스크롤을 줄이려고)
       SliverPadding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
         sliver: SliverGrid.builder(
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 300,
-            mainAxisSpacing: 18,
-            crossAxisSpacing: 18,
-            mainAxisExtent: 220,
-          ),
+          gridDelegate: compact
+              ? const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 212,
+                )
+              : const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 300,
+                  mainAxisSpacing: 18,
+                  crossAxisSpacing: 18,
+                  mainAxisExtent: 220,
+                ),
           itemCount: games.length,
           itemBuilder: (context, i) => GameCard(
             game: games[i],
+            compact: compact,
             onTap: () => launchGame(context, games[i]),
           ),
         ),

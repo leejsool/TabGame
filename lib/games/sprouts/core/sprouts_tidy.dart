@@ -17,6 +17,7 @@ import 'dart:math';
 import 'sprouts_board.dart';
 import 'sprouts_faces.dart';
 import 'sprouts_geometry.dart';
+import 'sprouts_planner.dart' show makeRoom;
 import 'sprouts_relax.dart' show boardIsPlanar;
 
 /// 곡선을 새 점에서 나눈 변 하나 (u에서 v로).
@@ -321,4 +322,14 @@ List<double> sproutsTidyTask(List<double> data) {
   final b = SproutsBoard.fromData(data);
   final t = tidyBoard(b);
   return t == null ? const <double>[] : t.toData();
+}
+
+/// (isolate용) "선 정리하기": 선을 단순하게 정리한 판 데이터와, 그래도 위상적으로 이을 자리가 없으면 점과 선을 옮겨 늘린 판 데이터.
+/// 각각 필요 없으면 빈 목록. (늘린 판은 정리한 판을 바탕으로 한다)
+List<List<double>> sproutsTidyAndRoomTask(List<double> data) {
+  final b = SproutsBoard.fromData(data);
+  final t = tidyBoard(b);
+  final base = t ?? b;
+  final room = makeRoom(base, clock: Stopwatch()..start(), deadline: const Duration(seconds: 6));
+  return [t == null ? const <double>[] : t.toData(), room == null ? const <double>[] : room.toData()];
 }

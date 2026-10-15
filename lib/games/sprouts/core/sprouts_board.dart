@@ -157,11 +157,13 @@ class SproutsBoard {
   }
 
   /// 손가락 궤적 [stroke]에 양 끝(점의 한가운데)을 붙여 촘촘히 다시 찍은 곡선.
-  List<P> pathFor(int s, int e, List<P> stroke) {
+  ///
+  /// [trim]이 false면 점 둘레에서 맴도는 군더더기를 자르지 않는다 (컴퓨터가 점 둘레의 틈으로 일부러 낸 길을 그대로 쓸 때).
+  List<P> pathFor(int s, int e, List<P> stroke, {bool trim = true}) {
     final sp = dots[s].pos, ep = dots[e].pos;
     // 점 안쪽에서 찍힌 궤적 점은 버리고, 양 끝은 점의 한가운데로 맞춘다
     final inner = <P>[
-      for (final p in trimWobble(stroke, sp, ep, kSnap * pow(max(1.0, bounds.scale), 0.8)))
+      for (final p in (trim ? trimWobble(stroke, sp, ep, kSnap * pow(max(1.0, bounds.scale), 0.8)) : stroke))
         if (p.dist(sp) > kDotR * 0.8 && p.dist(ep) > kDotR * 0.8) p,
     ];
     return resample([sp, ...inner, ep]);
@@ -230,13 +232,13 @@ class SproutsBoard {
   ///
   /// 자리가 좁아서만 안 되는 수는 [relax]가 true일 때 기존 점과 선을 살살 밀어서 자리를 만들어 보고,
   /// 되면 그 배치를 [StrokeResult.layout]에 담아 돌려준다 (콩나물은 위상만 중요하니 같은 판이다).
-  StrokeResult validate(int s, int e, List<P> stroke, {bool relax = true}) {
-    final strict = _validateStrict(s, e, stroke);
+  StrokeResult validate(int s, int e, List<P> stroke, {bool relax = true, bool trim = true}) {
+    final strict = _validateStrict(s, e, stroke, trim);
     if (strict.ok || !relax || !strict.fixable) return strict;
-    return relaxForStroke(this, s, e, pathFor(s, e, stroke)) ?? strict;
+    return relaxForStroke(this, s, e, pathFor(s, e, stroke, trim: trim), trim: trim) ?? strict;
   }
 
-  StrokeResult _validateStrict(int s, int e, List<P> stroke) {
+  StrokeResult _validateStrict(int s, int e, List<P> stroke, bool trim) {
     if (s < 0 || e < 0 || s >= dots.length || e >= dots.length) {
       return const StrokeResult.fail('점에서 시작해서 점에서 끝나야 해요');
     }
@@ -247,7 +249,7 @@ class SproutsBoard {
     if (dots[e].lives < 1) return const StrokeResult.fail('끝난 점에는 더 이을 수 없어요 (선이 이미 3개예요)');
 
     final sp = dots[s].pos, ep = dots[e].pos;
-    final path = pathFor(s, e, stroke);
+    final path = pathFor(s, e, stroke, trim: trim);
     if (path.length < 4) return const StrokeResult.fail('선이 너무 짧아요');
 
     final total = pathLength(path);
@@ -313,6 +315,8 @@ class SproutsBoard {
       }
     }
     if (best < 0) return const StrokeResult.fail('선이 너무 짧아서 새 점을 찍을 자리가 없어요', fixable: true);
+    // 점 바로 옆(처음과 끝 부분)은 간격을 안 따지니, 선을 가로지르지 않는지 정확히 한 번 더 확인한다
+    if (!strokeTopologyOk(this, s, e, path)) return const StrokeResult.fail('다른 선과 만났어요', fixable: true);
     return StrokeResult.ok(path, best);
   }
 

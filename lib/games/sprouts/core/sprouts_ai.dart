@@ -11,7 +11,6 @@ library;
 import 'dart:math';
 
 import 'sprouts_board.dart';
-import 'sprouts_geometry.dart';
 import 'sprouts_planner.dart';
 
 enum SproutsLevel {
@@ -91,24 +90,11 @@ SproutsMove? chooseMove(SproutsBoard b, SproutsLevel level, Random rng, {Duratio
   return ties[rng.nextInt(ties.length)];
 }
 
-/// isolate에서 쓰는 형태: [판 데이터, 난이도 번호, 시드] → [s, e, 새 점 자리, x0, y0, x1, y1, …] (없으면 빈 목록).
+/// isolate에서 쓰는 형태: [판 데이터, 난이도 번호, 시드] → 고른 수를 숫자 목록으로 ([encodeMove]). 없으면 빈 목록.
 List<double> sproutsCpuTask(List<Object> args) {
   final board = SproutsBoard.fromData(List<double>.from(args[0] as List));
   final level = SproutsLevel.values[args[1] as int];
   final m = chooseMove(board, level, Random(args[2] as int));
   if (m == null) return const [];
-  return [
-    m.s.toDouble(),
-    m.e.toDouble(),
-    m.result.midIndex.toDouble(),
-    for (final p in m.path) ...[p.x, p.y],
-  ];
-}
-
-/// [sproutsCpuTask]의 결과를 다시 수로 만든다.
-SproutsMove? decodeCpuMove(List<double> data) {
-  if (data.isEmpty) return null;
-  final s = data[0].toInt(), e = data[1].toInt(), mid = data[2].toInt();
-  final path = <P>[for (var i = 3; i + 1 < data.length; i += 2) P(data[i], data[i + 1])];
-  return SproutsMove(s, e, StrokeResult.ok(path, mid));
+  return encodeMove(m);
 }

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../core/prophecy_rules.dart';
@@ -27,7 +29,8 @@ class TablePicker extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return LayoutBuilder(
       builder: (context, box) {
-        final cell = ((box.maxWidth.clamp(0, 420) - _label) / kMaxSide).floorToDouble().clamp(24.0, 44.0);
+        // 바깥 상자의 안쪽 여백(좌우 8씩 16)까지 더해도 화면 폭을 넘지 않게 한다 (좁은 폰에서 8열이 튀어나오던 문제)
+        final cell = ((min(box.maxWidth, 420.0) - 16 - _label) / kMaxSide).floorToDouble().clamp(14.0, 44.0);
         final side = _label + cell * kMaxSide;
         return Column(
           children: [

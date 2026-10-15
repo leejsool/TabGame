@@ -2,8 +2,10 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/sprouts/core/sprouts_board.dart';
+import 'package:tabgame/games/sprouts/core/sprouts_faces.dart';
 import 'package:tabgame/games/sprouts/core/sprouts_geometry.dart';
 import 'package:tabgame/games/sprouts/core/sprouts_planner.dart';
+import 'package:tabgame/games/sprouts/core/sprouts_relax.dart' show boardIsPlanar;
 import 'package:tabgame/games/sprouts/core/sprouts_topology.dart';
 
 SproutsBoard twoDots() => SproutsBoard([Dot(const P(100, 200), 3), Dot(const P(300, 200), 3)], []);
@@ -147,6 +149,102 @@ void main() {
           expect(moves, greaterThanOrEqualTo(2 * n), reason: 'n=$n seed=$seed 너무 일찍 끝났어요 (수 찾기가 놓친 수가 있을 수 있어요)');
         }
       }
+    });
+  });
+
+  group('끝난 판', () {
+    test('점 3개 판을 끝까지 두면 위상적으로도 둘 수 있는 수가 없다 (자리가 좁아 수를 못 찾아 일찍 끝나는 일이 없다)', () {
+      // 이 시드들은 예전에 "고리를 그릴 수 있는데 끝났다"처럼 일찍 끝나던 판이다
+      for (final seed in [1, 3, 36, 38, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]) {
+        final rng = Random(seed);
+        final b = SproutsBoard.initial(3, rng);
+        var moves = 0;
+        while (true) {
+          final ms = findMoves(b);
+          if (ms.isEmpty) break;
+          final m = ms[rng.nextInt(ms.length)];
+          b.apply(m.s, m.e, m.result, moves % 2);
+          moves++;
+        }
+        expect(analyzeRegions(b).hasMove(b), isFalse, reason: 'seed=$seed $moves수 만에 끝났는데 위상적으로는 둘 수 있는 수가 남았어요');
+      }
+    });
+  });
+
+  group('자리가 모자랄 때 점과 선을 옮겨 늘리기', () {
+    // 예전에는 "이을 수 있는데 끝났다"고 하던 판들 (점 수, 시드)
+    const old = [(4, 3), (4, 5), (4, 75), (4, 82), (4, 105), (5, 2), (5, 5), (5, 19), (5, 47), (5, 48), (5, 51), (5, 55), (5, 57), (5, 106), (5, 113), (5, 120)];
+
+    test('점 4~5개 판도 끝까지 두면 위상적으로 더 둘 수 없을 때만 끝나고, 선은 서로 가로지르지 않는다', () {
+      for (final (n, seed) in old) {
+        final rng = Random(seed * 31 + n);
+        final b = SproutsBoard.initial(n, rng);
+        var moves = 0;
+        while (true) {
+          final ms = findMoves(b);
+          if (ms.isEmpty) break;
+          final m = ms[rng.nextInt(ms.length)];
+          b.apply(m.s, m.e, m.result, moves % 2);
+          moves++;
+          expect(boardIsPlanar(b), isTrue, reason: 'n=$n seed=$seed $moves번째 수에서 선이 가로질렀어요');
+        }
+        expect(analyzeRegions(b).hasMove(b), isFalse, reason: 'n=$n seed=$seed $moves수 만에 끝났는데 위상적으로는 둘 수 있는 수가 남았어요');
+      }
+    });
+
+    test('판을 늘려도 이어진 구조(영역별 점)와 목숨은 그대로이고 선은 가로지르지 않는다', () {
+      final rng = Random(9);
+      final b = SproutsBoard.initial(4, rng);
+      for (var i = 0; i < 6; i++) {
+        final ms = findMoves(b, allowRelax: false);
+        if (ms.isEmpty) break;
+        final m = ms[rng.nextInt(ms.length)];
+        b.apply(m.s, m.e, m.result, i % 2);
+      }
+      final before = analyzeRegions(b);
+      for (final f in [1.25, 2.0]) {
+        final sb = stretchedBoard(b, f);
+        expect(sb, isNotNull, reason: 'f=$f');
+        expect(boardIsPlanar(sb!), isTrue);
+        expect([for (final d in sb.dots) d.lives], [for (final d in b.dots) d.lives]);
+        final after = analyzeRegions(sb);
+        Set<String> sig(SproutsRegions r) => {for (final reg in r.regions) (reg.toList()..sort()).join(',')};
+        expect(sig(after), sig(before), reason: 'f=$f 영역이 달라졌어요');
+      }
+    });
+
+    test('자리가 있는 판과 끝난 판에서는 자리를 만들지 않는다', () {
+      expect(makeRoom(SproutsBoard.initial(3, Random(1))), isNull);
+      final rng = Random(4);
+      final b = SproutsBoard.initial(2, rng);
+      while (true) {
+        final ms = findMoves(b);
+        if (ms.isEmpty) break;
+        final m = ms[rng.nextInt(ms.length)];
+        b.apply(m.s, m.e, m.result, 0);
+      }
+      expect(makeRoom(b), isNull);
+    });
+
+    test('CPU가 고른 수는 점과 선을 밀거나 늘린 배치까지 숫자로 담았다가 그대로 되살린다', () {
+      final rng = Random(2);
+      final b = SproutsBoard.initial(3, rng);
+      final sb = stretchedBoard(b, 1.5)!;
+      final base = findMoves(sb, firstOnly: true).first;
+      final layout = SproutsLayout([for (final d in sb.dots) d.pos], [for (final c in sb.curves) c.pts], bounds: sb.bounds);
+      final move = SproutsMove(base.s, base.e, StrokeResult.ok(base.path, base.result.midIndex, layout: layout));
+      final back = decodeCpuMove(encodeMove(move))!;
+      expect(back.s, move.s);
+      expect(back.e, move.e);
+      expect(back.result.midIndex, move.result.midIndex);
+      expect(back.path.length, move.path.length);
+      expect(back.result.layout, isNotNull);
+      expect(back.result.layout!.dots.length, layout.dots.length);
+      expect(back.result.layout!.bounds, layout.bounds);
+      // 배치가 없는 수도 그대로
+      final plain = decodeCpuMove(encodeMove(base))!;
+      expect(plain.result.layout, isNull);
+      expect(plain.path.length, base.path.length);
     });
   });
 

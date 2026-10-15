@@ -14,6 +14,27 @@ const Color kPenTeal = Color(0xFF0F7C86);
 
 Color penColor(int side) => side == 0 ? kPenPink : kPenTeal;
 
+/// 칸 안 숫자의 글씨: 분홍 펜은 세리프(로라) 글꼴, 청록 펜은 나눔고딕 아주 굵은 글씨라서 색을 못 알아봐도 구분된다.
+TextStyle penDigitStyle(int side, double size) => side == 0
+    ? TextStyle(
+        fontFamily: 'Lora',
+        fontFamilyFallback: const ['NanumGothic'],
+        fontSize: size,
+        fontWeight: FontWeight.w700,
+        fontVariations: const [FontVariation('wght', 700)],
+        color: kPenPink,
+        height: 1.0,
+      )
+    : TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w800, color: kPenTeal, height: 1.0);
+
+/// 숫자 한 글자를 [center]에 정중앙으로 그린다. 글꼴마다 줄 높이의 위아래 여백이 달라서 상자가 아니라
+/// 글자 바닥선(baseline)과 숫자 높이(글자 크기의 약 0.72배)를 기준으로 맞춘다.
+void paintPenDigit(Canvas canvas, String digit, Offset center, double size, int side) {
+  final tp = TextPainter(text: TextSpan(text: digit, style: penDigitStyle(side, size)), textDirection: TextDirection.ltr)..layout();
+  final baseline = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+  tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy + size * 0.36 - baseline));
+}
+
 const Color _paper = Color(0xFFFFFDF6);
 const Color _ink = Color(0xFF4A3B3B);
 
@@ -135,7 +156,7 @@ class ProphBoardPainter extends CustomPainter {
         canvas.drawLine(m.topLeft, m.bottomRight, p);
         canvas.drawLine(m.topRight, m.bottomLeft, p);
       } else {
-        _text(canvas, '$v', rect.center, cell * 0.56, penColor(state.owners[i]), state.owners[i] == 1 ? FontWeight.w900 : FontWeight.w500);
+        paintPenDigit(canvas, '$v', rect.center, cell * 0.56, state.owners[i] == 1 ? 1 : 0);
       }
     }
 

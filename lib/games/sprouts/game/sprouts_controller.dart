@@ -7,8 +7,10 @@ import '../../../core/game_info.dart';
 import '../../../versus/cpu_turn.dart';
 import '../core/sprouts_ai.dart';
 import '../core/sprouts_board.dart';
+import '../core/sprouts_faces.dart';
 import '../core/sprouts_geometry.dart';
 import '../core/sprouts_planner.dart';
+import '../core/sprouts_relax.dart' show boardIsPlanar;
 import '../core/sprouts_tidy.dart';
 
 class _Snapshot {
@@ -117,19 +119,45 @@ class SproutsController extends ChangeNotifier {
     if (stroke.length < 2) {
       return _bad('점에서 점으로 곡선을 그어 주세요');
     }
-    final s = board.nearestDot(stroke.first);
-    final e = board.endDotFor(stroke, s);
+    var s = board.nearestDot(stroke.first);
+    // 손가락이 점에서 조금 벗어나 시작했거나 끝냈어도, 이을 수 있는 가까운 점이 하나뿐이면 그 점으로 본다
+    if (s < 0 || board.dots[s].lives <= 0) {
+      final guess = _intendedDot(stroke.first, null);
+      if (guess >= 0) s = guess;
+    }
     if (s < 0) return _bad('점에서 시작해 주세요');
+    var e = board.endDotFor(stroke, s);
+    if (e < 0 || (board.dots[e].lives <= 0 && e != s)) {
+      final guess = _intendedDot(stroke.last, s);
+      if (guess >= 0) e = guess;
+    }
     if (e < 0) return _bad('점에서 끝내 주세요');
     final r = board.validate(s, e, stroke);
     if (!r.ok) {
-      // 규칙에 살짝 어긋난 선(선을 스쳤거나 좁은 틈을 빠듯하게 지나감)은, 이을 수만 있다면 알아서 바로잡아 그린다
+      // 규칙에 살짝 어긋난 선(선을 스쳤거나 좁은 틈을 빠듯하게 지나감)은, 위상적으로 이을 수 있는 두 점이면 알아서 바로잡아 그린다
       // (찾는 데 시간이 걸릴 수 있어서 화면이 멈추지 않게 따로 계산한다. 안 되는 이유는 먼저 보여 준다)
       if (s != e && board.dots[s].lives >= 1 && board.dots[e].lives >= 1) _repair(s, e, stroke);
       return _bad(r.reason);
     }
     _commit(s, e, r, byHuman: true);
     return true;
+  }
+
+  /// [p] 가까이에서, 이을 수 있는 점 ([from]이 있으면 그 점과 위상적으로 이어질 수 있는 점) 가운데 가장 가까운 점 (없으면 -1).
+  int _intendedDot(P p, int? from) {
+    final pairs = analyzeRegions(board).allPairs(board);
+    var best = -1;
+    var bd = kSnap * 2.4 * pow(max(1.0, board.bounds.scale), 0.8);
+    for (var i = 0; i < board.dots.length; i++) {
+      if (board.dots[i].lives <= 0 || i == from) continue;
+      if (from != null && !pairs.contains(from < i ? (from, i) : (i, from))) continue;
+      final d = board.dots[i].pos.dist(p);
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    }
+    return best;
   }
 
   int _repairEpoch = 0;
@@ -152,10 +180,12 @@ class SproutsController extends ChangeNotifier {
       return;
     }
     if (_cpu.disposed || epoch != _repairEpoch || serial != moveSerial || !humanCanAct || out.isEmpty) return;
-    final source = <P>[for (var i = 0; i + 1 < out.length; i += 2) P(out[i], out[i + 1])];
-    final r = board.validate(s, e, source);
-    if (!r.ok) return;
-    _commit(s, e, r, byHuman: false, notice: '선을 알아서 맞춰 그렸어요');
+    final move = decodeCpuMove(out);
+    if (move == null) return;
+    // 마지막으로 선이 가로지르지 않는지 확인한다
+    final check = board.copy()..apply(move.s, move.e, move.result, turn);
+    if (!boardIsPlanar(check)) return;
+    _commit(move.s, move.e, move.result, byHuman: false, notice: '선을 알아서 맞춰 그렸어요');
   }
 
   bool _bad(String reason) {
@@ -176,30 +206,45 @@ class SproutsController extends ChangeNotifier {
     notice = '위상적으로 동일한 상황으로 선과 점을 정리합니다';
     notifyListeners();
     final serial = moveSerial;
-    List<double> out;
+    final before = board;
+    List<List<double>> result;
     try {
-      out = await compute(sproutsTidyTask, board.toData());
+      result = await compute(sproutsTidyAndRoomTask, board.toData());
     } catch (_) {
-      out = const <double>[];
+      result = const [<double>[], <double>[]];
     }
+    final out = result[0], room = result[1];
     if (_cpu.disposed) return false;
     tidying = false;
     if (serial != moveSerial) {
       notifyListeners();
       return false;
     }
-    if (out.isEmpty) {
+    final spread = room.isNotEmpty;
+    if (out.isEmpty && !spread) {
       notice = '이미 단순해서 더 정리할 선이 없어요';
       notifyListeners();
       return false;
     }
-    final before = board;
-    board = SproutsBoard.fromData(out);
+    board = SproutsBoard.fromData(spread ? room : out);
     morphFrom = before;
     lastWasTidy = true;
+    if (spread) notice = '선을 정리하고 점도 옮겨서 이을 자리를 만들었어요';
     message = null;
     moveSerial++;
     notifyListeners();
+    return true;
+  }
+
+  /// 위상적으로는 둘 수 있는 수가 남았는데 자리가 모자라면, 점과 선을 옮겨 늘려서 자리를 만든다.
+  /// (콩나물은 이어진 구조만 중요하니 그려진 모양이 바뀌어도 같은 판이다.) 옮겼으면 true.
+  bool _ensureRoom() {
+    final room = makeRoom(board, clock: Stopwatch()..start(), deadline: const Duration(seconds: 3));
+    if (room == null) return false;
+    morphFrom = board;
+    board = room;
+    lastWasTidy = true;
+    notice = '이을 자리를 만들려고 점과 선을 옮겼어요';
     return true;
   }
 
@@ -216,11 +261,13 @@ class SproutsController extends ChangeNotifier {
     moveCount++;
     moveSerial++;
     final mover = turn;
-    if (!hasMove(board)) {
+    // 끝났는지는 위상으로만 판단한다: 이을 수 있는 점 쌍이 하나도 없을 때만 끝난다 (그림이 빽빽해서 못 긋는 것은 끝이 아니다)
+    if (!analyzeRegions(board).hasMove(board)) {
       winner = mover; // 마지막으로 수를 둔 사람이 이긴다
       onFeedback?.call('win');
     } else {
       turn = 1 - turn;
+      if (_ensureRoom()) moveSerial++;
       onFeedback?.call('draw');
     }
     notifyListeners();
@@ -247,7 +294,13 @@ class SproutsController extends ChangeNotifier {
     if (r == null) return;
     final move = decodeCpuMove(r);
     if (move == null) {
-      // 둘 곳이 없다 (정상이라면 직전에 끝났을 것이다): 상대가 이긴 것으로 끝낸다
+      // 위상적으로는 둘 수 있는데 못 찾았다면 자리를 만들고 다시 한 번 둔다. 정말 둘 곳이 없으면 상대가 이긴 것으로 끝낸다
+      if (analyzeRegions(board).hasMove(board) && _ensureRoom()) {
+        moveSerial++;
+        notifyListeners();
+        _maybeCpu();
+        return;
+      }
       winner = 1 - turn;
       notifyListeners();
       return;
@@ -294,7 +347,11 @@ class SproutsController extends ChangeNotifier {
     if (!humanCanAct) return false;
     // 자리가 넉넉한 수를 먼저 보여 주고, 없을 때만 점과 선을 밀어야 하는 수를 보여 준다
     var moves = findMoves(board, allowRelax: false);
-    if (moves.isEmpty) moves = findMoves(board);
+    if (moves.isEmpty && _ensureRoom()) {
+      // 자리가 없어서 점과 선을 옮겼다: 새 배치에서 다시 찾는다
+      moveSerial++;
+      moves = findMoves(board, allowRelax: false);
+    }
     if (moves.isEmpty) return false;
     final m = moves[_rng.nextInt(moves.length)];
     hintPath = m.path;

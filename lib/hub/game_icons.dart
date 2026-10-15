@@ -6,6 +6,9 @@ import '../core/game_info.dart';
 import '../games/freecell/ui/playing_card.dart';
 import '../games/dandelion/ui/dandelion_art.dart' show paintWindGust;
 import '../games/getcolor/ui/getcolor_painter.dart';
+import '../games/goblet/core/goblet_rules.dart' show Team;
+import '../games/goblet/ui/goblet_piece.dart' show GobblerPainter;
+import '../games/prophecy/ui/prophecy_board.dart' show paintPenDigit;
 
 const Color _ink = Color(0xFF1A1523);
 
@@ -284,32 +287,21 @@ void paintUtttIcon(Canvas c, double s) {
   o(1, 2);
 }
 
-// ── 고블렛 고블러스: 크기가 다른 컵 세 개 ──
+// ── 고블렛 고블러스: 게임 안의 고블러(귀 달린 돔 모양 컵) 크기별 세 개 ──
 void paintGobletIcon(Canvas c, double s) {
-  void cup(double cx, double h, Color color) {
-    const base = 0.92;
-    final bw = h * 0.64; // 컵 입구 너비
-    final bh = h * 0.5; // 컵 깊이
-    final top = base - h;
-    final bowl = Path()
-      ..moveTo(cx - bw / 2, top)
-      ..cubicTo(cx - bw / 2, top + bh * 0.85, cx - bw * 0.25, top + bh, cx, top + bh)
-      ..cubicTo(cx + bw * 0.25, top + bh, cx + bw / 2, top + bh * 0.85, cx + bw / 2, top)
-      ..close();
-    final stem = Path()..addRect(Rect.fromLTRB(cx - h * 0.055, top + bh - 0.01, cx + h * 0.055, base - h * 0.1));
-    final foot = Path()..addRRect(RRect.fromRectAndRadius(Rect.fromLTRB(cx - h * 0.2, base - h * 0.12, cx + h * 0.2, base), Radius.circular(h * 0.05)));
-    final all = Path.combine(PathOperation.union, Path.combine(PathOperation.union, bowl, stem), foot);
-    _shadow(c, all);
-    c.drawPath(all, _fill(color));
-    c.drawPath(all, _line(_ink, 0.035));
-    // 컵 입구 띠 + 하이라이트
-    c.drawLine(Offset(cx - bw / 2 + h * 0.03, top + h * 0.045), Offset(cx + bw / 2 - h * 0.03, top + h * 0.045), _line(Colors.white.withValues(alpha: 0.6), 0.03));
-    c.drawLine(Offset(cx - bw * 0.3, top + bh * 0.3), Offset(cx - bw * 0.3, top + bh * 0.65), _line(Colors.white.withValues(alpha: 0.45), 0.03));
+  // 그림 좌표가 0~1이라, 100배 키운 크기로 말을 그려서 줄여 붙인다 (선 굵기 등이 게임 안과 같게).
+  void piece(Team team, int size, double cx, double w) {
+    const base = 0.93;
+    c.save();
+    c.translate(cx - w / 2, base - w);
+    c.scale(0.01);
+    GobblerPainter(team: team, size: size).paint(c, Size(w * 100, w * 100));
+    c.restore();
   }
 
-  cup(0.2, 0.46, const Color(0xFFFFD84D));
-  cup(0.43, 0.64, const Color(0xFF9CE7FF));
-  cup(0.74, 0.84, const Color(0xFFFF6B6B));
+  piece(Team.red, 3, 0.74, 0.52);
+  piece(Team.blue, 2, 0.44, 0.42);
+  piece(Team.red, 1, 0.17, 0.32);
 }
 
 // ── 콩나물: 점 셋과 두 가닥 곡선, 선 위에 새로 찍힌 점 ──
@@ -382,13 +374,14 @@ void paintProphecyIcon(Canvas c, double s) {
   }
   c.drawRRect(box, _line(_ink, 0.04));
   Offset at(int col, int row) => Offset(l + w * (col + 0.5) / 3, t + h * (row + 0.5) / 3 + 0.012);
+  // 그림 좌표가 0~1이라 글자를 직접 0.2 크기로 그리면 글꼴이 어긋난다: 100배 키운 크기로 그려서 줄여 붙인다.
   void num(String n, int col, int row, Color color, {bool bold = false}) {
     final p = at(col, row);
-    final tp = TextPainter(
-      text: TextSpan(text: n, style: TextStyle(fontFamily: 'NanumGothic', fontSize: 0.2, fontWeight: bold ? FontWeight.w900 : FontWeight.w500, color: color, height: 1.0)),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(c, p - Offset(tp.width / 2, tp.height / 2));
+    c.save();
+    c.translate(p.dx, p.dy);
+    c.scale(0.01);
+    paintPenDigit(c, n, Offset.zero, 17, bold ? 1 : 0);
+    c.restore();
   }
 
   num('3', 0, 0, pink);

@@ -5,10 +5,13 @@ import 'game_icons.dart';
 
 /// 허브에 나오는 게임 카드. 누르면 살짝 눌리는 애니메이션이 있다.
 class GameCard extends StatefulWidget {
-  const GameCard({super.key, required this.game, required this.onTap});
+  const GameCard({super.key, required this.game, required this.onTap, this.compact = false});
 
   final GameInfo game;
   final VoidCallback onTap;
+
+  /// 좁은 폰 화면에서 한 줄에 두 장씩 놓을 때의 작은 카드.
+  final bool compact;
 
   @override
   State<GameCard> createState() => _GameCardState();
@@ -57,7 +60,7 @@ class _GameCardState extends State<GameCard> {
             onTapUp: (_) => _setPressed(false),
             onTapCancel: () => _setPressed(false),
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(widget.compact ? 12 : 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -65,12 +68,12 @@ class _GameCardState extends State<GameCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: EdgeInsets.all(widget.compact ? 6 : 8),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: GameIcon(game: game, size: 50),
+                        child: GameIcon(game: game, size: widget.compact ? 40 : 50),
                       ),
                       if (!game.isReady) const _SoonBadge(),
                     ],
@@ -82,24 +85,25 @@ class _GameCardState extends State<GameCard> {
                     child: Text(
                       game.title,
                       maxLines: 1,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
-                        fontSize: 22,
+                        fontSize: widget.compact ? 18 : 22,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: widget.compact ? 2 : 4),
                   Text(
                     game.tagline,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 14,
+                      fontSize: widget.compact ? 12 : 14,
+                      height: widget.compact ? 1.25 : null,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: widget.compact ? 8 : 12),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,

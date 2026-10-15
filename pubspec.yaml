@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.5.1+11
+version: 1.5.2+12
 
 environment:
   sdk: ^3.13.5
@@ -79,6 +79,11 @@ flutter:
           weight: 700
         - asset: assets/fonts/NanumGothic-ExtraBold.ttf
           weight: 800
+
+  # 로라 (SIL Open Font License, assets/fonts/OFL-Lora.txt 참고): 예언 게임의 분홍 숫자용 세리프 글꼴 (가변 굵기)
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Variable.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

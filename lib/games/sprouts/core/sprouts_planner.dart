@@ -28,6 +28,31 @@ class SproutsMove {
   bool get isLoop => s == e;
 }
 
+final double sqrt2 = sqrt(2);
+
+/// 선분 ab와 cd가 한 점에서 가로지르는가 (끝점만 닿는 것은 아니다).
+bool _cross(P a, P b, P c, P d) {
+  double o(P p, P q, P r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  final o1 = o(a, b, c), o2 = o(a, b, d), o3 = o(c, d, a), o4 = o(c, d, b);
+  return ((o1 > 1e-9 && o2 < -1e-9) || (o1 < -1e-9 && o2 > 1e-9)) && ((o3 > 1e-9 && o4 < -1e-9) || (o3 < -1e-9 && o4 > 1e-9));
+}
+
+/// 점 [dot]의 한가운데에서 [to]로 곧게 가는 선분이 점 둘레의 선을 가로지르는가 (점 한가운데로 모이는 선들과 닿는 것은 빼고).
+bool _crossesNear(SproutsBoard b, int dot, P to) {
+  final o = b.dots[dot].pos;
+  for (final c in b.curves) {
+    final pts = c.pts;
+    for (var j = 0; j + 1 < pts.length; j++) {
+      if (pts[j].dist(o) > 40) continue;
+      if (!_cross(o, to, pts[j], pts[j + 1])) continue;
+      final m = P((pts[j].x + pts[j + 1].x) / 2, (pts[j].y + pts[j + 1].y) / 2);
+      if (m.dist(o) < 4) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 class _Grid {
   /// [g]: 격자 한 칸의 크기, [reach]: 선에서 이만큼 안쪽 칸은 막는다.
   _Grid(SproutsBoard b, this.g, this.reach, [this.zoneR = kKeepOut])
@@ -61,6 +86,20 @@ class _Grid {
         }
       }
     }
+    // 점 가까이를 지나가는 선(위에서 빠진 부분)도 얇게 막는다: 안 그러면 길이 점 바로 옆에서 그 점에 이어진 선을 가로질러 버린다
+    final barrier = max(3.5, 0.8 * sqrt2 * g);
+    final bspan = (barrier / g).ceil() + 1;
+    for (final c in b.curves) {
+      for (final q in c.pts) {
+        if (b.dots.every((d) => d.pos.dist(q) > kNearDot)) continue;
+        final cx = ((q.x - ox) / g).floor(), cy = ((q.y - oy) / g).floor();
+        for (var r = max(0, cy - bspan); r <= min(rows - 1, cy + bspan); r++) {
+          for (var c2 = max(0, cx - bspan); c2 <= min(cols - 1, cx + bspan); c2++) {
+            if (center(c2, r).dist(q) < barrier) blocked[r * cols + c2] = 1;
+          }
+        }
+      }
+    }
     // 점: 한가운데는 막고, 둘레(kKeepOut)는 그 점의 구역으로 표시
     final rr = (zoneR / g).ceil() + 1;
     for (var i = 0; i < b.dots.length; i++) {
@@ -70,7 +109,7 @@ class _Grid {
         for (var c = max(0, cx - rr); c <= min(cols - 1, cx + rr); c++) {
           final dist = center(c, r).dist(d);
           final k = r * cols + c;
-          if (dist < kDotR) {
+          if (dist < kDotR + 0.6 * g) {
             blocked[k] = 1;
           } else if (dist < zoneR && (zone[k] < 0 || dist < zoneDist[k])) {
             zone[k] = i;
@@ -101,28 +140,144 @@ class _Grid {
 /// 자리가 넉넉한 수가 하나도 없을 때만([allowRelax]) 좁은 틈으로라도 갈 수 있는 길을 찾고, 그 길을 둘 수 있도록
 /// 기존 점과 선을 밀어 보는 수까지 찾는다 (콩나물은 위상만 중요하니, 틈만 있으면 둘 수 있는 수다).
 /// 밀어서 둔 수는 [StrokeResult.layout]에 밀린 배치가 담겨 있다.
-List<SproutsMove> findMoves(SproutsBoard b, {bool firstOnly = false, Stopwatch? clock, Duration? deadline, bool allowRelax = true}) {
+///
+/// 위상적으로는 둘 수 있는데 이 판에서 자리를 못 찾으면, 판 전체를 조금씩 늘려서(점과 선의 위치만 늘리고 이어진 구조는 그대로)
+/// 자리를 만들어 본다. 그렇게 찾은 수도 [StrokeResult.layout]에 늘어난 배치가 담겨 있다. 그래서 위상적으로 둘 수 있는 수가
+/// 남아 있는 한 이 함수는 (시간이 허락하는 한) 수를 찾아낸다.
+List<SproutsMove> findMoves(SproutsBoard b, {bool firstOnly = false, Stopwatch? clock, Duration? deadline, bool allowRelax = true}) =>
+    _findCore(b, firstOnly, clock, deadline, allowRelax, allowRelax);
+
+/// 꺾은선의 꼭짓점은 그대로 두고, 점 사이가 [kStep]보다 벌어진 곳에만 일직선 위에 점을 더 찍는다 (모양이 정확히 같다).
+List<P> _densify(List<P> pts) {
+  final out = <P>[pts.first];
+  for (var i = 1; i < pts.length; i++) {
+    final a = pts[i - 1], b = pts[i];
+    final n = (a.dist(b) / kStep).ceil();
+    for (var k = 1; k < n; k++) {
+      out.add(P(a.x + (b.x - a.x) * k / n, a.y + (b.y - a.y) * k / n));
+    }
+    out.add(b);
+  }
+  return out;
+}
+
+/// 점 [s]와 [e](같으면 고리)를 잇는 수를 찾는다. 위상적으로 이을 수 있는 쌍이면 (시간이 허락하는 한) 점과 선을 밀거나 판을 늘려서라도
+/// 찾아낸다. 이을 수 없는 쌍이거나 못 찾으면 null.
+SproutsMove? connectPair(SproutsBoard b, int s, int e, {Stopwatch? clock, Duration? deadline}) {
+  if (s < 0 || e < 0 || s >= b.dots.length || e >= b.dots.length) return null;
+  final pair = s <= e ? (s, e) : (e, s);
+  if (!analyzeRegions(b).allPairs(b).contains(pair)) return null;
+  final moves = _findCore(b, true, clock, deadline, true, true, only: pair);
+  if (moves.isEmpty) return null;
+  final m = moves.first;
+  return m;
+}
+
+/// 판을 [f]배로 늘린 판: 점과 선의 위치만 늘려서(곡선은 점 사이가 벌어진 곳에 점만 더 찍는다) 이어진 구조와 점 둘레 선의 순서, 영역은 그대로다.
+/// 늘린 판이 가장 큰 판의 범위를 넘으면 null.
+SproutsBoard? stretchedBoard(SproutsBoard b, double f) {
+  var minX = double.infinity, minY = double.infinity, maxX = -double.infinity, maxY = -double.infinity;
+  void see(P p) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+
+  for (final d in b.dots) {
+    see(d.pos);
+  }
+  for (final c in b.curves) {
+    for (final p in c.pts) {
+      see(p);
+    }
+  }
+  if (minX == double.infinity) return null;
+  final cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  P grow(P p) => P(cx + (p.x - cx) * f, cy + (p.y - cy) * f);
+  final dots = [for (final d in b.dots) Dot(grow(d.pos), d.lives)];
+  final curves = [
+    for (final c in b.curves) Curve(from: c.from, to: c.to, mid: c.mid, owner: c.owner, pts: _densify([for (final p in c.pts) grow(p)])),
+  ];
+  final nb = SproutsBoard(dots, curves);
+  nb.bounds = nb.fittedBounds();
+  // 가장 큰 판에도 다 못 담으면 쓸 수 없다
+  bool inside(P p) => p.x >= nb.bounds.x0 + kMargin && p.y >= nb.bounds.y0 + kMargin && p.x <= nb.bounds.x1 - kMargin && p.y <= nb.bounds.y1 - kMargin;
+  if (!dots.every((d) => inside(d.pos)) || !curves.every((c) => c.pts.every(inside))) return null;
+  return nb;
+}
+
+/// [b]의 배치 그대로를 담은 배치 (밀려 있다면 밀린 배치).
+SproutsLayout _layoutOf(SproutsBoard b, StrokeResult r) {
+  final l = r.layout;
+  if (l != null) return SproutsLayout(l.dots, l.curves, bounds: l.bounds ?? b.bounds);
+  return SproutsLayout([for (final d in b.dots) d.pos], [for (final c in b.curves) c.pts], bounds: b.bounds);
+}
+
+/// (isolate용) 판 데이터를 받아, 위상적으로는 둘 수 있는데 자리가 없을 때 점과 선을 옮겨 늘린 판 데이터를 돌려준다. 필요 없으면 빈 목록.
+List<double> sproutsRoomTask(List<double> data) {
+  final room = makeRoom(SproutsBoard.fromData(data), clock: Stopwatch()..start(), deadline: const Duration(seconds: 6));
+  return room == null ? const <double>[] : room.toData();
+}
+
+const List<double> _stretchFactors = [1.25, 1.6, 2.0, 2.5, 3.2];
+
+/// 지금 판에서는 자리가 모자라 못 찾는 수를, 판을 늘려서 찾는다. 찾은 수의 배치는 늘어난 판의 것이다.
+List<SproutsMove> _stretchFind(SproutsBoard b, bool firstOnly, Stopwatch? clock, Duration? deadline, (int, int)? only) {
+  for (final f in _stretchFactors) {
+    if (clock != null && deadline != null && clock.elapsed > deadline) break;
+    final sb = stretchedBoard(b, f);
+    if (sb == null) break; // 더 늘려도 안 담긴다
+    final moves = _findCore(sb, firstOnly, clock, deadline, true, false, only: only);
+    if (moves.isEmpty) continue;
+    return [for (final m in moves) SproutsMove(m.s, m.e, StrokeResult.ok(m.path, m.result.midIndex, layout: _layoutOf(sb, m.result)))];
+  }
+  return const [];
+}
+
+/// 위상적으로는 둘 수 있는데 자리가 없어서 못 두는 판이면, 둘 수 있을 만큼 점과 선을 옮겨 늘린 판을 돌려준다. 이미 자리가
+/// 있거나(null이 아니라 [b] 그대로는 돌려주지 않는다) 위상적으로 끝난 판이면 null.
+SproutsBoard? makeRoom(SproutsBoard b, {Stopwatch? clock, Duration? deadline}) {
+  if (b.totalLives <= 0 || !analyzeRegions(b).hasMove(b)) return null;
+  if (_findCore(b, true, clock, deadline, false, false).isNotEmpty) return null;
+  for (final relax in const [false, true]) {
+    for (final f in _stretchFactors) {
+      final sb = stretchedBoard(b, f);
+      if (sb == null) break;
+      if (_findCore(sb, true, clock, deadline, relax, false).isNotEmpty) return sb;
+    }
+  }
+  return null;
+}
+
+List<SproutsMove> _findCore(SproutsBoard b, bool firstOnly, Stopwatch? clock, Duration? deadline, bool allowRelax, bool allowStretch, {(int, int)? only}) {
   if (b.totalLives <= 0) return const [];
   // 위상적으로 둘 수 있는 수가 없으면 곧바로 끝 (정확하고 빠르다)
   if (!analyzeRegions(b).hasMove(b)) return const [];
   bool timeUp() => clock != null && deadline != null && clock.elapsed > deadline;
-  final quick = _find(b, _Grid(b, 5, kClear + 3), firstOnly, clock, deadline, false);
+  final quick = _find(b, _Grid(b, 5, kClear + 3), firstOnly, clock, deadline, false, only);
   if (quick.isNotEmpty) return quick;
   // 성긴 격자로는 못 찾았다: 촘촘하게 한 번 더
   if (timeUp()) return quick;
-  final fine = _find(b, _Grid(b, 2.5, kClear + 1), firstOnly, clock, deadline, false);
-  if (fine.isNotEmpty || !allowRelax || timeUp()) return fine;
+  final fine = _find(b, _Grid(b, 2.5, kClear + 1), firstOnly, clock, deadline, false, only);
+  if (fine.isNotEmpty || timeUp()) return fine;
+  // 그래도 없다: 가장 촘촘한 격자로 규칙이 허락하는 가장 좁은 틈까지 본다
+  final finest = _find(b, _Grid(b, 1.5, kClear + 0.3), firstOnly, clock, deadline, false, only);
+  if (finest.isNotEmpty || !allowRelax || timeUp()) return finest;
   // 그래도 없다: 좁은 틈으로 가는 길을 찾아, 점과 선을 밀어서 둘 수 있는지 본다
-  final tight = _find(b, _Grid(b, 3, 2.5, kDotR + 3), firstOnly, clock, deadline, true);
+  final tight = _find(b, _Grid(b, 3, 2.5, kDotR + 3), firstOnly, clock, deadline, true, only);
   if (tight.isNotEmpty || timeUp()) return tight;
   // 그래도 못 찾았지만 위상적으로는 둘 수 있는 점 쌍이 있다면, 바로 그 쌍만 골라 이어 본다 (위상이 정확한 안내)
-  return _targeted(b, firstOnly, clock, deadline);
+  final targeted = _targeted(b, firstOnly, clock, deadline, only);
+  if (targeted.isNotEmpty || !allowStretch || timeUp()) return targeted;
+  // 마지막: 판 전체를 늘려서 자리를 만든다
+  return _stretchFind(b, firstOnly, clock, deadline, only);
 }
 
 /// 위상적으로 둘 수 있는 점 쌍([analyzeRegions])을 하나씩 정해서, 여러 모양의 곡선으로 이어 보며 점과 선을 밀어 본다.
-List<SproutsMove> _targeted(SproutsBoard b, bool firstOnly, Stopwatch? clock, Duration? deadline) {
+List<SproutsMove> _targeted(SproutsBoard b, bool firstOnly, Stopwatch? clock, Duration? deadline, (int, int)? only) {
   final out = <SproutsMove>[];
-  final pairs = analyzeRegions(b).allPairs(b);
+  final pairs = [for (final p in analyzeRegions(b).allPairs(b)) if (only == null || p == only) p];
   final watch = Stopwatch()..start();
   for (final (s, e) in pairs) {
     if (watch.elapsedMilliseconds > 2500) break;
@@ -137,17 +292,18 @@ List<SproutsMove> _targeted(SproutsBoard b, bool firstOnly, Stopwatch? clock, Du
   return out;
 }
 
-List<SproutsMove> _find(SproutsBoard b, _Grid grid, bool firstOnly, Stopwatch? clock, Duration? deadline, bool relax) {
+List<SproutsMove> _find(SproutsBoard b, _Grid grid, bool firstOnly, Stopwatch? clock, Duration? deadline, bool relax, (int, int)? only) {
   final out = <SproutsMove>[];
   final relaxClock = Stopwatch()..start();
   bool timeUp() => clock != null && deadline != null && clock.elapsed > deadline;
 
   for (var s = 0; s < b.dots.length; s++) {
     if (b.dots[s].lives <= 0) continue;
+    if (only != null && s != only.$1) continue;
     if (timeUp()) break;
 
     // ── 고리 ──
-    if (b.dots[s].lives >= 2) {
+    if (b.dots[s].lives >= 2 && (only == null || only.$1 == only.$2)) {
       for (final radius in relax ? const [28.0] : const [20.0, 28.0, 38.0]) {
         for (var k = 0; k < 24; k++) {
           final theta = (k * 15 + (radius.toInt() % 3) * 5) * pi / 180;
@@ -164,12 +320,20 @@ List<SproutsMove> _find(SproutsBoard b, _Grid grid, bool firstOnly, Stopwatch? c
           }
         }
       }
+      // 동그라미가 들어갈 자리가 없는 좁은 틈(두 선 사이, 선과 점 사이)을 위해 길쭉한 타원 고리도 대 본다
+      if (!out.any((m) => m.s == s && m.e == s)) {
+        final loop = _ovalLoop(b, s, relax);
+        if (loop != null) {
+          out.add(loop);
+          if (firstOnly) return out;
+        }
+      }
     }
 
     // ── 다른 점으로 ──
     final targets = <int>{
       for (var e = s + 1; e < b.dots.length; e++)
-        if (b.dots[e].lives > 0) e,
+        if (b.dots[e].lives > 0 && (only == null || e == only.$2)) e,
     };
     if (targets.isEmpty) continue;
     final reached = _bfs(grid, b, s, targets);
@@ -215,6 +379,28 @@ List<SproutsMove> _find(SproutsBoard b, _Grid grid, bool firstOnly, Stopwatch? c
   return out;
 }
 
+/// 점 [s]에서 나가 자기 자신으로 돌아오는 길쭉한 타원 고리 (좁은 틈에도 들어간다). 되는 모양이 없으면 null.
+SproutsMove? _ovalLoop(SproutsBoard b, int s, bool relax) {
+  final o = b.dots[s].pos;
+  for (final (a, w) in const [(26.0, 9.0), (36.0, 9.0), (20.0, 7.0), (46.0, 11.0)]) {
+    for (var k = 0; k < 36; k++) {
+      final theta = k * 10 * pi / 180;
+      final ux = cos(theta), uy = sin(theta);
+      final cen = P(o.x + a * ux, o.y + a * uy);
+      final pts = <P>[
+        for (var i = 1; i < 48; i++)
+          P(
+            cen.x - a * cos(i * 2 * pi / 48) * ux - w * sin(i * 2 * pi / 48) * uy,
+            cen.y - a * cos(i * 2 * pi / 48) * uy + w * sin(i * 2 * pi / 48) * ux,
+          ),
+      ];
+      final r = b.validate(s, s, pts, relax: relax);
+      if (r.ok) return SproutsMove(s, s, r);
+    }
+  }
+  return null;
+}
+
 /// [s]의 둘레에서 출발해, [targets] 각 점의 둘레까지 가는 칸 길. 점 번호 → 칸 번호 목록(출발→도착).
 Map<int, List<int>> _bfs(_Grid g, SproutsBoard b, int s, Set<int> targets) {
   final cols = g.cols, rows = g.rows;
@@ -229,8 +415,9 @@ Map<int, List<int>> _bfs(_Grid g, SproutsBoard b, int s, Set<int> targets) {
     for (var c = max(0, scx - span); c <= min(cols - 1, scx + span); c++) {
       final k = r * cols + c;
       if (g.blocked[k] != 0) continue;
-      final d = g.center(c, r).dist(sp);
-      if (d >= kDotR && d <= ring) {
+      final cp = g.center(c, r);
+      final d = cp.dist(sp);
+      if (d >= kDotR && d <= ring && !_crossesNear(b, s, cp)) {
         parent[k] = -1;
         queue.add(k);
       }
@@ -243,7 +430,7 @@ Map<int, List<int>> _bfs(_Grid g, SproutsBoard b, int s, Set<int> targets) {
     final c = k % cols, r = k ~/ cols;
     final zk = g.zone[k];
     // 목표 점의 둘레에 닿았다
-    if (zk >= 0 && zk != s && targets.contains(zk) && g.zoneDist[k] <= ring && !result.containsKey(zk)) {
+    if (zk >= 0 && zk != s && targets.contains(zk) && g.zoneDist[k] <= ring && !result.containsKey(zk) && !_crossesNear(b, zk, g.center(c, r))) {
       final path = <int>[];
       for (var q = k; q >= 0; q = parent[q]) {
         path.add(q);
@@ -346,7 +533,7 @@ SproutsMove? _toMove(_Grid g, SproutsBoard b, int s, int e, List<int> cells, boo
 
   for (final candidate in [smooth(pulled, 2), pulled, raw]) {
     final source = resample(candidate);
-    final r = b.validate(s, e, source, relax: relax);
+    final r = b.validate(s, e, source, relax: relax, trim: false);
     if (r.ok) {
       onSource?.call(source);
       return SproutsMove(s, e, r);
@@ -392,14 +579,18 @@ SproutsMove? guidedMove(SproutsBoard b, int s, int e, List<P> stroke, {double ma
   return null;
 }
 
-/// isolate에서 쓰는 형태: [판 데이터, 시작 점, 끝 점, 손으로 그은 선(x, y, x, y, …)] → 바로잡은 곡선의 원래 모양(x, y, …). 없으면 빈 목록.
+/// isolate에서 쓰는 형태: [판 데이터, 시작 점, 끝 점, 손으로 그은 선(x, y, x, y, …)] → 바로잡은 수 ([encodeMove] 형태, 점과 선을 민 배치 포함).
+/// 손으로 그은 선을 최대한 따라가는 길을 먼저 찾고, 안 되면 두 점을 잇는 어떤 길이든 (점과 선을 밀거나 판을 늘려서라도) 찾는다.
+/// 위상적으로 이을 수 없는 쌍이거나 끝내 못 찾으면 빈 목록.
 List<double> sproutsGuideTask(List<Object> args) {
   final board = SproutsBoard.fromData(List<double>.from(args[0] as List));
   final flat = List<double>.from(args[3] as List);
   final stroke = <P>[for (var i = 0; i + 1 < flat.length; i += 2) P(flat[i], flat[i + 1])];
-  final fix = guidedFix(board, args[1] as int, args[2] as int, stroke);
-  if (fix == null) return const [];
-  return [for (final p in fix.source) ...[p.x, p.y]];
+  final s = args[1] as int, e = args[2] as int;
+  final fix = guidedFix(board, s, e, stroke);
+  if (fix != null) return encodeMove(fix.move);
+  final any = connectPair(board, s, e, clock: Stopwatch()..start(), deadline: const Duration(seconds: 6));
+  return any == null ? const [] : encodeMove(any);
 }
 
 /// 손으로 그은 선 [stroke]이 고쳐진 [path]에서 가장 멀리 벗어난 거리 (점 둘레의 군더더기는 뺀다).
@@ -480,8 +671,9 @@ List<int>? _guidedRoute(_Grid g, SproutsBoard b, int s, int e, PointIndex guide)
       if (g.blocked[k] != 0) continue;
       final z = g.zone[k];
       if (z >= 0 && z != s) continue;
-      final d = g.center(c, r).dist(sp);
-      if (d >= kDotR && d <= ring) {
+      final cp = g.center(c, r);
+      final d = cp.dist(sp);
+      if (d >= kDotR && d <= ring && !_crossesNear(b, s, cp)) {
         parent[k] = -1;
         cost[k] = stepCost(k, g.g);
         push(cost[k], k);
@@ -495,7 +687,7 @@ List<int>? _guidedRoute(_Grid g, SproutsBoard b, int s, int e, PointIndex guide)
     done[k] = 1;
     final c = k % cols, r = k ~/ cols;
     final zk = g.zone[k];
-    if (zk == e && g.zoneDist[k] <= ring) {
+    if (zk == e && g.zoneDist[k] <= ring && !_crossesNear(b, e, g.center(c, r))) {
       final path = <int>[];
       for (var q = k; q >= 0; q = parent[q]) {
         path.add(q);
@@ -525,4 +717,59 @@ List<int>? _guidedRoute(_Grid g, SproutsBoard b, int s, int e, PointIndex guide)
     }
   }
   return null;
+}
+
+/// 수 하나를 숫자 목록으로: [s, e, 새 점 자리, 점 수, x0, y0, …, 배치 있음(0/1),
+/// (있으면) 범위 있음(0/1), (있으면) x0, y0, x1, y1, 점 수, (x, y)×점, 곡선 수, (점 수, (x, y)×k)×곡선].
+/// 점과 선을 밀거나 판을 늘려서 둔 수는 그 배치도 함께 담는다.
+List<double> encodeMove(SproutsMove m) {
+  final out = <double>[m.s.toDouble(), m.e.toDouble(), m.result.midIndex.toDouble(), m.path.length.toDouble()];
+  for (final p in m.path) {
+    out..add(p.x)..add(p.y);
+  }
+  final l = m.result.layout;
+  out.add(l == null ? 0 : 1);
+  if (l != null) {
+    final b = l.bounds;
+    out.add(b == null ? 0 : 1);
+    if (b != null) out..add(b.x0)..add(b.y0)..add(b.x1)..add(b.y1);
+    out.add(l.dots.length.toDouble());
+    for (final p in l.dots) {
+      out..add(p.x)..add(p.y);
+    }
+    out.add(l.curves.length.toDouble());
+    for (final c in l.curves) {
+      out.add(c.length.toDouble());
+      for (final p in c) {
+        out..add(p.x)..add(p.y);
+      }
+    }
+  }
+  return out;
+}
+
+/// [encodeMove]의 결과를 다시 수로 만든다.
+SproutsMove? decodeCpuMove(List<double> data) {
+  if (data.isEmpty) return null;
+  var i = 0;
+  final s = data[i++].toInt(), e = data[i++].toInt(), mid = data[i++].toInt();
+  final n = data[i++].toInt();
+  final path = <P>[for (var k = 0; k < n; k++) P(data[i++], data[i++])];
+  SproutsLayout? layout;
+  if (data[i++] != 0) {
+    Bounds? bounds;
+    if (data[i++] != 0) {
+      bounds = Bounds(data[i++], data[i++], data[i++], data[i++]);
+    }
+    final nd = data[i++].toInt();
+    final dots = <P>[for (var k = 0; k < nd; k++) P(data[i++], data[i++])];
+    final nc = data[i++].toInt();
+    final curves = <List<P>>[];
+    for (var c = 0; c < nc; c++) {
+      final np = data[i++].toInt();
+      curves.add([for (var k = 0; k < np; k++) P(data[i++], data[i++])]);
+    }
+    layout = SproutsLayout(dots, curves, bounds: bounds);
+  }
+  return SproutsMove(s, e, StrokeResult.ok(path, mid, layout: layout));
 }
