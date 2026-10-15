@@ -258,6 +258,8 @@ class JigsawStorage {
     final keep = <String>{
       for (final r in await JigsawHistory.load())
         if (r.source.kind == 'file') r.source.ref,
+      for (final r in await JigsawHistory.favorites.load())
+        if (r.source.kind == 'file') r.source.ref,
       for (final e in await library())
         if (e.source.kind == 'file') e.source.ref,
     };

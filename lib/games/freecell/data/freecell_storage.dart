@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../records/favorites.dart';
 import '../core/freecell_difficulty.dart';
 import '../game/freecell_controller.dart';
 
@@ -64,6 +65,14 @@ class FreecellStorage {
   static const _saveKey = 'freecell.save';
   static const _historyKey = 'freecell.history';
   static const maxHistory = 100;
+
+  /// 즐겨찾기한 판 (같은 번호 = 같은 판).
+  static final favorites = FavoriteStore<FreecellRecord>(
+    key: 'freecell.favorites',
+    fromJson: FreecellRecord.fromJson,
+    toJson: (r) => r.toJson(),
+    boardKey: (r) => '${r.deal}',
+  );
 
   /// 지금 화면에서 하고 있는 판 (새 판으로 바뀐 뒤 이전 화면이 늦게 저장해 덮어쓰는 일을 막는다).
   static FreecellController? _active;

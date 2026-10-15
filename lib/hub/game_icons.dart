@@ -8,7 +8,7 @@ import '../games/dandelion/ui/dandelion_art.dart' show paintWindGust;
 import '../games/getcolor/ui/getcolor_painter.dart';
 import '../games/goblet/core/goblet_rules.dart' show Team;
 import '../games/goblet/ui/goblet_piece.dart' show GobblerPainter;
-import '../games/prophecy/ui/prophecy_board.dart' show paintPenDigit;
+import '../games/prophecy/ui/prophecy_board.dart' show paintPenDigit, penColor;
 
 const Color _ink = Color(0xFF1A1523);
 
@@ -360,49 +360,109 @@ void paintDandelionIcon(Canvas c, double s) {
   seed(const Offset(0.7, 0.93), 0.7);
 }
 
-// ── 예언: 숫자가 적힌 표, 맞힌 숫자는 동그라미와 화살표 ──
+// ── 예언: 게임이 끝났을 때의 채점 화면 ──
+// 줄(행·열)마다 숫자(X 제외)가 몇 개인지 줄 끝에 센다. 그 개수와 같은 숫자는 동그라미를 치고,
+// 행에서 맞았으면 좌우 화살표, 열에서 맞았으면 위아래 화살표를 단다 (둘 다 맞으면 네 방향, 점수도 두 번).
+// 동그라미·화살표는 쓴 사람의 펜 색, 개수가 맞은 줄은 초록 동그라미로 표시한다. (게임 안 ProphBoardPainter와 같은 모양)
 void paintProphecyIcon(Canvas c, double s) {
-  const pink = Color(0xFFC2306B), teal = Color(0xFF0F7C86);
-  const l = 0.1, t = 0.12, w = 0.8, h = 0.76;
-  final box = RRect.fromRectAndRadius(const Rect.fromLTWH(l, t, w, h), const Radius.circular(0.07));
-  _shadow(c, Path()..addRRect(box));
-  c.drawRRect(box, _fill(Colors.white));
-  final grid = _line(const Color(0xFF9AA5B8), 0.02, cap: StrokeCap.butt);
-  for (final k in [1, 2]) {
-    c.drawLine(Offset(l + w * k / 3, t), Offset(l + w * k / 3, t + h), grid);
-    c.drawLine(Offset(l, t + h * k / 3), Offset(l + w, t + h * k / 3), grid);
+  const rows = 3, cols = 3;
+  const x = -1; // X
+  // 칸의 숫자(X는 -1)와 쓴 사람(0 = 분홍, 1 = 청록)
+  const cells = [
+    [2, 1, x],
+    [1, 3, 2],
+    [3, 2, x],
+  ];
+  const owners = [
+    [0, 1, -1],
+    [1, 1, 0],
+    [0, 1, -1],
+  ];
+  const left = 0.07, top = 0.07, cell = 0.245;
+  const gridW = cell * cols, gridH = cell * rows;
+  final paper = RRect.fromRectAndRadius(const Rect.fromLTWH(left - 0.03, top - 0.03, gridW + 0.06, gridH + 0.06), const Radius.circular(0.04));
+  _shadow(c, Path()..addRRect(paper));
+  c.drawRRect(paper, _fill(const Color(0xFFFFFDF6)));
+  const inkLine = Color(0xFF4A3B3B);
+  final grid = _line(inkLine, 0.014);
+  for (var k = 0; k <= 3; k++) {
+    c.drawLine(Offset(left + cell * k, top), Offset(left + cell * k, top + gridH), grid);
+    c.drawLine(Offset(left, top + cell * k), Offset(left + gridW, top + cell * k), grid);
   }
-  c.drawRRect(box, _line(_ink, 0.04));
-  Offset at(int col, int row) => Offset(l + w * (col + 0.5) / 3, t + h * (row + 0.5) / 3 + 0.012);
-  // 그림 좌표가 0~1이라 글자를 직접 0.2 크기로 그리면 글꼴이 어긋난다: 100배 키운 크기로 그려서 줄여 붙인다.
-  void num(String n, int col, int row, Color color, {bool bold = false}) {
-    final p = at(col, row);
+  Offset at(int r, int col) => Offset(left + cell * (col + 0.5), top + cell * (r + 0.5));
+
+  // 줄마다 숫자 개수
+  final rowCount = [for (var r = 0; r < rows; r++) cells[r].where((v) => v > 0).length];
+  final colCount = [for (var k = 0; k < cols; k++) [for (var r = 0; r < rows; r++) cells[r][k]].where((v) => v > 0).length];
+
+  // 글자는 그림 좌표(0~1)에 바로 못 그리니 100배 키운 크기로 그려서 줄여 붙인다.
+  void big(Offset p, void Function() draw) {
     c.save();
     c.translate(p.dx, p.dy);
     c.scale(0.01);
-    paintPenDigit(c, n, Offset.zero, 17, bold ? 1 : 0);
+    draw();
     c.restore();
   }
 
-  num('3', 0, 0, pink);
-  num('1', 1, 0, teal, bold: true);
-  c.drawLine(at(2, 0) + const Offset(-0.06, -0.06), at(2, 0) + const Offset(0.06, 0.06), _line(_ink, 0.025));
-  c.drawLine(at(2, 0) + const Offset(0.06, -0.06), at(2, 0) + const Offset(-0.06, 0.06), _line(_ink, 0.025));
-  num('2', 0, 1, teal, bold: true);
-  num('3', 1, 1, teal, bold: true);
-  num('1', 2, 1, pink);
-  c.drawLine(at(0, 2) + const Offset(-0.06, -0.06), at(0, 2) + const Offset(0.06, 0.06), _line(_ink, 0.025));
-  c.drawLine(at(0, 2) + const Offset(0.06, -0.06), at(0, 2) + const Offset(-0.06, 0.06), _line(_ink, 0.025));
-  num('2', 1, 2, pink);
-  num('3', 2, 2, teal, bold: true);
-  // 맞힌 예언: 가운데 3에 동그라미와 좌우 화살표 (행에서 숫자가 3개)
-  final m = at(1, 1);
-  c.drawCircle(m, 0.095, _line(teal, 0.03));
-  for (final d in [-1.0, 1.0]) {
-    final from = m + Offset(d * 0.095, 0), to = m + Offset(d * 0.135, 0);
-    c.drawLine(from, to, _line(teal, 0.03));
-    c.drawLine(to, to + Offset(-d * 0.03, -0.025), _line(teal, 0.03));
-    c.drawLine(to, to + Offset(-d * 0.03, 0.025), _line(teal, 0.03));
+  // 칸 안: 숫자(쓴 사람의 펜)와 X
+  for (var r = 0; r < rows; r++) {
+    for (var k = 0; k < cols; k++) {
+      final v = cells[r][k];
+      if (v == x) {
+        final m = at(r, k);
+        const d = cell * 0.3;
+        final cross = Path()
+          ..moveTo(m.dx - d, m.dy - d)
+          ..lineTo(m.dx + d, m.dy + d)
+          ..moveTo(m.dx + d, m.dy - d)
+          ..lineTo(m.dx - d, m.dy + d);
+        c.drawPath(cross, _line(inkLine.withValues(alpha: 0.85), 0.014));
+      } else {
+        big(at(r, k), () => paintPenDigit(c, '$v', Offset.zero, cell * 100 * 0.58, owners[r][k]));
+      }
+    }
+  }
+
+  // 점수: 동그라미 + 행이면 좌우, 열이면 위아래 화살표
+  void arrows(Offset m, Color color, {required bool horizontal}) {
+    const r0 = cell * 0.3, r1 = cell * 0.5, head = cell * 0.11;
+    final pen = _line(color, 0.02);
+    for (final dir in const [-1.0, 1.0]) {
+      final d = horizontal ? Offset(dir, 0) : Offset(0, dir);
+      final n = horizontal ? const Offset(0, 1) : const Offset(1, 0);
+      final from = m + d * r0, to = m + d * r1;
+      c.drawLine(from, to, pen);
+      c.drawLine(to, to - d * head + n * head * 0.8, pen);
+      c.drawLine(to, to - d * head - n * head * 0.8, pen);
+    }
+  }
+
+  final rowOk = <int>{}, colOk = <int>{};
+  for (var r = 0; r < rows; r++) {
+    for (var k = 0; k < cols; k++) {
+      final v = cells[r][k];
+      if (v <= 0) continue;
+      final byRow = rowCount[r] == v, byCol = colCount[k] == v;
+      if (!byRow && !byCol) continue;
+      if (byRow) rowOk.add(r);
+      if (byCol) colOk.add(k);
+      final color = penColor(owners[r][k]);
+      c.drawCircle(at(r, k), cell * 0.3, _line(color, 0.02));
+      if (byRow) arrows(at(r, k), color, horizontal: true);
+      if (byCol) arrows(at(r, k), color, horizontal: false);
+    }
+  }
+
+  // 줄 끝의 개수 (맞은 줄은 초록)
+  void count(Offset p, int n, bool ok) {
+    c.drawCircle(p, 0.05, _fill(ok ? const Color(0xFF2E9E4F) : Colors.white.withValues(alpha: 0.28)));
+    big(p, () => _text(c, '$n', Offset.zero, 7.5, Colors.white));
+  }
+
+  for (var r = 0; r < rows; r++) {
+    count(Offset(left + gridW + 0.085, top + cell * (r + 0.5)), rowCount[r], rowOk.contains(r));
+  }
+  for (var k = 0; k < cols; k++) {
+    count(Offset(left + cell * (k + 0.5), top + gridH + 0.085), colCount[k], colOk.contains(k));
   }
 }
-

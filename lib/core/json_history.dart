@@ -55,6 +55,17 @@ class JsonHistoryStore<T> {
       }
       list.removeAt(i);
     }
+    await _write(list);
+  }
+
+  /// 목록을 읽어서 [edit]으로 고친 뒤 다시 저장한다 (개수 제한은 적용하지 않는다).
+  Future<void> update(void Function(List<T> list) edit) async {
+    final list = await load();
+    edit(list);
+    await _write(list);
+  }
+
+  Future<void> _write(List<T> list) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, jsonEncode([for (final e in list) toJson(e)]));
   }

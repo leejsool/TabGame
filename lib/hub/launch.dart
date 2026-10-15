@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../core/game_info.dart';
@@ -70,7 +71,8 @@ class _ModeSheet extends StatelessWidget {
             const SizedBox(height: 4),
             const Text('어떻게 할까요?'),
             const SizedBox(height: 16),
-            for (final m in game.modes)
+            // 같은 Wi‑Fi 연결은 웹에서는 쓸 수 없다.
+            for (final m in game.modes.where((m) => !(kIsWeb && m == PlayMode.wifi)))
               Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(

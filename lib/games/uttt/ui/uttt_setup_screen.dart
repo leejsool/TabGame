@@ -23,7 +23,7 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
 
   void _start() {
     final side = _side, level = _level;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => UtttScreen(mode: PlayMode.vsCpu, humanSide: side, level: level),
       ),

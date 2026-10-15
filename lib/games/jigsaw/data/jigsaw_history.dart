@@ -1,4 +1,5 @@
 import '../../../core/json_history.dart';
+import '../../../records/favorites.dart';
 
 import '../ui/jigsaw_images.dart';
 
@@ -69,6 +70,14 @@ class JigsawHistory {
   );
 
   static Map<String, dynamic> _toJson(JigsawRecord r) => r.toJson();
+
+  /// 즐겨찾기한 퍼즐 (같은 그림 + 같은 조각 수 = 같은 판). 그림을 다시 불러올 수 없는 기록은 담지 않는다.
+  static final favorites = FavoriteStore<JigsawRecord>(
+    key: 'jigsaw.favorites',
+    fromJson: JigsawRecord.fromJson,
+    toJson: _toJson,
+    boardKey: (r) => '${r.target}:${r.source.kind}:${r.source.ref}',
+  );
 
   /// 최신 순.
   static Future<List<JigsawRecord>> load() => _store.load();

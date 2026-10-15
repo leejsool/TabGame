@@ -17,6 +17,7 @@ class VsSetupScaffold extends StatelessWidget {
     required this.onStart,
     required this.tutorial,
     this.onLesson,
+    this.startLabel = '시작하기',
   });
 
   /// game_registry의 id (내 기록 버튼이 이 게임의 기록을 연다).
@@ -30,6 +31,9 @@ class VsSetupScaffold extends StatelessWidget {
 
   /// 교과학습 화면을 여는 함수. 없으면 교과학습 버튼을 만들지 않는다.
   final VoidCallback? onLesson;
+
+  /// 시작 버튼의 글자.
+  final String startLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +62,7 @@ class VsSetupScaffold extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: onStart,
                   icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('시작하기'),
+                  label: Text(startLabel),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),

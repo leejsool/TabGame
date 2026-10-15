@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../records/favorites.dart';
 import '../../../records/record_widgets.dart';
 import '../data/jigsaw_history.dart';
 import '../data/jigsaw_storage.dart';
@@ -30,6 +31,7 @@ class JigsawRecordsTab extends StatefulWidget {
 
 class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
   List<JigsawRecord> _all = [];
+  final _favs = FavoriteSet(JigsawHistory.favorites);
   final Map<int, int?> _best = {};
   final Map<int, int> _wins = {};
   int? _filter;
@@ -44,6 +46,7 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
 
   Future<void> _load() async {
     final all = await JigsawHistory.load();
+    await _favs.load();
     final best = <int, int?>{};
     final wins = <int, int>{};
     for (final (n, _) in kPieceChoices) {
@@ -68,6 +71,20 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
     return s.isEmpty ? null : s.reduce((a, b) => a < b ? a : b);
   }
 
+  Future<void> _toggleFav(JigsawRecord r) async {
+    await _favs.toggle(r);
+    await JigsawStorage.pruneAfterHistoryChange(); // 즐겨찾기에서 뺀 퍼즐의 사진이 더 안 쓰이면 정리
+    if (mounted) setState(() {});
+  }
+
+  Widget _tile(JigsawRecord r) => _RecordTile(
+        record: r,
+        isBest: r.seconds == _bestIn(r.target),
+        isFav: _favs.has(r),
+        onToggleFav: r.canReplay ? () => _toggleFav(r) : null,
+        onReplay: r.canReplay ? () => _replay(r) : null,
+      );
+
   Future<void> _replay(JigsawRecord r) async {
     await replayJigsawRecord(context, r);
     if (mounted) _load();
@@ -83,6 +100,7 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
         if (_filter == null || r.target == _filter) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
+    final favs = _favs.shown(cleared, (r) => r.seconds);
 
     return RecordsList(
       children: [
@@ -106,6 +124,10 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
               ),
           ],
         ),
+        if (favs.isNotEmpty) ...[
+          const SectionTitle('즐겨찾기한 퍼즐'),
+          for (final r in favs) _tile(r),
+        ],
         if (gaveUps.isNotEmpty) ...[
           const SectionTitle('포기한 퍼즐'),
           for (final r in gaveUps)
@@ -156,22 +178,27 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
                     : '이 조각 수로 완성한 퍼즐이 아직 없어요.',
           )
         else
-          for (final r in list)
-            _RecordTile(
-              record: r,
-              isBest: r.seconds == _bestIn(r.target),
-              onReplay: r.canReplay ? () => _replay(r) : null,
-            ),
+          for (final r in list) _tile(r),
       ],
     );
   }
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record, required this.isBest, required this.onReplay});
+  const _RecordTile({
+    required this.record,
+    required this.isBest,
+    required this.isFav,
+    required this.onToggleFav,
+    required this.onReplay,
+  });
 
   final JigsawRecord record;
   final bool isBest;
+  final bool isFav;
+
+  /// 그림을 다시 불러올 수 없는 기록은 null (별이 없다).
+  final VoidCallback? onToggleFav;
   final VoidCallback? onReplay;
 
   @override
@@ -220,6 +247,7 @@ class _RecordTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onToggleFav != null) FavoriteStar(on: isFav, onTap: onToggleFav!),
             // 좁은 화면(폰)에서는 아이콘만 보여준다
             if (MediaQuery.sizeOf(context).width < 460)
               IconButton.filledTonal(

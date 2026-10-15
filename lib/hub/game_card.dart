@@ -104,12 +104,19 @@ class _GameCardState extends State<GameCard> {
                     ),
                   ),
                   SizedBox(height: widget.compact ? 8 : 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final m in game.modes) _ModeChip(mode: m),
-                    ],
+                  // 모드가 셋이어도 한 줄로 두고, 모자라면 칩을 조금 줄인다 (두 줄이 되어 카드 높이를 넘지 않게).
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (var i = 0; i < game.modes.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 6),
+                          _ModeChip(mode: game.modes[i]),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -149,6 +156,7 @@ class _ModeChip extends StatelessWidget {
         PlayMode.solo => '혼자',
         PlayMode.local2p => '2인',
         PlayMode.vsCpu => 'CPU',
+        PlayMode.wifi => 'Wi‑Fi',
       };
 
   @override

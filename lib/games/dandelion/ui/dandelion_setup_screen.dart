@@ -23,7 +23,7 @@ class _DandelionSetupScreenState extends State<DandelionSetupScreen> {
 
   void _start() {
     final role = _role, level = _level;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => DandelionScreen(mode: PlayMode.vsCpu, humanRole: role, level: level),
       ),

@@ -198,7 +198,7 @@ const List<GameInfo> allGames = [
     tagline: '숫자로 미래를 맞혀요',
     icon: Icons.auto_awesome_rounded,
     color: Color(0xFF4B5FC6),
-    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    modes: [PlayMode.local2p, PlayMode.vsCpu, PlayMode.wifi],
     builder: buildProphecy,
     tutorial: prophecyTutorial,
     iconPainter: paintProphecyIcon,

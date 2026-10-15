@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../records/favorites.dart';
 import '../../../records/record_widgets.dart';
 import '../data/solitaire_storage.dart';
 import '../solitaire_entry.dart';
@@ -17,6 +18,7 @@ class SolitaireRecordsTab extends StatefulWidget {
 
 class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
   List<SolitaireRecord> _all = [];
+  final _favs = FavoriteSet(SolitaireStorage.favorites);
   final Map<int, SolitaireStats> _stats = {};
   int? _filter; // null = 전체, 1, 3
   bool _fastFirst = false;
@@ -30,6 +32,7 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
 
   Future<void> _load() async {
     final all = await SolitaireStorage.loadHistory();
+    await _favs.load();
     final s1 = await SolitaireStorage.stats(1);
     final s3 = await SolitaireStorage.stats(3);
     if (!mounted) return;
@@ -39,6 +42,79 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
       _stats[3] = s3;
       _loaded = true;
     });
+  }
+
+  Future<void> _toggleFav(SolitaireRecord r) async {
+    await _favs.toggle(r);
+    if (mounted) setState(() {});
+  }
+
+  /// 완성한 판 한 줄: 번호·시간, 날짜·수, 즐겨찾기 별, 다시 하기.
+  Widget _tile(SolitaireRecord r, ColorScheme scheme, int? bestSeconds) {
+    const green = Color(0xFF2E7D5B);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: green.withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: const Icon(Icons.style_rounded, color: green),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '#${r.deal} · ${formatTime(r.seconds)}',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      if (r.seconds == bestSeconds) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${formatDate(r.at)} · ${r.moves}수 · ${r.draw}장 뽑기',
+                    style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
+                  ),
+                ],
+              ),
+            ),
+            FavoriteStar(on: _favs.has(r), onTap: () => _toggleFav(r)),
+            if (MediaQuery.sizeOf(context).width < 460)
+              IconButton.filledTonal(
+                tooltip: '다시 하기',
+                onPressed: () => _replay(r),
+                icon: const Icon(Icons.replay_rounded),
+              )
+            else
+              FilledButton.tonalIcon(
+                onPressed: () => _replay(r),
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: const Text('다시 하기'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _replay(SolitaireRecord r) async {
@@ -58,6 +134,7 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
     final bestSeconds = list.isEmpty ? null : list.map((r) => r.seconds).reduce((a, b) => a < b ? a : b);
+    final favs = _favs.shown(cleared, (r) => r.seconds);
 
     Widget statRow(int draw, Color color) {
       final s = _stats[draw] ?? const SolitaireStats();
@@ -89,6 +166,10 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
         statRow(1, const Color(0xFF3FA796)),
         const SizedBox(height: 10),
         statRow(3, const Color(0xFF8E5BC4)),
+        if (favs.isNotEmpty) ...[
+          const SectionTitle('즐겨찾기한 판'),
+          for (final r in favs) _tile(r, scheme, bestSeconds),
+        ],
         if (gaveUps.isNotEmpty) ...[
           const SectionTitle('포기한 판'),
           for (final r in gaveUps)
@@ -129,72 +210,7 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
                 : '이 방식으로 완성한 판이 아직 없어요.',
           )
         else
-          for (final r in list)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              elevation: 0,
-              color: scheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: scheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2E7D5B).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.style_rounded, color: Color(0xFF2E7D5B)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  '#${r.deal} · ${formatTime(r.seconds)}',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                                ),
-                              ),
-                              if (r.seconds == bestSeconds) ...[
-                                const SizedBox(width: 6),
-                                const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${formatDate(r.at)} · ${r.moves}수 · ${r.draw}장 뽑기',
-                            style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (MediaQuery.sizeOf(context).width < 460)
-                      IconButton.filledTonal(
-                        tooltip: '다시 하기',
-                        onPressed: () => _replay(r),
-                        icon: const Icon(Icons.replay_rounded),
-                      )
-                    else
-                      FilledButton.tonalIcon(
-                        onPressed: () => _replay(r),
-                        icon: const Icon(Icons.replay_rounded, size: 18),
-                        label: const Text('다시 하기'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+          for (final r in list) _tile(r, scheme, bestSeconds),
       ],
     );
   }

@@ -16,6 +16,7 @@ class ProphRecord {
     this.level,
     this.human,
     this.resigned = false,
+    this.online = false,
   });
 
   final int at;
@@ -29,9 +30,12 @@ class ProphRecord {
   final int? winner;
   final int moves;
 
-  /// CPU 대결일 때: 난이도와 내가 맡은 쪽 (0 = 먼저 쓰기, 1 = 나중에 쓰기).
+  /// CPU 대결일 때: 난이도. CPU 대결·Wi‑Fi 대결일 때: 내가 맡은 쪽 (0 = 먼저 쓰기, 1 = 나중에 쓰기).
   final ProphLevel? level;
   final int? human;
+
+  /// 같은 Wi‑Fi의 다른 기기와 한 판인가 ([human]은 이 기기가 맡은 쪽).
+  final bool online;
 
   /// 진 쪽이 기권해서 끝난 판인가.
   final bool resigned;
@@ -40,6 +44,9 @@ class ProphRecord {
 
   /// CPU 대결에서 내가 이겼는가 (무승부면 null, CPU 대결이 아니면 null).
   bool? get humanWon => vsCpu && winner != null ? winner == human : null;
+
+  /// Wi‑Fi 대결에서 내가 이겼는가 (무승부면 null).
+  bool? get onlineWon => online && winner != null ? winner == human : null;
 
   Map<String, dynamic> toJson() => {
         'at': at,
@@ -53,6 +60,7 @@ class ProphRecord {
         'lv': level?.name,
         'h': human,
         if (resigned) 'rs': 1,
+        if (online) 'net': 1,
       };
 
   static ProphRecord fromJson(Map<String, dynamic> j) => ProphRecord(
@@ -67,6 +75,7 @@ class ProphRecord {
         level: j['lv'] == null ? null : ProphLevel.values.byName(j['lv'] as String),
         human: j['h'] as int?,
         resigned: j['rs'] == 1,
+        online: j['net'] == 1,
       );
 }
 

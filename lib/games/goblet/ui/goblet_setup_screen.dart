@@ -22,7 +22,7 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
 
   void _start() {
     final team = _team, level = _level;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => GobbletScreen(mode: PlayMode.vsCpu, humanTeam: team, level: level),
       ),

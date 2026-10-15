@@ -27,7 +27,7 @@ class _SproutsSetupScreenState extends State<SproutsSetupScreen> {
 
   void _start() {
     final dots = _dots, side = _side, level = _level, mode = widget.mode;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SproutsScreen(mode: mode, dotCount: dots, humanSide: side, level: level),
       ),

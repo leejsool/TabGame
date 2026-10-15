@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../records/favorites.dart';
 import '../game/solitaire_controller.dart';
 
 /// 한 판의 기록: 완성했거나, 포기한 판.
@@ -64,6 +65,14 @@ class SolitaireStorage {
   static const _saveKey = 'solitaire.save';
   static const _historyKey = 'solitaire.history';
   static const maxHistory = 100;
+
+  /// 즐겨찾기한 판 (같은 번호 + 같은 뽑기 장수 = 같은 판).
+  static final favorites = FavoriteStore<SolitaireRecord>(
+    key: 'solitaire.favorites',
+    fromJson: SolitaireRecord.fromJson,
+    toJson: (r) => r.toJson(),
+    boardKey: (r) => '${r.deal}:${r.draw}',
+  );
 
   /// 지금 화면에서 하고 있는 판 (새 판으로 바뀐 뒤 이전 화면이 늦게 저장해 덮어쓰는 일을 막는다).
   static SolitaireController? _active;

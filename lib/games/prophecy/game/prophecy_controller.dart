@@ -11,6 +11,7 @@ import '../core/prophecy_rules.dart';
 /// 예언 한 판의 진행 (규칙 + 칸 고르기 + CPU + 되돌리기).
 ///
 /// 플레이어는 0(먼저 쓰는 쪽)과 1. 사람은 칸을 눌러 고른([select]) 뒤 숫자나 X를 쓴다([write]).
+/// 같은 Wi‑Fi 대결([PlayMode.wifi])에서는 내 수를 [onLocalMove]로 알리고, 상대의 수는 [receiveMove]로 받는다.
 class ProphecyController extends ChangeNotifier {
   ProphecyController({
     required this.mode,
@@ -25,12 +26,21 @@ class ProphecyController extends ChangeNotifier {
   final PlayMode mode;
   final int rows, cols;
 
-  /// CPU 대결에서 사람이 맡은 쪽 (0 = 먼저, 1 = 나중).
-  final int humanSide;
+  /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 쪽 (0 = 먼저, 1 = 나중). Wi‑Fi 대결은 한 판 더 할 때마다 서로 바뀐다.
+  int humanSide;
   final ProphLevel level;
 
   bool get vsCpu => mode == PlayMode.vsCpu;
+
+  /// 같은 Wi‑Fi의 다른 기기와 겨루는 판인가.
+  bool get online => mode == PlayMode.wifi;
+
+  /// 이 기기에서 한쪽만 맡는 판인가 (CPU 대결이거나 Wi‑Fi 대결).
+  bool get oneSeat => vsCpu || online;
   int get cpuSide => 1 - humanSide;
+
+  /// 내가 둔 수를 알린다 (Wi‑Fi 대결에서 상대에게 보내려고).
+  void Function(int move)? onLocalMove;
 
   /// 지금까지 둔 수들 (encodeMove). 저절로 생기는 X는 여기 없다.
   final List<int> moves = [];
@@ -56,11 +66,14 @@ class ProphecyController extends ChangeNotifier {
   /// 소리/진동 알림 ('write' | 'cross' | 'bad' | 'win').
   void Function(String kind)? onFeedback;
 
+  /// 누군가 기권해서 중단된 판인가 (더는 둘 수 없다. [restart]하면 풀린다).
+  bool halted = false;
+
   bool get isOver => state.isOver;
   int get moveCount => moves.length;
 
   /// 지금 사람이 쓸 수 있는가.
-  bool get humanCanAct => !isOver && !thinking && (!vsCpu || state.turn == humanSide);
+  bool get humanCanAct => !isOver && !halted && !thinking && (!oneSeat || state.turn == humanSide);
 
   void _rebuild() {
     state = ProphState.fromMoves(rows, cols, moves);
@@ -69,7 +82,10 @@ class ProphecyController extends ChangeNotifier {
   /// 화면이 준비되면 부른다 (CPU가 먼저 쓰는 판이면 CPU가 시작한다).
   void start() => _maybeCpu();
 
-  void restart() {
+  /// 새 판을 시작한다. [swapSides]가 true면 먼저/나중을 서로 바꾼다 (Wi‑Fi 대결의 한 판 더).
+  void restart({bool swapSides = false}) {
+    if (swapSides) humanSide = 1 - humanSide;
+    halted = false;
     moves.clear();
     selected = -1;
     lastCell = -1;
@@ -102,8 +118,19 @@ class ProphecyController extends ChangeNotifier {
     }
     final cell = selected;
     selected = -1;
-    _apply(encodeMove(cell, value));
+    final move = encodeMove(cell, value);
+    _apply(move);
+    onLocalMove?.call(move);
     _maybeCpu();
+    return true;
+  }
+
+  /// 상대 기기에서 온 수를 둔다 (Wi‑Fi 대결). 상대 차례가 아니거나 둘 수 없는 수면 false (그러면 판이 어긋난 것이다).
+  bool receiveMove(int move) {
+    if (!online || isOver || halted || state.turn == humanSide) return false;
+    if (!state.canPlay(moveCell(move), moveValue(move))) return false;
+    selected = -1;
+    _apply(move);
     return true;
   }
 
@@ -138,25 +165,34 @@ class ProphecyController extends ChangeNotifier {
   // ── 기권 ──
 
   /// 기권할 수 있는가 (한 수라도 둔 진행 중인 판).
-  bool get canResign => !isOver && moves.isNotEmpty;
+  bool get canResign => !isOver && !halted && moves.isNotEmpty;
 
-  /// 기권하는 쪽: CPU 대결이면 사람, 둘이서 할 때는 지금 차례인 쪽.
-  int get resigningSide => vsCpu ? humanSide : state.turn;
+  /// 기권하는 쪽: CPU 대결·Wi‑Fi 대결이면 나, 둘이서 할 때는 지금 차례인 쪽.
+  int get resigningSide => oneSeat ? humanSide : state.turn;
 
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
   bool resign() {
     if (!canResign) return false;
     _cpu.cancel();
     selected = -1;
+    halted = true;
     notifyListeners();
     return true;
+  }
+
+  /// 상대가 기권했다는 소식을 받았다 (Wi‑Fi 대결). 판은 거기서 멈춘다.
+  void opponentResigned() {
+    if (!online || isOver || halted) return;
+    selected = -1;
+    halted = true;
+    notifyListeners();
   }
 
   // ── 되돌리기 ──
 
   /// 되돌렸을 때의 수 개수 (되돌릴 수 없으면 null).
   int? get _undoTarget {
-    if (moves.isEmpty || thinking) return null;
+    if (moves.isEmpty || thinking || online || halted) return null; // (Wi‑Fi 대결은 되돌릴 수 없다)
     if (!vsCpu) return moves.length - 1;
     // 사람 차례가 되는 가장 가까운 시점까지
     for (var k = moves.length - 1; k >= 0; k--) {

@@ -1,4 +1,5 @@
 import '../../../core/json_history.dart';
+import '../../../records/favorites.dart';
 
 import '../core/generator.dart';
 
@@ -66,6 +67,14 @@ class SudokuHistory {
   );
 
   static Map<String, dynamic> _toJson(SudokuRecord r) => r.toJson();
+
+  /// 즐겨찾기한 판 (같은 문제 = 같은 판).
+  static final favorites = FavoriteStore<SudokuRecord>(
+    key: 'sudoku.favorites',
+    fromJson: SudokuRecord.fromJson,
+    toJson: _toJson,
+    boardKey: (r) => r.givens,
+  );
 
   /// 최신 순.
   static Future<List<SudokuRecord>> load() => _store.load();

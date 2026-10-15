@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../records/favorites.dart';
 import '../../../records/record_widgets.dart';
 import '../core/generator.dart';
 import '../data/sudoku_history.dart';
@@ -25,6 +26,7 @@ class SudokuRecordsTab extends StatefulWidget {
 
 class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
   List<SudokuRecord> _all = [];
+  final _favs = FavoriteSet(SudokuHistory.favorites);
   final Map<Difficulty, SudokuStats> _stats = {};
   Difficulty? _filter;
   bool _fastFirst = false;
@@ -38,6 +40,7 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
 
   Future<void> _load() async {
     final all = await SudokuHistory.load();
+    await _favs.load();
     final stats = <Difficulty, SudokuStats>{
       for (final d in Difficulty.values) d: await SudokuStorage.stats(d),
     };
@@ -64,6 +67,19 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
     return ' · 평균 ${formatTime(avg)}';
   }
 
+  Future<void> _toggleFav(SudokuRecord r) async {
+    await _favs.toggle(r);
+    if (mounted) setState(() {});
+  }
+
+  Widget _tile(SudokuRecord r) => _RecordTile(
+        record: r,
+        isBest: r.seconds == _bestIn(r.difficulty),
+        isFav: _favs.has(r),
+        onToggleFav: () => _toggleFav(r),
+        onReplay: () => _replay(r),
+      );
+
   Future<void> _replay(SudokuRecord r) async {
     await replaySudokuRecord(context, r);
     if (mounted) _load();
@@ -78,6 +94,7 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
         if (!r.gaveUp && (_filter == null || r.difficulty == _filter)) r,
     ];
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
+    final favs = _favs.shown([for (final r in _all) if (!r.gaveUp) r], (r) => r.seconds);
 
     return RecordsList(
       children: [
@@ -96,6 +113,10 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
             ],
           ],
         ),
+        if (favs.isNotEmpty) ...[
+          const SectionTitle('즐겨찾기한 판'),
+          for (final r in favs) _tile(r),
+        ],
         if (gaveUps.isNotEmpty) ...[
           const SectionTitle('포기한 판'),
           for (final r in gaveUps)
@@ -146,22 +167,25 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
                     : '이 난이도로 완성한 판이 아직 없어요.',
           )
         else
-          for (final r in list)
-            _RecordTile(
-              record: r,
-              isBest: r.seconds == _bestIn(r.difficulty),
-              onReplay: () => _replay(r),
-            ),
+          for (final r in list) _tile(r),
       ],
     );
   }
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record, required this.isBest, required this.onReplay});
+  const _RecordTile({
+    required this.record,
+    required this.isBest,
+    required this.isFav,
+    required this.onToggleFav,
+    required this.onReplay,
+  });
 
   final SudokuRecord record;
   final bool isBest;
+  final bool isFav;
+  final VoidCallback onToggleFav;
   final VoidCallback onReplay;
 
   @override
@@ -193,9 +217,12 @@ class _RecordTile extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        '${record.difficulty.label} · ${formatTime(record.seconds)}',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      Flexible(
+                        child: Text(
+                          '${record.difficulty.label} · ${formatTime(record.seconds)}',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
                       ),
                       if (isBest) ...[
                         const SizedBox(width: 6),
@@ -211,6 +238,7 @@ class _RecordTile extends StatelessWidget {
                 ],
               ),
             ),
+            FavoriteStar(on: isFav, onTap: onToggleFav),
             // 좁은 화면(폰)에서는 아이콘만 보여준다
             if (MediaQuery.sizeOf(context).width < 460)
               IconButton.filledTonal(

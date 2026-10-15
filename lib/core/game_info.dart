@@ -6,7 +6,8 @@ import '../tutorial/tutorial.dart';
 enum PlayMode {
   solo('혼자 하기', '나 혼자 차분히 즐겨요', Icons.person),
   local2p('둘이서 (한 기기)', '태블릿 하나로 마주 앉아 대결해요', Icons.people),
-  vsCpu('CPU와 대결', '컴퓨터를 상대로 혼자서도 대결해요', Icons.smart_toy);
+  vsCpu('CPU와 대결', '컴퓨터를 상대로 혼자서도 대결해요', Icons.smart_toy),
+  wifi('같은 Wi‑Fi로 함께', '같은 공유기에 연결된 다른 기기와 대결해요', Icons.wifi);
 
   const PlayMode(this.label, this.description, this.icon);
   final String label;

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/date_format.dart';
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../records/favorites.dart';
 import '../../../records/record_widgets.dart';
 import '../core/freecell_difficulty.dart';
 import '../data/freecell_storage.dart';
@@ -19,6 +20,7 @@ class FreecellRecordsTab extends StatefulWidget {
 
 class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
   List<FreecellRecord> _all = [];
+  final _favs = FavoriteSet(FreecellStorage.favorites);
   FreecellStats _stats = const FreecellStats();
   FcDifficultyTable? _table;
   FcLevel? _filter;
@@ -33,6 +35,7 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
 
   Future<void> _load() async {
     final all = await FreecellStorage.loadHistory();
+    await _favs.load();
     final stats = await FreecellStorage.stats();
     FcDifficultyTable? table;
     try {
@@ -57,6 +60,80 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
     return (secs.length, secs.isEmpty ? null : secs.reduce((a, b) => a < b ? a : b));
   }
 
+  Future<void> _toggleFav(FreecellRecord r) async {
+    await _favs.toggle(r);
+    if (mounted) setState(() {});
+  }
+
+  /// 완성한 판 한 줄: 번호·시간, 날짜·수, 즐겨찾기 별, 다시 하기.
+  Widget _tile(FreecellRecord r, ColorScheme scheme, int? bestSeconds) {
+    const green = Color(0xFF2A7F58);
+    final level = _levelOf(r);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: green.withValues(alpha: 0.15), shape: BoxShape.circle),
+              child: const Icon(Icons.style_rounded, color: green),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '#${r.deal} · ${formatTime(r.seconds)}',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      if (r.seconds == bestSeconds) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${formatDate(r.at)} · ${r.moves}수${level == null ? '' : ' · ${level.label}'}',
+                    style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
+                  ),
+                ],
+              ),
+            ),
+            FavoriteStar(on: _favs.has(r), onTap: () => _toggleFav(r)),
+            if (MediaQuery.sizeOf(context).width < 460)
+              IconButton.filledTonal(
+                tooltip: '다시 하기',
+                onPressed: () => _replay(r),
+                icon: const Icon(Icons.replay_rounded),
+              )
+            else
+              FilledButton.tonalIcon(
+                onPressed: () => _replay(r),
+                icon: const Icon(Icons.replay_rounded, size: 18),
+                label: const Text('다시 하기'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _replay(FreecellRecord r) async {
     await startFreecellDeal(context, r.deal, askIfSaved: true);
     if (mounted) _load();
@@ -75,6 +152,7 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
     if (_fastFirst) list.sort((a, b) => a.seconds.compareTo(b.seconds));
     final bestSeconds = cleared.isEmpty ? null : cleared.map((r) => r.seconds).reduce((a, b) => a < b ? a : b);
     final s = _stats;
+    final favs = _favs.shown(cleared, (r) => r.seconds);
 
     return RecordsList(
       children: [
@@ -125,6 +203,10 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
               ],
             ],
           ),
+        ],
+        if (favs.isNotEmpty) ...[
+          const SectionTitle('즐겨찾기한 판'),
+          for (final r in favs) _tile(r, scheme, bestSeconds),
         ],
         if (gaveUps.isNotEmpty) ...[
           const SectionTitle('포기한 판'),
@@ -178,72 +260,7 @@ class _FreecellRecordsTabState extends State<FreecellRecordsTab> {
                     : '이 난이도로 완성한 판이 아직 없어요.',
           )
         else
-          for (final r in list)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              elevation: 0,
-              color: scheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: scheme.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A7F58).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.style_rounded, color: Color(0xFF2A7F58)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  '#${r.deal} · ${formatTime(r.seconds)}',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                                ),
-                              ),
-                              if (r.seconds == bestSeconds) ...[
-                                const SizedBox(width: 6),
-                                const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${formatDate(r.at)} · ${r.moves}수${_levelOf(r) == null ? '' : ' · ${_levelOf(r)!.label}'}',
-                            style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (MediaQuery.sizeOf(context).width < 460)
-                      IconButton.filledTonal(
-                        tooltip: '다시 하기',
-                        onPressed: () => _replay(r),
-                        icon: const Icon(Icons.replay_rounded),
-                      )
-                    else
-                      FilledButton.tonalIcon(
-                        onPressed: () => _replay(r),
-                        icon: const Icon(Icons.replay_rounded, size: 18),
-                        label: const Text('다시 하기'),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+          for (final r in list) _tile(r, scheme, bestSeconds),
       ],
     );
   }
