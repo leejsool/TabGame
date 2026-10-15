@@ -103,6 +103,23 @@ void main() {
       expect(letterCount(kBerryPhrase), lessThan(20));
     });
 
+    test('샐로스의 팬그램은 문장이 말한 알파벳 개수가 실제와 모두 같다', () {
+      const claimed = [4, 1, 2, 1, 30, 6, 5, 7, 11, 1, 1, 2, 2, 18, 15, 2, 1, 5, 27, 18, 2, 7, 8, 2, 3, 1];
+      expect(letterTally(kSallowsPangram).values.toList(), claimed);
+      expect(letterTally(kSallowsPangram).values.every((v) => v > 0), isTrue);
+    });
+
+    test('샐로스의 "바보" 문장은 알파벳·쉼표·어포스트로피·하이픈·느낌표 개수를 모두 정확히 말한다', () {
+      const claimed = {
+        'a': 10, 'b': 3, 'c': 4, 'd': 4, 'e': 46, 'f': 16, 'g': 4, 'h': 13, 'i': 15, 'k': 2, 'l': 9, 'm': 4,
+        'n': 25, 'o': 24, 'p': 5, 'r': 16, 's': 41, 't': 37, 'u': 10, 'v': 8, 'w': 8, 'x': 4, 'y': 11,
+        ',': 27, '’': 23, '-': 7, '!': 1,
+      };
+      expect(charTally(kSallowsFoolSentence, claimed.keys), claimed);
+      // 문장에 안 나오는 알파벳은 정말 하나도 없다.
+      expect(charTally(kSallowsFoolSentence, ['j', 'q', 'z']).values, everyElement(0));
+    });
+
     test('맛보기 노트의 줄 [4, X, ?, 3]: 무엇을 써도 2는 맞을 수 없고, 1이나 2를 쓰면 3이 맞는다', () {
       for (final v in [1, 2]) {
         final o = rowOutcome([4, kCross, v, 3]);
@@ -364,8 +381,8 @@ void main() {
   });
 
   group('교과학습 화면', () {
-    Future<void> pumpLesson(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(430, 900);
+    Future<void> pumpLesson(WidgetTester tester, {double width = 430}) async {
+      tester.view.physicalSize = Size(width, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(await app(const ProphecyLessonScreen()));
@@ -424,6 +441,32 @@ void main() {
       expect(find.text('칸이 3개일 때는 답이 없어요'), findsOneWidget);
       await tester.tap(find.text('알겠어요'));
       await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('좁은 폰 화면(너비 320)에서도 표의 칸 수 5를 누를 수 있고 넘침이 없다', (tester) async {
+      await pumpLesson(tester, width: 320);
+      await openUnit(tester, '4. 자기 자신을 설명하는 표');
+      final five = find.widgetWithText(ChoiceChip, '5');
+      await tester.scrollUntilVisible(five, 300, scrollable: find.byType(Scrollable).first);
+      final right = tester.getTopRight(five).dx;
+      expect(right, lessThanOrEqualTo(320));
+      await tester.tap(five);
+      await tester.pumpAndSettle();
+      expect(tester.widget<ChoiceChip>(five).selected, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('칸이 하나뿐인 표: 1을 쓰면 1이 2번, 2를 쓰면 1이 1번이라 둘 다 틀린 표로 보인다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '4. 자기 자신을 설명하는 표');
+      await tester.scrollUntilVisible(find.text('아래 줄에 1을 쓰면'), 300, scrollable: find.byType(Scrollable).first);
+      expect(find.text('아래 줄에 1을 쓰면'), findsOneWidget);
+      expect(find.text('아래 줄에 2를 쓰면'), findsOneWidget);
+      expect(find.text('표 전체에서 숫자 1은 2번'), findsOneWidget);
+      expect(find.text('표 전체에서 숫자 1은 1번'), findsOneWidget);
+      expect(find.text('그런데 아래 줄은 "1번"'), findsOneWidget);
+      expect(find.text('그런데 아래 줄은 "2번"'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

@@ -147,16 +147,73 @@ List<Widget> _unitTaste(BuildContext context) => [
       lessonP('예언 게임에서는 이런 줄이 자주 나와요. 내 숫자가 맞게 만들려면 이 줄이 몇 개로 끝날지를 미리 생각하고, 상대의 선택까지 읽어야 해요.'),
     ];
 
+/// "바보" 문장이 말하는 글자들의 실제 개수 (문장에 나오는 알파벳과 부호만, 칩에 보일 이름으로).
+Map<String, int> _foolTally() {
+  final letters = charTally(kSallowsFoolSentence, [for (var c = 0x61; c <= 0x7A; c++) String.fromCharCode(c)])..removeWhere((_, v) => v == 0);
+  final marks = charTally(kSallowsFoolSentence, [',', '’', '-', '!']);
+  return {
+    ...letters,
+    '쉼표 ,': marks[',']!,
+    '어포스트로피 ’': marks['’']!,
+    '하이픈 -': marks['-']!,
+    '느낌표 !': marks['!']!,
+  };
+}
+
 List<Widget> _unitSelfDescribing(BuildContext context) => [
       lessonP('이번에는 표 하나가 자기 자신을 설명하게 만들어 봐요. 위 줄에는 숫자 1, 2, 3, 4가 있고, 아래 줄에는 "그 숫자가 이 표에 몇 번 나타나는지"를 써요. 이때 아래 줄에 쓴 숫자도 표의 일부라서 함께 세어야 해요!'),
       lessonH(context, '칸이 하나뿐인 표'),
-      lessonP('숫자 1 하나만 있는 표로 해 볼게요. 아래 줄에 "1번"이라고 쓰면 표 안에 1이 하나 더 생겨서 모두 2번이 돼요. 그럼 2로 고치면? 이번에는 1이 위 줄에 한 번뿐이라 틀려요. 어떻게 써도 맞지 않아요. 쓰는 순간 설명이 틀려지는, 예언 게임과 똑같은 일이에요.'),
+      lessonP('숫자 1 하나만 있는 표로 해 볼게요. 아래 줄에 쓴 숫자도 표의 일부라서, 쓰는 순간 표의 모습이 바뀐다는 점을 보세요.'),
+      const OneCellTableExamples(),
+      lessonP('쓰는 순간 설명이 틀려지는, 예언 게임과 똑같은 일이에요. 그럼 "2"가 들어가는 칸을 하나 더 늘리면 도움이 될까요? 아래 실습에서 칸 수를 2로 바꿔 직접 해 보세요. 그래도 안 맞아요!'),
       lessonH(context, '직접 맞춰 보세요'),
       lessonP('칸 수를 바꿔 가며 위아래 화살표로 아래 줄의 숫자를 고쳐 보세요. 모든 칸이 초록이 되면 성공이에요.'),
       const SelfTableLab(),
       lessonP('칸이 1개, 2개, 3개인 표는 가능한 모든 경우를 따져 봐도 답이 없어요. 답이 생기는 가장 작은 표는 4칸짜리예요. 4칸에는 아래 줄이 2·3·2·1인 답 말고도 3·1·3·1이라는 다른 답이 하나 더 있어요.'),
       lessonH(context, '자기 자신의 글자 수를 세는 문장'),
-      lessonP('문장도 자기 자신을 설명할 수 있어요. 영어로는 리 샐로스가 자기 안의 알파벳 개수를 모두 정확히 말하는 긴 문장을 만들어 유명해졌어요. 한국어로는 훨씬 짧은 문장이 가능해요.'),
+      lessonP('문장도 자기 자신을 설명할 수 있어요. 영국의 리 샐로스는 자기 안에 알파벳이 몇 개씩 들어 있는지를 A부터 Z까지 모두 정확히 말하는 영어 문장을 만들었어요. 호프스태터가 이 문장을 소개해 유명해졌어요.'),
+      Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: _accent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
+        child: const Text('"$kSallowsPangram"', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.5)),
+      ),
+      lessonP('정말인지 알파벳을 직접 세어 본 결과예요. 문장이 말한 숫자와 하나도 어긋나지 않아요!'),
+      Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          for (final e in letterTally(kSallowsPangram).entries)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: Text('${e.key} ${e.value}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+            ),
+        ],
+      ),
+      lessonP('이렇게 자기 안의 글자 개수를 스스로 말하는 문장을 "오토그램(autogram)"이라고 불러요. 이 문장은 알파벳이 모두 들어 있는 오토그램이에요. 숫자를 하나라도 바꾸면, 그 숫자를 쓴 낱말 때문에 다른 글자의 개수가 달라져서 맞지 않게 돼요. 이런 문장을 찾으려면 컴퓨터로 수없이 고쳐 가며 맞춰 봐야 해요.'),
+      lessonP('샐로스는 한술 더 떠서, 알파벳뿐 아니라 쉼표와 어포스트로피(’)와 하이픈과 느낌표의 개수까지 말하는 문장도 만들었어요. 문장의 뜻은 "이걸 일일이 확인하는 건 바보나 하는 짓"이래요. 그런데 우리는 바보가 되어 볼까요?'),
+      Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: _accent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
+        child: const Text('"$kSallowsFoolSentence"', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.5)),
+      ),
+      Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          for (final e in _foolTally().entries)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+              child: Text('${e.key} ${e.value}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+            ),
+        ],
+      ),
+      lessonP('쉼표 27개, 어포스트로피 23개, 하이픈 7개, 느낌표 1개까지 한 개도 틀리지 않아요. 한국어로는 훨씬 짧은 문장이 가능해요.'),
       Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.all(14),

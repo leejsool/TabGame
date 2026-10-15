@@ -54,6 +54,34 @@ int letterCount(String s) => s.replaceAll(RegExp(r'\s'), '').runes.length;
 /// 자기 자신의 글자 수를 정확히 말하는 문장.
 const String kSelfCountingSentence = '이 문장은 공백을 빼면 모두 열여덟 글자예요';
 
+/// 리 샐로스의 자기 설명 팬그램(모든 알파벳을 쓴 문장). 자기 안의 알파벳 개수를 스물여섯 글자 모두 정확히 말한다.
+const String kSallowsPangram =
+    'This pangram contains four As, one B, two Cs, one D, thirty Es, six Fs, five Gs, seven Hs, eleven Is, '
+    'one J, one K, two Ls, two Ms, eighteen Ns, fifteen Os, two Ps, one Q, five Rs, twenty-seven Ss, '
+    'eighteen Ts, two Us, seven Vs, eight Ws, two Xs, three Ys, & one Z.';
+
+/// 영어 알파벳(A~Z)이 [s]에 몇 번씩 나타나는가 (대소문자 구분 없음). 키는 'A'~'Z' 순서로 항상 26개.
+Map<String, int> letterTally(String s) {
+  final upper = s.toUpperCase();
+  return {
+    for (var c = 0x41; c <= 0x5A; c++) String.fromCharCode(c): upper.runes.where((r) => r == c).length,
+  };
+}
+
+/// 샐로스의 또 다른 자기 설명 문장. 알파벳뿐 아니라 쉼표·어포스트로피(’)·하이픈·느낌표의 개수까지 정확히 말한다.
+const String kSallowsFoolSentence =
+    'Only the fool would take trouble to verify that his sentence was composed of ten a’s, three b’s, '
+    'four c’s, four d’s, forty-six e’s, sixteen f’s, four g’s, thirteen h’s, fifteen i’s, two k’s, nine l’s, '
+    'four m’s, twenty-five n’s, twenty-four o’s, five p’s, sixteen r’s, forty-one s’s, thirty-seven t’s, '
+    'ten u’s, eight v’s, eight w’s, four x’s, eleven y’s, twenty-seven commas, twenty-three apostrophes, '
+    'seven hyphens and, last but not least, a single !';
+
+/// [keys]의 각 글자(부호 포함)가 [s]에 몇 번씩 나타나는가 (대소문자 구분 없음). 키 순서를 그대로 지킨다.
+Map<String, int> charTally(String s, Iterable<String> keys) {
+  final lower = s.toLowerCase();
+  return {for (final k in keys) k: RegExp(RegExp.escape(k)).allMatches(lower).length};
+}
+
 /// 베리의 역설에 나오는 설명 (스무 글자 이하로는 표현할 수 없는 가장 작은 수).
 const String kBerryPhrase = '스무 글자 이하로 표현할 수 없는 가장 작은 수';
 

@@ -163,6 +163,74 @@ class _SelfDefeatDemoState extends State<SelfDefeatDemo> {
 
 // ───────────────────────── 자기 설명 표 ─────────────────────────
 
+/// 칸이 하나뿐인 표(위 줄 1)의 아래 줄에 1, 2를 써 본 모습을 나란히 보여 준다. 어느 쪽도 맞지 않는다.
+class OneCellTableExamples extends StatelessWidget {
+  const OneCellTableExamples({super.key});
+
+  Widget _cell(String t, {required Color color, bool circled = false}) => Container(
+        width: 64,
+        height: 56,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xFF4A3B3B), width: 1.8)),
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: circled ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: _bad, width: 2.5)) : null,
+          child: Text(t, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: color)),
+        ),
+      );
+
+  /// 줄 이름 칸 ("숫자", "나타나는 횟수").
+  Widget _label(String t) => Container(
+        width: 92,
+        height: 56,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: const Color(0xFFF3EDE4), border: Border.all(color: const Color(0xFF4A3B3B), width: 1.8)),
+        child: Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF4A3B3B))),
+      );
+
+  /// 아래 줄에 [written]을 쓴 경우의 표 한 장과 풀이.
+  Widget _example(String title, int written) {
+    final actual = occurrences([1], [written]).single;
+    return SizedBox(
+      width: 170,
+      child: Column(
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [_label('숫자'), _cell('1', color: kPenTeal, circled: true)]),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [_label('나타나는\n횟수'), _cell('$written', color: kPenPink, circled: written == 1)]),
+          const SizedBox(height: 6),
+          Text('표 전체에서 숫자 1은 $actual번', style: const TextStyle(fontWeight: FontWeight.w700)),
+          Text('그런데 아래 줄은 "$written번"', style: const TextStyle(fontWeight: FontWeight.w700, color: _bad)),
+          const SizedBox(height: 4),
+          const Icon(Icons.close_rounded, color: _bad, size: 30),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _box(context, children: [
+      const Text('위 줄은 숫자 1 하나, 아래 줄은 "그 1이 이 표에 몇 번 나오는지"를 쓰는 칸이에요. 빨간 동그라미가 센 1이에요.',
+          style: TextStyle(fontSize: 14.5, height: 1.45)),
+      const SizedBox(height: 12),
+      Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 24,
+        runSpacing: 16,
+        children: [
+          _example('아래 줄에 1을 쓰면', 1),
+          _example('아래 줄에 2를 쓰면', 2),
+        ],
+      ),
+      _verdict('1을 쓰면 1이 두 번 나오게 되어 틀리고, 2로 고치면 이번에는 1이 한 번뿐이라 또 틀려요. 3 이상을 써도 마찬가지예요. 어떤 숫자를 써도 맞지 않아요!', good: false),
+    ]);
+  }
+}
+
 /// 위 줄은 1, 2, …, k, 아래 줄은 "그 숫자가 이 표 전체에 나타나는 횟수". 아래 줄을 직접 고쳐서 표가 자기 자신을
 /// 정확히 설명하게 만들어 본다.
 class SelfTableLab extends StatefulWidget {
@@ -195,16 +263,14 @@ class _SelfTableLabState extends State<SelfTableLab> {
           child: Text(t, style: TextStyle(fontSize: 22, fontWeight: bold ? FontWeight.w900 : FontWeight.w600, color: color)),
         );
     return _box(context, children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 6,
+        runSpacing: 4,
         children: [
-          const Text('표의 칸 수'),
-          const SizedBox(width: 8),
-          for (var k = 1; k <= 5; k++)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              child: ChoiceChip(label: Text('$k'), selected: _k == k, onSelected: (_) => _setK(k)),
-            ),
+          const Padding(padding: EdgeInsets.only(right: 2), child: Text('표의 칸 수')),
+          for (var k = 1; k <= 5; k++) ChoiceChip(label: Text('$k'), selected: _k == k, onSelected: (_) => _setK(k)),
         ],
       ),
       const SizedBox(height: 10),
