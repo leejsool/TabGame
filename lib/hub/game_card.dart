@@ -75,7 +75,10 @@ class _GameCardState extends State<GameCard> {
                         ),
                         child: GameIcon(game: game, size: widget.compact ? 40 : 50),
                       ),
-                      if (!game.isReady) const _SoonBadge(),
+                      if (!game.isReady)
+                        const _SoonBadge()
+                      else if (game.hasLesson)
+                        _LessonBadge(compact: widget.compact),
                     ],
                   ),
                   const Spacer(),
@@ -122,6 +125,28 @@ class _GameCardState extends State<GameCard> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 교과학습이 있는 게임 카드의 학사모 표시.
+class _LessonBadge extends StatelessWidget {
+  const _LessonBadge({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '교과학습이 있어요',
+      child: Semantics(
+        label: '교과학습이 있어요',
+        child: Container(
+          padding: EdgeInsets.all(compact ? 6 : 8),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
+          child: Icon(Icons.school_rounded, size: compact ? 18 : 22, color: Colors.black.withValues(alpha: 0.72)),
         ),
       ),
     );

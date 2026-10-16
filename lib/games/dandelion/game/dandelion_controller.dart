@@ -9,6 +9,7 @@ import '../core/dandelion_ai.dart';
 import '../core/dandelion_rules.dart';
 
 /// 민들레 한 판의 진행 (규칙 + CPU + 되돌리기).
+/// 같은 Wi‑Fi 대결([PlayMode.wifi])에서는 내 수를 [onLocalMove]로 알리고, 상대의 수는 [receiveMove]로 받는다.
 class DandelionController extends ChangeNotifier {
   DandelionController({
     required this.mode,
@@ -20,12 +21,24 @@ class DandelionController extends ChangeNotifier {
 
   final PlayMode mode;
 
-  /// CPU 대결에서 사람이 맡은 쪽.
-  final Role humanRole;
+  /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 쪽. Wi‑Fi 대결은 한 판 더 할 때마다 서로 바뀐다 (민들레와 바람은 유불리가 달라서).
+  Role humanRole;
   final DandLevel level;
 
   bool get vsCpu => mode == PlayMode.vsCpu;
+
+  /// 같은 Wi‑Fi의 다른 기기와 겨루는 판인가.
+  bool get online => mode == PlayMode.wifi;
+
+  /// 이 기기에서 한쪽만 맡는 판인가 (CPU 대결이거나 Wi‑Fi 대결).
+  bool get oneSeat => vsCpu || online;
   Role get cpuRole => humanRole.other;
+
+  /// 내가 둔 수를 알린다 (Wi‑Fi 대결에서 상대에게 보내려고).
+  void Function(int move)? onLocalMove;
+
+  /// 누군가 기권해서 중단된 판인가 (더는 둘 수 없다. [restart]하면 풀린다).
+  bool halted = false;
 
   /// 지금까지 둔 수들 (민들레: 칸 번호, 바람: 방향 번호).
   final List<int> moves = [];
@@ -56,7 +69,7 @@ class DandelionController extends ChangeNotifier {
   int get moveCount => moves.length;
 
   /// 지금 사람이 둘 수 있는가.
-  bool get humanCanAct => !isOver && !thinking && (!vsCpu || state.turn == humanRole);
+  bool get humanCanAct => !isOver && !halted && !thinking && (!oneSeat || state.turn == humanRole);
 
   void _rebuild() {
     state = DandState.fromMoves(moves);
@@ -65,7 +78,10 @@ class DandelionController extends ChangeNotifier {
   /// 화면이 준비되면 부른다 (CPU가 민들레를 맡았다면 CPU가 먼저 꽃을 심는다).
   void start() => _maybeCpu();
 
-  void restart() {
+  /// 새 판을 시작한다. [swapRoles]면 내가 맡은 쪽을 바꾼다 (Wi‑Fi 대결의 한 판 더).
+  void restart({bool swapRoles = false}) {
+    if (swapRoles) humanRole = humanRole.other;
+    halted = false;
     moves.clear();
     lastPlanted = -1;
     lastWind = null;
@@ -83,6 +99,7 @@ class DandelionController extends ChangeNotifier {
   bool plant(int cell) {
     if (!humanCanAct || !state.canPlant(cell)) return false;
     _apply(cell);
+    onLocalMove?.call(cell);
     _maybeCpu();
     return true;
   }
@@ -91,7 +108,21 @@ class DandelionController extends ChangeNotifier {
   bool blow(WindDir dir) {
     if (!humanCanAct || !state.canBlow(dir)) return false;
     _apply(dir.index);
+    onLocalMove?.call(dir.index);
     _maybeCpu();
+    return true;
+  }
+
+  /// 상대 기기에서 온 수를 둔다 (Wi‑Fi 대결: 칸 번호 또는 바람 방향 번호). 상대 차례가 아니거나 둘 수 없는 수면 false
+  /// (그러면 판이 어긋난 것이다).
+  bool receiveMove(int move) {
+    if (!online || isOver || halted || state.turn == humanRole) return false;
+    if (state.turn == Role.dandelion) {
+      if (move < 0 || move >= state.cells.length || !state.canPlant(move)) return false;
+    } else {
+      if (move < 0 || move >= WindDir.values.length || !state.canBlow(WindDir.values[move])) return false;
+    }
+    _apply(move);
     return true;
   }
 
@@ -135,24 +166,32 @@ class DandelionController extends ChangeNotifier {
   // ── 기권 ──
 
   /// 기권할 수 있는가 (한 수라도 둔 진행 중인 판).
-  bool get canResign => !isOver && moves.isNotEmpty;
+  bool get canResign => !isOver && !halted && moves.isNotEmpty;
 
-  /// 기권하는 쪽: CPU 대결이면 사람, 둘이서 할 때는 지금 차례인 쪽.
-  Role get resigningRole => vsCpu ? humanRole : state.turn;
+  /// 기권하는 쪽: CPU 대결·Wi‑Fi 대결이면 나, 둘이서 할 때는 지금 차례인 쪽.
+  Role get resigningRole => oneSeat ? humanRole : state.turn;
 
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
   bool resign() {
     if (!canResign) return false;
     _cpu.cancel();
+    halted = true;
     notifyListeners();
     return true;
+  }
+
+  /// 상대가 기권했다는 소식을 받았다 (Wi‑Fi 대결). 판은 거기서 멈춘다.
+  void opponentResigned() {
+    if (!online || isOver || halted) return;
+    halted = true;
+    notifyListeners();
   }
 
   // ── 되돌리기 ──
 
   /// 되돌렸을 때의 수 개수 (되돌릴 수 없으면 null).
   int? get _undoTarget {
-    if (moves.isEmpty || thinking) return null;
+    if (moves.isEmpty || thinking || online || halted) return null; // (Wi‑Fi 대결은 되돌릴 수 없다)
     if (!vsCpu) return moves.length - 1;
     // 사람 차례가 되는 가장 가까운 시점까지
     for (var k = moves.length - 1; k >= 0; k--) {

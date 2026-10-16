@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
+import 'package:tabgame/core/game_registry.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/prophecy/ui/table_picker.dart';
 import 'package:tabgame/hub/game_card.dart';
@@ -43,5 +44,21 @@ void main() {
     final box = tester.getRect(find.descendant(of: find.byType(TablePicker), matching: find.byType(CustomPaint)).first);
     expect(box.right, lessThanOrEqualTo(320 - 16 + 0.5));
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('교과학습이 있는 게임 카드에만 학사모 표시가 붙는다 (좁은 카드·넓은 카드 모두 넘침 없이)', (tester) async {
+    final withLesson = {for (final g in allGames) if (g.hasLesson) g.id};
+    expect(withLesson, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy'});
+    for (final (width, compact) in const [(165.0, true), (300.0, false)]) {
+      for (final g in allGames) {
+        await pumpAt(
+          tester,
+          const Size(400, 400),
+          (_) => Scaffold(body: Center(child: SizedBox(width: width, height: 220, child: GameCard(game: g, compact: compact, onTap: () {})))),
+        );
+        expect(find.byIcon(Icons.school_rounded), g.hasLesson ? findsOneWidget : findsNothing, reason: '${g.title} $width');
+        expect(tester.takeException(), isNull, reason: '${g.title} $width');
+      }
+    }
   });
 }

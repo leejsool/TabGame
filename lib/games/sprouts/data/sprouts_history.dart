@@ -13,6 +13,7 @@ class SproutsRecord {
     this.level,
     this.human,
     this.resigned = false,
+    this.online = false,
   });
 
   final int at;
@@ -25,15 +26,21 @@ class SproutsRecord {
   /// 처음 점의 수.
   final int dots;
 
-  /// CPU 대결일 때: 난이도와 내가 맡은 쪽 (0 = 먼저).
+  /// CPU 대결일 때: 난이도. CPU 대결·Wi‑Fi 대결일 때: 내가 맡은 쪽 (0 = 먼저).
   final SproutsLevel? level;
   final int? human;
+
+  /// 같은 Wi‑Fi의 다른 기기와 한 판인가 ([human]은 이 기기가 맡은 쪽).
+  final bool online;
 
   /// 진 쪽이 기권해서 끝난 판인가.
   final bool resigned;
 
   /// CPU 대결에서 내가 이겼는가 (CPU 대결이 아니면 null).
   bool? get humanWon => vsCpu ? winner == human : null;
+
+  /// Wi‑Fi 대결에서 내가 이겼는가.
+  bool? get onlineWon => online ? winner == human : null;
 
   Map<String, dynamic> toJson() => {
         'at': at,
@@ -44,6 +51,7 @@ class SproutsRecord {
         'lv': level?.name,
         'h': human,
         if (resigned) 'rs': 1,
+        if (online) 'net': 1,
       };
 
   static SproutsRecord fromJson(Map<String, dynamic> j) => SproutsRecord(
@@ -55,6 +63,7 @@ class SproutsRecord {
         level: j['lv'] == null ? null : SproutsLevel.values.byName(j['lv'] as String),
         human: j['h'] as int?,
         resigned: j['rs'] == 1,
+        online: j['net'] == 1,
       );
 }
 

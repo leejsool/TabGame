@@ -13,6 +13,7 @@ class UtttRecord {
     this.level,
     this.human,
     this.resigned = false,
+    this.online = false,
   });
 
   final int at;
@@ -25,14 +26,20 @@ class UtttRecord {
   final int? winner;
   final int moves;
 
-  /// CPU 대결일 때: 난이도와 내가 맡은 쪽.
+  /// CPU 대결일 때: 난이도. CPU 대결·Wi‑Fi 대결일 때: 내가 맡은 쪽.
   final UttLevel? level;
   final int? human;
+
+  /// 같은 Wi‑Fi의 다른 기기와 한 판인가 ([human]은 이 기기가 맡은 쪽).
+  final bool online;
 
   bool get isDraw => winner == null;
 
   /// CPU 대결에서 내가 이겼는가 (CPU 대결이 아니면 null).
   bool? get humanWon => vsCpu && winner != null ? winner == human : null;
+
+  /// Wi‑Fi 대결에서 내가 이겼는가 (무승부면 null).
+  bool? get onlineWon => online && winner != null ? winner == human : null;
 
   Map<String, dynamic> toJson() => {
         'at': at,
@@ -42,6 +49,7 @@ class UtttRecord {
         'lv': level?.name,
         'h': human,
         if (resigned) 'rs': 1,
+        if (online) 'net': 1,
       };
 
   static UtttRecord fromJson(Map<String, dynamic> j) => UtttRecord(
@@ -52,6 +60,7 @@ class UtttRecord {
         level: j['lv'] == null ? null : UttLevel.values.byName(j['lv'] as String),
         human: j['h'] as int?,
         resigned: j['rs'] == 1,
+        online: j['net'] == 1,
       );
 }
 

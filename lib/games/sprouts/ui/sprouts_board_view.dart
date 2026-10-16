@@ -79,6 +79,9 @@ class _SproutsBoardViewState extends State<SproutsBoardView> with TickerProvider
   }
 
   /// 방금 둔 수의 곡선과 새 점을 나타낸다 (사람이 그은 선은 이미 보였으니 새 점만 튀어나온다).
+  ///
+  /// 상대 기기에서 온 선은 길이에 맞춰 천천히 그린다 (짧은 선은 금방, 긴 선은 길게: 0.65~1.6초). 펜 끝이 빛나며 지나가고
+  /// 출발·도착 점에서 물결이 퍼진다 ([SproutsPainter.remoteCue]).
   void _showNewCurve() {
     if (!mounted) return;
     if (c.lastByHuman) {
@@ -86,6 +89,9 @@ class _SproutsBoardViewState extends State<SproutsBoardView> with TickerProvider
       _pop.forward(from: 0);
     } else {
       _pop.value = 0;
+      _draw.duration = c.lastRemote && c.board.curves.isNotEmpty
+          ? Duration(milliseconds: (500 + pathLength(c.board.curves.last.pts) * 2.4).clamp(650, 1600).round())
+          : const Duration(milliseconds: 650);
       _draw.forward(from: 0);
     }
   }
@@ -161,6 +167,7 @@ class _SproutsBoardViewState extends State<SproutsBoardView> with TickerProvider
                 morphT: _morph.value,
                 lastCurveT: Curves.easeInOut.transform(_draw.value),
                 popT: _pop.value,
+                remoteCue: c.lastRemote && !c.lastWasTidy,
                 highlightDots: _stroke.isEmpty
                     ? const {}
                     : {

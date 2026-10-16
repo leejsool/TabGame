@@ -1,3 +1,4 @@
+import '../core/nickname.dart';
 import 'package:flutter/material.dart';
 
 import '../core/card_look.dart';
@@ -23,6 +24,14 @@ class SettingsScreen extends StatelessWidget {
           // 맨 아래 항목이 태블릿의 아래 시스템 바(내비게이션 바)에 가리지 않게 그만큼 띄운다
           padding: EdgeInsets.only(top: 8, bottom: 8 + MediaQuery.viewPaddingOf(context).bottom),
           children: [
+            ListTile(
+              leading: const Icon(Icons.badge_rounded),
+              title: const Text('내 별명'),
+              subtitle: Text('${settings.nickname} · 같은 Wi‑Fi로 함께 할 때 상대에게 보여요'),
+              trailing: const Icon(Icons.edit_rounded),
+              onTap: () => editNickname(context, settings: settings),
+            ),
+            const Divider(height: 24),
             SwitchListTile(
               secondary: const Icon(Icons.volume_up_rounded),
               title: const Text('효과음'),

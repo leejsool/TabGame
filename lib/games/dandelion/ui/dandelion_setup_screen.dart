@@ -8,6 +8,7 @@ import '../tutorial/dandelion_tutorial.dart';
 import 'dandelion_art.dart';
 import 'dandelion_lesson_screen.dart';
 import 'dandelion_screen.dart';
+import 'dandelion_wifi_screen.dart';
 
 /// CPU 대전 시작 전 설정: 내가 맡을 쪽(민들레/바람) + 난이도.
 class DandelionSetupScreen extends StatefulWidget {
@@ -52,6 +53,51 @@ class _DandelionSetupScreenState extends State<DandelionSetupScreen> {
           label: (l) => l.label,
           description: (l) => l.description,
         ),
+      ],
+    );
+  }
+}
+
+/// 같은 Wi‑Fi로 방을 만들기 전 설정: 내가 맡을 쪽(민들레/바람/무작위).
+class DandelionHostSetupScreen extends StatefulWidget {
+  const DandelionHostSetupScreen({super.key});
+
+  @override
+  State<DandelionHostSetupScreen> createState() => _DandelionHostSetupScreenState();
+}
+
+class _DandelionHostSetupScreenState extends State<DandelionHostSetupScreen> {
+  int _role = kRandomSide;
+
+  @override
+  Widget build(BuildContext context) {
+    const random = Color(0xFF8E5BC4);
+    return VsSetupScaffold(
+      gameId: 'dandelion',
+      title: '민들레 · 방 만들기',
+      startLabel: '방 열기',
+      onStart: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DandelionHostScreen(hostRole: _role))),
+      tutorial: dandelionTutorial,
+      onLesson: () => openDandelionLesson(context),
+      children: [
+        const VsSectionTitle('내가 맡을 쪽'),
+        VsChoiceRow(cards: [
+          for (final r in Role.values) _RoleCard(role: r, selected: _role == r.index, onTap: () => setState(() => _role = r.index)),
+          VsChoiceCard(
+            color: random,
+            selected: _role == kRandomSide,
+            onTap: () => setState(() => _role = kRandomSide),
+            child: const Column(
+              children: [
+                SizedBox(width: 64, height: 64, child: Icon(Icons.casino_rounded, size: 44, color: random)),
+                SizedBox(height: 8),
+                Text('무작위', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: random)),
+                Text('상대가 들어오면 정해요', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+        ]),
+        const VsHint('민들레가 먼저 꽃을 심고, 바람이 이어서 불어요. 한 판 더 할 때마다 서로 바뀌어요.'),
       ],
     );
   }

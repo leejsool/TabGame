@@ -114,6 +114,7 @@ class LanHost {
           return;
         }
         _guest = conn;
+        conn.peer = m;
         conn.closed.then((_) {
           if (identical(_guest, conn)) _guest = null;
         });

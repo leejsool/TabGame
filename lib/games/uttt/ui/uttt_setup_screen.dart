@@ -8,6 +8,7 @@ import '../tutorial/uttt_tutorial.dart';
 import 'uttt_lesson_screen.dart';
 import 'uttt_board.dart';
 import 'uttt_screen.dart';
+import 'uttt_wifi_screen.dart';
 
 /// CPU 대전 시작 전 설정: 난이도 + 내 표시(X/O).
 class UtttSetupScreen extends StatefulWidget {
@@ -53,6 +54,51 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
           label: (l) => l.label,
           description: (l) => l.description,
         ),
+      ],
+    );
+  }
+}
+
+/// 같은 Wi‑Fi로 방을 만들기 전 설정: 내 표시(X/O/무작위).
+class UtttHostSetupScreen extends StatefulWidget {
+  const UtttHostSetupScreen({super.key});
+
+  @override
+  State<UtttHostSetupScreen> createState() => _UtttHostSetupScreenState();
+}
+
+class _UtttHostSetupScreenState extends State<UtttHostSetupScreen> {
+  int _side = kRandomSide;
+
+  @override
+  Widget build(BuildContext context) {
+    return VsSetupScaffold(
+      gameId: 'ultimate_tictactoe',
+      title: '궁극 틱택토 · 방 만들기',
+      startLabel: '방 열기',
+      onStart: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => UtttHostScreen(hostSide: _side))),
+      tutorial: utttTutorial,
+      onLesson: () => openUtttLesson(context),
+      children: [
+        const VsSectionTitle('내 표시'),
+        VsChoiceRow(cards: [
+          _SideCard(side: kX, selected: _side == kX, onTap: () => setState(() => _side = kX)),
+          _SideCard(side: kO, selected: _side == kO, onTap: () => setState(() => _side = kO)),
+          VsChoiceCard(
+            color: const Color(0xFF8E5BC4),
+            selected: _side == kRandomSide,
+            onTap: () => setState(() => _side = kRandomSide),
+            child: const Column(
+              children: [
+                SizedBox(width: 64, height: 64, child: Icon(Icons.casino_rounded, size: 44, color: Color(0xFF8E5BC4))),
+                SizedBox(height: 8),
+                Text('무작위', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF8E5BC4))),
+                Text('상대가 들어오면 정해요', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+        ]),
+        const VsHint('X가 먼저 시작해요. 다음 판부터는 번갈아 시작해요.'),
       ],
     );
   }

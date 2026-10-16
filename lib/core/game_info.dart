@@ -39,6 +39,7 @@ class GameInfo {
     this.iconImage,
     this.recordsTab,
     this.recordsTitle,
+    this.hasLesson = false,
   });
 
   final String id;
@@ -67,6 +68,9 @@ class GameInfo {
 
   /// 기록 화면의 게임 고르개에 보일 이름이 [title]과 다를 때 (좁은 칸에 맞춘 짧은 이름).
   final String? recordsTitle;
+
+  /// 교과학습(단원별로 배우는 학습)이 있는 게임이면 true. 허브 카드에 학사모 표시가 붙는다.
+  final bool hasLesson;
 
   bool get hasIconArt => iconPainter != null || iconImage != null;
   bool get hasRecords => recordsTab != null;

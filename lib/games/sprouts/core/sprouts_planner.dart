@@ -574,7 +574,104 @@ SproutsMove? guidedMove(SproutsBoard b, int s, int e, List<P> stroke, {double ma
     List<P>? source;
     final move = _toMove(grid, b, s, e, cells, relax, onSource: (p) => source = p);
     if (move == null || source == null) continue;
-    if (_deviation(b, s, e, stroke, move.path) <= maxDeviation) return (move: move, source: source!);
+    if (_deviation(b, s, e, stroke, move.path) > maxDeviation) continue;
+    // 그은 선과 같은 길(같은 영역, 점·덩어리의 같은 쪽)을 지나야 한다: 다른 쪽으로 돌아가면 위상이 달라진다
+    if (!sameRoute(b, s, e, stroke, source!)) continue;
+    return (move: move, source: source!);
+  }
+  return null;
+}
+
+/// 선분 ab와 cd가 가로지르거나 맞닿는가 (한 점이 상대 선분 위에 정확히 얹힌 경우까지).
+bool _segTouch(P a, P b, P c, P d) =>
+    _cross(a, b, c, d) ||
+    min(min(pointSegDist(a, c, d), pointSegDist(b, c, d)), min(pointSegDist(c, a, b), pointSegDist(d, a, b))) < 0.75;
+
+/// 그은 선 [stroke]이 이미 그려진 선을 (출발·도착 점 바로 곁이 아닌 곳에서) 가로지르는가.
+/// 가로질렀다면 어느 쪽으로 지나가려던 것인지 알 수 없다 (그저 두 점을 잇고 싶었던 것).
+bool strokeCrossesLines(SproutsBoard b, int s, int e, List<P> stroke) {
+  final sp = b.dots[s].pos, ep = b.dots[e].pos;
+  for (var i = 0; i + 1 < stroke.length; i++) {
+    final a = stroke[i], c = stroke[i + 1];
+    if (a.dist(sp) < 2 * kNearDot || a.dist(ep) < 2 * kNearDot) continue;
+    for (final cv in b.curves) {
+      final pts = cv.pts;
+      for (var j = 0; j + 1 < pts.length; j++) {
+        if (_segTouch(a, c, pts[j], pts[j + 1])) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/// 손으로 그은 선 [stroke]과 고쳐 그린 길 [route](둘 다 [s]에서 [e]로 가는 길)가 위상적으로 같은 길인가.
+///
+/// 두 길로 만든 닫힌 고리 안에 다른 점(점 위에 찍힌 새 점 포함)이 하나라도 들어 있으면, 두 길은 그 점의 서로 다른 쪽을
+/// 지나는 것이다. 점은 선들과 이어져 있으니 점 하나는 그 점이 속한 덩어리 전체를 대표한다.
+/// (그은 선이 점 바로 위를 지나가서 어느 쪽인지 알 수 없는 점은 따지지 않는다. 그은 선이 다른 선을 가로질렀다면
+/// 어느 쪽으로 가려던 것인지 알 수 없으니 언제나 같은 길로 본다.)
+bool sameRoute(SproutsBoard b, int s, int e, List<P> stroke, List<P> route) {
+  if (stroke.length < 2 || route.length < 2) return true;
+  if (strokeCrossesLines(b, s, e, stroke)) return true;
+  final sp = b.dots[s].pos, ep = b.dots[e].pos;
+  final drawn = <P>[sp, ...resample(stroke, 6), ep];
+  final poly = <P>[...drawn, ...route.reversed];
+  for (var d = 0; d < b.dots.length; d++) {
+    if (d == s || d == e) continue;
+    final p = b.dots[d].pos;
+    var near = double.infinity;
+    for (var i = 0; i + 1 < drawn.length; i++) {
+      near = min(near, pointSegDist(p, drawn[i], drawn[i + 1]));
+    }
+    if (near < 6) continue;
+    if (_pointInPolygon(p, poly)) return false;
+  }
+  return true;
+}
+
+bool _pointInPolygon(P p, List<P> poly) {
+  var c = false;
+  for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    final a = poly[i], bb = poly[j];
+    if ((a.y > p.y) != (bb.y > p.y) && p.x < (bb.x - a.x) * (p.y - a.y) / (bb.y - a.y) + a.x) c = !c;
+  }
+  return c;
+}
+
+/// 판에 있는 모든 점과 선을 감싸는 상자의 가운데 ([stretchedBoard]가 판을 늘리는 중심).
+P _stretchCenter(SproutsBoard b) {
+  var minX = double.infinity, minY = double.infinity, maxX = -double.infinity, maxY = -double.infinity;
+  void see(P p) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+
+  for (final d in b.dots) {
+    see(d.pos);
+  }
+  for (final c in b.curves) {
+    for (final p in c.pts) {
+      see(p);
+    }
+  }
+  return P((minX + maxX) / 2, (minY + maxY) / 2);
+}
+
+/// 그은 선이 지나는 틈이 너무 좁아 그대로는 못 두는 수를, 판 전체를 조금씩 늘려서(점과 선의 자리만 늘리고 이어진 구조는 그대로)
+/// 그은 선을 같은 비율로 늘린 선을 따라가며 고쳐 그린다. 그은 선과 같은 길로만 고친다.
+/// 찾은 수의 배치([StrokeResult.layout])는 늘어난 판의 것이다. 못 찾으면 null.
+SproutsMove? stretchedGuidedMove(SproutsBoard b, int s, int e, List<P> stroke) {
+  final c = _stretchCenter(b);
+  for (final f in _stretchFactors) {
+    final sb = stretchedBoard(b, f);
+    if (sb == null) break;
+    final scaled = [for (final p in stroke) P(c.x + (p.x - c.x) * f, c.y + (p.y - c.y) * f)];
+    final fix = guidedFix(sb, s, e, scaled, maxDeviation: 45 * f);
+    if (fix == null) continue;
+    final r = fix.move.result;
+    return SproutsMove(s, e, StrokeResult.ok(r.path!, r.midIndex, layout: _layoutOf(sb, r)));
   }
   return null;
 }
@@ -589,8 +686,16 @@ List<double> sproutsGuideTask(List<Object> args) {
   final s = args[1] as int, e = args[2] as int;
   final fix = guidedFix(board, s, e, stroke);
   if (fix != null) return encodeMove(fix.move);
+  // 그은 선이 지나는 틈이 좁아서 못 고쳤다: 판을 늘려서라도 그은 선과 같은 길로 고친다
+  final stretched = stretchedGuidedMove(board, s, e, stroke);
+  if (stretched != null) return encodeMove(stretched);
+  // 마지막으로, 두 점을 잇는 다른 길이라도 찾아본다. 단 그은 선과 위상적으로 같은 길일 때만 쓴다
+  // (다른 영역이나 점의 반대쪽으로 돌아가면 그은 뜻과 다른 판이 되니, 차라리 고치지 않는다)
   final any = connectPair(board, s, e, clock: Stopwatch()..start(), deadline: const Duration(seconds: 6));
-  return any == null ? const [] : encodeMove(any);
+  if (any == null) return const [];
+  // (선을 가로지르며 그은 선은 어느 쪽으로 가려던 것인지 알 수 없으니 어떤 길이든 된다)
+  if (!strokeCrossesLines(board, s, e, stroke) && (any.result.layout != null || !sameRoute(board, s, e, stroke, any.path))) return const [];
+  return encodeMove(any);
 }
 
 /// 손으로 그은 선 [stroke]이 고쳐진 [path]에서 가장 멀리 벗어난 거리 (점 둘레의 군더더기는 뺀다).

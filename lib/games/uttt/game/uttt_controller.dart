@@ -9,6 +9,7 @@ import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
 
 /// 궁극 틱택토 한 판의 진행(규칙 + CPU + 되돌리기).
+/// 같은 Wi‑Fi 대결([PlayMode.wifi])에서는 내 수를 [onLocalMove]로 알리고, 상대의 수는 [receiveMove]로 받는다.
 class UtttController extends ChangeNotifier {
   UtttController({
     required this.mode,
@@ -21,7 +22,7 @@ class UtttController extends ChangeNotifier {
 
   final PlayMode mode;
 
-  /// CPU 대결에서 사람이 맡은 쪽 (kX / kO).
+  /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 쪽 (kX / kO).
   final int humanSide;
   final UttLevel level;
 
@@ -29,7 +30,19 @@ class UtttController extends ChangeNotifier {
   int firstTurn;
 
   bool get vsCpu => mode == PlayMode.vsCpu;
+
+  /// 같은 Wi‑Fi의 다른 기기와 겨루는 판인가.
+  bool get online => mode == PlayMode.wifi;
+
+  /// 이 기기에서 한쪽만 맡는 판인가 (CPU 대결이거나 Wi‑Fi 대결).
+  bool get oneSeat => vsCpu || online;
   int get cpuSide => 1 - humanSide;
+
+  /// 내가 둔 수를 알린다 (Wi‑Fi 대결에서 상대에게 보내려고).
+  void Function(int move)? onLocalMove;
+
+  /// 누군가 기권해서 중단된 판인가 (더는 둘 수 없다. [restart]하면 풀린다).
+  bool halted = false;
 
   /// 지금까지 둔 수들.
   final List<int> moves = [];
@@ -57,7 +70,7 @@ class UtttController extends ChangeNotifier {
   int get moveCount => moves.length;
 
   /// 지금 사람이 둘 수 있는가.
-  bool get humanCanAct => !isOver && !thinking && (!vsCpu || state.turn == humanSide);
+  bool get humanCanAct => !isOver && !halted && !thinking && (!oneSeat || state.turn == humanSide);
 
   void _rebuild() {
     state = UttState.fromMoves(moves, firstTurn: firstTurn);
@@ -69,6 +82,7 @@ class UtttController extends ChangeNotifier {
   /// 새 판. [swapStart]면 먼저 시작하는 쪽을 바꾼다.
   void restart({bool swapStart = true}) {
     if (swapStart) firstTurn = 1 - firstTurn;
+    halted = false;
     moves.clear();
     lastMove = -1;
     lastCaptured = -1;
@@ -84,7 +98,15 @@ class UtttController extends ChangeNotifier {
   bool play(int move) {
     if (!humanCanAct || !state.isLegal(move)) return false;
     _apply(move);
+    onLocalMove?.call(move);
     _maybeCpu();
+    return true;
+  }
+
+  /// 상대 기기에서 온 수를 둔다 (Wi‑Fi 대결). 상대 차례가 아니거나 둘 수 없는 수면 false (그러면 판이 어긋난 것이다).
+  bool receiveMove(int move) {
+    if (!online || isOver || halted || state.turn == humanSide || !state.isLegal(move)) return false;
+    _apply(move);
     return true;
   }
 
@@ -122,24 +144,32 @@ class UtttController extends ChangeNotifier {
   // ── 기권 ──
 
   /// 기권할 수 있는가 (한 수라도 둔 진행 중인 판).
-  bool get canResign => !isOver && moves.isNotEmpty;
+  bool get canResign => !isOver && !halted && moves.isNotEmpty;
 
-  /// 기권하는 쪽: CPU 대결이면 사람, 둘이서 할 때는 지금 차례인 쪽.
-  int get resigningSide => vsCpu ? humanSide : state.turn;
+  /// 기권하는 쪽: CPU 대결·Wi‑Fi 대결이면 나, 둘이서 할 때는 지금 차례인 쪽.
+  int get resigningSide => oneSeat ? humanSide : state.turn;
 
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
   bool resign() {
     if (!canResign) return false;
     _cpu.cancel();
+    halted = true;
     notifyListeners();
     return true;
+  }
+
+  /// 상대가 기권했다는 소식을 받았다 (Wi‑Fi 대결). 판은 거기서 멈춘다.
+  void opponentResigned() {
+    if (!online || isOver || halted) return;
+    halted = true;
+    notifyListeners();
   }
 
   // ── 되돌리기 ──
 
   /// 되돌렸을 때의 수 개수 (되돌릴 수 없으면 null).
   int? get _undoTarget {
-    if (moves.isEmpty || thinking) return null;
+    if (moves.isEmpty || thinking || online || halted) return null; // (Wi‑Fi 대결은 되돌릴 수 없다)
     if (!vsCpu) return moves.length - 1;
     // 사람 차례가 되는 가장 가까운 시점까지
     for (var k = moves.length - 1; k >= 0; k--) {

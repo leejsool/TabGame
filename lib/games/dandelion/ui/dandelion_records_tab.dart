@@ -21,10 +21,15 @@ class DandelionRecordsTab extends StatelessWidget {
       levelOf: (r) => r.level,
       isCpu: (r) => r.vsCpu,
       humanWon: (r) => r.humanWon,
-      twoPlayerTallies: (two, scheme) => [
-        VsTally('민들레 승', two.where((r) => r.winner == Role.dandelion).length, kDandelionColor),
-        VsTally('바람 승', two.where((r) => r.winner == Role.wind).length, kWindColor),
-      ],
+      twoPlayerTallies: (two, scheme) {
+        final local = [for (final r in two) if (!r.online) r]; // Wi‑Fi 대결은 민들레/바람 승 대신 따로 센다
+        final online = [for (final r in two) if (r.online) r];
+        return [
+          VsTally('민들레 승', local.where((r) => r.winner == Role.dandelion).length, kDandelionColor),
+          VsTally('바람 승', local.where((r) => r.winner == Role.wind).length, kWindColor),
+          if (online.isNotEmpty) VsTally('Wi‑Fi 대결 승', online.where((r) => r.onlineWon == true).length, const Color(0xFFF2A900)),
+        ];
+      },
       tile: _tile,
     );
   }
@@ -32,7 +37,8 @@ class DandelionRecordsTab extends StatelessWidget {
   static VsTile _tile(BuildContext context, DandelionRecord r, ColorScheme scheme) {
     final detail = [
       formatDate(r.at),
-      if (r.vsCpu) '${r.human!.label}로 플레이' else '2인',
+      if (r.vsCpu || r.online) '${r.human!.label}로 플레이',
+      if (r.online) 'Wi‑Fi' else if (!r.vsCpu) '2인',
       '${r.moves}수',
       if (r.winner == Role.wind && !r.resigned) '빈칸 ${r.empties}칸',
     ].join(' · ');
@@ -43,6 +49,16 @@ class DandelionRecordsTab extends StatelessWidget {
         resigned: r.resigned,
         levelLabel: r.level!.label,
         detail: detail,
+      );
+    }
+    if (r.online) {
+      final won = r.onlineWon!;
+      return VsTile(
+        icon: won ? Icons.emoji_events_rounded : Icons.sentiment_dissatisfied_rounded,
+        color: won ? const Color(0xFFF2A900) : scheme.error,
+        title: '${won ? '이겼어요' : r.resigned ? '기권했어요' : '졌어요'} · Wi‑Fi 대결',
+        detail: detail,
+        resigned: r.resigned && !won,
       );
     }
     return VsTile(

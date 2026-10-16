@@ -249,7 +249,7 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
   }
 
   /// 플레이어 이름: 둘이서는 "플레이어 1/2", CPU 대결은 "나/CPU".
-  String _name(int side) => c.oneSeat ? (side == c.humanSide ? '나' : (c.vsCpu ? 'CPU' : '상대')) : '플레이어 ${side + 1}';
+  String _name(int side) => c.oneSeat ? (side == c.humanSide ? '나' : (c.vsCpu ? 'CPU' : (_link?.peerNick ?? '상대'))) : '플레이어 ${side + 1}';
 
   Future<void> _resign() async {
     if (!c.canResign) return;

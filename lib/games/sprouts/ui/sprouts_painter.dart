@@ -28,6 +28,7 @@ class SproutsPainter extends CustomPainter {
     this.morphFrom,
     this.morphT = 1,
     this.showGrid = true,
+    this.remoteCue = false,
     this.overlay,
     super.repaint,
   });
@@ -56,6 +57,9 @@ class SproutsPainter extends CustomPainter {
   final SproutsBoard? morphFrom;
   final double morphT;
   final bool showGrid;
+
+  /// 상대 기기에서 온 선을 보여 주는 연출: 출발 점에서 물결이 퍼지고, 펜 끝이 빛나며 선을 그리고, 도착 점에서 다시 물결이 퍼진다.
+  final bool remoteCue;
 
   /// 튜토리얼 그림용: 점 좌표계에서 덧그릴 것.
   final void Function(Canvas canvas, double scale)? overlay;
@@ -112,6 +116,9 @@ class SproutsPainter extends CustomPainter {
       _stroke(canvas, c.pts, sproutsColor(c.owner), 3.2 * vf, isLast ? lastCurveT : 1);
     }
 
+    // 상대가 그은 선: 출발 점의 물결, 선을 그리는 펜 끝, 도착 점의 물결
+    if (remoteCue && !morphing && board.curves.isNotEmpty) _remoteCue(canvas, board, vf, lastCurveT, popT);
+
     // 힌트
     final h = hint;
     if (h != null && h.length > 1) _dashed(canvas, h, const Color(0xFFF2A900), 3.4 * vf);
@@ -164,6 +171,38 @@ class SproutsPainter extends CustomPainter {
 
     overlay?.call(canvas, scale);
     canvas.restore();
+  }
+
+  void _remoteCue(Canvas canvas, SproutsBoard board, double vf, double t, double pop) {
+    final last = board.curves.last;
+    final color = sproutsColor(last.owner);
+    void ring(P at, double k) {
+      // k: 0 → 1 로 퍼지며 옅어지는 물결
+      if (k <= 0 || k >= 1) return;
+      final r = kDotR * vf + 22 * vf * Curves.easeOut.transform(k);
+      canvas.drawCircle(
+        Offset(at.x, at.y),
+        r,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.6 * vf * (1 - 0.5 * k)
+          ..color = color.withValues(alpha: 0.75 * (1 - k)),
+      );
+    }
+
+    if (t < 1) {
+      // 선을 그리는 동안: 앞 3할은 출발 점에서 물결이 퍼진다
+      ring(board.dots[last.from].pos, (t / 0.3).clamp(0.0, 1.0));
+      // 펜 끝: 지금까지 그린 곳의 맨 끝에서 빛난다
+      final n = max(2, (last.pts.length * t).ceil());
+      final head = last.pts[min(n, last.pts.length) - 1];
+      canvas.drawCircle(Offset(head.x, head.y), 11 * vf, Paint()..color = color.withValues(alpha: 0.22));
+      canvas.drawCircle(Offset(head.x, head.y), 6.5 * vf, Paint()..color = color.withValues(alpha: 0.45));
+      canvas.drawCircle(Offset(head.x, head.y), 3.4 * vf, Paint()..color = Colors.white.withValues(alpha: 0.95));
+    } else if (pop < 1) {
+      // 다 그은 뒤: 도착 점에서 물결이 퍼지고, 새 점이 튀어나온다
+      ring(board.dots[last.to].pos, pop);
+    }
   }
 
   void _stroke(Canvas canvas, List<P> pts, Color color, double width, double t) {

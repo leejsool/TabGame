@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../core/nickname.dart';
+
 /// 같은 Wi‑Fi(공유기)에 연결된 두 기기가 주고받는 한 줄짜리 JSON 메시지 연결.
 ///
 /// 한 메시지는 JSON 객체 하나 + 줄바꿈이다. 게임은 `{'t': 'move', ...}`처럼 `t`(종류)가 있는 메시지를 주고받는다.
@@ -54,6 +56,12 @@ class LanConnection {
 
   /// 상대 기기의 주소.
   String get peerAddress => _socket.remoteAddress.address;
+
+  /// 상대가 처음에 보낸 소개 메시지 (방을 연 쪽은 손님의 `hello`, 들어간 쪽은 방의 `start`).
+  Map<String, dynamic> peer = const {};
+
+  /// 상대의 별명 (소개에 없거나 비었으면 "상대").
+  String get peerNick => cleanNickname(peer['nick']) ?? '상대';
 
   void _onLine(String line) {
     _lastRx = DateTime.now();

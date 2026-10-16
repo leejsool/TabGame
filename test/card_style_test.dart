@@ -159,9 +159,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();
     await tester.pumpWidget(MaterialApp(home: SettingsScreen(settings: settings)));
-    // 끝까지 스크롤한다
-    await tester.drag(find.byType(ListView), const Offset(0, -3000));
-    await tester.pump();
+    // 끝까지 스크롤한다 (항목이 늦게 만들어져서 끝이 늘어날 수 있으니 몇 번 되풀이한다)
+    for (var i = 0; i < 5; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -3000));
+      await tester.pump();
+    }
     final last = tester.getRect(find.text('화면 모드')); // 업데이트 항목이 없는 환경에서는 맨 아래 항목
     expect(last.bottom, lessThanOrEqualTo(900 - 96), reason: '시스템 바 위로 올라와야 한다');
   });

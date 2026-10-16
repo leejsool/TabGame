@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -6,8 +7,10 @@ import 'package:flutter/services.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
+import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
 import '../core/sprouts_ai.dart';
+import '../core/sprouts_board.dart';
 import '../data/sprouts_history.dart';
 import '../game/sprouts_controller.dart';
 import '../tutorial/sprouts_tutorial.dart';
@@ -24,12 +27,24 @@ class SproutsScreen extends StatefulWidget {
     this.humanSide = 0,
     this.level = SproutsLevel.normal,
     this.controller,
+    this.link,
+    this.isHost = false,
+    this.initialBoard,
   });
 
   final PlayMode mode;
   final int dotCount;
   final int humanSide;
   final SproutsLevel level;
+
+  /// 같은 Wi‑Fi 대결([PlayMode.wifi])에서 상대 기기와의 연결. 이 화면이 닫을 때 같이 닫는다.
+  final LanConnection? link;
+
+  /// Wi‑Fi 대결에서 방을 연 쪽인가 (한 판 더 할 때 새 처음 판을 만들어 보내는 쪽).
+  final bool isHost;
+
+  /// Wi‑Fi 대결의 처음 판 (방을 연 쪽이 만들어 두 기기가 같은 판으로 시작한다).
+  final SproutsBoard? initialBoard;
 
   /// (테스트용) 미리 만든 컨트롤러.
   final SproutsController? controller;
@@ -41,31 +56,174 @@ class SproutsScreen extends StatefulWidget {
 class _SproutsScreenState extends State<SproutsScreen> {
   // 화면이 직접 소유한다: 화면이 다시 빌드되어도 판이 사라지지 않는다.
   late SproutsController c = widget.controller ??
-      SproutsController(mode: widget.mode, dotCount: widget.dotCount, humanSide: widget.humanSide, level: widget.level);
+      SproutsController(mode: widget.mode, dotCount: widget.dotCount, humanSide: widget.humanSide, level: widget.level, board: widget.initialBoard);
   bool _resultHandled = false;
+
+  // ── 같은 Wi‑Fi 대결 ──
+  LanConnection? get _link => c.online ? widget.link : null;
+  StreamSubscription<Map<String, dynamic>>? _linkSub;
+
+  /// 상대 기기와의 연결이 끊겼다 / 이 화면에서 일부러 나가는 중이다.
+  bool _opponentGone = false;
+  bool _leaving = false;
+
+  /// 한 판 더: 내가 하자고 했다 / 상대가 하자고 했다 (둘 다 하면 먼저/나중을 바꿔 새로 시작한다).
+  bool _rematchAsked = false;
+  bool _rematchOffered = false;
 
   @override
   void initState() {
     super.initState();
     _attach(c);
+    final link = _link;
+    if (link != null) {
+      _linkSub = link.messages.listen(_onNet);
+      link.closed.then((_) => _onLinkClosed());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
   }
 
   void _attach(SproutsController ctl) {
     ctl.onFeedback = _feedback;
     ctl.addListener(_onChanged);
+    if (ctl.online) ctl.onSync = _sendSync;
   }
 
   void _detach(SproutsController ctl) {
     ctl.removeListener(_onChanged);
     ctl.onFeedback = null;
+    ctl.onSync = null;
   }
 
   @override
   void dispose() {
+    _leaving = true;
+    _linkSub?.cancel();
+    final link = _link;
+    if (link != null) {
+      link.send(const {'t': 'bye'});
+      link.close();
+    }
     _detach(c);
     c.dispose();
     super.dispose();
+  }
+
+  /// 판은 소수점 둘째 자리까지만 보낸다 (선이 많은 판도 작게).
+  static List<num> _pack(List<double> data) => [for (final v in data) (v * 100).roundToDouble() / 100];
+
+  void _sendSync(SproutsSync s) => _link?.send({'t': 'board', 'k': s.kind, 'n': s.moveCount, 'd': _pack(s.data)});
+
+  void _onNet(Map<String, dynamic> m) {
+    if (!mounted) return;
+    switch (m['t']) {
+      case 'board':
+        final d = m['d'];
+        final ok = d is List && m['k'] is String && m['n'] is int && c.receiveSync(SproutsSync(kind: m['k'] as String, moveCount: m['n'] as int, data: [for (final v in d) (v as num).toDouble()]));
+        if (!ok) _desync();
+      case 'resign':
+        _onOpponentResigned();
+      case 'again':
+        setState(() => _rematchOffered = true);
+        if (_rematchAsked && widget.isHost) _hostStartRematch();
+      case 'newboard':
+        final d = m['d'];
+        if (d is List) _startRematch(SproutsBoard.fromData([for (final v in d) (v as num).toDouble()]));
+      case 'bye':
+        _onLinkClosed();
+    }
+  }
+
+  /// 판이 서로 어긋났다 (있을 수 없는 일이지만, 어긋난 채로 계속하지는 않는다).
+  Future<void> _desync() async {
+    if (_opponentGone || _leaving) return;
+    _opponentGone = true;
+    await _link?.close();
+    if (!mounted) return;
+    await _notice('판이 서로 어긋났어요', '두 기기의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _onLinkClosed() {
+    if (!mounted || _leaving || _opponentGone) return;
+    setState(() => _opponentGone = true);
+    if (c.isOver) return; // 끝난 판이면 결과를 마저 볼 수 있게 두고, "한 판 더"만 막는다
+    _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 상대가 나갔어요. 이 판은 기록하지 않아요.').then((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  Future<void> _notice(String title, String body) => showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.wifi_off_rounded, size: 32),
+          title: Text(title, textAlign: TextAlign.center),
+          content: Text(body, textAlign: TextAlign.center),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
+        ),
+      );
+
+  Future<void> _onOpponentResigned() async {
+    if (c.isOver) return;
+    c.opponentResigned();
+    _resultHandled = true;
+    await SproutsHistory.add(SproutsRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      vsCpu: false,
+      online: true,
+      winner: c.humanSide,
+      moves: c.moveCount,
+      dots: c.dotCount,
+      human: c.humanSide,
+      resigned: true,
+    ));
+    if (mounted) setState(() {});
+  }
+
+  /// "한 판 더": 상대도 하자고 했으면 바로(방을 연 쪽이 새 처음 판을 만들어 보내며) 먼저/나중을 바꿔 시작하고, 아니면 상대를 기다린다.
+  void _requestRematch() {
+    if (_rematchAsked || _opponentGone) return;
+    setState(() => _rematchAsked = true);
+    _link?.send(const {'t': 'again'});
+    if (_rematchOffered && widget.isHost) _hostStartRematch();
+  }
+
+  void _hostStartRematch() {
+    final board = SproutsBoard.fromData(_pack(SproutsBoard.initial(c.dotCount, Random()).toData()).map((v) => v.toDouble()).toList());
+    _link?.send({'t': 'newboard', 'd': _pack(board.toData())});
+    _startRematch(board);
+  }
+
+  void _startRematch(SproutsBoard board) {
+    final old = c;
+    _detach(old);
+    c = old.fresh(board: board);
+    _rematchAsked = false;
+    _rematchOffered = false;
+    _resultHandled = false;
+    _attach(c);
+    old.dispose();
+    setState(() {});
+    c.start();
+  }
+
+  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
+  Future<void> _confirmLeave() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('판에서 나갈까요?'),
+        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
+        ],
+      ),
+    );
+    if (ok == true && mounted) Navigator.of(context).pop();
   }
 
   void _feedback(String kind) {
@@ -90,7 +248,8 @@ class _SproutsScreenState extends State<SproutsScreen> {
         moves: c.moveCount,
         dots: c.dotCount,
         level: c.vsCpu ? c.level : null,
-        human: c.vsCpu ? c.humanSide : null,
+        human: c.oneSeat ? c.humanSide : null,
+        online: c.online,
       ));
     } else if (!c.isOver) {
       _resultHandled = false;
@@ -112,23 +271,29 @@ class _SproutsScreenState extends State<SproutsScreen> {
 
   Future<void> _resign() async {
     if (!c.canResign) return;
-    final loser = c.vsCpu ? c.humanSide : c.turn;
+    final loser = c.oneSeat ? c.humanSide : c.turn;
     final ok = await confirmGiveUp(
       context,
-      detail: c.vsCpu ? 'CPU의 승리로 기록돼요.' : '${_name(loser)}이(가) 기권하고, ${_name(1 - loser)}의 승리로 기록돼요.',
+      detail: c.vsCpu
+          ? 'CPU의 승리로 기록돼요.'
+          : c.online
+              ? '상대의 승리로 기록돼요.'
+              : '${_name(loser)}이(가) 기권하고, ${_name(1 - loser)}의 승리로 기록돼요.',
       retry: c.vsCpu,
       verb: '기권',
     );
     if (!ok || !mounted || !c.resign()) return;
     _resultHandled = true;
+    _link?.send(const {'t': 'resign'});
     await SproutsHistory.add(SproutsRecord(
       at: DateTime.now().millisecondsSinceEpoch,
       vsCpu: c.vsCpu,
+      online: c.online,
       winner: c.winner!,
       moves: c.moveCount,
       dots: c.dotCount,
       level: c.vsCpu ? c.level : null,
-      human: c.vsCpu ? c.humanSide : null,
+      human: c.oneSeat ? c.humanSide : null,
       resigned: true,
     ));
     if (mounted) setState(() {});
@@ -138,22 +303,42 @@ class _SproutsScreenState extends State<SproutsScreen> {
   Future<void> _tidy() => c.tidy();
 
   /// 플레이어 이름: 둘이서는 "플레이어 1/2", CPU 대결은 "나/CPU".
-  String _name(int side) => c.vsCpu ? (side == c.humanSide ? '나' : 'CPU') : '플레이어 ${side + 1}';
+  String _name(int side) => c.oneSeat ? (side == c.humanSide ? '나' : (c.vsCpu ? 'CPU' : (_link?.peerNick ?? '상대'))) : '플레이어 ${side + 1}';
 
   String get _status {
     if (c.message != null) return c.message!;
     if (c.notice != null && !c.isOver) return '${c.notice!} · ${_name(c.turn)} 차례';
     if (c.isOver) {
-      if (c.vsCpu) return c.winner == c.humanSide ? '이겼어요! 🎉' : 'CPU가 이겼어요';
+      if (c.oneSeat) return c.winner == c.humanSide ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
       return '${_name(c.winner!)} 승리! 🎉';
     }
+    if (_opponentGone) return '상대와 연결이 끊겼어요';
     if (c.thinking) return 'CPU가 생각하는 중…';
+    if (c.online && c.turn != c.humanSide) return '상대가 선을 긋는 중이에요…';
     if (c.moveCount == 0) return '${_name(c.turn)} 차례 · 점에서 점으로 곡선을 그어 보세요';
     return '${_name(c.turn)} 차례 · 마지막으로 두는 사람이 이겨요';
   }
 
   @override
   Widget build(BuildContext context) {
+    // Wi‑Fi 대결 도중에 나가려 하면 먼저 물어본다 (연결이 끊기니까).
+    return ListenableBuilder(
+      listenable: c,
+      builder: (context, child) {
+        final askBeforeLeave = c.online && !c.isOver && !_opponentGone;
+        return PopScope(
+          canPop: !askBeforeLeave,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _confirmLeave();
+          },
+          child: child!,
+        );
+      },
+      child: _scaffold(),
+    );
+  }
+
+  Widget _scaffold() {
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -341,7 +526,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
   }
 
   /// 내가 이겼거나(CPU 대결) 둘이서 한 판이면 축하 연출을 한다. CPU에게 졌을 때는 차분하게.
-  bool get _celebrate => c.isOver && !c.resigned && (!c.vsCpu || c.winner == c.humanSide);
+  bool get _celebrate => c.isOver && !c.resigned && (!c.oneSeat || c.winner == c.humanSide);
 
   /// 판이 끝났을 때 아래에 나오는 안내: 창으로 가리지 않고, 그림은 그대로 보이게 하면서 크고 화려하게 알린다.
   Widget _resultBar() {
@@ -349,10 +534,14 @@ class _SproutsScreenState extends State<SproutsScreen> {
     final String head, body;
     if (c.resigned) {
       head = '기권했어요';
-      body = c.vsCpu ? 'CPU ${c.level.label} · 점 ${c.dotCount}개 · ${c.moveCount}수 · 기록에 남겼어요' : '${_name(c.turn)} 기권 · ${c.moveCount}수 · 기록에 남겼어요';
-    } else if (c.vsCpu) {
+      body = c.vsCpu
+          ? 'CPU ${c.level.label} · 점 ${c.dotCount}개 · ${c.moveCount}수 · 기록에 남겼어요'
+          : c.online
+              ? '${_name(1 - w)} 기권 · 점 ${c.dotCount}개 · ${c.moveCount}수 · 기록에 남겼어요'
+              : '${_name(c.turn)} 기권 · ${c.moveCount}수 · 기록에 남겼어요';
+    } else if (c.oneSeat) {
       final me = w == c.humanSide;
-      head = me ? '이겼어요! 🎉' : 'CPU가 이겼어요';
+      head = me ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
       body = '${me ? '더 이을 곳이 없어요. 내가 마지막으로 두었어요' : '더 이을 곳이 없어졌어요. 다음엔 꼭 이겨 봐요!'} (점 ${c.dotCount}개 · ${c.moveCount}수)';
     } else {
       head = '${_name(w)} 승리! 🎉';
@@ -407,7 +596,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
                 spacing: 10,
                 runSpacing: 6,
                 children: [
-                  if (!c.resigned)
+                  if (!c.resigned && !c.online)
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                       onPressed: c.canUndo ? c.undo : null,
@@ -417,8 +606,16 @@ class _SproutsScreenState extends State<SproutsScreen> {
                   TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('메뉴로')),
                   FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: color),
-                    onPressed: _newGame,
-                    child: const Text('한 판 더'),
+                    onPressed: c.online ? (_rematchAsked || _opponentGone ? null : _requestRematch) : _newGame,
+                    child: Text(!c.online
+                        ? '한 판 더'
+                        : _opponentGone
+                            ? '상대가 나갔어요'
+                            : _rematchAsked
+                                ? '상대를 기다려요…'
+                                : _rematchOffered
+                                    ? '한 판 더 (상대가 원해요)'
+                                    : '한 판 더'),
                   ),
                 ],
               ),
@@ -444,12 +641,13 @@ class _SproutsScreenState extends State<SproutsScreen> {
           spacing: 10,
           runSpacing: 6,
           children: [
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: c.canUndo ? c.undo : null,
-              icon: const Icon(Icons.undo_rounded, size: 20),
-              label: const Text('되돌리기'),
-            ),
+            if (!c.online)
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: c.canUndo ? c.undo : null,
+                icon: const Icon(Icons.undo_rounded, size: 20),
+                label: const Text('되돌리기'),
+              ),
             OutlinedButton.icon(
               style: compact,
               onPressed: c.humanCanAct ? c.showHint : null,
@@ -462,12 +660,13 @@ class _SproutsScreenState extends State<SproutsScreen> {
               icon: const Icon(Icons.auto_fix_high_rounded, size: 20),
               label: const Text('선 정리하기'),
             ),
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: _newGame,
-              icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: const Text('새 판'),
-            ),
+            if (!c.online)
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: _newGame,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                label: const Text('새 판'),
+              ),
             OutlinedButton.icon(
               style: compact,
               onPressed: c.canResign ? _resign : null,

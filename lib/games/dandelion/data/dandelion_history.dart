@@ -14,6 +14,7 @@ class DandelionRecord {
     this.level,
     this.human,
     this.resigned = false,
+    this.online = false,
   });
 
   final int at;
@@ -30,12 +31,18 @@ class DandelionRecord {
   /// 끝났을 때 남은 빈칸.
   final int empties;
 
-  /// CPU 대결일 때: 난이도와 내가 맡은 쪽.
+  /// CPU 대결일 때: 난이도. CPU 대결·Wi‑Fi 대결일 때: 내가 맡은 쪽.
   final DandLevel? level;
   final Role? human;
 
+  /// 같은 Wi‑Fi의 다른 기기와 한 판인가 ([human]은 이 기기가 맡은 쪽).
+  final bool online;
+
   /// CPU 대결에서 내가 이겼는가 (CPU 대결이 아니면 null).
   bool? get humanWon => vsCpu ? winner == human : null;
+
+  /// Wi‑Fi 대결에서 내가 이겼는가.
+  bool? get onlineWon => online ? winner == human : null;
 
   Map<String, dynamic> toJson() => {
         'at': at,
@@ -46,6 +53,7 @@ class DandelionRecord {
         'lv': level?.name,
         'h': human?.index,
         if (resigned) 'rs': 1,
+        if (online) 'net': 1,
       };
 
   static DandelionRecord fromJson(Map<String, dynamic> j) => DandelionRecord(
@@ -57,6 +65,7 @@ class DandelionRecord {
         level: j['lv'] == null ? null : DandLevel.values.byName(j['lv'] as String),
         human: j['h'] == null ? null : Role.values[j['h'] as int],
         resigned: j['rs'] == 1,
+        online: j['net'] == 1,
       );
 }
 

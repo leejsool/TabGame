@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
+import '../../../net/lan_connection.dart';
 import '../tutorial/uttt_tutorial.dart';
 import '../../../records/records_screen.dart';
 import '../core/uttt_ai.dart';
@@ -27,11 +30,15 @@ class UtttScreen extends StatefulWidget {
     this.humanSide = kX,
     this.level = UttLevel.normal,
     this.controller,
+    this.link,
   });
 
   final PlayMode mode;
   final int humanSide;
   final UttLevel level;
+
+  /// 같은 Wi‑Fi 대결([PlayMode.wifi])에서 상대 기기와의 연결. 이 화면이 닫을 때 같이 닫는다.
+  final LanConnection? link;
 
   /// (테스트용) 미리 만든 컨트롤러.
   final UtttController? controller;
@@ -46,20 +53,162 @@ class _UtttScreenState extends State<UtttScreen> {
       UtttController(mode: widget.mode, humanSide: widget.humanSide, level: widget.level);
   bool _resultHandled = false;
 
+  // ── 같은 Wi‑Fi 대결 ──
+  LanConnection? get _link => c.online ? widget.link : null;
+  StreamSubscription<Map<String, dynamic>>? _linkSub;
+
+  /// 상대 기기와의 연결이 끊겼다 / 이 화면에서 일부러 나가는 중이다.
+  bool _opponentGone = false;
+  bool _leaving = false;
+
+  /// 한 판 더: 내가 하자고 했다 / 상대가 하자고 했다 (둘 다 하면 먼저 시작하는 쪽을 바꿔 새로 시작한다).
+  bool _rematchAsked = false;
+  bool _rematchOffered = false;
+
   @override
   void initState() {
     super.initState();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
+    final link = _link;
+    if (link != null) {
+      c.onLocalMove = (move) => link.send({'t': 'move', 'i': c.moveCount - 1, 'm': move});
+      _linkSub = link.messages.listen(_onNet);
+      link.closed.then((_) => _onLinkClosed());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
   }
 
   @override
   void dispose() {
+    _leaving = true;
+    _linkSub?.cancel();
+    final link = _link;
+    if (link != null) {
+      link.send(const {'t': 'bye'});
+      link.close();
+    }
     c.removeListener(_onChanged);
     c.onFeedback = null;
+    c.onLocalMove = null;
     c.dispose();
     super.dispose();
+  }
+
+  void _onNet(Map<String, dynamic> m) {
+    if (!mounted) return;
+    switch (m['t']) {
+      case 'move':
+        if (m['i'] != c.moveCount || m['m'] is! int || !c.receiveMove(m['m'] as int)) _desync();
+      case 'resign':
+        _onOpponentResigned();
+      case 'again':
+        setState(() => _rematchOffered = true);
+        if (_rematchAsked) _startRematch();
+      case 'bye':
+        _onLinkClosed();
+    }
+  }
+
+  /// 판이 서로 어긋났다 (있을 수 없는 일이지만, 어긋난 채로 계속하지는 않는다).
+  Future<void> _desync() async {
+    if (_opponentGone || _leaving) return;
+    _opponentGone = true;
+    await _link?.close();
+    if (!mounted) return;
+    await _notice('판이 서로 어긋났어요', '두 기기의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _onLinkClosed() {
+    if (!mounted || _leaving || _opponentGone) return;
+    setState(() => _opponentGone = true);
+    if (c.isOver || c.halted) return; // 끝난 판이면 결과를 마저 볼 수 있게 두고, "한 판 더"만 막는다
+    _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 상대가 나갔어요. 이 판은 기록하지 않아요.').then((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  Future<void> _notice(String title, String body) => showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.wifi_off_rounded, size: 32),
+          title: Text(title, textAlign: TextAlign.center),
+          content: Text(body, textAlign: TextAlign.center),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
+        ),
+      );
+
+  Future<void> _onOpponentResigned() async {
+    if (c.isOver || c.halted) return;
+    c.opponentResigned();
+    _resultHandled = true;
+    await UtttHistory.add(UtttRecord(
+      at: DateTime.now().millisecondsSinceEpoch,
+      vsCpu: false,
+      online: true,
+      winner: c.humanSide,
+      moves: c.moveCount,
+      human: c.humanSide,
+      resigned: true,
+    ));
+    if (!mounted) return;
+    final again = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.emoji_events_rounded, size: 32, color: Color(0xFFF2A900)),
+        title: const Text('상대가 기권했어요', textAlign: TextAlign.center),
+        content: const Text('이번 판은 내가 이긴 걸로 기록해 두었어요.', textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('메뉴로')),
+          if (!_opponentGone) FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('한 판 더')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (again == true) {
+      _requestRematch();
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// "한 판 더": 상대도 하자고 했으면 바로 (먼저 시작하는 쪽을 바꿔) 시작하고, 아니면 상대를 기다린다.
+  void _requestRematch() {
+    if (_rematchAsked || _opponentGone) return;
+    setState(() => _rematchAsked = true);
+    _link?.send(const {'t': 'again'});
+    if (_rematchOffered) _startRematch();
+  }
+
+  void _startRematch() {
+    setState(() {
+      _rematchAsked = false;
+      _rematchOffered = false;
+    });
+    _resultHandled = false;
+    c.restart();
+  }
+
+  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
+  Future<void> _confirmLeave() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('판에서 나갈까요?'),
+        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
+        ],
+      ),
+    );
+    if (ok == true && mounted) Navigator.of(context).pop();
   }
 
   void _feedback(String kind) {
@@ -78,10 +227,11 @@ class _UtttScreenState extends State<UtttScreen> {
       UtttHistory.add(UtttRecord(
         at: DateTime.now().millisecondsSinceEpoch,
         vsCpu: c.vsCpu,
+        online: c.online,
         winner: o == Outcome.xWins ? kX : o == Outcome.oWins ? kO : null,
         moves: c.moveCount,
         level: c.vsCpu ? c.level : null,
-        human: c.vsCpu ? c.humanSide : null,
+        human: c.oneSeat ? c.humanSide : null,
       ));
       Future<void>.delayed(const Duration(milliseconds: 1500), _showResult);
     } else if (!c.isOver) {
@@ -94,31 +244,40 @@ class _UtttScreenState extends State<UtttScreen> {
     final side = c.resigningSide;
     final ok = await confirmGiveUp(
       context,
-      detail: c.vsCpu ? 'CPU의 승리로 기록돼요.' : '${sideLabel(side)}가 기권하고, ${sideLabel(1 - side)}의 승리로 기록돼요.',
+      detail: c.vsCpu
+          ? 'CPU의 승리로 기록돼요.'
+          : c.online
+              ? '상대의 승리로 기록돼요.'
+              : '${sideLabel(side)}가 기권하고, ${sideLabel(1 - side)}의 승리로 기록돼요.',
       retry: c.vsCpu,
       verb: '기권',
     );
     if (!ok || !mounted || !c.resign()) return;
     _resultHandled = true; // (끝난 판으로 한 번 더 기록되지 않게)
+    _link?.send(const {'t': 'resign'});
     await UtttHistory.add(UtttRecord(
       at: DateTime.now().millisecondsSinceEpoch,
       vsCpu: c.vsCpu,
+      online: c.online,
       winner: 1 - side,
       moves: c.moveCount,
       level: c.vsCpu ? c.level : null,
-      human: c.vsCpu ? c.humanSide : null,
+      human: c.oneSeat ? c.humanSide : null,
       resigned: true,
     ));
     if (!mounted) return;
     final again = await showGaveUpDialog(
       context,
       summary: c.vsCpu ? 'CPU ${c.level.label} · ${c.moveCount}수' : '${sideLabel(side)} 기권 · ${c.moveCount}수',
-      againLabel: '새 판',
+      againLabel: c.online ? '한 판 더' : '새 판',
+      offerAgain: !_opponentGone,
       retry: false,
       verb: '기권',
     );
     if (!mounted) return;
-    if (again) {
+    if (again && c.online) {
+      _requestRematch();
+    } else if (again) {
       _resultHandled = false;
       c.restart();
     } else {
@@ -130,11 +289,11 @@ class _UtttScreenState extends State<UtttScreen> {
     if (!mounted || !c.isOver) return;
     final again = await showDialog<bool>(
       context: context,
-      builder: (_) => _ResultDialog(controller: c),
+      builder: (_) => _ResultDialog(controller: c, canAgain: !_opponentGone),
     );
     if (!mounted) return;
     if (again == true) {
-      c.restart();
+      c.online ? _requestRematch() : c.restart();
     } else if (again == false) {
       Navigator.of(context).pop();
     }
@@ -144,16 +303,19 @@ class _UtttScreenState extends State<UtttScreen> {
 
   String get _status {
     if (c.isOver) {
+      String won(int side) => c.oneSeat ? (c.humanSide == side ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요')) : '${sideLabel(side)} 승리!';
       return switch (c.outcome) {
-        Outcome.xWins => c.vsCpu ? (c.humanSide == kX ? '이겼어요! 🎉' : 'CPU가 이겼어요') : 'X 승리!',
-        Outcome.oWins => c.vsCpu ? (c.humanSide == kO ? '이겼어요! 🎉' : 'CPU가 이겼어요') : 'O 승리!',
+        Outcome.xWins => won(kX),
+        Outcome.oWins => won(kO),
         _ => '무승부예요',
       };
     }
+    if (_opponentGone) return '상대와 연결이 끊겼어요';
+    if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
     if (c.thinking) return 'CPU가 생각하는 중…';
     final s = c.state;
-    final who = c.vsCpu
-        ? (s.turn == c.humanSide ? '내 차례' : 'CPU 차례')
+    final who = c.oneSeat
+        ? (s.turn == c.humanSide ? '내 차례' : (c.vsCpu ? 'CPU 차례' : '상대 차례'))
         : '${sideLabel(s.turn)} 차례';
     final where = s.next >= 0 ? '${_boardNames[s.next]} 판에서 두세요' : '아무 판에서나 두세요';
     return '$who · $where';
@@ -161,6 +323,24 @@ class _UtttScreenState extends State<UtttScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Wi‑Fi 대결 도중에 나가려 하면 먼저 물어본다 (연결이 끊기니까).
+    return ListenableBuilder(
+      listenable: c,
+      builder: (context, child) {
+        final askBeforeLeave = c.online && !c.isOver && !c.halted && !_opponentGone;
+        return PopScope(
+          canPop: !askBeforeLeave,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _confirmLeave();
+          },
+          child: child!,
+        );
+      },
+      child: _scaffold(),
+    );
+  }
+
+  Widget _scaffold() {
     return Scaffold(
       body: DecoratedBox(
         decoration: BoxDecoration(
@@ -277,7 +457,7 @@ class _UtttScreenState extends State<UtttScreen> {
       builder: (context, _) {
         Widget chip(int side) {
           final active = !c.isOver && c.state.turn == side;
-          final name = c.vsCpu ? (side == c.humanSide ? '나' : 'CPU') : '플레이어 ${side + 1}';
+          final name = c.oneSeat ? (side == c.humanSide ? '나' : (c.vsCpu ? 'CPU' : (_link?.peerNick ?? '상대'))) : '플레이어 ${side + 1}';
           final color = sideColor(side);
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
@@ -355,18 +535,33 @@ class _UtttScreenState extends State<UtttScreen> {
           spacing: 10,
           runSpacing: 6,
           children: [
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: c.canUndo ? c.undo : null,
-              icon: const Icon(Icons.undo_rounded, size: 20),
-              label: const Text('되돌리기'),
-            ),
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: () => c.restart(),
-              icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: const Text('새 판'),
-            ),
+            if (!c.online) ...[
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: c.canUndo ? c.undo : null,
+                icon: const Icon(Icons.undo_rounded, size: 20),
+                label: const Text('되돌리기'),
+              ),
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: () => c.restart(),
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                label: const Text('새 판'),
+              ),
+            ] else if (c.isOver || c.halted)
+              // Wi‑Fi 대결: 판이 끝나면 "한 판 더"를 서로 눌러야 새 판이 시작된다
+              FilledButton.icon(
+                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), visualDensity: VisualDensity.compact),
+                onPressed: _rematchAsked || _opponentGone ? null : _requestRematch,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                label: Text(_opponentGone
+                    ? '상대가 나갔어요'
+                    : _rematchAsked
+                        ? '상대를 기다려요…'
+                        : _rematchOffered
+                            ? '한 판 더 (상대가 원해요)'
+                            : '한 판 더'),
+              ),
             OutlinedButton.icon(
               style: compact,
               onPressed: c.canResign ? _resign : null,
@@ -395,9 +590,12 @@ class _MarkIconPainter extends CustomPainter {
 }
 
 class _ResultDialog extends StatelessWidget {
-  const _ResultDialog({required this.controller});
+  const _ResultDialog({required this.controller, this.canAgain = true});
 
   final UtttController controller;
+
+  /// false면 "한 판 더"가 없다 (Wi‑Fi 대결에서 상대가 나갔을 때).
+  final bool canAgain;
 
   @override
   Widget build(BuildContext context) {
@@ -408,9 +606,9 @@ class _ResultDialog extends StatelessWidget {
     if (winnerSide == null) {
       title = '무승부';
       body = '모든 판이 끝났지만 큰 줄이 나오지 않았어요.';
-    } else if (c.vsCpu) {
+    } else if (c.oneSeat) {
       final me = winnerSide == c.humanSide;
-      title = me ? '이겼어요! 🎉' : 'CPU가 이겼어요';
+      title = me ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
       body = me ? '${sideLabel(winnerSide)}로 큰 줄을 만들었어요!' : '다음엔 꼭 이겨 봐요!';
     } else {
       title = '${sideLabel(winnerSide)} 승리! 🎉';
@@ -434,7 +632,7 @@ class _ResultDialog extends StatelessWidget {
       actionsAlignment: MainAxisAlignment.center,
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('메뉴로')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('한 판 더')),
+        if (canAgain) FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('한 판 더')),
       ],
     );
   }

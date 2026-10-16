@@ -45,6 +45,7 @@ import 'game_info.dart';
 ///  - `builder`: 게임 화면 (없으면 "준비 중"으로 표시)
 ///  - `tutorial`: 게임 방법 안내
 ///  - `iconPainter` / `iconImage`: 허브 카드의 큰 그림 (없으면 `icon`)
+///  - `hasLesson`: 교과학습이 있으면 true (허브 카드에 학사모 표시)
 ///  - `recordsTab`: "내 기록" 화면의 기록 보드 (게임 안에서는 `openRecords(context, game: id)`로 연다)
 const List<GameInfo> allGames = [
   // ── 혼자 놀기 ──
@@ -145,11 +146,12 @@ const List<GameInfo> allGames = [
   // ── 함께 놀기 ('아주 이상한 수학책' 게임들) ──
   GameInfo(
     id: 'ultimate_tictactoe',
+    hasLesson: true,
     title: '궁극 틱택토',
     tagline: '틱택토 속의 틱택토',
     icon: Icons.tag_rounded,
     color: Color(0xFFD1495B),
-    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    modes: [PlayMode.local2p, PlayMode.vsCpu, PlayMode.wifi],
     builder: buildUttt,
     tutorial: utttTutorial,
     iconPainter: paintUtttIcon,
@@ -170,11 +172,12 @@ const List<GameInfo> allGames = [
   ),
   GameInfo(
     id: 'sprouts',
+    hasLesson: true,
     title: '콩나물',
     tagline: '점을 잇고 새 점을 찍어요',
     icon: Icons.scatter_plot_rounded,
     color: Color(0xFF5E9E2F),
-    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    modes: [PlayMode.local2p, PlayMode.vsCpu, PlayMode.wifi],
     builder: buildSprouts,
     tutorial: sproutsTutorial,
     iconPainter: paintSproutsIcon,
@@ -182,11 +185,12 @@ const List<GameInfo> allGames = [
   ),
   GameInfo(
     id: 'dandelion',
+    hasLesson: true,
     title: '민들레',
     tagline: '꽃을 심고 바람에 씨앗을 날려요',
     icon: Icons.local_florist_rounded,
     color: Color(0xFFD99A00),
-    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    modes: [PlayMode.local2p, PlayMode.vsCpu, PlayMode.wifi],
     builder: buildDandelion,
     tutorial: dandelionTutorial,
     iconPainter: paintDandelionIcon,
@@ -194,6 +198,7 @@ const List<GameInfo> allGames = [
   ),
   GameInfo(
     id: 'prophecy',
+    hasLesson: true,
     title: '예언',
     tagline: '숫자로 미래를 맞혀요',
     icon: Icons.auto_awesome_rounded,

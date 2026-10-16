@@ -14,6 +14,7 @@ import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/prophecy/core/prophecy_examples.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_board.dart';
 import 'package:tabgame/games/prophecy/ui/table_picker.dart';
+import 'package:tabgame/hub/game_card.dart';
 import 'package:tabgame/hub/game_icons.dart';
 import 'package:tabgame/hub/hub_screen.dart';
 
@@ -64,6 +65,22 @@ void main() {
     final goblet = allGames.firstWhere((g) => g.id == 'goblet_gobblers');
 
     await shoot('hub_phone', const Size(360, 780), HubScreen(settings: settings));
+    await shoot(
+      'cards_phone',
+      const Size(360, 520),
+      Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(12),
+          child: GridView.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.82,
+            children: [for (final id in ['sudoku', 'prophecy', 'minesweeper', 'sprouts']) GameCard(game: allGames.firstWhere((g) => g.id == id), compact: true, onTap: () {})],
+          ),
+        ),
+      ),
+    );
     await shoot(
       'icons',
       const Size(420, 200),

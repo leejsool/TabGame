@@ -13,6 +13,23 @@ import '../core/sprouts_planner.dart';
 import '../core/sprouts_relax.dart' show boardIsPlanar;
 import '../core/sprouts_tidy.dart';
 
+/// 같은 Wi‑Fi 대결에서 상대에게 보내는 (상대에게서 받는) 판 하나.
+///
+/// 콩나물은 자리를 만들려고 점과 선이 밀리거나 선 정리하기로 좌표가 바뀌니, 새 선의 좌표만 보내면 두 기기의 판이 달라진다.
+/// 그래서 한 수를 둘 때마다(또는 선을 정리할 때마다) 결과 판을 통째로 보내고, 받는 쪽이 그 판으로 바꾼다.
+class SproutsSync {
+  const SproutsSync({required this.kind, required this.moveCount, required this.data});
+
+  /// 'move' (선을 그었다) | 'tidy' (선 정리하기).
+  final String kind;
+
+  /// 보낸 쪽에서 이 일이 끝난 뒤의 수 번호.
+  final int moveCount;
+
+  /// 결과 판 ([SproutsBoard.toData]).
+  final List<double> data;
+}
+
 class _Snapshot {
   _Snapshot(this.board, this.turn, this.moves);
 
@@ -24,6 +41,7 @@ class _Snapshot {
 /// 콩나물 한 판의 진행: 곡선 긋기, 차례, 끝 판정, CPU, 되돌리기, 힌트.
 ///
 /// 플레이어는 0(먼저 시작)과 1. 마지막으로 수를 둔 사람이 이긴다.
+/// 같은 Wi‑Fi 대결([PlayMode.wifi])에서는 내가 둔 결과 판을 [onSync]로 알리고, 상대의 판은 [receiveSync]로 받는다.
 class SproutsController extends ChangeNotifier {
   SproutsController({
     required this.mode,
@@ -38,10 +56,22 @@ class SproutsController extends ChangeNotifier {
   final PlayMode mode;
   final int dotCount;
 
-  /// CPU 대결에서 사람이 맡은 쪽 (0 = 먼저, 1 = 나중).
+  /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 쪽 (0 = 먼저, 1 = 나중).
   final int humanSide;
   final SproutsLevel level;
   final Random _rng;
+
+  /// 같은 Wi‑Fi의 다른 기기와 겨루는 판인가.
+  bool get online => mode == PlayMode.wifi;
+
+  /// 이 기기에서 한쪽만 맡는 판인가 (CPU 대결이거나 Wi‑Fi 대결).
+  bool get oneSeat => vsCpu || online;
+
+  /// 내가 둔(또는 정리한) 결과 판을 알린다 (Wi‑Fi 대결에서 상대에게 보내려고).
+  void Function(SproutsSync sync)? onSync;
+
+  /// 방금 바뀐 판이 상대 기기에서 온 것인가 (그렇다면 화면이 상대의 선을 천천히 그려 보여 준다).
+  bool lastRemote = false;
 
   SproutsBoard board;
 
@@ -99,13 +129,13 @@ class SproutsController extends ChangeNotifier {
   bool get isOver => winner != null;
 
   /// 지금 사람이 그을 수 있는가.
-  bool get humanCanAct => !isOver && !thinking && !tidying && (!vsCpu || turn == humanSide);
+  bool get humanCanAct => !isOver && !thinking && !tidying && (!oneSeat || turn == humanSide);
 
-  bool get canUndo => !thinking && _undoTo() != null;
+  bool get canUndo => !online && !thinking && _undoTo() != null; // (Wi‑Fi 대결은 되돌릴 수 없다)
   bool get canResign => !isOver && moveCount > 0;
 
   /// 선 정리하기를 누를 수 있는가 (그어진 선이 있고, 계산 중이 아닐 때).
-  bool get canTidy => !isOver && !thinking && !tidying && board.curves.isNotEmpty;
+  bool get canTidy => !isOver && !thinking && !tidying && board.curves.isNotEmpty && (!online || turn == humanSide);
 
   /// 남은 목숨의 합 (한 수마다 1씩 줄어든다).
   int get livesLeft => board.totalLives;
@@ -136,7 +166,7 @@ class SproutsController extends ChangeNotifier {
     if (!r.ok) {
       // 규칙에 살짝 어긋난 선(선을 스쳤거나 좁은 틈을 빠듯하게 지나감)은, 위상적으로 이을 수 있는 두 점이면 알아서 바로잡아 그린다
       // (찾는 데 시간이 걸릴 수 있어서 화면이 멈추지 않게 따로 계산한다. 안 되는 이유는 먼저 보여 준다)
-      if (s != e && board.dots[s].lives >= 1 && board.dots[e].lives >= 1) _repair(s, e, stroke);
+      if (s != e && board.dots[s].lives >= 1 && board.dots[e].lives >= 1) _repair(s, e, stroke, r.reason);
       return _bad(r.reason);
     }
     _commit(s, e, r, byHuman: true);
@@ -165,7 +195,7 @@ class SproutsController extends ChangeNotifier {
   /// 바로잡는 중인 것을 취소한다 (새로 선을 긋기 시작했을 때).
   void cancelRepair() => _repairEpoch++;
 
-  Future<void> _repair(int s, int e, List<P> stroke) async {
+  Future<void> _repair(int s, int e, List<P> stroke, String reason) async {
     final epoch = ++_repairEpoch;
     final serial = moveSerial;
     final List<double> out;
@@ -179,9 +209,14 @@ class SproutsController extends ChangeNotifier {
     } catch (_) {
       return;
     }
-    if (_cpu.disposed || epoch != _repairEpoch || serial != moveSerial || !humanCanAct || out.isEmpty) return;
-    final move = decodeCpuMove(out);
-    if (move == null) return;
+    if (_cpu.disposed || epoch != _repairEpoch || serial != moveSerial || !humanCanAct) return;
+    final move = out.isEmpty ? null : decodeCpuMove(out);
+    if (move == null) {
+      // 그은 길과 같은 길로는 고칠 수 없었다 (다른 쪽으로 돌아가면 그은 뜻과 위상이 달라지니 고치지 않는다)
+      message = '$reason\n그은 길 그대로는 둘 자리가 없어요. "선 정리하기"로 간격을 넓힌 뒤 다시 그어 보세요';
+      notifyListeners();
+      return;
+    }
     // 마지막으로 선이 가로지르지 않는지 확인한다
     final check = board.copy()..apply(move.s, move.e, move.result, turn);
     if (!boardIsPlanar(check)) return;
@@ -229,9 +264,11 @@ class SproutsController extends ChangeNotifier {
     board = SproutsBoard.fromData(spread ? room : out);
     morphFrom = before;
     lastWasTidy = true;
-    if (spread) notice = '선을 정리하고 점도 옮겨서 이을 자리를 만들었어요';
+    lastRemote = false;
+    notice = spread ? '선을 정리하고 점도 옮겨서 이을 자리를 만들었어요' : '선을 정리하고 선끼리 간격을 고르게 벌렸어요';
     message = null;
     moveSerial++;
+    if (online) onSync?.call(SproutsSync(kind: 'tidy', moveCount: moveCount, data: board.toData()));
     notifyListeners();
     return true;
   }
@@ -250,6 +287,7 @@ class SproutsController extends ChangeNotifier {
 
   void _commit(int s, int e, StrokeResult r, {required bool byHuman, String? notice}) {
     lastWasTidy = false;
+    lastRemote = false;
     final before = board.copy();
     _history.add(_Snapshot(before, turn, moveCount));
     message = null;
@@ -270,8 +308,93 @@ class SproutsController extends ChangeNotifier {
       if (_ensureRoom()) moveSerial++;
       onFeedback?.call('draw');
     }
+    // (자리를 만들려고 판이 밀렸다면 그것까지 끝난 판을 보낸다)
+    if (online) onSync?.call(SproutsSync(kind: 'move', moveCount: moveCount, data: board.toData()));
     notifyListeners();
     _maybeCpu();
+  }
+
+  // ── 상대 기기에서 온 판 (Wi‑Fi 대결) ──
+
+  /// 상대가 둔 결과 판을 받는다. 지금 판과 맞지 않는 (차례가 아니거나, 한 수 이상 차이가 나거나, 선이 가로지르는) 판이면
+  /// false (그러면 두 기기의 판이 어긋난 것이다).
+  bool receiveSync(SproutsSync s) {
+    if (!online || isOver || turn == humanSide) return false;
+    final SproutsBoard nb;
+    try {
+      nb = SproutsBoard.fromData(s.data);
+    } catch (_) {
+      return false;
+    }
+    if (s.kind == 'move') {
+      if (s.moveCount != moveCount + 1) return false;
+      if (nb.dots.length != board.dots.length + 1 || nb.curves.length != board.curves.length + 1) return false;
+      if (nb.totalLives != board.totalLives - 1 || nb.curves.last.owner != turn) return false;
+    } else if (s.kind == 'tidy') {
+      if (s.moveCount != moveCount || tidying) return false;
+      if (nb.dots.length != board.dots.length || nb.curves.length != board.curves.length || nb.totalLives != board.totalLives) return false;
+    } else {
+      return false;
+    }
+    if (!boardIsPlanar(nb)) return false;
+
+    final before = board;
+    final moved = _geometryChanged(before, nb);
+    _clearHint();
+    board = nb;
+    message = null;
+    lastRemote = true;
+    lastByHuman = false;
+    if (s.kind == 'tidy') {
+      lastWasTidy = true;
+      morphFrom = before;
+      notice = '상대가 선을 정리했어요';
+      moveSerial++;
+      notifyListeners();
+      return true;
+    }
+    lastWasTidy = false;
+    notice = null;
+    lastMid = nb.curves.last.mid;
+    // 점과 선이 밀렸거나 판의 범위가 바뀌었으면 천천히 옮겨 가는 모습을 먼저 보여 준다
+    morphFrom = moved ? before : null;
+    moveCount++;
+    moveSerial++;
+    final mover = turn;
+    if (!analyzeRegions(board).hasMove(board)) {
+      winner = mover; // 마지막으로 수를 둔 사람이 이긴다
+      onFeedback?.call('win');
+    } else {
+      turn = 1 - turn;
+      onFeedback?.call('draw');
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// 새 판([after])에서 기존 점과 선(앞의 [before])의 자리나 판의 범위가 달라졌는가.
+  static bool _geometryChanged(SproutsBoard before, SproutsBoard after) {
+    if (before.bounds != after.bounds) return true;
+    for (var i = 0; i < before.dots.length; i++) {
+      if (before.dots[i].pos.dist(after.dots[i].pos) > 0.3) return true;
+    }
+    for (var i = 0; i < before.curves.length; i++) {
+      final a = before.curves[i].pts, b = after.curves[i].pts;
+      if (a.length != b.length) return true;
+      for (var j = 0; j < a.length; j += 4) {
+        if (a[j].dist(b[j]) > 0.3) return true;
+      }
+    }
+    return false;
+  }
+
+  /// 상대가 기권했다는 소식을 받았다 (Wi‑Fi 대결): 내가 이긴다.
+  void opponentResigned() {
+    if (!online || isOver) return;
+    resigned = true;
+    winner = humanSide;
+    _clearHint();
+    notifyListeners();
   }
 
   // ── CPU ──
@@ -377,19 +500,20 @@ class SproutsController extends ChangeNotifier {
     if (!canResign) return false;
     _cpu.cancel();
     resigned = true;
-    final loser = vsCpu ? humanSide : turn;
+    final loser = oneSeat ? humanSide : turn;
     winner = 1 - loser;
     _clearHint();
     notifyListeners();
     return true;
   }
 
-  /// 같은 설정의 새 판. [swapStart]면 CPU 대결에서 사람이 먼저/나중을 바꾼다.
-  SproutsController fresh({bool swapStart = true}) => SproutsController(
+  /// 같은 설정의 새 판. [swapStart]면 CPU·Wi‑Fi 대결에서 먼저/나중을 바꾼다. [board]를 주면 그 처음 판으로 시작한다 (Wi‑Fi 대결은 두 기기가 같은 판으로).
+  SproutsController fresh({bool swapStart = true, SproutsBoard? board}) => SproutsController(
         mode: mode,
         dotCount: dotCount,
-        humanSide: vsCpu && swapStart ? 1 - humanSide : humanSide,
+        humanSide: oneSeat && swapStart ? 1 - humanSide : humanSide,
         level: level,
+        board: board,
       );
 
   @override
