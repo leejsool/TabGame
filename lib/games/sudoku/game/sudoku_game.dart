@@ -479,7 +479,7 @@ class SudokuGame extends ChangeNotifier {
     // (그러지 않으면 이미 지운 후보를 또 지우라고 알려준다)
     final elims = List<int>.of(hintElims);
     var g = CandidateGrid.fromValues(values, eliminated: elims);
-    var step = StepFinder.next(g, maxLevel: 4);
+    var step = StepFinder.next(g, maxLevel: 7);
     for (var guard = 0; guard < 200 && step != null && !step.isPlacement; guard++) {
       final left = <int, int>{};
       step.eliminations.forEach((cell, mask) {
@@ -496,13 +496,14 @@ class SudokuGame extends ChangeNotifier {
           units: step.units,
           coverUnits: step.coverUnits,
           eliminations: left,
+          note: step.note,
         );
         break;
       }
       // 이 단계는 내가 이미 해 둔 것: 반영하고 다음 단계를 찾는다.
       step.eliminations.forEach((cell, mask) => elims[cell] |= mask);
       g = CandidateGrid.fromValues(values, eliminated: elims);
-      step = StepFinder.next(g, maxLevel: 4);
+      step = StepFinder.next(g, maxLevel: 7);
     }
     if (step != null) {
       hint = ActiveHint.fromStep(step, g);

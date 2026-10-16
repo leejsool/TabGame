@@ -14,6 +14,8 @@ const _levelColors = {
   Difficulty.easy: Color(0xFF3FA796),
   Difficulty.medium: Color(0xFF3F7CAC),
   Difficulty.hard: Color(0xFF8E5BC4),
+  Difficulty.expert: Color(0xFFC2417F),
+  Difficulty.extreme: Color(0xFFB3261E),
 };
 
 /// 스도쿠 기록 보드: 난이도별 요약 + 완성한 판 목록 (같은 판 다시 풀기).
@@ -98,21 +100,27 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
 
     return RecordsList(
       children: [
-        Row(
-          children: [
-            for (final d in Difficulty.values) ...[
-              Expanded(
-                child: StatCard(
-                  title: d.label,
-                  value: _stats[d]?.bestSeconds == null ? '-' : formatTime(_stats[d]!.bestSeconds!),
-                  sub: '최고 기록 · 완성 ${_stats[d]?.wins ?? 0}번${_avgText(d)}',
-                  color: _levelColors[d]!,
+        // 난이도가 늘어도 글이 좁아지지 않게 두 개씩 한 줄로
+        for (var k = 0; k < Difficulty.values.length; k += 2) ...[
+          if (k > 0) const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var m = k; m < k + 2; m++) ...[
+                if (m > k) const SizedBox(width: 10),
+                Expanded(
+                  child: m < Difficulty.values.length
+                      ? StatCard(
+                          title: Difficulty.values[m].label,
+                          value: _stats[Difficulty.values[m]]?.bestSeconds == null ? '-' : formatTime(_stats[Difficulty.values[m]]!.bestSeconds!),
+                          sub: '최고 기록 · 완성 ${_stats[Difficulty.values[m]]?.wins ?? 0}번${_avgText(Difficulty.values[m])}',
+                          color: _levelColors[Difficulty.values[m]]!,
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ),
-              if (d != Difficulty.hard) const SizedBox(width: 10),
+              ],
             ],
-          ],
-        ),
+          ),
+        ],
         if (favs.isNotEmpty) ...[
           const SectionTitle('즐겨찾기한 판'),
           for (final r in favs) _tile(r),

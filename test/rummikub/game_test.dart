@@ -674,6 +674,57 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('상대의 수가 다 보여진 뒤 내 차례가 되면 "내 차례예요!"가 잠깐 떴다가 저절로 사라진다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = RummikubController(animate: true, mode: PlayMode.vsCpu, seed: 3)..stepDelay = const Duration(milliseconds: 15);
+      c.state.racks[1]
+        ..clear()
+        ..addAll([t(0, 11), t(1, 11), t(2, 11), t(3, 2)]);
+      await tester.pumpWidget(await app(RummikubScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(find.text('내 차례예요!'), findsNothing); // (처음 시작할 때는 알리지 않는다)
+      c.draw(); // 내 차례를 넘기면 CPU가 두고 다시 내 차례가 된다
+      for (var i = 0; i < 100 && !(c.turn == 0 && c.canAct); i++) {
+        await settle(tester, rounds: 1);
+      }
+      expect(c.canAct, isTrue);
+      await tester.pump();
+      expect(find.text('내 차례예요!'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1700));
+      expect(find.text('내 차례예요!'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('내가 이기면 색종이와 "승리!" 현판이 나타나고 몇 초 뒤 저절로 사라진다 (지면 나타나지 않는다)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = RummikubController(animate: true, mode: PlayMode.vsCpu, players: 2, seed: 3);
+      final rack = [t(0, 10), t(1, 10), t(2, 10)];
+      c.state.racks[0]
+        ..clear()
+        ..addAll(rack);
+      c.hand = [...rack];
+      await tester.pumpWidget(await app(RummikubScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(find.byKey(const ValueKey('celebration')), findsNothing);
+      c.moveTiles(rack);
+      expect(c.endTurn(), isTrue); // 손이 비었다
+      expect(c.isOver, isTrue);
+      expect(c.state.winner, 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byKey(const ValueKey('celebration')), findsOneWidget);
+      expect(find.text('승리!'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 5500));
+      expect(find.byKey(const ValueKey('celebration')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('내 타일 안에서 타일을 끌어 다른 타일 앞에 놓으면 순서가 바뀐다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;

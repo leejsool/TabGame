@@ -56,7 +56,7 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
                   color: scheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
-              for (var level = 1; level <= 4; level++) ...[
+              for (var level = 1; level <= 7; level++) ...[
                 Padding(
                   padding: const EdgeInsets.only(top: 22, bottom: 8),
                   child: Text(

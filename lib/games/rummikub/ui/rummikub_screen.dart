@@ -15,6 +15,7 @@ import '../data/rummikub_history.dart';
 import '../game/rummikub_controller.dart';
 import '../game/rummikub_layout.dart';
 import '../tutorial/rummikub_tutorial.dart';
+import 'rummikub_celebration.dart';
 import 'rummikub_tiles.dart';
 
 /// 루미큐브 플레이 화면.
@@ -87,6 +88,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   @override
   void dispose() {
+    _turnTimer?.cancel();
     _leaving = true;
     _linkSub?.cancel();
     final link = _link;
@@ -209,6 +211,8 @@ class _RummikubScreenState extends State<RummikubScreen> {
   void _feedback(String kind) {
     if (!SettingsScope.of(context).haptics) return;
     switch (kind) {
+      case 'turn':
+        HapticFeedback.mediumImpact();
       case 'place':
         HapticFeedback.selectionClick();
       case 'draw':
@@ -258,13 +262,83 @@ class _RummikubScreenState extends State<RummikubScreen> {
     );
   }
 
+  // ── 내 차례 알림 ──
+
+  bool _prevCanAct = false;
+  bool _turnBanner = false;
+  Timer? _turnTimer;
+
+  /// 내 차례가 되면(상대의 수가 다 보여진 뒤) 잠깐 "내 차례예요!"가 뜨고 살짝 진동한다. 눌러서 닫을 필요 없이 저절로 사라진다.
+  void _maybeAnnounceTurn() {
+    final can = c.canAct && !c.isOver;
+    final arrived = can && !_prevCanAct;
+    _prevCanAct = can;
+    if (!arrived || !c.animate || !mounted || c.moveCountForBanner == 0) return;
+    _feedback('turn');
+    _turnTimer?.cancel();
+    setState(() => _turnBanner = true);
+    _turnTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _turnBanner = false);
+    });
+  }
+
+  Widget _turnBannerOverlay() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            key: const ValueKey('turn-banner'),
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
+            builder: (context, t, child) => Opacity(opacity: t.clamp(0.0, 1.0), child: Transform.scale(scale: 0.8 + 0.2 * t, child: child)),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+              decoration: BoxDecoration(
+                color: kRkWood.withValues(alpha: 0.94),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.notifications_active_rounded, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('내 차례예요!', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onChanged() {
+    _maybeAnnounceTurn();
     _maybeFlyOpponentPick();
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       _record(winner: c.state.winner);
+      if (c.state.winner == c.humanSeat) _celebrateWin();
     } else if (!c.isOver && !c.halted) {
       _resultHandled = false;
+      _celebrate = false;
+    }
+  }
+
+  // ── 승리 축하 ──
+
+  bool _celebrate = false;
+
+  /// 내가 이기면 색종이가 쏟아지고 "승리!" 현판이 튀어 오르며 진동이 길게 울린다.
+  void _celebrateWin() {
+    if (!c.animate || !mounted) return;
+    setState(() => _celebrate = true);
+    if (SettingsScope.of(context).haptics) {
+      HapticFeedback.heavyImpact();
+      Future<void>.delayed(const Duration(milliseconds: 180), HapticFeedback.mediumImpact);
+      Future<void>.delayed(const Duration(milliseconds: 360), HapticFeedback.lightImpact);
     }
   }
 
@@ -335,6 +409,8 @@ class _RummikubScreenState extends State<RummikubScreen> {
         children: [
           Positioned.fill(child: _scaffoldBody(dark)),
           if (_fly != null) _flyOverlay(),
+          if (_turnBanner) _turnBannerOverlay(),
+          if (_celebrate) Positioned.fill(child: RkCelebration(key: const ValueKey('celebration'), title: '승리!', subtitle: '타일을 모두 내려놓았어요', onDone: () => mounted ? setState(() => _celebrate = false) : null)),
         ],
       ),
     );

@@ -30,9 +30,9 @@ Future<void> startSudokuGame(
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const PopScope(
+    builder: (_) => PopScope(
       canPop: false,
-      child: Center(child: _GeneratingCard()),
+      child: Center(child: _GeneratingCard(slow: difficulty == Difficulty.expert || difficulty == Difficulty.extreme)),
     ),
   );
   // 로딩 화면이 먼저 그려질 시간을 준다.
@@ -72,7 +72,10 @@ Future<void> resumeSudokuGame(BuildContext context, SudokuGame game) {
 }
 
 class _GeneratingCard extends StatelessWidget {
-  const _GeneratingCard();
+  const _GeneratingCard({this.slow = false});
+
+  /// 만드는 데 몇 초 더 걸리는 난이도인가 (안내 글을 덧붙인다).
+  final bool slow;
 
   @override
   Widget build(BuildContext context) {
@@ -80,14 +83,18 @@ class _GeneratingCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       color: Theme.of(context).colorScheme.surface,
       elevation: 6,
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 36, vertical: 28),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 18),
-            Text('새 판을 만드는 중…', style: TextStyle(fontSize: 16)),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 18),
+            const Text('새 판을 만드는 중…', style: TextStyle(fontSize: 16)),
+            if (slow) ...[
+              const SizedBox(height: 6),
+              Text('어려운 판은 몇 초 걸려요', style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+            ],
           ],
         ),
       ),

@@ -58,7 +58,8 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
 
   // ── 예제 준비 ──
 
-  void _load(int n) {
+  /// [n]번째 예제를 불러온다. [direct]이면 개념 설명·정답 표시 없이 바로 직접 해 보기로 시작한다 (답을 모른 채로 풀어 보도록).
+  void _load(int n, {bool direct = false}) {
     final old = _loaded ? game : null;
     old?.removeListener(_onGame);
     _example = n % _examples.length;
@@ -67,7 +68,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
     final elims = ex.elimList;
     final solution = BacktrackSolver.solve(values)!;
     grid0 = CandidateGrid.fromValues(values, eliminated: elims);
-    step = StepFinder.next(grid0);
+    step = StepFinder.next(grid0, maxLevel: 9);
     game = SudokuGame(
       puzzle: SudokuPuzzle(givens: values, solution: solution, difficulty: Difficulty.hard),
       hintElims: elims,
@@ -81,7 +82,13 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
     _message = null;
     _tone = LessonTone.neutral;
     final s = step;
-    if (s != null) game.hint = ActiveHint.fromStep(s, grid0, visualOnly: true);
+    if (s != null && !direct) game.hint = ActiveHint.fromStep(s, grid0, visualOnly: true);
+    if (direct) {
+      game.notesMode = !info.fill && !info.placeOne;
+      game.selected = -1;
+      _phase = _Phase.practice;
+      _message = _progressText();
+    }
     // 이전 판은 화면이 새 판으로 바뀐 뒤에 정리한다.
     if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
     if (mounted) setState(() {});
@@ -100,10 +107,11 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
     return n;
   }
 
-  /// 후보 지우기 연습: 아직 지우지 못한 후보 개수.
+  /// 후보 지우기 연습: 아직 지우지 못한 후보 개수. (정답 한 칸을 넣는 연습은 아직 안 넣었으면 1)
   int get _remaining {
     final s = step;
     if (s == null) return 0;
+    if (info.placeOne) return s.isPlacement && game.values[s.placeCell] != s.placeDigit ? 1 : 0;
     var n = 0;
     s.eliminations.forEach((cell, mask) {
       if (game.values[cell] == 0) n += popCount(game.notes[cell] & mask);
@@ -112,6 +120,13 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
   }
 
   bool get _goalReached => info.fill ? _placed >= _fillGoal : _remaining == 0;
+
+  /// 연습 중 카드 아래에 보이는 진행 안내.
+  String _progressText() {
+    if (info.fill) return '맞게 넣은 칸: $_placed / $_fillGoal';
+    if (info.placeOne) return '정답 한 칸을 찾아 넣어 보세요.';
+    return '지워야 할 후보가 $_remaining개 남았어요.';
+  }
 
   void _onGame() {
     if (!mounted || _selfChange || _phase != _Phase.practice) return;
@@ -156,9 +171,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
       _finish();
       return;
     }
-    _message = info.fill
-        ? '맞게 넣은 칸: $_placed / $_fillGoal'
-        : '지워야 할 후보가 $_remaining개 남았어요.';
+    _message = _progressText();
     _tone = LessonTone.neutral;
     setState(() {});
   }
@@ -182,16 +195,14 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
 
   void _startPractice() {
     _selfChange = true;
-    game.notesMode = !info.fill;
+    game.notesMode = !info.fill && !info.placeOne;
     game.selected = -1;
     game.setVisual(null);
     _selfChange = false;
     setState(() {
       _phase = _Phase.practice;
       _hintLevel = 0;
-      _message = info.fill
-          ? '맞게 넣은 칸: 0 / $_fillGoal'
-          : '지워야 할 후보가 $_remaining개 남았어요.';
+      _message = _progressText();
       _tone = LessonTone.neutral;
     });
   }
@@ -325,7 +336,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
                 '${cur == null ? '' : describeStep(cur, grid0)}';
         actions = [
           if (_examples.length > 1)
-            OutlinedButton(onPressed: () => _load(_example + 1), child: const Text('다른 예제로 한 번 더')),
+            OutlinedButton(onPressed: () => _load(_example + 1, direct: true), child: const Text('다른 예제로 한 번 더')),
           FilledButton(
             onPressed: _goNext,
             child: Text(hasNext ? '다음 기술' : '목록으로'),
@@ -339,7 +350,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
       closeLabel: '목록',
       onClose: () => Navigator.of(context).pop(),
       showControls: practice,
-      spotlight: practice && !info.fill && !game.notesMode ? const {'notes'} : const {},
+      spotlight: practice && !info.fill && !info.placeOne && !game.notesMode ? const {'notes'} : const {},
       actions: actions,
       revealSignal: _message,
       panel: LessonCard(

@@ -107,6 +107,9 @@ class RummikubController extends ChangeNotifier {
   bool get thinking => _cpu.thinking;
   bool get isOver => state.over;
   int get turn => state.turn;
+  /// 판이 시작된 뒤 지금까지 지나간 차례 수 (첫 차례에는 "내 차례" 알림을 띄우지 않으려고).
+  int get moveCountForBanner => state.turnCount;
+
   bool get myTurn => !isOver && !halted && turn == humanSeat;
 
   /// 내가 지금 판을 만질 수 있는가.

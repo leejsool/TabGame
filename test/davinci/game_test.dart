@@ -245,12 +245,16 @@ void main() {
       expect(c.receiveMove(DvMove.guess(0, 1, 4), index: 0), isTrue);
       expect(c.state.isRevealed(w(4)), isTrue); // (판 자체는 바로 반영된다)
       expect(c.effect, isNotNull);
-      expect(c.effect!.stage, DvEffectStage.ask);
+      // 먼저 타일을 고르고(떠오른다) → 잠깐 뒤에 말풍선으로 숫자를 말하고 → 결과. (동시에 보이지 않는다)
+      expect(c.effect!.stage, DvEffectStage.pick);
       expect(c.liftedTile, w(4));
       expect(c.hiddenOverride, contains(w(4))); // 연출 동안은 아직 세워진 숨은 타일로 보인다
       expect(c.effectBusy, isTrue);
       expect(c.humanCanAct, isFalse);
       await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(c.effect!.stage, DvEffectStage.ask);
+      expect(c.liftedTile, w(4)); // 고른 타일은 말하는 동안에도 떠 있다
+      await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(c.effect?.stage, DvEffectStage.result);
       expect(c.effect!.correct, isTrue);
       expect(c.liftedTile, isNull);
@@ -258,7 +262,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 200));
       expect(c.effect, isNull);
       expect(c.effectBusy, isFalse);
-      expect(seen.first, startsWith('ask:true:true'));
+      expect(seen.first, startsWith('pick:true:true'));
+      expect(seen.any((x) => x.startsWith('ask:true:true')), isTrue);
       c.dispose();
     });
 
@@ -268,7 +273,7 @@ void main() {
       expect(c.effect!.guesserTile, w(7));
       expect(c.hiddenOverride, contains(w(7))); // 상대의 뽑은 타일은 아직 숨은 채
       expect(c.state.isRevealed(w(7)), isTrue);
-      await Future<void>.delayed(const Duration(milliseconds: 70));
+      await Future<void>.delayed(const Duration(milliseconds: 150));
       expect(c.effect!.stage, DvEffectStage.result);
       expect(c.effect!.correct, isFalse);
       expect(c.liftedTile, isNull); // 떠 있던 타일이 내려왔다
@@ -439,6 +444,35 @@ void main() {
       final shown = tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('tile-1-1')), matching: find.byType(Opacity)).first);
       expect(shown.opacity, 1);
       await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('상대가 조커를 뽑아 놓아도 "조커"라는 말은 나오지 않는다 (타일 놓기로만 보인다)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = fixed([
+        [b(1), b(6)],
+        [b(2), w(7)],
+      ], black: [24], mode: PlayMode.wifi, animate: true)
+        ..cpuStepDelay = const Duration(milliseconds: 200);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.draw;
+      await tester.pumpWidget(await app(DavinciScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(c.receiveMove(DvMove.drawMove(0), index: 0), isTrue); // 상대가 조커를 뽑는다
+      expect(c.receiveMove(DvMove.placeJoker(1), index: 1), isTrue);
+      final seenTexts = <String>{};
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 60));
+        for (final t in tester.widgetList<Text>(find.byType(Text))) {
+          final d = t.data ?? '';
+          if (d.contains('조커') || d.contains('타일 놓기') || d.contains('뽑기')) seenTexts.add(d);
+        }
+      }
+      expect(seenTexts.any((x) => x.contains('조커')), isFalse, reason: '상대의 조커가 드러났어요: $seenTexts');
+      expect(seenTexts, contains('타일 놓기'));
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
 

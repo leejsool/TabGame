@@ -111,7 +111,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
     if (inRow) _hiddenTile = tile;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final to = (inRow ? _globalCenter(_tileKeys[tile]) : null) ?? _globalCenter(_rowKeys[seat]);
+      // 남이 뽑은 조커는 아직 줄에 없지만, 조커라는 걸 들키지 않도록 줄의 아무 타일 쪽으로 날아가게 한다 (일반 타일처럼 보이게)
+      final row = c.state.rows[seat];
+      final fake = !inRow && seat != c.humanSeat && row.isNotEmpty ? _globalCenter(_tileKeys[row[tile % row.length]]) : null;
+      final to = (inRow ? _globalCenter(_tileKeys[tile]) : null) ?? fake ?? _globalCenter(_rowKeys[seat]);
       final stack = _stackKey.currentContext?.findRenderObject();
       void arrive() {
         if (mounted && _hiddenTile == tile) setState(() => _hiddenTile = null);
@@ -409,7 +412,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
     if (_opponentGone) return '상대와 연결이 끊겼어요';
     if (!c.humanCanAct) {
       final e = c.effect;
-      if (e != null && e.actor != c.humanSeat) return '${_name(e.actor)}이(가) ${e.kind == 2 ? '추측하는 중…' : '두는 중…'}';
+      if (e != null && e.actor != c.humanSeat) {
+        if (e.kind == 2) return '${_name(e.actor)}이(가) ${e.stage == DvEffectStage.pick ? '타일을 고르는 중…' : '추측하는 중…'}';
+        return '${_name(e.actor)}이(가) 두는 중…';
+      }
       return c.thinking && c.turn != c.humanSeat ? '${_name(s.turn)}이(가) 생각하는 중…' : '${_name(s.turn)} 차례';
     }
     return switch (s.phase) {
@@ -526,24 +532,34 @@ class _DavinciScreenState extends State<DavinciScreen> {
     );
   }
 
+  /// 위쪽 안내 띠. 글이 한 줄이든 두 줄이든 높이가 늘 같다 (높이가 바뀌면 아래 화면 전체가 출렁여서 어지럽다).
   Widget _statusBanner() {
     final color = c.isOver || c.halted ? Colors.grey : (c.turn == c.humanSeat ? kDavinciColor : const Color(0xFF6B7A85));
     final event = _lastEvent;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(_status, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(_status, textAlign: TextAlign.center, maxLines: 1, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+          ),
           if (event != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(event, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(event, textAlign: TextAlign.center, maxLines: 1, style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+              ),
             ),
         ],
       ),
@@ -608,7 +624,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
               lifted: isEffectTile && liftedTile == t,
               selected: c.selSeat == seat && c.selIndex == i,
               mark: isEffectTile && e.stage == DvEffectStage.result ? e.correct : null,
-              fresh: me && s.drawn == t && !revealed && !s.isOver,
+              fresh: c.drawnBy[seat] == t && !revealed && !s.isOver, // 가장 최근에 가져온 타일 (내 것도, 상대 것도)
               onTap: canPick && !revealed
                   ? () => c.selectTarget(seat, i)
                   : (revealing && !revealed ? () => c.revealOwn(i) : null),
@@ -623,12 +639,14 @@ class _DavinciScreenState extends State<DavinciScreen> {
           decoration: BoxDecoration(
             color: (active ? kDavinciColor : Colors.white).withValues(alpha: active ? 0.1 : 0.45),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: active ? kDavinciColor : scheme.outlineVariant, width: active ? 2.2 : 1),
+            border: Border.all(color: active ? kDavinciColor : scheme.outlineVariant, width: 2.2), // (두께가 바뀌면 줄 높이가 움찔한다)
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              SizedBox(
+                height: 32, // 말풍선이 떠도 줄 높이가 변하지 않게 늘 같은 높이
+                child: Row(
                 children: [
                   Icon(me ? Icons.person_rounded : (c.online ? Icons.wifi_rounded : Icons.smart_toy_rounded), size: 18, color: kDavinciColor),
                   const SizedBox(width: 5),
@@ -639,13 +657,15 @@ class _DavinciScreenState extends State<DavinciScreen> {
                   else if (active)
                     const Text('차례', style: TextStyle(fontWeight: FontWeight.w800, color: kDavinciColor)),
                   // 이 사람이 지금 하는 일: 말풍선 ("7?" → 맞으면 ○, 틀리면 ✕)
-                  if (e != null && e.actor == seat) ...[
+                  // (타일을 고르는 동안에는 아직 말하지 않는다: 고른 다음에 숫자를 말한다)
+                  if (e != null && e.actor == seat && !(e.kind == 2 && e.stage == DvEffectStage.pick)) ...[
                     const SizedBox(width: 8),
                     DvBubble(key: ValueKey('bubble$seat'), text: _bubbleText(e), result: e.kind == 2 && e.stage == DvEffectStage.result ? e.correct : null),
                   ],
                   const Spacer(),
                   if (me) Text('숨은 타일 ${s.hiddenCount(seat)}장', style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.65))),
                 ],
+                ),
               ),
               const SizedBox(height: 4),
               Opacity(
@@ -669,7 +689,8 @@ class _DavinciScreenState extends State<DavinciScreen> {
   /// 말풍선에 쓸 글: 맞히기는 "7?", 그 밖의 수는 짧은 말.
   String _bubbleText(DvEffect e) => switch (e.kind) {
         0 => '${e.number == 0 ? '검정' : '흰색'} 뽑기',
-        1 => '조커 놓기',
+        // 남이 놓는 타일이 조커인지는 알 수 없어야 한다 (그래서 "조커"라고 말하지 않는다)
+        1 => e.actor == c.humanSeat ? '조커 놓기' : '타일 놓기',
         2 => e.number == kJokerGuess ? '‑ ?' : '${e.number} ?',
         3 => '멈춤',
         _ => '타일 공개',
@@ -722,7 +743,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
       decoration: BoxDecoration(
         color: (canDraw ? kDavinciColor : Colors.white).withValues(alpha: canDraw ? 0.12 : 0.4),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: canDraw ? kDavinciColor : scheme.outlineVariant, width: canDraw ? 2 : 1),
+        border: Border.all(color: canDraw ? kDavinciColor : scheme.outlineVariant.withValues(alpha: 0.6), width: 2), // (두께가 바뀌면 화면이 움찔한다)
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

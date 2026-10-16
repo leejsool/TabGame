@@ -81,10 +81,13 @@ void main() {
               expect(g.cand[i] & bit(solution[i]), isNot(0), reason: '칸 $i의 정답 후보');
             }
           }
-          final step = StepFinder.next(g);
+          final step = StepFinder.next(g, maxLevel: 9);
           expect(step, isNotNull);
           expect(step!.technique, info.technique);
-          if (!info.fill) {
+          if (info.placeOne) {
+            expect(step.isPlacement, isTrue);
+            expect(solution[step.placeCell], step.placeDigit);
+          } else if (!info.fill) {
             // 후보 지우기 단계: 지우는 후보는 정답이 아니어야 하고, 실제로 지울 게 있어야 한다
             expect(step.eliminations, isNotEmpty);
             step.eliminations.forEach((cell, mask) {
@@ -259,7 +262,7 @@ void techniqueLessonTests() {
       await tester.tap(find.text('직접 해 보기'));
       await tester.pump();
       expect(game.hint, isNull);
-      expect(game.notesMode, !info.fill);
+      expect(game.notesMode, !info.fill && !info.placeOne);
 
       if (info.fill) {
         // 싱글: 힌트 사다리로 칸을 알아내 3개를 채운다
@@ -270,10 +273,17 @@ void techniqueLessonTests() {
           game.padDigit(s.placeDigit);
           await tester.pump();
         }
+      } else if (info.placeOne) {
+        // 정답 한 칸 찾기 (BUG+1)
+        final g = CandidateGrid.fromValues(game.values, eliminated: game.hintElims);
+        final s = StepFinder.next(g, maxLevel: 9)!;
+        game.select(s.placeCell);
+        game.padDigit(s.placeDigit);
+        await tester.pump();
       } else {
         // 후보 지우기: 정답이 아닌 후보를 지운다
         final g = CandidateGrid.fromValues(game.values, eliminated: game.hintElims);
-        final s = StepFinder.next(g)!;
+        final s = StepFinder.next(g, maxLevel: 9)!;
         s.eliminations.forEach((cell, mask) {
           game.select(cell);
           for (final d in digitsOf(mask)) {
@@ -338,12 +348,16 @@ void techniqueLessonTests() {
     await tester.pump();
     final after = tester.widget<SudokuBoard>(find.byType(SudokuBoard)).game;
     expect(after.puzzle.givensString, isNot(before));
-    expect(find.text('직접 해 보기'), findsOneWidget);
+    // 다른 예제는 정답(패턴·지울 후보) 표시 없이 바로 직접 해 보기로 시작한다
+    expect(after.hint, isNull);
+    expect(find.text('직접 해 보기'), findsOneWidget); // (설명 단계의 단추가 아니라 연습 카드의 제목)
+    expect(find.widgetWithText(FilledButton, '직접 해 보기'), findsNothing);
+    expect(find.textContaining('지워야 할 후보가'), findsWidgets);
     await tester.pumpAndSettle();
   });
 
   testWidgets('연습 목록에 모든 기술이 보이고, 마친 기술에는 체크가 붙는다', (tester) async {
-    tester.view.physicalSize = const Size(900, 3200);
+    tester.view.physicalSize = const Size(900, 9000);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
     await TutorialProgress.markLessonDone('sudoku_xWing');

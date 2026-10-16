@@ -16,6 +16,7 @@ import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/rummikub/core/rummikub_ai.dart';
 import 'package:tabgame/games/rummikub/game/rummikub_controller.dart';
 import 'package:tabgame/games/rummikub/tutorial/rummikub_tutorial.dart';
+import 'package:tabgame/games/rummikub/ui/rummikub_celebration.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_screen.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_setup_screen.dart';
 import 'package:tabgame/hub/hub_screen.dart';
@@ -89,6 +90,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 900));
     await tester.pump(const Duration(milliseconds: 900));
     await _shot(tester, key, '$dir/game_phone_tidy.png');
+    // 승리 축하 (연출 중간 모습)
+    await pumpHome(Stack(children: [RummikubScreen(controller: midgame(3)), const Positioned.fill(child: RkCelebration(subtitle: '타일을 모두 내려놓았어요'))]));
+    await tester.pump(const Duration(milliseconds: 1500));
+    await _shot(tester, key, '$dir/celebration.png');
+    await tester.pumpWidget(const SizedBox());
     // 손이 많을 때: 두 줄(딱 붙임) → 더 많으면 두 줄 안에서 겹침
     for (final n in [14, 26]) {
       final many = midgame(3);

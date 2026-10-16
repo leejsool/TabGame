@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tabgame/games/sudoku/tutorial/technique_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/app.dart';
 import 'package:tabgame/core/game_registry.dart';
@@ -179,7 +180,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('심화 기술 연습'));
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget, reason: '기본 규칙을 마쳤어요');
-      expect(find.textContaining('2 / 12 완료'), findsOneWidget);
+      expect(find.textContaining('2 / ${kTechniqueInfos.length} 완료'), findsOneWidget);
     });
 
     testWidgets('설정 화면의 스위치와 다시 받기 버튼', (tester) async {

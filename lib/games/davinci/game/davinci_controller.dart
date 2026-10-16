@@ -106,7 +106,7 @@ class DavinciController extends ChangeNotifier {
     final e = effect;
     if (e == null || e.kind != 2) return const {};
     return {
-      if (e.correct == true && e.stage == DvEffectStage.ask) e.tile!,
+      if (e.correct == true && e.stage != DvEffectStage.result) e.tile!,
       if (e.correct == false && e.guesserTile != null) e.guesserTile!,
     };
   }
@@ -114,7 +114,7 @@ class DavinciController extends ChangeNotifier {
   /// 연출 중 맞히려고 떠올라 있는 타일.
   int? get liftedTile {
     final e = effect;
-    return e != null && e.kind == 2 && e.stage == DvEffectStage.ask ? e.tile : null;
+    return e != null && e.kind == 2 && e.stage != DvEffectStage.result ? e.tile : null;
   }
 
   Duration _ms(double factor) => cpuStepDelay * factor;
@@ -134,9 +134,16 @@ class DavinciController extends ChangeNotifier {
       effect = e;
       if (!e.ask) e.stage = DvEffectStage.result;
       if (e.ask) {
+        // 맞히기는 두 단계로 보여 준다: 먼저 타일을 고르고(떠오른다), 잠깐 뒤에 말풍선으로 숫자를 말한다. (동시에 보이면 따라가기 어렵다)
+        if (e.kind == 2) {
+          e.stage = DvEffectStage.pick;
+          notifyListeners();
+          await Future<void>.delayed(_ms(1.2));
+          if (_disposed || epoch != _fxEpoch) break;
+        }
         e.stage = DvEffectStage.ask;
         notifyListeners();
-        await Future<void>.delayed(_ms(e.kind == 2 ? 1.7 : (e.kind == 0 ? 1.2 : 0.9)));
+        await Future<void>.delayed(_ms(e.kind == 2 ? 1.5 : (e.kind == 0 ? 1.2 : 0.9)));
         if (_disposed || epoch != _fxEpoch) break;
       }
       if (e.kind == 2) {
@@ -171,7 +178,11 @@ class DavinciController extends ChangeNotifier {
     return (_idle ??= Completer<void>()).future;
   }
 
+  /// 사람(자리)마다 가장 최근에 가져온 타일. 그 타일에 별표를 달아 누가 무엇을 가져갔는지 알 수 있게 한다.
+  final Map<int, int> drawnBy = {};
+
   void _deal() {
+    drawnBy.clear();
     state = DvState.deal(players, seed);
     moves.clear();
     selSeat = -1;
@@ -260,6 +271,10 @@ class DavinciController extends ChangeNotifier {
     final tile = move[0] == 2 ? state.rows[move[1]][move[2]] : null;
     moves.add(move);
     state.apply(move);
+    if (move[0] == 0 || move[0] == 1) {
+      final t = state.drawn;
+      if (t != null) drawnBy[actor] = t;
+    }
     selSeat = -1;
     selIndex = -1;
     moveSerial++;
@@ -389,8 +404,8 @@ class DavinciController extends ChangeNotifier {
   }
 }
 
-/// 연출의 단계: 추측하는 중(말풍선 "7?", 고른 타일이 떠오른다) → 결과(○ / ✕).
-enum DvEffectStage { ask, result }
+/// 연출의 단계: 타일을 고르는 중(고른 타일이 떠오른다) → 추측하는 중(말풍선 "7?") → 결과(○ / ✕).
+enum DvEffectStage { pick, ask, result }
 
 /// 상대가 둔 수 하나를 화면에 보여 주기 위한 정보.
 class DvEffect {

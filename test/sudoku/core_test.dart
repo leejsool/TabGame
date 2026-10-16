@@ -8,12 +8,13 @@ import 'package:tabgame/games/sudoku/core/techniques.dart';
 
 /// 퍼즐을 단계별로 풀면서, 모든 단계가 정답과 모순되지 않는지(논리가 옳은지) 확인한다.
 /// 사용된 기술별 횟수를 돌려준다.
-Map<Technique, int> verifySteps(List<int> puzzle, List<int> solution, int maxLevel) {
+Map<Technique, int> verifySteps(List<int> puzzle, List<int> solution, int maxLevel, {bool allowStuck = false}) {
   final g = CandidateGrid.fromValues(puzzle);
   final used = <Technique, int>{};
   while (!g.isSolved) {
     expect(g.hasContradiction, isFalse);
     final s = StepFinder.next(g, maxLevel: maxLevel);
+    if (allowStuck && s == null) return used; // 극한: 배운 기술로는 막히는 판 (그때까지의 풀이가 옳은지만 본다)
     expect(s, isNotNull, reason: '논리로 풀리다 막힘: ${puzzle.join()}');
     used[s!.technique] = (used[s.technique] ?? 0) + 1;
     expect(s.eliminations.isNotEmpty || s.isPlacement, isTrue);
@@ -81,7 +82,7 @@ void main() {
         for (var c = 0; c < 81; c++) {
           if (p.givens[c] != 0) expect(p.givens[c], p.solution[c]);
         }
-        verifySteps(p.givens, p.solution, 4).forEach((t, c) {
+        verifySteps(p.givens, p.solution, 4, allowStuck: d == Difficulty.extreme).forEach((t, c) {
           techCounts[t] = (techCounts[t] ?? 0) + c;
         });
         final grade = HumanSolver.grade(p.givens, maxLevel: 4);
@@ -90,6 +91,8 @@ void main() {
               (grade.counts[Technique.hiddenSingle] ?? 0) >= 4,
           Difficulty.medium => grade.maxLevel == 2,
           Difficulty.hard => grade.maxLevel >= 3,
+          Difficulty.extreme => !grade.solved,
+          Difficulty.expert => grade.maxLevel == 4 && grade.counts.entries.where((e) => e.key.level == 4).fold<int>(0, (a, e) => a + e.value) >= 3,
         };
         if (ok) matched++;
       }

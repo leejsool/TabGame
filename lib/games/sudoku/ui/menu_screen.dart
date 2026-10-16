@@ -282,6 +282,8 @@ class _DifficultyCard extends StatelessWidget {
     Difficulty.easy: Color(0xFF3FA796),
     Difficulty.medium: Color(0xFF3F7CAC),
     Difficulty.hard: Color(0xFF8E5BC4),
+    Difficulty.expert: Color(0xFFC2417F),
+    Difficulty.extreme: Color(0xFFB3261E),
   };
 
   @override

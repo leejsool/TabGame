@@ -1,4 +1,5 @@
 import 'grid.dart';
+import 'techniques_master.dart';
 
 /// 사람이 스도쿠를 풀 때 쓰는 논리 기술. [level]이 높을수록 어렵다.
 enum Technique {
@@ -15,6 +16,17 @@ enum Technique {
   xyWing(4, 'XY-윙'),
   xyzWing(4, 'XYZ-윙'),
   swordfish(4, '스워드피시'),
+
+  // Lv.5 한 숫자 패턴 · 유일해 기법, Lv.6 체인·ALS, Lv.7 가정법 (심화 기술 연습에서 배운다)
+  skyscraper(5, '스카이스크래퍼'),
+  twoStringKite(5, '투스트링 카이트'),
+  emptyRectangle(5, '빈 직사각형'),
+  uniqueRectangle(5, '유니크 직사각형'),
+  bugPlusOne(5, 'BUG+1'),
+  xyChain(6, 'XY-체인'),
+  xChain(6, 'X-체인'),
+  alsXz(6, 'ALS-XZ'),
+  forcingChain(7, '가정법 (포싱 체인)'),
 
   /// 논리 기술로 풀리는 다음 단계를 찾지 못했을 때(힌트 전용).
   reveal(9, '정답 확인');
@@ -37,6 +49,7 @@ class SolveStep {
     this.placeCell = -1,
     this.placeDigit = 0,
     this.eliminations = const {},
+    this.note = '',
   });
 
   final Technique technique;
@@ -61,6 +74,9 @@ class SolveStep {
 
   /// 칸 → 지울 후보 마스크.
   final Map<int, int> eliminations;
+
+  /// 기술마다 따로 쓰는 덧붙임 (유니크 직사각형의 타입, ALS의 숫자들, 가정법의 모순 설명 …).
+  final String note;
 
   bool get isPlacement => placeCell >= 0;
 }
@@ -132,6 +148,15 @@ class StepFinder {
     (4, _xyWing),
     (4, _xyzWing),
     (4, (g) => _fish(g, 3)),
+    (5, MasterFinders.skyscraper),
+    (5, MasterFinders.twoStringKite),
+    (5, MasterFinders.emptyRectangle),
+    (5, MasterFinders.uniqueRectangle),
+    (5, MasterFinders.bugPlusOne),
+    (6, MasterFinders.xyChain),
+    (6, MasterFinders.xChain),
+    (6, MasterFinders.alsXz),
+    (7, MasterFinders.forcingChain),
   ];
 
   /// [maxLevel] 이하의 기술만 사용해서 다음 단계를 찾는다. 없으면 null.

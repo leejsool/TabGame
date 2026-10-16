@@ -167,7 +167,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final key = GlobalKey();
-    for (final name in ['hiddenSingle', 'pointing', 'xWing', 'xyWing']) {
+    for (final name in ['hiddenSingle', 'pointing', 'xWing', 'xyWing', 'skyscraper', 'xyChain', 'alsXz', 'bugPlusOne']) {
       final i = kTechniqueInfos.indexWhere((t) => t.technique.name == name);
       await _pumpApp(tester, key, SudokuTechniqueLessonScreen(index: i));
       await _settle(tester);
