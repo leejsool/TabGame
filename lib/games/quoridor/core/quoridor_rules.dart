@@ -41,7 +41,7 @@ int wallsPerPlayer(int players) => players == 2 ? 10 : 5;
 
 /// 쿼리도 한 판의 상태.
 class QState {
-  QState._(this.players, this.pawn, this.wallsLeft, this.h, this.v);
+  QState._(this.players, this.pawn, this.wallsLeft, this.h, this.v, this.hOwner, this.vOwner);
 
   /// 처음 모습. [players]는 2 또는 4.
   factory QState.start(int players) {
@@ -52,6 +52,8 @@ class QState {
       List.filled(players, wallsPerPlayer(players)),
       List.filled(kAnchors * kAnchors, false),
       List.filled(kAnchors * kAnchors, false),
+      List.filled(kAnchors * kAnchors, -1),
+      List.filled(kAnchors * kAnchors, -1),
     );
   }
 
@@ -65,7 +67,7 @@ class QState {
   }
 
   QState clone() {
-    final s = QState._(players, [...pawn], [...wallsLeft], [...h], [...v]);
+    final s = QState._(players, [...pawn], [...wallsLeft], [...h], [...v], [...hOwner], [...vOwner]);
     s.turn = turn;
     s.winner = winner;
     s.moveCount = moveCount;
@@ -82,6 +84,9 @@ class QState {
 
   /// 세워진 가로 벽 / 세로 벽 (앵커 번호 `행 * 8 + 열`).
   final List<bool> h, v;
+
+  /// 세워진 가로 벽 / 세로 벽을 세운 사람의 자리 (벽이 없는 곳은 -1). 벽이 누구 것인지 색으로 보여 주는 데 쓴다.
+  final List<int> hOwner, vOwner;
 
   int turn = 0;
 
@@ -253,6 +258,7 @@ class QState {
     if (isWallMove(move)) {
       final i = wallRow(move) * kAnchors + wallCol(move);
       (wallOrient(move) == 0 ? h : v)[i] = true;
+      (wallOrient(move) == 0 ? hOwner : vOwner)[i] = turn;
       wallsLeft[turn]--;
     } else {
       pawn[turn] = move;

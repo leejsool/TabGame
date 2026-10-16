@@ -329,7 +329,7 @@ class _ProphBoardState extends State<ProphBoard> with SingleTickerProviderStateM
               size: size,
               painter: ProphBoardPainter(
                 state: c.state,
-                selected: c.humanCanAct ? c.selected : -1,
+                selected: c.humanCanAct ? c.selected : c.cpuCell,
                 lastCell: c.lastCell,
                 reveal: Curves.easeInOut.transform(_reveal.value),
               ),

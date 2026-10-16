@@ -48,8 +48,17 @@ class ProphecyController extends ChangeNotifier {
   late ProphState state;
   final CpuTurnRunner _cpu = CpuTurnRunner();
 
-  /// CPU가 수를 고르는 중인가.
-  bool get thinking => _cpu.thinking;
+  /// CPU가 수를 두는 중인가 (생각하고, 칸을 고르고, 숫자를 고르는 동안 모두).
+  bool get thinking => _cpu.thinking || cpuCell >= 0;
+
+  /// CPU가 고른 칸과 (칸을 고른 다음 잠깐 있다가) 쓰려는 값. 아직 안 골랐으면 -1 / null.
+  /// 사람이 따라볼 수 있게 "칸 고르기 → 숫자 고르기 → 쓰기"를 차례로 보여 주는 데 쓴다.
+  int cpuCell = -1;
+  int? cpuValue;
+
+  /// CPU가 칸을 고른 뒤, 그리고 숫자를 고른 뒤 각각 기다리는 시간. 시험에서는 줄인다.
+  Duration cpuStageDelay = const Duration(milliseconds: 1000);
+  int _cpuEpoch = 0;
 
   /// 사람이 고른 칸 (없으면 -1).
   int selected = -1;
@@ -90,11 +99,18 @@ class ProphecyController extends ChangeNotifier {
     selected = -1;
     lastCell = -1;
     lastAuto = const [];
-    _cpu.cancel();
+    _cancelCpu();
     moveSerial++;
     _rebuild();
     notifyListeners();
     _maybeCpu();
+  }
+
+  void _cancelCpu() {
+    _cpu.cancel();
+    _cpuEpoch++;
+    cpuCell = -1;
+    cpuValue = null;
   }
 
   // ── 두기 ──
@@ -152,12 +168,25 @@ class ProphecyController extends ChangeNotifier {
 
   Future<void> _cpuTurn() async {
     final args = [rows, cols, level.index, _rng.nextInt(1 << 30), ...moves];
+    final epoch = _cpuEpoch;
     final move = await _cpu.run(
       task: () => compute(_cpuTask, args),
-      minTime: const Duration(milliseconds: 700),
+      minTime: cpuStageDelay * 0.9,
       onStart: notifyListeners,
     );
-    if (move == null) return;
+    if (move == null || epoch != _cpuEpoch) return;
+    // 칸을 고르고 → 잠깐 기다렸다가 → 숫자를 고르고 → 잠깐 기다렸다가 → 쓴다
+    cpuCell = moveCell(move);
+    cpuValue = null;
+    notifyListeners();
+    await Future<void>.delayed(cpuStageDelay);
+    if (_cpu.disposed || epoch != _cpuEpoch) return;
+    cpuValue = moveValue(move);
+    notifyListeners();
+    await Future<void>.delayed(cpuStageDelay);
+    if (_cpu.disposed || epoch != _cpuEpoch) return;
+    cpuCell = -1;
+    cpuValue = null;
     selected = -1;
     _apply(move);
   }
@@ -173,7 +202,7 @@ class ProphecyController extends ChangeNotifier {
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다. 기권했으면 true.
   bool resign() {
     if (!canResign) return false;
-    _cpu.cancel();
+    _cancelCpu();
     selected = -1;
     halted = true;
     notifyListeners();
@@ -208,7 +237,7 @@ class ProphecyController extends ChangeNotifier {
     final k = _undoTarget;
     if (k == null || isOver) return;
     moves.length = k;
-    _cpu.cancel();
+    _cancelCpu();
     _rebuild();
     selected = -1;
     lastCell = moves.isEmpty ? -1 : moveCell(moves.last);

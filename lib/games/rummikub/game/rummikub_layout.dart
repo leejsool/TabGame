@@ -6,14 +6,14 @@ import 'dart:ui' show Offset, Rect;
 /// 자리는 "타일 한 칸" 단위다: x는 타일 한 장의 가로 칸, y는 묶음 한 줄의 세로 칸. 화면 크기가 바뀌어도 이 단위는 그대로여서,
 /// 기기를 돌리거나 상대가 둔 뒤에도 내가 놓은 자리가 유지된다. 묶음은 타일이 [perRow]장을 넘으면 다음 줄로 이어진다.
 
-/// 묶음 하나가 차지하는 칸 (가로 = 타일 수 + 손잡이·여백, 세로 = 줄 수).
+/// 묶음 하나가 차지하는 칸 (가로 = 타일 수 + 좌우 여백, 세로 = 줄 수).
 Rect setRect(Offset anchor, int length, int perRow) {
   final cols = min(length, perRow);
   final rows = (length / perRow).ceil();
   return Rect.fromLTWH(anchor.dx, anchor.dy, cols + kSetPad, rows - 0.12);
 }
 
-/// 묶음 가로에 더해지는 손잡이·여백 (칸).
+/// 묶음 가로에 더해지는 좌우 여백 (칸).
 const double kSetPad = 0.8;
 
 /// 두 상자 사이의 틈 (겹치면 0). 칸 단위.

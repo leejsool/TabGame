@@ -154,7 +154,7 @@ void main() {
       expect(c.turn, 1);
       expect(c.humanCanAct, isTrue);
       expect(c.tapCell(c.targets.first), isTrue);
-      await Future<void>.delayed(const Duration(milliseconds: 3000)); // CPU 2, 3, 0번이 차례로
+      await Future<void>.delayed(const Duration(milliseconds: 3800)); // CPU 2, 3, 0번이 차례로
       expect(c.turn, 1);
       expect(c.moveCount, 5);
       c.undo();
@@ -312,6 +312,49 @@ void main() {
       expect(c.wallMode, isFalse);
       expect(find.byIcon(Icons.check_rounded), findsNothing);
       expect(find.textContaining('플레이어 1 차례'), findsWidgets);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('벽이 세워질 때 날아와서 내려앉고 (상대의 벽은 더미에서, 내 벽은 놓아 둔 자리에서), 되돌리기에서는 움직이지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final flying = find.descendant(of: find.byType(QBoardView), matching: find.byType(WoodStick));
+      // 상대(먼저 두는 0번)가 벽을 세운다 → 더미에서 날아온다
+      final c = QuoridorController(mode: PlayMode.wifi, humanSeat: 1);
+      await tester.pumpWidget(await app(QuoridorScreen(mode: PlayMode.wifi, controller: c)));
+      await settle(tester, rounds: 2);
+      expect(flying, findsNothing);
+      expect(c.receiveMove(wallMove(0, 3, 3), index: 0), isTrue);
+      expect(c.lastMover, 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(flying, findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(flying, findsNothing);
+      expect(c.state.hWallAt(3, 3), isTrue);
+      await tester.pumpWidget(const SizedBox());
+
+      // 한 기기: 놓아 둔 막대를 확정하면 그 자리에서 내려앉는다
+      final d = QuoridorController(mode: PlayMode.local2p);
+      await tester.pumpWidget(await app(QuoridorScreen(controller: d)));
+      await settle(tester, rounds: 2);
+      d.placeWall(4, 4);
+      await tester.pump();
+      expect(flying, findsNothing);
+      expect(d.confirmWall(), isTrue);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(flying, findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(flying, findsNothing);
+      // 되돌리면 날아가지 않는다
+      d.undo();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(flying, findsNothing);
+      expect(d.state.hWallAt(4, 4), isFalse);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

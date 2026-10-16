@@ -79,6 +79,106 @@ class _DavinciScreenState extends State<DavinciScreen> {
   bool _opponentGone = false;
   bool _leaving = false;
 
+  // ── 타일을 뽑아 오는 연출 (더미 → 뽑은 사람의 줄) ──
+
+  final GlobalKey _stackKey = GlobalKey();
+  final Map<int, GlobalKey> _pileKeys = {};
+  final Map<int, GlobalKey> _tileKeys = {};
+  final Map<int, GlobalKey> _rowKeys = {};
+  GlobalKey _pileKey(int color) => _pileKeys.putIfAbsent(color, GlobalKey.new);
+  GlobalKey _tileKey(int id) => _tileKeys.putIfAbsent(id, GlobalKey.new);
+  GlobalKey _rowKey(int seat) => _rowKeys.putIfAbsent(seat, GlobalKey.new);
+
+  _Fly? _fly;
+  int _flySerial = 0;
+
+  /// 날아오는 중이라 줄에서는 아직 안 보여야 하는 타일.
+  int? _hiddenTile;
+
+  /// 이미 날려 보낸 상대의 뽑기 연출 (같은 연출에 두 번 시작하지 않으려고).
+  DvEffect? _flownEffect;
+
+  Offset? _globalCenter(GlobalKey? key) {
+    final rb = key?.currentContext?.findRenderObject();
+    if (rb is! RenderBox || !rb.attached || !rb.hasSize) return null;
+    return rb.localToGlobal(rb.size.center(Offset.zero));
+  }
+
+  /// [tile]이 더미에서 [seat]의 줄로 날아간다. 줄에 이미 들어 있는 타일은 도착할 때까지 숨겨 둔다.
+  void _flyDraw({required int? tile, required int seat, required Offset? from, required Duration duration}) {
+    if (tile == null || from == null) return;
+    final inRow = c.state.rows[seat].contains(tile);
+    if (inRow) _hiddenTile = tile;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final to = (inRow ? _globalCenter(_tileKeys[tile]) : null) ?? _globalCenter(_rowKeys[seat]);
+      final stack = _stackKey.currentContext?.findRenderObject();
+      void arrive() {
+        if (mounted && _hiddenTile == tile) setState(() => _hiddenTile = null);
+      }
+
+      if (to == null || stack is! RenderBox) {
+        arrive();
+        return;
+      }
+      setState(() {
+        _fly = _Fly(
+          from: stack.globalToLocal(from),
+          to: stack.globalToLocal(to),
+          tile: tile,
+          faceUp: seat == c.humanSeat,
+          width: seat == c.humanSeat ? 44 : 38,
+          duration: duration,
+          serial: ++_flySerial,
+          onEnd: arrive,
+        );
+      });
+    });
+  }
+
+  /// 상대(CPU·다른 기기)가 뽑으면 그 더미에서 상대 줄로 타일이 날아간다.
+  void _maybeFlyOpponentDraw() {
+    final e = c.effect;
+    if (e == null || e.kind != 0 || identical(e, _flownEffect)) return;
+    _flownEffect = e;
+    _flyDraw(tile: e.tile, seat: e.actor, from: _globalCenter(_pileKeys[e.number ?? 0]), duration: c.cpuStepDelay * 0.9);
+  }
+
+  Widget _flyOverlay() {
+    final f = _fly!;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('fly${f.serial}'),
+      tween: Tween(begin: 0, end: 1),
+      duration: f.duration,
+      curve: Curves.easeInOutCubic,
+      onEnd: () {
+        if (!mounted) return;
+        setState(() {
+          if (_fly?.serial == f.serial) _fly = null;
+        });
+        f.onEnd();
+      },
+      builder: (context, t, _) {
+        final pos = Offset.lerp(f.from, f.to, t)! - Offset(0, sin(pi * t) * 30);
+        final w = f.width * (1 + 0.3 * sin(pi * t));
+        return Positioned(
+          key: const ValueKey('fly'),
+          left: pos.dx - w / 2,
+          top: pos.dy - w * 1.4 / 2,
+          child: IgnorePointer(child: DvTile(id: f.tile, width: w, faceUp: f.faceUp)),
+        );
+      },
+    );
+  }
+
+  /// 내가 더미에서 뽑는다 (뽑은 타일이 더미에서 내 줄로 날아온다).
+  void _drawFromPile(int color) {
+    final from = _globalCenter(_pileKeys[color]);
+    if (!c.draw(color) || !c.animate) return;
+    _flyDraw(tile: c.state.pendingJoker ?? c.state.drawn, seat: c.humanSeat, from: from, duration: const Duration(milliseconds: 700));
+    if (_hiddenTile != null) setState(() {});
+  }
+
   /// "한 판 더"를 누른 자리들 (나 포함). 모두 누르면 새 판이 시작된다.
   final Set<int> _againSeats = {};
   bool get _rematchAsked => _againSeats.contains(c.humanSeat);
@@ -244,6 +344,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
   }
 
   void _onChanged() {
+    _maybeFlyOpponentDraw();
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       _record(winner: c.state.winner!);
@@ -351,7 +452,18 @@ class _DavinciScreenState extends State<DavinciScreen> {
   Widget _scaffold() {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: DecoratedBox(
+      body: Stack(
+        key: _stackKey,
+        children: [
+          Positioned.fill(child: _scaffoldBody(dark)),
+          if (_fly != null) _flyOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _scaffoldBody(bool dark) {
+    return DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -379,6 +491,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
                             const SizedBox(height: 8),
                             for (var seat = 0; seat < c.players; seat++)
                               if (seat != c.humanSeat) ...[_playerRow(seat), const SizedBox(height: 8)],
+                            if (!c.isOver && !c.halted) ...[_pilesStrip(), const SizedBox(height: 8)],
                             _actionPanel(),
                             const SizedBox(height: 8),
                             _playerRow(c.humanSeat),
@@ -394,7 +507,6 @@ class _DavinciScreenState extends State<DavinciScreen> {
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -482,7 +594,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
           // 공개된 타일은 눕혀서 보이고, 숨은 타일은 세워서 둔다. (상대의 수를 보여 주는 동안에는 아직 숨은 것으로 보여야 하는 타일이 있다)
           final revealed = s.isRevealed(t) && !override.contains(t);
           final isEffectTile = e != null && e.kind == 2 && e.tile == t && e.target == seat;
-          tiles.add(Padding(
+          tiles.add(Opacity(
+            opacity: t == _hiddenTile ? 0 : 1, // 더미에서 날아오는 동안은 줄에서 숨겨 둔다
+            child: Padding(
+            key: _tileKey(t),
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: DvTile(
               key: ValueKey('tile-$seat-$i'),
@@ -498,11 +613,12 @@ class _DavinciScreenState extends State<DavinciScreen> {
                   ? () => c.selectTarget(seat, i)
                   : (revealing && !revealed ? () => c.revealOwn(i) : null),
             ),
-          ));
+          )));
         }
         if (placing) tiles.add(slot(row.length));
 
         return Container(
+          key: _rowKey(seat),
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
           decoration: BoxDecoration(
             color: (active ? kDavinciColor : Colors.white).withValues(alpha: active ? 0.1 : 0.45),
@@ -573,21 +689,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
 
     switch (s.phase) {
       case DvPhase.draw:
-        return box(Column(
-          children: [
-            const Text('어느 색 더미에서 뽑을까요?', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final color in const [0, 1]) ...[
-                  if (color == 1) const SizedBox(width: 24),
-                  _pileButton(color),
-                ],
-              ],
-            ),
-          ],
-        ));
+        return const SizedBox.shrink(); // 위의 더미를 눌러 뽑는다
       case DvPhase.placeJoker:
       case DvPhase.reveal:
         return const SizedBox.shrink(); // 내 줄에서 직접 고른다 (자리 칸 / 숨은 타일)
@@ -611,19 +713,47 @@ class _DavinciScreenState extends State<DavinciScreen> {
     }
   }
 
-  Widget _pileButton(int color) {
+  /// 검정·흰색 더미 (언제나 보인다). 내가 뽑을 차례면 눌러서 뽑고, 누가 뽑든 타일이 여기서 날아간다.
+  Widget _pilesStrip() {
+    final canDraw = c.humanCanAct && c.state.phase == DvPhase.draw;
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+      decoration: BoxDecoration(
+        color: (canDraw ? kDavinciColor : Colors.white).withValues(alpha: canDraw ? 0.12 : 0.4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: canDraw ? kDavinciColor : scheme.outlineVariant, width: canDraw ? 2 : 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (final color in const [0, 1]) ...[
+            if (color == 1) const SizedBox(width: 28),
+            _pileButton(color, canDraw),
+          ],
+          if (canDraw) ...[
+            const SizedBox(width: 18),
+            const Flexible(child: Text('뽑을 더미를\n눌러요', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13))),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _pileButton(int color, bool canDraw) {
     final count = c.state.poolOf(color);
     return GestureDetector(
       key: ValueKey('pile$color'),
       behavior: HitTestBehavior.opaque,
-      onTap: count > 0 ? () => c.draw(color) : null,
+      onTap: canDraw && count > 0 ? () => _drawFromPile(color) : null,
       child: Opacity(
         opacity: count > 0 ? 1 : 0.45,
-        child: Column(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            DvPile(color: color, count: count),
-            const SizedBox(height: 4),
-            Text(color == 0 ? '검정 더미' : '흰색 더미', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+            KeyedSubtree(key: _pileKey(color), child: DvPile(color: color, count: count, width: 30)),
+            const SizedBox(width: 6),
+            Text(color == 0 ? '검정' : '흰색', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
           ],
         ),
       ),
@@ -790,4 +920,17 @@ Future<void> showDavinciRules(BuildContext context) {
       ],
     ),
   );
+}
+
+/// 더미에서 줄로 날아가는 타일 한 장.
+class _Fly {
+  _Fly({required this.from, required this.to, required this.tile, required this.faceUp, required this.width, required this.duration, required this.serial, required this.onEnd});
+
+  final Offset from, to;
+  final int tile;
+  final bool faceUp;
+  final double width;
+  final Duration duration;
+  final int serial;
+  final VoidCallback onEnd;
 }

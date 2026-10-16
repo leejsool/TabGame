@@ -75,7 +75,6 @@ void main() {
       c.reset();
       c.hand = [...c.state.racks[0]];
       c.sortHand(byColor: true);
-      c.moveToCustom([c.rackTiles.last]);
       c.moveTiles([c.rackTiles.first, c.rackTiles[1]]);
       return c;
     }

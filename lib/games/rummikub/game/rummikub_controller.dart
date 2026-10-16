@@ -63,11 +63,6 @@ class RummikubController extends ChangeNotifier {
   /// 방금 뽑은 타일 (손에서 반짝이게 한다).
   int? lastDrawn;
 
-  /// 손을 색 순서로 정렬해서 보여 주는가 (아니면 숫자 순서).
-  bool sortedByColor = true;
-
-  /// "내 정리판": 정렬 단추와 상관없이 내가 놓은 순서 그대로 두는 칸의 타일들. 손에서 판에 올려 둔 타일도 자리를 기억한다.
-  final List<int> custom = [];
 
   /// 누군가 기권해서 멈춘 판인가.
   bool halted = false;
@@ -121,8 +116,8 @@ class RummikubController extends ChangeNotifier {
     state = RkState.deal(players, seed);
     moveCount = 0;
     hand = [...state.racks[humanSeat]]..sort(compareByColor);
-    custom.clear();
     anchors.clear();
+    _undo.clear();
     _recent.clear();
     _animEpoch++;
     _animating = false;
@@ -161,22 +156,10 @@ class RummikubController extends ChangeNotifier {
     return {for (final s in work) for (final t in s) if (!onTable.contains(t)) t};
   }
 
-  /// 손에 남아 보이는 타일들 전부 (정리판 포함).
+  /// 손에 남아 보이는 타일들 (내가 늘어놓은 순서 그대로).
   List<int> get rackTiles {
     final p = placed;
     return [for (final t in hand) if (!p.contains(t)) t];
-  }
-
-  /// 손의 "정렬 칸" 타일들: 색/숫자 순서 단추를 따른다.
-  List<int> get autoTiles {
-    final p = placed, c = custom.toSet();
-    return [for (final t in hand) if (!p.contains(t) && !c.contains(t)) t];
-  }
-
-  /// 손의 "내 정리판" 타일들: 내가 놓은 순서 그대로.
-  List<int> get customTiles {
-    final p = placed;
-    return [for (final t in custom) if (!p.contains(t)) t];
   }
 
   /// 이번 차례에 판을 만졌는가 (손에서 한 장이라도 내려놓았는가).
@@ -187,52 +170,32 @@ class RummikubController extends ChangeNotifier {
 
   bool get canEnd => canAct && error == null;
 
+  /// 손을 색 순서나 숫자 순서로 한 번 정렬한다. (그 뒤로는 끌어서 마음대로 바꿀 수 있다)
   void sortHand({required bool byColor}) {
-    sortedByColor = byColor;
     hand.sort(byColor ? compareByColor : compareByNumber);
     notifyListeners();
   }
 
-  /// 타일 [ids]를 "내 정리판"으로 옮긴다. [beforeId] 앞에 끼워 넣고, 없으면 맨 뒤에 놓는다.
+  /// 손 안에서 타일 [ids]를 끌어 옮긴다: [beforeId] 타일 앞에 끼워 넣고, 없으면 맨 뒤에 놓는다.
   /// 이번 차례에 판에 올려 둔 타일이면 손으로 되돌아온다 (원래 판 위에 있던 타일은 못 옮긴다).
-  void moveToCustom(Iterable<int> ids, {int? beforeId}) {
+  void moveInHand(Iterable<int> ids, {int? beforeId}) {
     if (!canAct) return;
     final p = placed;
-    final inHand = rackTiles.toSet();
-    final moving = [for (final t in hand) if (ids.contains(t) && (inHand.contains(t) || p.contains(t))) t];
-    // 끌어 온 순서를 지키려면 요청 순서대로 모은다
-    final order = [for (final t in ids) if (moving.contains(t)) t];
-    if (order.isEmpty) {
-      onFeedback?.call('bad');
-      return;
-    }
-    for (final s in work) {
-      s.removeWhere((t) => order.contains(t) && p.contains(t));
-    }
-    work.removeWhere((s) => s.isEmpty);
-    custom.removeWhere(order.contains);
-    var at = beforeId == null ? -1 : custom.indexOf(beforeId);
-    if (at < 0) at = custom.length;
-    custom.insertAll(at, order);
-    selected.clear();
-    notifyListeners();
-  }
-
-  /// 타일 [ids]를 정렬 칸으로 돌려보낸다 (정리판에서 빼고, 판에 올려 둔 것이면 손으로 되돌린다).
-  void moveToAuto(Iterable<int> ids) {
-    if (!canAct) return;
-    final p = placed;
-    final back = ids.where((t) => custom.contains(t) || p.contains(t)).toSet();
-    if (back.isEmpty) {
+    final order = [for (final t in ids) if (hand.contains(t)) t];
+    if (order.isEmpty || (beforeId != null && order.contains(beforeId))) {
       selected.clear();
       notifyListeners();
       return;
     }
+    _remember();
     for (final s in work) {
-      s.removeWhere((t) => back.contains(t) && p.contains(t));
+      s.removeWhere((t) => order.contains(t) && p.contains(t));
     }
     work.removeWhere((s) => s.isEmpty);
-    custom.removeWhere(back.contains);
+    hand.removeWhere(order.contains);
+    var at = beforeId == null ? -1 : hand.indexOf(beforeId);
+    if (at < 0) at = hand.length;
+    hand.insertAll(at, order);
     selected.clear();
     notifyListeners();
   }
@@ -298,17 +261,48 @@ class RummikubController extends ChangeNotifier {
     return [for (final a in res) a!];
   }
 
+  // ── 한 단계 되돌리기 ──
+
+  /// 이번 차례에 만지기 전 모습들 (판·손·묶음 자리). 끝내기·뽑기·처음으로·새 판에서 비운다.
+  final List<({List<List<int>> work, List<int> hand, Map<int, Offset> anchors})> _undo = [];
+
+  bool get canUndoStep => canAct && _undo.isNotEmpty;
+
+  void _remember() {
+    _undo.add((work: [for (final s in work) [...s]], hand: [...hand], anchors: {...anchors}));
+    if (_undo.length > 60) _undo.removeAt(0);
+  }
+
+  /// 방금 한 것(타일 옮기기·묶음 합치기 …) 하나를 되돌린다.
+  void undoStep() {
+    if (!canUndoStep) return;
+    final prev = _undo.removeLast();
+    work = prev.work;
+    hand
+      ..clear()
+      ..addAll(prev.hand);
+    anchors
+      ..clear()
+      ..addAll(prev.anchors);
+    _recent.clear();
+    selected.clear();
+    notice = null;
+    notifyListeners();
+  }
+
   /// 방금 만진 묶음의 타일들 (자리를 정할 때 이 묶음의 자리를 가장 먼저 지킨다).
   final Set<int> _recent = {};
 
-  /// 끌어 온 타일들 [ids]를 판 위 [topLeft](타일 칸 단위, 끌어 온 상자의 왼쪽 위)에 놓는다.
-  /// 아주 가까이(틈 [magnet]칸 이내) 다른 묶음이 있으면 자석처럼 그 묶음에 붙고, 아니면 낱개 한 장이라도 그 자리에 새 묶음으로 놓인다.
-  void dropTiles(Iterable<int> ids, Offset topLeft, {double magnet = 0.4}) {
-    if (!canAct) return;
+  /// 끌어 온 타일들 [ids]를 [topLeft](타일 칸 단위, 끌어 온 타일들의 왼쪽 위)에 놓으면 붙게 될 묶음 (없으면 null).
+  ///
+  /// 자석은 아주 좁게 걸린다: 낱개 한 장은 묶음에 거의 닿았을 때(틈 [singleMagnet]칸 이내), 여러 장이나 묶음 통째로 끌 때는 서로 겹쳐질 때만
+  /// 붙는다. 빈 땅에 놓은 것이 가까운 묶음에 달라붙어 새 묶음을 만들 수 없는 일이 없도록 하려는 것이다.
+  List<int>? dropTargetFor(Iterable<int> ids, Offset topLeft, {double singleMagnet = 0.12, double groupMagnet = 0.0}) {
     final moving = ids.toSet();
-    if (moving.isEmpty) return;
+    if (moving.isEmpty) return null;
     final starts = layoutSets(layoutWidth, layoutPerRow);
-    final want = setRect(topLeft, moving.length, layoutPerRow);
+    final want = _groupRect(topLeft, moving.length);
+    final magnet = moving.length > 1 ? groupMagnet : singleMagnet;
     List<int>? near;
     var nearGap = double.infinity;
     for (var i = 0; i < work.length; i++) {
@@ -321,11 +315,31 @@ class RummikubController extends ChangeNotifier {
         near = set;
       }
     }
-    if (near != null && nearGap <= magnet) {
+    return near != null && nearGap <= magnet ? near : null;
+  }
+
+  /// 끌어 온 타일들이 차지하는 상자 (타일 칸 단위). 묶음의 여백은 넣지 않고 타일만 센다.
+  Rect _groupRect(Offset topLeft, int count) {
+    final cols = min(count, layoutPerRow);
+    final rows = (count / layoutPerRow).ceil();
+    return Rect.fromLTWH(topLeft.dx, topLeft.dy, cols.toDouble(), rows - 0.12);
+  }
+
+  /// 끌어 온 타일들 [ids]를 판 위 [topLeft]에 놓는다.
+  /// 가까이(위의 자석 거리 안) 다른 묶음이 있으면 그 묶음에 붙고, 아니면 낱개 한 장이라도 그 자리에 새 묶음으로 놓인다.
+  void dropTiles(Iterable<int> ids, Offset topLeft, {double? magnet}) {
+    if (!canAct) return;
+    final moving = ids.toSet();
+    if (moving.isEmpty) return;
+    final near = magnet == null
+        ? dropTargetFor(moving, topLeft)
+        : dropTargetFor(moving, topLeft, singleMagnet: magnet, groupMagnet: magnet);
+    if (near != null) {
       moveTiles(moving, to: near);
       return;
     }
     // 새 묶음: 끌어 온 타일이 빠져나갈 묶음의 자리는 비는 것으로 보고 빈자리를 찾는다
+    final starts = layoutSets(layoutWidth, layoutPerRow);
     final others = <Rect>[
       for (var i = 0; i < work.length; i++)
         if (!work[i].every(moving.contains)) setRect(starts[i], work[i].length, layoutPerRow),
@@ -355,6 +369,7 @@ class RummikubController extends ChangeNotifier {
     if (!canAct) return;
     final moving = ids.toSet();
     if (moving.isEmpty) return;
+    _remember();
     final inHand = rackTiles.toSet();
     final onWork = {for (final s in work) ...s};
     if (!moving.every((t) => inHand.contains(t) || onWork.contains(t))) return;
@@ -401,6 +416,7 @@ class RummikubController extends ChangeNotifier {
       onFeedback?.call('bad');
       return;
     }
+    _remember();
     for (final s in work) {
       s.removeWhere(back.contains);
     }
@@ -412,6 +428,7 @@ class RummikubController extends ChangeNotifier {
   /// 이번 차례에 만진 것을 모두 처음으로 되돌린다.
   void reset() {
     if (!canAct) return;
+    _undo.clear();
     work = _copyTable();
     selected.clear();
     notice = null;
@@ -476,12 +493,12 @@ class RummikubController extends ChangeNotifier {
     moveCount++;
     final mine = state.racks[humanSeat].toSet();
     hand.removeWhere((t) => !mine.contains(t));
-    custom.removeWhere((t) => !mine.contains(t));
     if (drawn != null && mine.contains(drawn) && !hand.contains(drawn)) {
       // 방금 뽑은 사람이 나일 때만 손에 들어온다
       hand.add(drawn);
     }
     work = _copyTable();
+    _undo.clear();
     selected.clear();
     notice = null;
     if (isOver) {

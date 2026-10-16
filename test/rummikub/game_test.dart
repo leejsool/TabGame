@@ -174,7 +174,7 @@ void main() {
       c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
       expect(c.layoutSets(10, 8).first, const Offset(0, 0));
       // 묶음 바로 옆에 놓으면 붙는다 (틈이 0.9칸 이내)
-      c.dropTiles([t(3, 10)], const Offset(4.0, 0));
+      c.dropTiles([t(3, 10)], const Offset(3.8, 0));
       expect(c.work.length, 1);
       expect(c.work.first.length, 4);
       // 멀리 놓으면 그 자리에 새 묶음
@@ -183,7 +183,7 @@ void main() {
       expect(c.layoutSets(10, 8)[1].dy, closeTo(4, 0.5));
       // 묶음이 바뀌어도 (타일 하나가 빠져도) 남은 묶음은 자리를 지킨다
       final before = c.layoutSets(10, 8).first;
-      c.moveToAuto([t(3, 10)]);
+      c.returnToHand([t(3, 10)]);
       expect(c.layoutSets(10, 8).first, before);
     });
 
@@ -199,41 +199,78 @@ void main() {
       // 다른 묶음 바로 옆으로 끌면 합쳐진다
       final other = c.work.firstWhere((s) => s.contains(t(0, 5)));
       final anchor = c.anchorOf(other)!;
-      c.dropTiles(c.work.firstWhere((s) => s.contains(t(0, 10))), Offset(anchor.dx + 4, anchor.dy));
+      c.dropTiles(c.work.firstWhere((s) => s.contains(t(0, 10))), Offset(anchor.dx + 3.7, anchor.dy));
       expect(c.work.length, 1);
       expect(c.work.first.length, 6);
     });
 
-    test('내 정리판: 정렬 단추와 상관없고, 순서를 끼워 넣을 수 있고, 판에 올렸다 돌아오면 제자리로 온다', () {
+    test('내 타일: 끌어서 마음대로 순서를 바꾸고, 정렬 단추는 한 번 가지런히 늘어놓을 뿐이다', () {
       final c = fixedController(rack: [t(0, 3), t(1, 9), t(2, 5), t(3, 1)]);
-      c.moveToCustom([t(1, 9)]);
-      c.moveToCustom([t(3, 1)]);
-      expect(c.customTiles, [t(1, 9), t(3, 1)]);
-      c.moveToCustom([t(2, 5)], beforeId: t(1, 9));
-      expect(c.customTiles, [t(2, 5), t(1, 9), t(3, 1)]);
       c.sortHand(byColor: false);
-      expect(c.customTiles, [t(2, 5), t(1, 9), t(3, 1)]); // 단추를 눌러도 그대로
-      expect(c.autoTiles, [t(0, 3)]);
-      // 판에 올리면 손에서 빠지고, 돌려받으면 정리판의 제자리로
-      c.moveTiles([t(1, 9)]);
-      expect(c.customTiles, [t(2, 5), t(3, 1)]);
-      c.returnToHand([t(1, 9)]);
-      expect(c.customTiles, [t(2, 5), t(1, 9), t(3, 1)]);
-      // 정렬 칸으로 돌려보내면 정리판에서 빠진다
-      c.moveToAuto([t(1, 9)]);
-      expect(c.customTiles, [t(2, 5), t(3, 1)]);
-      expect(c.autoTiles.contains(t(1, 9)), isTrue);
+      expect(c.rackTiles, [t(3, 1), t(0, 3), t(2, 5), t(1, 9)]);
+      // 9를 맨 앞으로, 5를 맨 뒤로
+      c.moveInHand([t(1, 9)], beforeId: t(3, 1));
+      expect(c.rackTiles, [t(1, 9), t(3, 1), t(0, 3), t(2, 5)]);
+      c.moveInHand([t(3, 1)]);
+      expect(c.rackTiles, [t(1, 9), t(0, 3), t(2, 5), t(3, 1)]);
+      // 여러 장을 한꺼번에: 순서를 지키며 한 타일 앞으로
+      c.moveInHand([t(2, 5), t(3, 1)], beforeId: t(0, 3));
+      expect(c.rackTiles, [t(1, 9), t(2, 5), t(3, 1), t(0, 3)]);
+      // 제자리나 자기 앞으로는 아무 일도 없다
+      c.moveInHand([t(2, 5)], beforeId: t(2, 5));
+      expect(c.rackTiles, [t(1, 9), t(2, 5), t(3, 1), t(0, 3)]);
+      // 정렬 단추를 누르면 한 번 가지런해진다
+      c.sortHand(byColor: true);
+      expect(c.rackTiles, [t(0, 3), t(1, 9), t(2, 5), t(3, 1)]);
     });
 
-    test('판 위 타일(처음부터 있던 것)은 정리판이나 손으로 가져올 수 없다', () {
+    test('판에 올렸다가 손으로 돌려받으면 손의 원래 자리로 돌아오고, 손의 원하는 자리에 놓을 수도 있다', () {
+      final c = fixedController(rack: [t(0, 3), t(1, 9), t(2, 5), t(3, 1)]);
+      c.moveTiles([t(1, 9)]);
+      expect(c.rackTiles, [t(0, 3), t(2, 5), t(3, 1)]);
+      c.returnToHand([t(1, 9)]);
+      expect(c.rackTiles, [t(0, 3), t(1, 9), t(2, 5), t(3, 1)]);
+      c.moveTiles([t(1, 9)]);
+      c.moveInHand([t(1, 9)], beforeId: t(3, 1)); // 판에서 끌어내 손의 원하는 자리로
+      expect(c.rackTiles, [t(0, 3), t(2, 5), t(1, 9), t(3, 1)]);
+      expect(c.work, isEmpty);
+    });
+
+    test('판 위 타일(처음부터 있던 것)은 손으로 가져올 수 없다', () {
       final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 4)]);
       c.moveTiles([t(0, 10), t(1, 10), t(2, 10)]);
       c.endTurn();
       c.state.applyDraw();
-      c.sortHand(byColor: true);
-      c.moveToCustom([t(0, 10)]);
-      expect(c.customTiles, isEmpty);
+      c.moveInHand([t(0, 10)]);
+      expect(c.rackTiles.contains(t(0, 10)), isFalse);
       expect(c.work.expand((x) => x).contains(t(0, 10)), isTrue);
+    });
+
+    test('한 단계 되돌리기: 방금 한 옮기기·합치기를 하나씩 되돌린다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 10), t(0, 1)]);
+      c.layoutSets(10, 8);
+      expect(c.canUndoStep, isFalse);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
+      c.moveTiles([t(3, 10)], at: const Offset(5, 3));
+      expect(c.work.length, 2);
+      // 낱개를 묶음에 합쳤다가
+      c.moveTiles([t(3, 10)], to: c.work.first);
+      expect(c.work.length, 1);
+      expect(c.work.first.length, 4);
+      // 되돌리면 낱개가 떨어져 제자리(5,3)로 간다
+      expect(c.canUndoStep, isTrue);
+      c.undoStep();
+      expect(c.work.length, 2);
+      expect(c.layoutSets(10, 8).last, const Offset(5, 3));
+      c.undoStep();
+      c.undoStep();
+      expect(c.work, isEmpty);
+      expect(c.rackTiles.length, 5);
+      expect(c.canUndoStep, isFalse);
+      // 끝내기·처음으로에서는 되돌릴 기록이 비워진다
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)]);
+      c.reset();
+      expect(c.canUndoStep, isFalse);
     });
   });
 
@@ -337,11 +374,39 @@ void main() {
       expect(c.work.length, 2);
       expect(c.work.any((s) => s.length == 1 && s.first == t(3, 4)), isTrue);
       // 바싹 붙이면 합쳐진다
-      c.dropTiles([t(0, 1)], const Offset(3.6, 0));
+      c.dropTiles([t(0, 1)], const Offset(3.5, 0));
       expect(c.work.length, 2);
       expect(c.work.first.length + c.work.last.length, 5);
       // 한 장짜리 묶음이 있어도 끝내기는 막히고 이유가 나온다
       expect(c.endTurn(), isFalse);
+    });
+  });
+
+  group('자석은 좁게: 빈 땅에 놓으면 새 묶음', () {
+    test('묶음 옆 반 칸쯤 떨어진 빈 땅에 놓은 낱개는 붙지 않고 새 묶음이 된다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 4), t(0, 1)]);
+      c.layoutSets(10, 8);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
+      for (final x in [4.0, 4.4, 5.0]) {
+        c.dropTiles([t(3, 4)], Offset(x, 0));
+        expect(c.work.length, 2, reason: 'x=$x 에서 붙어 버렸어요');
+        c.undoStep();
+      }
+      // 묶음 위에 놓으면 (겹치면) 붙는다
+      c.dropTiles([t(3, 4)], const Offset(3.3, 0));
+      expect(c.work.length, 1);
+    });
+
+    test('여러 장·묶음 통째로 끌 때는 서로 겹칠 때만 붙는다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(0, 5), t(0, 6), t(0, 7)]);
+      c.layoutSets(14, 10);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
+      c.moveTiles([t(0, 5), t(0, 6), t(0, 7)], at: const Offset(0, 4));
+      final group = c.work.firstWhere((s) => s.contains(t(0, 5)));
+      // 바로 옆(틈 0.5칸)에 놓아도 붙지 않는다
+      expect(c.dropTargetFor(group, const Offset(4.3, 0)), isNull);
+      // 겹치면 붙을 묶음이 미리 알려진다
+      expect(c.dropTargetFor(group, const Offset(2.5, 0)), same(c.work.firstWhere((s) => s.contains(t(0, 10)))));
     });
   });
 
@@ -584,31 +649,56 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('"내 정리판"으로 끌어 놓으면 정렬 단추와 상관없이 그 순서를 유지한다', (tester) async {
+    testWidgets('내 타일 안에서 타일을 끌어 다른 타일 앞에 놓으면 순서가 바뀐다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       final c = fixedController(rack: [t(0, 3), t(1, 9), t(2, 5), t(3, 1)]);
       await tester.pumpWidget(await app(RummikubScreen(controller: c)));
       await settle(tester, rounds: 2);
-      expect(find.textContaining('내 정리판'), findsOneWidget);
-      final zone = tester.getCenter(find.textContaining('내 정리판'));
-      // 9를 정리판으로, 이어서 3을 9 앞으로
-      final g = await tester.startGesture(tester.getCenter(tileFinder(t(1, 9))));
-      await g.moveBy(const Offset(0, 20));
-      await g.moveTo(zone + const Offset(0, 30));
+      expect(find.textContaining('내 정리판'), findsNothing); // 정리판은 없다
+      final before = c.rackTiles.toList();
+      // 마지막 타일을 맨 앞 타일 위로 끌어다 놓는다
+      final g = await tester.startGesture(tester.getCenter(tileFinder(before.last)));
+      await g.moveBy(const Offset(-20, 0));
+      await g.moveTo(tester.getCenter(tileFinder(before.first)));
       await tester.pump(const Duration(milliseconds: 100));
       await g.up();
       await settle(tester, rounds: 2);
-      expect(c.customTiles, [t(1, 9)]);
-      expect(c.autoTiles.contains(t(1, 9)), isFalse);
-      // 숫자 순서 단추를 눌러도 정리판의 타일은 그대로
-      await tester.tap(find.text('숫자 순서'));
+      expect(c.rackTiles, [before.last, ...before.take(3)]);
+      // 정렬 단추는 한 번 가지런히 해 준다
+      await tester.tap(find.text('숫자 정렬'));
       await settle(tester, rounds: 1);
-      expect(c.customTiles, [t(1, 9)]);
-      expect(c.autoTiles, [t(3, 1), t(0, 3), t(2, 5)]);
+      expect(c.rackTiles, [t(3, 1), t(0, 3), t(2, 5), t(1, 9)]);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('바닥에서 타일을 뽑으면 바닥에서 내 손으로 날아오고, 도착하면 손에 나타난다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = RummikubController(mode: PlayMode.vsCpu, players: 2, humanSeat: 0, seed: 3);
+      c.state.racks[0]
+        ..clear()
+        ..addAll([t(0, 3), t(1, 9)]);
+      c.hand = [t(0, 3), t(1, 9)];
+      await tester.pumpWidget(await app(RummikubScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      await tester.tap(find.byType(RkTileBack).first);
+      await tester.pump(); // (그린 뒤에 도착 자리를 재서 날려 보낸다)
+      await tester.pump(const Duration(milliseconds: 50));
+      final drawn = c.lastDrawn!;
+      expect(find.byKey(const ValueKey('fly')), findsOneWidget); // 날아가는 타일
+      // 날아오는 동안 손의 그 타일은 숨겨져 있다
+      final hiddenWhileFlying = tester.widget<Opacity>(find.byKey(ValueKey('hand$drawn')));
+      expect(hiddenWhileFlying.opacity, 0);
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      final shown = tester.widget<Opacity>(find.byKey(ValueKey('hand$drawn')));
+      expect(shown.opacity, 1);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3)); // (CPU 차례의 남은 시간)
     });
 
     testWidgets('규칙이 안 맞으면 안내가 보이고, 타일 뽑기는 손을 한 장 늘린다', (tester) async {

@@ -258,7 +258,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       for (final level in ProphLevel.values) {
-        final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 0, level: level);
+        final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 0, level: level)..cpuStageDelay = const Duration(milliseconds: 20);
         await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
         await settle(tester, rounds: 2);
         c.select(5);
@@ -275,11 +275,51 @@ void main() {
       }
     });
 
+    testWidgets('CPU 차례: 칸을 고르고 → 기다렸다가 → 숫자를 고르고 → 기다렸다가 → 쓰고 내 차례가 된다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 0, level: ProphLevel.easy)..cpuStageDelay = const Duration(milliseconds: 150);
+      await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      c.select(5);
+      c.write(2);
+      final seen = <String>[];
+      c.addListener(() {
+        if (c.cpuCell >= 0) seen.add(c.cpuValue == null ? 'cell' : 'value');
+      });
+      // 생각이 끝나면 칸만 먼저 골라 두고, 한참 뒤에야 숫자를 고르고, 또 뒤에 쓴다
+      for (var i = 0; i < 80 && c.cpuCell < 0; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(c.cpuCell, greaterThanOrEqualTo(0));
+      expect(c.cpuValue, isNull);
+      expect(c.moveCount, 1); // 아직 쓰지 않았다
+      expect(c.humanCanAct, isFalse);
+      expect(find.textContaining('칸을 골랐어요'), findsOneWidget);
+      for (var i = 0; i < 80 && c.cpuValue == null; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(c.cpuValue, isNotNull);
+      expect(c.moveCount, 1);
+      await tester.pump();
+      expect(find.textContaining('를 써요').evaluate().length + find.textContaining('을(를) 써요').evaluate().length, greaterThan(0));
+      await settle(tester, rounds: 12);
+      expect(c.moveCount, 2);
+      expect(c.cpuCell, -1);
+      expect(c.humanCanAct, isTrue);
+      expect(seen.first, 'cell');
+      expect(seen.contains('value'), isTrue);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('CPU가 먼저 쓰는 판이면 열자마자 CPU가 쓴다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 1, level: ProphLevel.easy);
+      final c = ProphecyController(mode: PlayMode.vsCpu, rows: 4, cols: 4, humanSide: 1, level: ProphLevel.easy)..cpuStageDelay = const Duration(milliseconds: 20);
       await tester.pumpWidget(await app(ProphecyScreen(controller: c)));
       await settle(tester, rounds: 30);
       expect(c.moveCount, 1);

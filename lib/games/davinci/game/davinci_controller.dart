@@ -68,8 +68,8 @@ class DavinciController extends ChangeNotifier {
   /// 소리/진동 알림 ('draw' | 'right' | 'wrong' | 'win' | 'bad').
   void Function(String kind)? onFeedback;
 
-  /// CPU가 한 수 두고 다음 수를 두기까지 기다리는 시간 (맞히는 수는 1.5배). 시험에서는 줄인다.
-  Duration cpuStepDelay = const Duration(milliseconds: 900);
+  /// CPU가 수를 두기 전에 생각하는 시간이자 상대 수 연출의 기준 시간 (추측 1.7배, 결과 1.4배). 사람이 따라볼 수 있게 느긋하게. 시험에서는 줄인다.
+  Duration cpuStepDelay = const Duration(milliseconds: 1300);
 
   final Random _rng = Random();
   int _epoch = 0;
@@ -136,13 +136,13 @@ class DavinciController extends ChangeNotifier {
       if (e.ask) {
         e.stage = DvEffectStage.ask;
         notifyListeners();
-        await Future<void>.delayed(_ms(e.kind == 2 ? 1.3 : 0.8));
+        await Future<void>.delayed(_ms(e.kind == 2 ? 1.7 : (e.kind == 0 ? 1.2 : 0.9)));
         if (_disposed || epoch != _fxEpoch) break;
       }
       if (e.kind == 2) {
         e.stage = DvEffectStage.result;
         notifyListeners();
-        await Future<void>.delayed(_ms(1.1));
+        await Future<void>.delayed(_ms(1.4));
         if (_disposed || epoch != _fxEpoch) break;
       }
       effect = null;
@@ -280,7 +280,15 @@ class DavinciController extends ChangeNotifier {
         ask: !mine,
       ));
     } else if (!mine) {
-      _enqueue(DvEffect(actor: actor, kind: move[0], number: move[0] == 0 ? move[1] : null, blocking: true, ask: true));
+      // 뽑기는 어느 더미에서 어느 타일을 뽑았는지도 담아 둔다 (조커는 아직 줄에 놓기 전이다)
+      _enqueue(DvEffect(
+        actor: actor,
+        kind: move[0],
+        number: move[0] == 0 ? move[1] : null,
+        tile: move[0] == 0 ? (state.pendingJoker ?? state.drawn) : null,
+        blocking: true,
+        ask: true,
+      ));
     }
     if (state.isOver) {
       onFeedback?.call('win');
@@ -403,6 +411,7 @@ class DvEffect {
   final int actor, kind;
 
   /// 맞히기: 맞힌 상대 자리, 그 줄에서의 순서, 그 타일, 말한 숫자(조커 12), 맞았는가.
+  /// 뽑기: [number]는 더미 색(0 검정 / 1 흰색), [tile]은 뽑은 타일.
   final int? target, index, tile, number;
   final bool? correct;
 

@@ -62,6 +62,9 @@ class QuoridorController extends ChangeNotifier {
   /// 방금 둔 수 (없으면 -1).
   int get lastMove => moves.isEmpty ? -1 : moves.last;
 
+  /// 방금 수를 둔 자리 (없으면 -1). 벽이 어느 더미에서 날아오는지 보여 주는 데 쓴다.
+  int lastMover = -1;
+
   /// 수를 둘 때마다 늘어나는 번호 (애니메이션을 다시 시작하는 신호).
   int moveSerial = 0;
 
@@ -79,7 +82,7 @@ class QuoridorController extends ChangeNotifier {
   // ── 자동 이동 (모든 벽을 다 썼을 때) ──
 
   /// 자동 이동 한 걸음마다 기다리는 시간 (시험에서는 줄인다).
-  Duration autoStepDelay = const Duration(milliseconds: 350);
+  Duration autoStepDelay = const Duration(milliseconds: 700);
 
   bool _auto = false;
   bool _autoStopped = false;
@@ -247,6 +250,7 @@ class QuoridorController extends ChangeNotifier {
   }
 
   void _apply(int move) {
+    lastMover = state.turn;
     moves.add(move);
     state.apply(move);
     moveSerial++;
@@ -277,7 +281,7 @@ class QuoridorController extends ChangeNotifier {
     final args = [players, level.index, _rng.nextInt(1 << 30), ...moves];
     final move = await _cpu.run(
       task: () => compute(_cpuTask, args),
-      minTime: const Duration(milliseconds: 700),
+      minTime: const Duration(milliseconds: 1000),
       onStart: notifyListeners,
     );
     if (move == null) return;

@@ -49,8 +49,8 @@ Future<(LanConnection, LanConnection)> connectionPair() async {
 }
 
 /// 정해 둔 줄·더미로 시작하는 컨트롤러 (내가 0번 자리, CPU는 바로바로 둔다).
-DavinciController fixed(List<List<int>> rows, {List<int> black = const [], List<int> white = const [], PlayMode mode = PlayMode.vsCpu, int humanSeat = 0, int seed = 3}) {
-  final c = DavinciController(mode: mode, players: rows.length, humanSeat: humanSeat, seed: seed)..cpuStepDelay = Duration.zero;
+DavinciController fixed(List<List<int>> rows, {List<int> black = const [], List<int> white = const [], PlayMode mode = PlayMode.vsCpu, int humanSeat = 0, int seed = 3, bool? animate}) {
+  final c = DavinciController(mode: mode, players: rows.length, humanSeat: humanSeat, seed: seed, animate: animate)..cpuStepDelay = Duration.zero;
   for (var i = 0; i < rows.length; i++) {
     c.state.rows[i]
       ..clear()
@@ -385,6 +385,60 @@ void main() {
       await tester.tap(find.textContaining('멈추기'));
       await settle(tester, rounds: 6);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('내가 더미에서 뽑으면 타일이 더미에서 내 줄로 날아오고, 도착하면 줄에 나타난다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = fixed([
+        [b(1), b(6), w(9)],
+        [b(2), w(7), b(10)],
+      ], black: [b(4)], white: [w(3)], animate: true);
+      await tester.pumpWidget(await app(DavinciScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('pile0')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('fly')), findsOneWidget);
+      Opacity wrap() => tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('tile-0-1')), matching: find.byType(Opacity)).first);
+      expect(wrap().opacity, 0); // 날아오는 동안 줄에서는 숨겨져 있다
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      expect(wrap().opacity, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('상대가 더미에서 뽑으면 그 더미에서 상대 줄로 타일이 날아간다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = fixed([
+        [b(1), b(6), w(9)],
+        [b(2), w(7), b(10)],
+      ], black: [b(4)], white: [w(3)], mode: PlayMode.wifi, animate: true)
+        ..cpuStepDelay = const Duration(milliseconds: 500);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.draw;
+      await tester.pumpWidget(await app(DavinciScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(c.receiveMove(DvMove.drawMove(0), index: 0), isTrue);
+      expect(c.effect?.kind, 0);
+      expect(c.effect?.tile, b(4));
+      expect(c.effect?.number, 0);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('fly')), findsOneWidget);
+      final hidden = tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('tile-1-1')), matching: find.byType(Opacity)).first);
+      expect(hidden.opacity, 0);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      final shown = tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('tile-1-1')), matching: find.byType(Opacity)).first);
+      expect(shown.opacity, 1);
+      await tester.pump(const Duration(seconds: 3));
       await tester.pumpWidget(const SizedBox());
     });
 

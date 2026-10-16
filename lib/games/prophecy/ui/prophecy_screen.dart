@@ -313,6 +313,10 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     }
     if (_opponentGone) return '상대와 연결이 끊겼어요';
     if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
+    if (c.cpuCell >= 0) {
+      final where = '${s.rowOf(c.cpuCell) + 1}행 ${s.colOf(c.cpuCell) + 1}열';
+      return c.cpuValue == null ? 'CPU가 $where 칸을 골랐어요…' : 'CPU가 $where에 ${c.cpuValue == kCross ? 'X' : '${c.cpuValue}'}을(를) 써요';
+    }
     if (c.thinking) return 'CPU가 쓰는 중…';
     final who = c.oneSeat ? (s.turn == c.humanSide ? '내 차례' : (c.vsCpu ? 'CPU 차례' : '상대 차례')) : '${_name(s.turn)} 차례';
     String tail;
@@ -535,10 +539,55 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     );
   }
 
+  /// CPU가 숫자를 고르는 동안 보여 주는 숫자판 (누를 수는 없고, 고른 숫자만 진하게 표시한다).
+  Widget _cpuPad() {
+    final s = c.state;
+    final color = penColor(c.cpuSide);
+    final legal = s.legalNumbers(c.cpuCell).toSet();
+    Widget key(String label, int value, {double width = 46}) {
+      final picked = c.cpuValue == value;
+      final ok = value == kCross || legal.contains(value);
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: width,
+        height: 46,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: picked ? color : color.withValues(alpha: ok ? 0.12 : 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: picked ? color : Colors.transparent, width: 2),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: picked ? Colors.white : color.withValues(alpha: ok ? 0.55 : 0.25),
+            decoration: ok ? null : TextDecoration.lineThrough,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var n = 1; n <= s.maxNumber; n++) key('$n', n),
+          key('X', kCross, width: 56),
+        ],
+      ),
+    );
+  }
+
   Widget _numberPad() {
     final s = c.state;
     final scheme = Theme.of(context).colorScheme;
     final active = c.humanCanAct && c.selected >= 0;
+    if (!active && c.cpuCell >= 0) return _cpuPad();
     if (!active) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),

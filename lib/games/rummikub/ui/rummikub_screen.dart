@@ -259,6 +259,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
   }
 
   void _onChanged() {
+    _maybeFlyOpponentPick();
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       _record(winner: c.state.winner);
@@ -329,7 +330,18 @@ class _RummikubScreenState extends State<RummikubScreen> {
   Widget _scaffold() {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: DecoratedBox(
+      body: Stack(
+        key: _stackKey,
+        children: [
+          Positioned.fill(child: _scaffoldBody(dark)),
+          if (_fly != null) _flyOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _scaffoldBody(bool dark) {
+    return DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -350,7 +362,6 @@ class _RummikubScreenState extends State<RummikubScreen> {
             },
           ),
         ),
-      ),
     );
   }
 
@@ -405,7 +416,9 @@ class _RummikubScreenState extends State<RummikubScreen> {
           final me = seat == c.humanSeat;
           final color = me ? kRkWood : const Color(0xFF455A64);
           final win = c.isOver && c.state.winner == seat;
-          return AnimatedContainer(
+          return KeyedSubtree(
+            key: _chipKey(seat),
+            child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(
@@ -425,7 +438,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 ],
               ],
             ),
-          );
+          ));
         }
 
         return Padding(
@@ -472,6 +485,101 @@ class _RummikubScreenState extends State<RummikubScreen> {
     if (!c.myTurn) return _lastEvent ?? '${_name(s.turn)} 차례';
     return null;
   }
+
+  // ── 타일이 날아가는 연출 (바닥 → 손, 바닥 → 상대) ──
+
+  final GlobalKey _stackKey = GlobalKey();
+  final GlobalKey _rackAreaKey = GlobalKey();
+  final Map<int, GlobalKey> _tileKeys = {};
+  final Map<int, GlobalKey> _floorKeys = {};
+  final Map<int, GlobalKey> _chipKeys = {};
+  GlobalKey _tileKey(int id) => _tileKeys.putIfAbsent(id, GlobalKey.new);
+  GlobalKey _floorKey(int id) => _floorKeys.putIfAbsent(id, GlobalKey.new);
+  GlobalKey _chipKey(int seat) => _chipKeys.putIfAbsent(seat, GlobalKey.new);
+
+  /// 날아가는 중인 뒷면 타일 (없으면 null)과 연출 번호.
+  _Fly? _fly;
+  int _flySerial = 0;
+
+  /// 내가 뽑아서 아직 날아오는 중인 타일 (손에서는 숨겨 둔다).
+  int? _hiddenTile;
+
+  /// 상대가 뽑는 타일에 대해 이미 날려 보낸 번호 (같은 타일에 연출을 두 번 시작하지 않으려고).
+  int? _flownPick;
+
+  Offset? _globalCenter(GlobalKey? key) {
+    final rb = key?.currentContext?.findRenderObject();
+    if (rb is! RenderBox || !rb.attached || !rb.hasSize) return null;
+    return rb.localToGlobal(rb.size.center(Offset.zero));
+  }
+
+  void _startFly({required Offset fromGlobal, required Offset toGlobal, required double width, required Duration duration, VoidCallback? onEnd}) {
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (stack is! RenderBox || !mounted) {
+      onEnd?.call();
+      return;
+    }
+    setState(() {
+      _fly = _Fly(
+        from: stack.globalToLocal(fromGlobal),
+        to: stack.globalToLocal(toGlobal),
+        width: width,
+        duration: duration,
+        serial: ++_flySerial,
+        onEnd: onEnd,
+      );
+    });
+  }
+
+  /// 날아가는 타일 한 장: 바닥에서 도착 자리까지 살짝 위로 휘어서 날아간다.
+  Widget _flyOverlay() {
+    final f = _fly!;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('fly${f.serial}'),
+      tween: Tween(begin: 0, end: 1),
+      duration: f.duration,
+      curve: Curves.easeInOutCubic,
+      onEnd: () {
+        if (!mounted) return;
+        setState(() {
+          if (_fly?.serial == f.serial) _fly = null;
+        });
+        f.onEnd?.call();
+      },
+      builder: (context, t, _) {
+        final pos = Offset.lerp(f.from, f.to, t)! - Offset(0, sin(pi * t) * 36);
+        final w = f.width * (1 + 0.35 * sin(pi * t));
+        return Positioned(
+          key: const ValueKey('fly'),
+          left: pos.dx - w / 2,
+          top: pos.dy - w * 1.35 / 2,
+          child: IgnorePointer(child: RkTileBack(width: w, glow: true)),
+        );
+      },
+    );
+  }
+
+  /// 상대가 바닥에서 타일을 고르면, 그 타일이 상대 표시 쪽으로 날아간다.
+  void _maybeFlyOpponentPick() {
+    final pick = c.opponentPick;
+    if (pick == null) {
+      _flownPick = null;
+      return;
+    }
+    if (_flownPick == pick) return;
+    _flownPick = pick;
+    final seat = c.turn;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final from = _globalCenter(_floorKeys[pick]);
+      final to = _globalCenter(_chipKeys[seat]);
+      if (from == null || to == null) return;
+      _startFly(fromGlobal: from, toGlobal: to, width: 22, duration: c.stepDelay * 1.1);
+    });
+  }
+
+  /// 끌고 있는 타일들이 지금 놓이면 붙게 될 묶음 (없으면 null). 놓기 전에 미리 강조해서 보여 준다.
+  List<int>? _hoverTarget;
 
   // ── 끌기와 타일 ──
 
@@ -543,7 +651,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
   final GlobalKey _canvasKey = GlobalKey();
 
   /// 녹색 판: 묶음을 어디에나 놓을 수 있는 넓은 판. 타일을 끌어다 놓으면 근처 묶음에 자석처럼 붙고, 멀면 그 자리에 새 묶음이 된다.
-  /// 묶음 왼쪽의 손잡이를 끌면 묶음 통째로 옮긴다. 상대의 수는 타일이 한 장씩 날아와 놓이는 모습으로 보인다.
+  /// 판 위 타일을 꾹 눌렀다가 끌면 묶음 통째로 옮긴다. 상대의 수는 타일이 한 장씩 날아와 놓이는 모습으로 보인다.
   Widget _tablePanel(double tileW) {
     final tileH = tileW * 1.35;
     final ux = tileW + 3, uy = tileH + 8;
@@ -579,7 +687,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 final cols = min(ids.length, perRow), rows = (ids.length / perRow).ceil();
                 final left = pad + a.dx * ux, top = 3 + a.dy * uy;
                 final bad = !isValidMeld(set) && c.canAct;
-                final touched = !c.state.table.any((o) => o.length == set.length && o.toSet().containsAll(set));
+                final hover = identical(_hoverTarget, set);
                 frames.add(AnimatedPositioned(
                   key: ValueKey('frame$i'),
                   duration: const Duration(milliseconds: 380),
@@ -596,24 +704,11 @@ class _RummikubScreenState extends State<RummikubScreen> {
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOut,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
+                        // 평소에는 묶음 틀을 그리지 않는다 (타일만 보인다). 붙을 묶음(끌 때)과 올바르지 않은 묶음만 테두리로 알려 준다.
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: bad ? const Color(0xFFE9B08A) : Colors.white.withValues(alpha: touched && c.canAct ? 0.6 : 0.28),
-                          width: bad ? 2 : 1.2,
-                        ),
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: _draggable(
-                          data: List.of(ids),
-                          width: tileW,
-                          child: SizedBox(
-                            width: 0.55 * ux,
-                            height: double.infinity,
-                            child: Icon(Icons.drag_indicator_rounded, size: 16, color: Colors.white.withValues(alpha: c.canAct ? 0.75 : 0.3)),
-                          ),
-                          whileDragging: SizedBox(width: 0.55 * ux),
+                          color: hover ? const Color(0xFFFFE08A) : (bad ? const Color(0xFFE9B08A) : Colors.transparent),
+                          width: hover ? 3 : 2,
                         ),
                       ),
                     ),
@@ -621,7 +716,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 ));
                 for (var k = 0; k < ids.length; k++) {
                   final id = ids[k];
-                  final dest = Offset(left + 0.55 * ux + (k % perRow) * ux, top + 3 + (k ~/ perRow) * uy);
+                  final dest = Offset(left + kSetPad / 2 * ux + (k % perRow) * ux, top + 3 + (k ~/ perRow) * uy);
                   final begin = c.flying.contains(id) ? Offset(box.maxWidth / 2 - tileW / 2, -tileH * 2) : dest;
                   tiles.add(TweenAnimationBuilder<Offset>(
                     key: ValueKey('tile$id'),
@@ -634,13 +729,29 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 }
               }
               final empty = c.work.isEmpty;
+              Offset? unitsOf(Offset globalTopLeft) {
+                final rb = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+                if (rb == null) return null;
+                final local = rb.globalToLocal(globalTopLeft);
+                return Offset((local.dx - pad) / ux, (local.dy - 3) / uy);
+              }
+
+              void preview(List<int>? target) {
+                if (identical(_hoverTarget, target)) return;
+                setState(() => _hoverTarget = target);
+              }
+
               return DragTarget<List<int>>(
                 onWillAcceptWithDetails: (_) => c.canAct,
+                onMove: (d) {
+                  final u = unitsOf(d.offset);
+                  preview(u == null ? null : c.dropTargetFor(d.data, u));
+                },
+                onLeave: (_) => preview(null),
                 onAcceptWithDetails: (d) {
-                  final rb = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-                  if (rb == null) return;
-                  final local = rb.globalToLocal(d.offset);
-                  c.dropTiles(d.data, Offset((local.dx - pad) / ux, (local.dy - 3) / uy));
+                  final u = unitsOf(d.offset);
+                  preview(null);
+                  if (u != null) c.dropTiles(d.data, u);
                 },
                 builder: (context, candidate, _) => Stack(
                   children: [
@@ -746,13 +857,20 @@ class _RummikubScreenState extends State<RummikubScreen> {
                           Positioned(
                             key: ValueKey('floor${pool[i]}'),
                             left: x,
-                            top: pool[i] == c.opponentPick ? y - 8 : y,
-                            child: Transform.rotate(
-                              angle: ang,
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: canPick ? () => _pickFloor(i) : null,
-                                child: RkTileBack(width: tileW, glow: pool[i] == c.opponentPick, active: canPick),
+                            top: y,
+                            // 상대가 고른 타일은 상대 쪽으로 날아가니 바닥에서는 보이지 않게 한다
+                            child: Opacity(
+                              opacity: pool[i] == c.opponentPick ? 0 : 1,
+                              child: Transform.rotate(
+                                angle: ang,
+                                child: KeyedSubtree(
+                                  key: _floorKey(pool[i]),
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: canPick ? () => _pickFloor(i) : null,
+                                    child: RkTileBack(width: tileW, active: canPick),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -796,7 +914,24 @@ class _RummikubScreenState extends State<RummikubScreen> {
       );
       if (ok != true || !mounted) return;
     }
+    final id = c.state.pool[index];
+    final from = _globalCenter(_floorKeys[id]);
     c.draw(index: index);
+    final drawn = c.lastDrawn;
+    if (!c.animate || drawn == null || from == null) return;
+    // 뽑은 타일이 바닥에서 내 손으로 날아온다 (도착할 때까지 손의 그 타일은 숨겨 둔다)
+    setState(() => _hiddenTile = drawn);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final to = _globalCenter(_tileKeys[drawn]);
+      if (!mounted) return;
+      if (to == null) {
+        setState(() => _hiddenTile = null);
+        return;
+      }
+      _startFly(fromGlobal: from, toGlobal: to, width: 22, duration: const Duration(milliseconds: 650), onEnd: () {
+        if (mounted) setState(() => _hiddenTile = null);
+      });
+    });
   }
 
   // ── 내 손 + 단추 ──
@@ -815,15 +950,15 @@ class _RummikubScreenState extends State<RummikubScreen> {
     );
   }
 
-  /// 내 손: 위쪽 "정렬 칸"은 색/숫자 순서 단추를 따르고, 점선 아래 "내 정리판"은 단추와 상관없이 내가 놓은 그대로 둔다.
-  /// 타일은 끌어서 두 칸 사이를 오가거나, 정리판 안에서 순서를 바꿀 수 있다.
+  /// 내 손: 타일을 끌어서 마음대로 순서를 바꿀 수 있다 (다른 타일 앞에 놓으면 그 앞에 끼고, 빈 곳에 놓으면 맨 뒤로 간다).
+  /// 위의 정렬 단추는 한 번 색/숫자 순서로 가지런히 늘어놓아 주는 단추일 뿐이다.
   Widget _rack(double tileWidth) {
-    final scheme = Theme.of(context).colorScheme;
-    final auto = c.autoTiles, custom = c.customTiles;
+    final tiles = c.rackTiles;
     return DragTarget<List<int>>(
       onWillAcceptWithDetails: (d) => c.canAct,
-      onAcceptWithDetails: (d) => c.moveToAuto(d.data),
+      onAcceptWithDetails: (d) => c.moveInHand(d.data),
       builder: (context, candidate, _) => Container(
+        key: _rackAreaKey,
         margin: const EdgeInsets.fromLTRB(10, 4, 10, 4),
         padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
         decoration: BoxDecoration(
@@ -836,33 +971,42 @@ class _RummikubScreenState extends State<RummikubScreen> {
           children: [
             Row(
               children: [
-                Text('내 타일 ${auto.length + custom.length}장', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('내 타일 ${tiles.length}장', style: const TextStyle(fontWeight: FontWeight.w800)),
                 const Spacer(),
-                _sortButton('색 순서', c.sortedByColor, () => c.sortHand(byColor: true)),
+                _sortButton('색 정렬', () => c.sortHand(byColor: true)),
                 const SizedBox(width: 6),
-                _sortButton('숫자 순서', !c.sortedByColor, () => c.sortHand(byColor: false)),
+                _sortButton('숫자 정렬', () => c.sortHand(byColor: false)),
               ],
             ),
             const SizedBox(height: 4),
             Expanded(
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: c.canAct && c.selected.isNotEmpty ? () => c.moveToAuto(c.selected.toList()) : null,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(minHeight: tileWidth * 1.35 + 8),
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Wrap(spacing: 4, runSpacing: 8, children: [for (final t in auto) _tile(t, tileWidth)]),
-                        ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: c.canAct && c.selected.isNotEmpty ? () => c.moveInHand(c.selected.toList()) : null,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: tileWidth * 1.35 + 24),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Wrap(
+                        spacing: 2,
+                        runSpacing: 8,
+                        children: [
+                          for (final t in tiles)
+                            DragTarget<List<int>>(
+                              onWillAcceptWithDetails: (d) => c.canAct && !d.data.contains(t),
+                              onAcceptWithDetails: (d) => c.moveInHand(d.data, beforeId: t),
+                              builder: (context, cand, _) => Container(
+                                padding: const EdgeInsets.only(left: 2),
+                                decoration: BoxDecoration(border: Border(left: BorderSide(color: cand.isNotEmpty ? kRkWood.withValues(alpha: 0.85) : Colors.transparent, width: 3))),
+                                // 방금 뽑은 타일은 바닥에서 날아오는 동안 숨겨 둔다
+                                child: Opacity(key: ValueKey('hand$t'), opacity: t == _hiddenTile ? 0 : 1, child: KeyedSubtree(key: _tileKey(t), child: _tile(t, tileWidth))),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _customZone(custom, tileWidth, scheme),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -872,64 +1016,16 @@ class _RummikubScreenState extends State<RummikubScreen> {
     );
   }
 
-  /// 점선으로 둘러싼 "내 정리판". 색/숫자 순서 단추의 영향을 받지 않는다.
-  Widget _customZone(List<int> tiles, double tileWidth, ColorScheme scheme) {
-    return DragTarget<List<int>>(
-      onWillAcceptWithDetails: (d) => c.canAct,
-      onAcceptWithDetails: (d) => c.moveToCustom(d.data),
-      builder: (context, candidate, _) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: c.canAct && c.selected.isNotEmpty ? () => c.moveToCustom(c.selected.toList()) : null,
-        child: CustomPaint(
-          painter: _DashedBorderPainter(color: kRkWood.withValues(alpha: candidate.isNotEmpty ? 0.9 : 0.7), fill: candidate.isNotEmpty ? Colors.white.withValues(alpha: 0.1) : null),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: tileWidth * 1.35 + 30),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '내 정리판',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: scheme.onSurface.withValues(alpha: 0.6)),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 2,
-                    runSpacing: 8,
-                    children: [
-                      for (final t in tiles)
-                        DragTarget<List<int>>(
-                          onWillAcceptWithDetails: (d) => c.canAct && !d.data.contains(t),
-                          onAcceptWithDetails: (d) => c.moveToCustom(d.data, beforeId: t),
-                          builder: (context, cand, _) => Container(
-                            padding: const EdgeInsets.only(left: 2),
-                            decoration: BoxDecoration(border: Border(left: BorderSide(color: cand.isNotEmpty ? kRkWood.withValues(alpha: 0.8) : Colors.transparent, width: 3))),
-                            child: _tile(t, tileWidth),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _sortButton(String label, bool on, VoidCallback onTap) {
+  Widget _sortButton(String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: on ? kRkWood : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: kRkWood.withValues(alpha: 0.6)),
         ),
-        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: on ? Colors.white : kRkWood)),
+        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: kRkWood)),
       ),
     );
   }
@@ -956,8 +1052,14 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 ),
               OutlinedButton.icon(
                 style: compact,
-                onPressed: c.canAct && modified ? c.reset : null,
+                onPressed: c.canUndoStep ? c.undoStep : null,
                 icon: const Icon(Icons.undo_rounded, size: 18),
+                label: const Text('되돌리기'),
+              ),
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: c.canAct && modified ? c.reset : null,
+                icon: const Icon(Icons.restart_alt_rounded, size: 18),
                 label: const Text('처음으로'),
               ),
               // 바닥이 비면 뽑을 타일이 없으니 넘기기만 한다 (바닥에 타일이 있으면 그중 한 장을 직접 골라 뽑는다)
@@ -1097,32 +1199,13 @@ Future<void> showRummikubRules(BuildContext context) {
   );
 }
 
+/// 날아가는 타일 한 장의 연출 정보 (화면 좌표).
+class _Fly {
+  const _Fly({required this.from, required this.to, required this.width, required this.duration, required this.serial, this.onEnd});
 
-/// 점선 테두리 (둥근 사각형).
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color, this.fill});
-
-  final Color color;
-  final Color? fill;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)).deflate(1);
-    if (fill != null) canvas.drawRRect(rrect, Paint()..color = fill!);
-    final path = Path()..addRRect(rrect);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = color;
-    for (final m in path.computeMetrics()) {
-      var d = 0.0;
-      while (d < m.length) {
-        canvas.drawPath(m.extractPath(d, min(d + 7, m.length)), paint);
-        d += 12;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) => old.color != color || old.fill != fill;
+  final Offset from, to;
+  final double width;
+  final Duration duration;
+  final int serial;
+  final VoidCallback? onEnd;
 }
