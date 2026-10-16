@@ -76,6 +76,9 @@ class GameInfo {
   bool get hasRecords => recordsTab != null;
   bool get isReady => builder != null;
   bool get hasSolo => modes.contains(PlayMode.solo);
+
+  /// 같은 Wi‑Fi로 함께 할 수 있는 게임이면 true. 허브 카드에 Wi‑Fi 표시가 붙는다.
+  bool get hasWifi => modes.contains(PlayMode.wifi);
   bool get hasMulti =>
       modes.contains(PlayMode.local2p) || modes.contains(PlayMode.vsCpu);
 }

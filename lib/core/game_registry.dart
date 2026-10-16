@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../games/dandelion/dandelion_entry.dart';
+import '../games/davinci/davinci_entry.dart';
+import '../games/davinci/tutorial/davinci_tutorial.dart';
+import '../games/davinci/ui/davinci_records_tab.dart';
 import '../games/dandelion/tutorial/dandelion_tutorial.dart';
 import '../games/freecell/freecell_entry.dart';
 import '../games/getcolor/getcolor_entry.dart';
@@ -17,7 +20,13 @@ import '../games/minesweeper/tutorial/mines_tutorial.dart';
 import '../games/prophecy/prophecy_entry.dart';
 import '../games/prophecy/tutorial/prophecy_tutorial.dart';
 import '../games/prophecy/ui/prophecy_records_tab.dart';
+import '../games/quoridor/quoridor_entry.dart';
+import '../games/quoridor/tutorial/quoridor_tutorial.dart';
+import '../games/quoridor/ui/quoridor_records_tab.dart';
 import '../games/rhythm/rhythm_entry.dart';
+import '../games/rummikub/rummikub_entry.dart';
+import '../games/rummikub/tutorial/rummikub_tutorial.dart';
+import '../games/rummikub/ui/rummikub_records_tab.dart';
 import '../games/rhythm/tutorial/rhythm_tutorial.dart';
 import '../games/solitaire/solitaire_entry.dart';
 import '../games/sprouts/sprouts_entry.dart';
@@ -163,7 +172,7 @@ const List<GameInfo> allGames = [
     tagline: '큰 컵으로 작은 컵을 덮어요',
     icon: Icons.layers_rounded,
     color: Color(0xFF00798C),
-    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    modes: [PlayMode.local2p, PlayMode.vsCpu, PlayMode.wifi],
     builder: buildGoblet,
     tutorial: gobletTutorial,
     iconPainter: paintGobletIcon,
@@ -208,5 +217,41 @@ const List<GameInfo> allGames = [
     tutorial: prophecyTutorial,
     iconPainter: paintProphecyIcon,
     recordsTab: ProphecyRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'rummikub',
+    title: '루미큐브',
+    tagline: '숫자 타일로 묶음을 만들어요',
+    icon: Icons.grid_view_rounded,
+    color: Color(0xFF8D5A2B),
+    modes: [PlayMode.vsCpu, PlayMode.wifi],
+    builder: buildRummikub,
+    tutorial: rummikubTutorial,
+    iconPainter: paintRummikubIcon,
+    recordsTab: RummikubRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'quoridor',
+    title: '쿼리도',
+    tagline: '말을 달리고 벽으로 길을 막아요',
+    icon: Icons.border_all_rounded,
+    color: Color(0xFFC2417F),
+    modes: [PlayMode.local2p, PlayMode.vsCpu, PlayMode.wifi],
+    builder: buildQuoridor,
+    tutorial: quoridorTutorial,
+    iconPainter: paintQuoridorIcon,
+    recordsTab: QuoridorRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'davinci_code',
+    title: '다빈치 코드',
+    tagline: '상대 타일의 숫자를 추리해 맞혀요',
+    icon: Icons.psychology_rounded,
+    color: Color(0xFF607D8B),
+    modes: [PlayMode.vsCpu, PlayMode.wifi],
+    builder: buildDavinci,
+    tutorial: davinciTutorial,
+    iconPainter: paintDavinciIcon,
+    recordsTab: DavinciRecordsTab.new,
   ),
 ];

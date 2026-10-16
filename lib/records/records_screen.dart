@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../core/game_filter.dart';
 import '../core/game_info.dart';
 import '../core/game_registry.dart';
 
@@ -39,7 +41,7 @@ class _RecordsScreenState extends State<RecordsScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       constraints: const BoxConstraints(maxWidth: 720),
-      builder: (_) => _GamePicker(boards: [for (final b in _boards) (title: b.recordsTitle ?? b.title, icon: b.icon)], selected: _index),
+      builder: (_) => _GamePicker(boards: _boards, selected: _index),
     );
     if (chosen != null) _go(chosen);
   }
@@ -100,15 +102,27 @@ class _RecordsScreenState extends State<RecordsScreen> {
 }
 
 /// 게임을 고르는 목록 (격자). 게임이 아무리 많아져도 스크롤되고, 이름은 두 줄까지 통째로 보인다.
-class _GamePicker extends StatelessWidget {
+///
+/// 위의 분류 막대(전체·혼자·함께·Wi‑Fi·교과학습)로 거를 수 있다. 분류는 게임 등록 정보로 저절로 정해지고
+/// ([GameFilter]), 같은 Wi‑Fi로 할 수 있는 게임에는 이름 옆에 Wi‑Fi 표시가 붙는다.
+class _GamePicker extends StatefulWidget {
   const _GamePicker({required this.boards, required this.selected});
 
-  final List<({String title, IconData icon})> boards;
+  final List<GameInfo> boards;
   final int selected;
+
+  @override
+  State<_GamePicker> createState() => _GamePickerState();
+}
+
+class _GamePickerState extends State<_GamePicker> {
+  GameFilter _filter = GameFilter.all;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // (게임 전체에서의 번호, 게임) — 거른 뒤에도 고른 게임의 원래 번호를 돌려주려고
+    final shown = [for (var i = 0; i < widget.boards.length; i++) if (_filter.matches(widget.boards[i])) (i, widget.boards[i])];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -117,47 +131,73 @@ class _GamePicker extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
           child: Text('어느 게임의 기록을 볼까요?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         ),
-        Flexible(
-          child: GridView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 130,
-              mainAxisExtent: 104,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-            ),
-            itemCount: boards.length,
-            itemBuilder: (context, i) {
-              final on = i == selected;
-              return Material(
-                color: on ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: GameFilterBar(selected: _filter, onChanged: (f) => setState(() => _filter = f)),
+        ),
+        if (shown.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            child: Text('이 분류에 맞는 게임이 아직 없어요', textAlign: TextAlign.center, style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.65))),
+          )
+        else
+          Flexible(
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 130,
+                mainAxisExtent: 104,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+              ),
+              itemCount: shown.length,
+              itemBuilder: (context, k) {
+                final (i, game) = shown[k];
+                final on = i == widget.selected;
+                return Material(
+                  color: on ? scheme.primaryContainer : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.pop(context, i),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => Navigator.pop(context, i),
+                    child: Stack(
                       children: [
-                        Icon(boards[i].icon, size: 30, color: on ? scheme.primary : scheme.onSurface.withValues(alpha: 0.75)),
-                        const SizedBox(height: 6),
-                        Text(
-                          boards[i].title,
-                          maxLines: 2,
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14, height: 1.2, fontWeight: on ? FontWeight.w900 : FontWeight.w700),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(game.icon, size: 30, color: on ? scheme.primary : scheme.onSurface.withValues(alpha: 0.75)),
+                                const SizedBox(height: 6),
+                                Text(
+                                  game.recordsTitle ?? game.title,
+                                  maxLines: 2,
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 14, height: 1.2, fontWeight: on ? FontWeight.w900 : FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
+                        if (game.hasWifi && !kIsWeb)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Tooltip(
+                              message: '같은 Wi‑Fi로 함께 할 수 있어요',
+                              child: Icon(Icons.wifi_rounded, size: 16, color: scheme.onSurface.withValues(alpha: 0.6)),
+                            ),
+                          ),
                       ],
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }

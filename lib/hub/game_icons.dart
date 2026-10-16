@@ -85,6 +85,25 @@ void _text(Canvas c, String s, Offset center, double size, Color color) {
   tp.paint(c, center - Offset(tp.width / 2, tp.height / 2));
 }
 
+/// 숫자·글자 하나를 [center]의 한가운데에 그린다. 글자를 100배 키운 크기로 그려서 줄여 붙이고 (0~1 좌표에 바로 쓰는 아주 작은 글자 크기는
+/// 흐리게 그려진다), 글자 상자가 아니라 숫자 모양 자체의 가운데(기준선에서 숫자 높이의 절반 위)가 [center]에 오게 맞춘다.
+void _crispText(Canvas c, String s, Offset center, double size, Color color) {
+  final fontSize = size * 100;
+  final tp = TextPainter(
+    text: TextSpan(
+      text: s,
+      style: TextStyle(fontFamily: 'NanumGothic', fontSize: fontSize, fontWeight: FontWeight.w900, color: color, height: 1.0),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  final baseline = tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+  c.save();
+  c.translate(center.dx, center.dy);
+  c.scale(0.01);
+  tp.paint(c, Offset(-tp.width / 2, -(baseline - fontSize * 0.36)));
+  c.restore();
+}
+
 /// 카드·병처럼 픽셀 단위로 그리는 함수를 0~1 좌표 안에서 쓰게 한다.
 void _pixels(Canvas c, double s, Offset origin, void Function() draw) {
   c.save();
@@ -107,7 +126,7 @@ void paintSudokuIcon(Canvas c, double s) {
   }
   c.drawRRect(box, _line(_ink, 0.04));
   const xs = [0.22, 0.5, 0.78];
-  void digit(String d, int col, int row, Color color) => _text(c, d, Offset(xs[col], xs[row] + (row == 0 ? 0.055 : 0.035)), 0.2, color);
+  void digit(String d, int col, int row, Color color) => _crispText(c, d, Offset(xs[col], xs[row]), 0.2, color);
   digit('5', 0, 0, const Color(0xFF3F7CAC));
   digit('3', 2, 0, _ink);
   digit('7', 1, 1, const Color(0xFFD1495B));
@@ -149,7 +168,7 @@ void paintMinesIcon(Canvas c, double s) {
 // ── 솔리테어: 펼친 카드 세 장 (게임의 실제 카드 그림) ──
 void paintSolitaireIcon(Canvas c, double s) {
   const cw = 0.4, ch = 0.56;
-  const pivot = Offset(0.5, 0.95);
+  const pivot = Offset(0.5, 0.74); // 부채꼴 전체가 그림 한가운데에 오도록
   void card(int id, double angle) {
     c.save();
     c.translate(pivot.dx, pivot.dy);
@@ -290,12 +309,15 @@ void paintUtttIcon(Canvas c, double s) {
 // ── 고블렛 고블러스: 게임 안의 고블러(귀 달린 돔 모양 컵) 크기별 세 개 ──
 void paintGobletIcon(Canvas c, double s) {
   // 그림 좌표가 0~1이라, 100배 키운 크기로 말을 그려서 줄여 붙인다 (선 굵기 등이 게임 안과 같게).
+  // 말은 바닥 선에 맞춰 놓이고 큰 말의 귀가 솟아 있어서, 상자 기준이 아니라 그려진 모양의 위아래 가운데를 그림 가운데에 맞춘다.
+  const k = 1.0;
   void piece(Team team, int size, double cx, double w) {
-    const base = 0.93;
+    const base = 0.77; // 말 그림의 위아래 가운데가 그림 한가운데(0.5)에 오는 자리
+    final x = 0.5 + (cx - 0.5) * k, ww = w * k;
     c.save();
-    c.translate(cx - w / 2, base - w);
+    c.translate(x - ww / 2, base - ww);
     c.scale(0.01);
-    GobblerPainter(team: team, size: size).paint(c, Size(w * 100, w * 100));
+    GobblerPainter(team: team, size: size).paint(c, Size(ww * 100, ww * 100));
     c.restore();
   }
 
@@ -464,5 +486,95 @@ void paintProphecyIcon(Canvas c, double s) {
   }
   for (var k = 0; k < cols; k++) {
     count(Offset(left + cell * (k + 0.5), top + gridH + 0.085), colCount[k], colOk.contains(k));
+  }
+}
+
+// ── 루미큐브: 같은 숫자 다른 색 타일 세 장이 부채꼴로 놓인 그룹 ──
+void paintRummikubIcon(Canvas c, double s) {
+  const w = 0.34, h = 0.46;
+  const colors = [Color(0xFF1E63C6), Color(0xFFD32F2F), Color(0xFFEF8A17)];
+  const angles = [-0.26, 0.0, 0.26];
+  const centers = [Offset(0.27, 0.53), Offset(0.5, 0.45), Offset(0.73, 0.53)];
+  for (var i = 0; i < 3; i++) {
+    c.save();
+    c.translate(centers[i].dx, centers[i].dy);
+    c.rotate(angles[i]);
+    final tile = RRect.fromRectAndRadius(const Rect.fromLTWH(-w / 2, -h / 2, w, h), const Radius.circular(0.055));
+    _shadow(c, Path()..addRRect(tile));
+    c.drawRRect(tile, _fill(const Color(0xFFFFF8E6)));
+    c.drawRRect(tile, _line(const Color(0xFF8D5A2B), 0.02));
+    // 숫자는 패 안쪽 위에, 색 무늬(●■▲)는 아래에 작은 도형으로 (글자 상자가 커서 패 밖으로 나가지 않게 크기와 자리를 줄였다)
+    _crispText(c, '7', const Offset(0, -0.06), 0.17, colors[i]);
+    final mark = _fill(colors[i]);
+    const my = 0.115, r = 0.034;
+    switch (i) {
+      case 0:
+        c.drawCircle(const Offset(0, my), r, mark);
+      case 1:
+        c.drawRect(Rect.fromCenter(center: const Offset(0, my), width: r * 1.8, height: r * 1.8), mark);
+      default:
+        c.drawPath(
+          Path()
+            ..moveTo(0, my - r * 1.1)
+            ..lineTo(r * 1.15, my + r * 0.9)
+            ..lineTo(-r * 1.15, my + r * 0.9)
+            ..close(),
+          mark,
+        );
+    }
+    c.restore();
+  }
+}
+
+// ── 쿼리도: 칸 판 위에 두 말과 벽 ──
+void paintQuoridorIcon(Canvas c, double s) {
+  const n = 5;
+  const left = 0.1, top = 0.1, cell = 0.14, gap = 0.04;
+  const pitch = cell + gap;
+  final board = RRect.fromRectAndRadius(const Rect.fromLTWH(0.05, 0.05, 0.9, 0.9), const Radius.circular(0.07));
+  _shadow(c, Path()..addRRect(board));
+  c.drawRRect(board, _fill(const Color(0xFFB98C52)));
+  for (var r = 0; r < n; r++) {
+    for (var k = 0; k < n; k++) {
+      c.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(left + k * pitch, top + r * pitch, cell, cell), const Radius.circular(0.025)),
+        _fill(const Color(0xFFEBD3A3)),
+      );
+    }
+  }
+  // 벽: 가로 하나(2~3열 사이 위), 세로 하나
+  final wall = _fill(const Color(0xFF4A2F1B));
+  c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(left + 1 * pitch, top + 2 * pitch - gap, cell * 2 + gap, gap), const Radius.circular(0.02)), wall);
+  c.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(left + 3 * pitch - gap, top + 3 * pitch, gap, cell * 2 + gap), const Radius.circular(0.02)), wall);
+  // 말
+  void pawn(int r, int k, Color color) {
+    final center = Offset(left + k * pitch + cell / 2, top + r * pitch + cell / 2);
+    c.drawCircle(center + const Offset(0, 0.012), cell * 0.4, _fill(Colors.black.withValues(alpha: 0.25)));
+    c.drawCircle(center, cell * 0.4, _fill(color));
+    c.drawCircle(center, cell * 0.4, _line(Colors.white.withValues(alpha: 0.85), 0.012));
+  }
+
+  pawn(4, 2, const Color(0xFFD1495B));
+  pawn(0, 2, const Color(0xFF3F7CAC));
+}
+
+// ── 다빈치 코드: 숫자가 보이는 검정 타일, 흰색 타일, 그리고 뒷면(?) 타일 ──
+void paintDavinciIcon(Canvas c, double s) {
+  const w = 0.32, h = 0.45;
+  const tiles = [
+    (Offset(0.27, 0.54), -0.26, Color(0xFF2A2D32), '7', Colors.white),
+    (Offset(0.5, 0.46), 0.0, Color(0xFFF6F1E4), '3', Color(0xFF2A2D32)),
+    (Offset(0.73, 0.54), 0.26, Color(0xFF2A2D32), '?', Color(0xFF8FA3B0)),
+  ];
+  for (final (center, angle, bg, label, fg) in tiles) {
+    c.save();
+    c.translate(center.dx, center.dy);
+    c.rotate(angle);
+    final tile = RRect.fromRectAndRadius(const Rect.fromLTWH(-w / 2, -h / 2, w, h), const Radius.circular(0.05));
+    _shadow(c, Path()..addRRect(tile));
+    c.drawRRect(tile, _fill(bg));
+    c.drawRRect(tile, _line(bg == const Color(0xFFF6F1E4) ? const Color(0xFFBDB29A) : const Color(0xFF6A6F78), 0.02));
+    _crispText(c, label, Offset.zero, 0.24, fg);
+    c.restore();
   }
 }

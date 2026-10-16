@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/getcolor/core/getcolor_rules.dart';
 import 'package:tabgame/games/getcolor/core/getcolor_solver.dart';
+import 'package:tabgame/games/getcolor/ui/getcolor_painter.dart';
 
 WaterState s(List<List<int>> b) => WaterState([for (final x in b) List<int>.of(x)]);
 
@@ -258,5 +259,16 @@ void main() {
       expect(lost, greaterThan(0));
       expect(won, greaterThan(0));
     }, timeout: const Timeout(Duration(minutes: 5)));
+  });
+
+  group('색 구별 무늬', () {
+    test('초록 계열(연두·초록·청록)은 서로 다른 무늬로 구별되고, 남색도 따로 구별된다', () {
+      const lime = 3, green = 4, teal = 5, navy = 12;
+      final patterns = [for (final c in [lime, green, teal, navy]) waterPattern(c)];
+      for (final p in patterns) {
+        expect(p, isNot(WaterPattern.solid)); // 색만으로는 헷갈리니 모두 무늬가 있다
+      }
+      expect(patterns.toSet().length, patterns.length, reason: '무늬가 겹치면 구별이 안 돼요');
+    });
   });
 }

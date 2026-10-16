@@ -14,10 +14,14 @@ class GobbletRecord {
     this.human,
     this.byReveal = false,
     this.resigned = false,
+    this.online = false,
   });
 
   final int at;
   final bool vsCpu;
+
+  /// 같은 Wi‑Fi의 다른 기기와 한 판인가 ([human]은 이 기기를 쓴 사람의 팀).
+  final bool online;
 
   /// 이긴 팀. null이면 무승부.
   final Team? winner;
@@ -38,6 +42,9 @@ class GobbletRecord {
   /// CPU 대결에서 내가 이겼는가 (CPU 대결이 아니면 null).
   bool? get humanWon => vsCpu && winner != null ? winner == human : null;
 
+  /// Wi‑Fi 대결에서 내가 이겼는가 (무승부거나 Wi‑Fi 대결이 아니면 null).
+  bool? get onlineWon => online && winner != null ? winner == human : null;
+
   Map<String, dynamic> toJson() => {
         'at': at,
         'cpu': vsCpu,
@@ -47,6 +54,7 @@ class GobbletRecord {
         'h': human?.name,
         'rv': byReveal,
         if (resigned) 'rs': 1,
+        if (online) 'net': 1,
       };
 
   static GobbletRecord fromJson(Map<String, dynamic> j) => GobbletRecord(
@@ -58,6 +66,7 @@ class GobbletRecord {
         human: j['h'] == null ? null : Team.values.byName(j['h'] as String),
         byReveal: j['rv'] as bool? ?? false,
         resigned: j['rs'] == 1,
+        online: j['net'] == 1,
       );
 }
 

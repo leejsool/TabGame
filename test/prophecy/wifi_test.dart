@@ -383,12 +383,20 @@ void main() {
       unawaited(navKey.currentState!.push(MaterialPageRoute<void>(
         builder: (_) => const ProphecyJoinScreen(discoveryPort: discovery, extraTargets: ['127.0.0.1']),
       )).then((_) => joined.complete()));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
-      await settle(tester, rounds: 6);
+      // 방 목록에 방이 뜰 때까지 기다린다 (기기가 바쁠 때는 늦게 뜬다)
+      for (var i = 0; i < 40 && find.widgetWithText(FilledButton, '들어가기').evaluate().isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await settle(tester, rounds: 2);
       expect(find.text('표 4×5'), findsWidgets);
       expect(find.text('들어가기'), findsWidgets);
       await tester.tap(find.widgetWithText(FilledButton, '들어가기').first);
-      await settle(tester, rounds: 12);
+      // 두 화면이 모두 열릴 때까지 기다린다 (기기가 바쁠 때는 늦다)
+      for (var i = 0; i < 60 && find.byType(ProphecyScreen, skipOffstage: false).evaluate().length < 2; i++) {
+        await settle(tester, rounds: 1);
+      }
+      await settle(tester, rounds: 2);
       // 들어간 쪽(손님)은 먼저 쓰는 쪽, 방을 연 쪽은 나중 쪽으로 시작한다 (hostSide: 1)
       final screens = tester.widgetList<ProphecyScreen>(find.byType(ProphecyScreen, skipOffstage: false)).toList();
       expect(screens.length, 2);

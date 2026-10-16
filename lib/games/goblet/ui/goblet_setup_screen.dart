@@ -7,6 +7,7 @@ import '../core/goblet_rules.dart';
 import 'goblet_piece.dart';
 import '../tutorial/goblet_tutorial.dart';
 import 'goblet_screen.dart';
+import 'goblet_wifi_screen.dart';
 
 /// CPU 대전 시작 전 설정: 난이도 + 내 팀.
 class GobbletSetupScreen extends StatefulWidget {
@@ -50,6 +51,49 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
           label: (l) => l.label,
           description: (l) => l.description,
         ),
+      ],
+    );
+  }
+}
+
+/// 같은 Wi‑Fi로 방을 만들기 전 설정: 내 팀(빨강/파랑/무작위).
+class GobbletHostSetupScreen extends StatefulWidget {
+  const GobbletHostSetupScreen({super.key});
+
+  @override
+  State<GobbletHostSetupScreen> createState() => _GobbletHostSetupScreenState();
+}
+
+class _GobbletHostSetupScreenState extends State<GobbletHostSetupScreen> {
+  int _team = kRandomSide; // 0 = 빨강, 1 = 파랑, -1 = 무작위
+
+  @override
+  Widget build(BuildContext context) {
+    return VsSetupScaffold(
+      gameId: 'goblet_gobblers',
+      title: '고블렛 고블러스 · 방 만들기',
+      startLabel: '방 열기',
+      onStart: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => GobbletHostScreen(hostTeam: _team))),
+      tutorial: gobletTutorial,
+      children: [
+        const VsSectionTitle('내 팀'),
+        VsChoiceRow(cards: [
+          for (final t in Team.values) _TeamCard(team: t, selected: _team == t.index, onTap: () => setState(() => _team = t.index)),
+          VsChoiceCard(
+            color: const Color(0xFF8E5BC4),
+            selected: _team == kRandomSide,
+            onTap: () => setState(() => _team = kRandomSide),
+            child: const Column(
+              children: [
+                SizedBox(width: 72, height: 72, child: Icon(Icons.casino_rounded, size: 48, color: Color(0xFF8E5BC4))),
+                SizedBox(height: 8),
+                Text('무작위', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF6E3FA3))),
+                Text('상대가 들어오면 정해요', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+              ],
+            ),
+          ),
+        ]),
+        const VsHint('빨강팀이 먼저 시작해요. 다음 판부터는 번갈아 시작해요.'),
       ],
     );
   }

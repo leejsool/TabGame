@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../core/game_info.dart';
@@ -77,8 +78,15 @@ class _GameCardState extends State<GameCard> {
                       ),
                       if (!game.isReady)
                         const _SoonBadge()
-                      else if (game.hasLesson)
-                        _LessonBadge(compact: widget.compact),
+                      else
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (game.hasWifi && !kIsWeb) _WifiBadge(compact: widget.compact),
+                            if (game.hasWifi && !kIsWeb && game.hasLesson) SizedBox(width: widget.compact ? 4 : 6),
+                            if (game.hasLesson) _LessonBadge(compact: widget.compact),
+                          ],
+                        ),
                     ],
                   ),
                   const Spacer(),
@@ -147,6 +155,28 @@ class _LessonBadge extends StatelessWidget {
           padding: EdgeInsets.all(compact ? 6 : 8),
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
           child: Icon(Icons.school_rounded, size: compact ? 18 : 22, color: Colors.black.withValues(alpha: 0.72)),
+        ),
+      ),
+    );
+  }
+}
+
+/// 같은 Wi‑Fi로 함께 할 수 있는 게임 카드의 Wi‑Fi 표시.
+class _WifiBadge extends StatelessWidget {
+  const _WifiBadge({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '같은 Wi‑Fi로 함께 할 수 있어요',
+      child: Semantics(
+        label: '같은 Wi‑Fi로 함께 할 수 있어요',
+        child: Container(
+          padding: EdgeInsets.all(compact ? 6 : 8),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
+          child: Icon(Icons.wifi_rounded, size: compact ? 18 : 22, color: Colors.black.withValues(alpha: 0.72)),
         ),
       ),
     );

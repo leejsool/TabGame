@@ -135,21 +135,30 @@ void main() {
         await settle(tester, rounds: 3);
         // 긴 이름도 통째로 보인다
         expect(find.text('궁극 틱택토'), findsOneWidget);
-        // 눌러서 목록을 열면 모든 게임이 보이고, 고르면 그 게임으로 바뀐다
+        // 눌러서 목록을 열면 게임이 보이고, 분류로 거를 수 있다 (게임이 늘어도 시험이 깨지지 않게 등록 목록에서 이름을 가져온다)
         await tester.tap(find.text('궁극 틱택토'));
         await settle(tester, rounds: 6);
-        for (final name in ['스도쿠', '프리셀', '지뢰찾기', '솔리테어', '직소퍼즐', '겟 컬러', '리듬 검사단', '궁극 틱택토', '고블렛', '콩나물', '민들레', '예언']) {
-          expect(find.text(name), findsWidgets, reason: name);
+        final boards = RecordsScreen.boards;
+        expect(find.text('스도쿠'), findsWidgets);
+        await tester.tap(find.byTooltip('Wi‑Fi'));
+        await settle(tester, rounds: 4);
+        final wifi = [for (final g in boards) if (g.hasWifi) g];
+        expect(wifi, isNotEmpty);
+        for (final g in wifi) {
+          expect(find.text(g.recordsTitle ?? g.title), findsWidgets, reason: g.id);
         }
-        await tester.tap(find.text('예언').last);
+        expect(find.text('스도쿠'), findsNothing); // 혼자 하는 게임은 Wi‑Fi 분류에 없다
+        expect(find.byIcon(Icons.wifi_rounded), findsWidgets);
+        // 거른 목록에서 고르면 그 게임(전체에서의 번호)으로 바뀐다
+        final last = wifi.last;
+        await tester.tap(find.text(last.recordsTitle ?? last.title).last);
         await settle(tester, rounds: 6);
-        expect(find.text('예언'), findsOneWidget); // 위에 고른 게임 이름
-        expect(find.text('12/12'), findsOneWidget);
+        final at = boards.indexOf(last);
+        expect(find.text('${at + 1}/${boards.length}'), findsOneWidget);
         // 옆 화살표로 이웃 게임으로
         await tester.tap(find.byTooltip('다음 게임'));
         await settle(tester, rounds: 6);
-        expect(find.text('스도쿠'), findsOneWidget);
-        expect(find.text('1/12'), findsOneWidget);
+        expect(find.text('${(at + 1) % boards.length + 1}/${boards.length}'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
     });

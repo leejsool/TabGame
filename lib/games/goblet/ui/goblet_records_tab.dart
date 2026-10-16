@@ -23,11 +23,16 @@ class GobbletRecordsTab extends StatelessWidget {
       isCpu: (r) => r.vsCpu,
       humanWon: (r) => r.humanWon,
       hasDraws: true,
-      twoPlayerTallies: (two, scheme) => [
-        VsTally('빨강팀 승', two.where((r) => r.winner == Team.red).length, TeamPalette.red.main),
-        VsTally('파랑팀 승', two.where((r) => r.winner == Team.blue).length, TeamPalette.blue.main),
-        VsTally('무승부', two.where((r) => r.isDraw).length, scheme.outline),
-      ],
+      twoPlayerTallies: (two, scheme) {
+        final local = [for (final r in two) if (!r.online) r]; // Wi‑Fi 대결은 팀 승 수에 넣지 않고 따로 센다
+        final online = [for (final r in two) if (r.online) r];
+        return [
+          VsTally('빨강팀 승', local.where((r) => r.winner == Team.red).length, TeamPalette.red.main),
+          VsTally('파랑팀 승', local.where((r) => r.winner == Team.blue).length, TeamPalette.blue.main),
+          VsTally('무승부', local.where((r) => r.isDraw).length, scheme.outline),
+          if (online.isNotEmpty) VsTally('Wi‑Fi 대결 승', online.where((r) => r.onlineWon == true).length, const Color(0xFFF2A900)),
+        ];
+      },
       tile: _tile,
     );
   }
@@ -35,7 +40,7 @@ class GobbletRecordsTab extends StatelessWidget {
   static VsTile _tile(BuildContext context, GobbletRecord r, ColorScheme scheme) {
     final detail = [
       formatDate(r.at),
-      if (r.vsCpu) '${r.human!.label}로 플레이' else '2인',
+      if (r.vsCpu) '${r.human!.label}로 플레이' else if (r.online) 'Wi‑Fi · ${r.human!.label}' else '2인',
       '${r.moves}수',
       if (r.byReveal) '들어 올려서 드러남',
     ].join(' · ');
@@ -46,6 +51,16 @@ class GobbletRecordsTab extends StatelessWidget {
         resigned: r.resigned,
         levelLabel: r.level!.label,
         detail: detail,
+      );
+    }
+    if (r.online) {
+      final won = r.onlineWon;
+      return VsTile(
+        icon: won == null ? Icons.handshake_rounded : (won ? Icons.emoji_events_rounded : Icons.sentiment_dissatisfied_rounded),
+        color: won == null ? scheme.outline : (won ? const Color(0xFFF2A900) : scheme.error),
+        title: won == null ? '무승부 · Wi‑Fi 대결' : '${won ? '이겼어요' : r.resigned ? '기권했어요' : '졌어요'} · Wi‑Fi 대결',
+        detail: detail,
+        resigned: r.resigned && won == false,
       );
     }
     if (r.isDraw) {

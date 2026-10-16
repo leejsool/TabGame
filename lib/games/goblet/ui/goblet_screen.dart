@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/settings_scope.dart';
+import '../../../net/lan_connection.dart';
 import '../tutorial/goblet_tutorial.dart';
 import '../../../records/records_screen.dart';
 import '../core/goblet_ai.dart';
@@ -23,11 +24,15 @@ class GobbletScreen extends StatefulWidget {
     this.humanTeam = Team.red,
     this.level = CpuLevel.normal,
     this.controller,
+    this.link,
   });
 
   final PlayMode mode;
   final Team humanTeam;
   final CpuLevel level;
+
+  /// 같은 Wi‑Fi 대결([PlayMode.wifi])에서 상대 기기와의 연결. 이 화면이 닫을 때 같이 닫는다.
+  final LanConnection? link;
 
   /// (테스트용) 미리 만든 컨트롤러를 쓰고 싶을 때.
   final GobbletController? controller;
@@ -46,20 +51,138 @@ class _GobbletScreenState extends State<GobbletScreen> {
       );
   bool _resultShown = false;
 
+  // ── 같은 Wi‑Fi 대결 ──
+  LanConnection? get _link => c.online ? widget.link : null;
+  StreamSubscription<Map<String, dynamic>>? _linkSub;
+
+  /// 상대 기기와의 연결이 끊겼다 / 이 화면에서 일부러 나가는 중이다.
+  bool _opponentGone = false;
+  bool _leaving = false;
+
+  /// 한 판 더: 내가 하자고 했다 / 상대가 하자고 했다 (둘 다 하면 새로 시작한다).
+  bool _rematchAsked = false;
+  bool _rematchOffered = false;
+
   @override
   void initState() {
     super.initState();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
+    final link = _link;
+    if (link != null) {
+      c.onLocalMove = (m) => link.send({'t': 'move', 'i': c.moveCount - 1, 'f': m.from, 'to': m.to, 's': m.size});
+      _linkSub = link.messages.listen(_onNet);
+      link.closed.then((_) => _onLinkClosed());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
   }
 
   @override
   void dispose() {
+    _leaving = true;
+    _linkSub?.cancel();
+    final link = _link;
+    if (link != null) {
+      link.send(const {'t': 'bye'});
+      link.close();
+    }
     c.removeListener(_onChanged);
     c.onFeedback = null;
+    c.onLocalMove = null;
     c.dispose();
     super.dispose();
+  }
+
+  void _onNet(Map<String, dynamic> m) {
+    if (!mounted) return;
+    switch (m['t']) {
+      case 'move':
+        final f = m['f'], to = m['to'], size = m['s'];
+        if (f is! int || to is! int || size is! int || size < 1 || size > 3 || f < -1 || f > 8 || to < 0 || to > 8) {
+          _desync();
+          return;
+        }
+        final move = f < 0 ? GobbletMove.place(size, to) : GobbletMove.slide(f, to, size);
+        if (!c.receiveMove(move, index: m['i'] as int?)) _desync();
+      case 'resign':
+        _onOpponentResigned();
+      case 'again':
+        setState(() => _rematchOffered = true);
+        if (_rematchAsked) _startRematch();
+      case 'bye':
+        _onLinkClosed();
+    }
+  }
+
+  /// 판이 서로 어긋났다 (있을 수 없는 일이지만, 어긋난 채로 계속하지는 않는다).
+  Future<void> _desync() async {
+    if (_opponentGone || _leaving) return;
+    _opponentGone = true;
+    await _link?.close();
+    if (!mounted) return;
+    await _notice('판이 서로 어긋났어요', '두 기기의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _onLinkClosed() {
+    if (!mounted || _leaving || _opponentGone) return;
+    setState(() => _opponentGone = true);
+    if (c.isOver) return; // 끝난 판이면 결과를 마저 볼 수 있게 두고, "한 판 더"만 막는다
+    _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 상대가 나갔어요. 이 판은 기록하지 않아요.').then((_) {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  Future<void> _notice(String title, String body) => showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.wifi_off_rounded, size: 32),
+          title: Text(title, textAlign: TextAlign.center),
+          content: Text(body, textAlign: TextAlign.center),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
+        ),
+      );
+
+  /// 상대가 기권했다: 내 승리로 끝나고 (기록은 [_onChanged]가 남긴다), 결과 창이 뜬다.
+  void _onOpponentResigned() {
+    if (c.isOver) return;
+    c.opponentResigned();
+  }
+
+  /// "한 판 더": 상대도 하자고 했으면 바로 시작하고, 아니면 상대를 기다린다.
+  void _requestRematch() {
+    if (_rematchAsked || _opponentGone) return;
+    setState(() => _rematchAsked = true);
+    _link?.send(const {'t': 'again'});
+    if (_rematchOffered) _startRematch();
+  }
+
+  void _startRematch() {
+    setState(() {
+      _rematchAsked = false;
+      _rematchOffered = false;
+    });
+    _resultShown = false;
+    c.restart(); // 먼저 시작하는 팀이 바뀐다 (두 기기가 똑같이)
+  }
+
+  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
+  Future<void> _confirmLeave() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('판에서 나갈까요?'),
+        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
+        ],
+      ),
+    );
+    if (ok == true && mounted) Navigator.of(context).pop();
   }
 
   void _feedback(String kind) {
@@ -85,9 +208,10 @@ class _GobbletScreenState extends State<GobbletScreen> {
         winner: r.winner,
         moves: c.moveCount,
         level: c.vsCpu ? c.level : null,
-        human: c.vsCpu ? c.humanTeam : null,
+        human: c.oneSeat ? c.humanTeam : null,
         byReveal: r.byReveal,
         resigned: r.resigned,
+        online: c.online,
       ));
       Future<void>.delayed(const Duration(milliseconds: 1300), _showResult);
     } else if (r == null) {
@@ -105,7 +229,7 @@ class _GobbletScreenState extends State<GobbletScreen> {
       verb: '기권',
     );
     if (!ok || !mounted) return;
-    c.resign(); // 끝난 판으로 기록되고 결과 창이 뜬다
+    if (c.resign()) _link?.send(const {'t': 'resign'}); // 끝난 판으로 기록되고 결과 창이 뜬다
   }
 
   Future<void> _showResult() async {
@@ -116,7 +240,11 @@ class _GobbletScreenState extends State<GobbletScreen> {
     );
     if (!mounted) return;
     if (again == true) {
-      c.restart();
+      if (c.online) {
+        _requestRematch();
+      } else {
+        c.restart();
+      }
     } else if (again == false) {
       Navigator.of(context).pop();
     }
@@ -124,6 +252,24 @@ class _GobbletScreenState extends State<GobbletScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Wi‑Fi 대결 도중에 나가려 하면 먼저 물어본다 (연결이 끊기니까).
+    return ListenableBuilder(
+      listenable: c,
+      builder: (context, child) {
+        final askBeforeLeave = c.online && !c.isOver && !_opponentGone;
+        return PopScope(
+          canPop: !askBeforeLeave,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _confirmLeave();
+          },
+          child: child!,
+        );
+      },
+      child: _scaffold(),
+    );
+  }
+
+  Widget _scaffold() {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: DecoratedBox(
@@ -199,6 +345,13 @@ class _GobbletScreenState extends State<GobbletScreen> {
           if (r.kind == ResultKind.draw) {
             text = '무승부예요 (같은 모양이 3번 반복됐어요)';
             team = null;
+          } else if (c.online && r.resigned) {
+            text = r.winner == c.humanTeam ? '상대가 기권해서 이겼어요! 🎉' : '기권했어요';
+            team = r.winner;
+          } else if (c.online) {
+            final me = r.winner == c.humanTeam;
+            text = me ? '이겼어요! 🎉' : '졌어요';
+            team = r.winner;
           } else {
             text = r.byReveal
                 ? '${r.winner!.label} 승리! 말을 들어 올리자 줄이 드러났어요'
@@ -208,8 +361,14 @@ class _GobbletScreenState extends State<GobbletScreen> {
         } else if (c.thinking) {
           text = 'CPU가 생각하는 중…';
           team = c.turn;
-        } else if (c.vsCpu && c.turn == c.humanTeam) {
+        } else if (_opponentGone) {
+          text = '상대와 연결이 끊겼어요';
+          team = null;
+        } else if (c.oneSeat && c.turn == c.humanTeam) {
           text = '내 차례예요. 말을 끌어다 칸에 놓아요';
+          team = c.turn;
+        } else if (c.online) {
+          text = '상대가 두기를 기다리는 중이에요';
           team = c.turn;
         } else {
           text = '${c.turn.label} 차례예요';
@@ -264,18 +423,33 @@ class _GobbletScreenState extends State<GobbletScreen> {
           spacing: 10,
           runSpacing: 6,
           children: [
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: c.canUndo ? c.undo : null,
-              icon: const Icon(Icons.undo_rounded, size: 20),
-              label: const Text('되돌리기'),
-            ),
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: () => c.restart(),
-              icon: const Icon(Icons.refresh_rounded, size: 20),
-              label: const Text('새 판'),
-            ),
+            // (Wi‑Fi 대결에는 되돌리기·새 판이 없다)
+            if (!c.online) ...[
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: c.canUndo ? c.undo : null,
+                icon: const Icon(Icons.undo_rounded, size: 20),
+                label: const Text('되돌리기'),
+              ),
+              OutlinedButton.icon(
+                style: compact,
+                onPressed: () => c.restart(),
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+                label: const Text('새 판'),
+              ),
+            ],
+            if (c.online && c.isOver)
+              FilledButton.icon(
+                onPressed: _rematchAsked || _opponentGone ? null : _requestRematch,
+                icon: const Icon(Icons.replay_rounded, size: 20),
+                label: Text(_opponentGone
+                    ? '상대가 나갔어요'
+                    : _rematchAsked
+                        ? '상대를 기다려요…'
+                        : _rematchOffered
+                            ? '한 판 더 (상대가 원해요)'
+                            : '한 판 더'),
+              ),
             OutlinedButton.icon(
               style: compact,
               onPressed: c.canResign ? _resign : null,
@@ -304,6 +478,11 @@ class _ResultDialog extends StatelessWidget {
     if (r.kind == ResultKind.draw) {
       title = '무승부';
       body = '같은 모양이 3번 나와서 비겼어요.';
+    } else if (c.online) {
+      final me = r.winner == c.humanTeam;
+      title = r.resigned ? (me ? '상대가 기권했어요' : '기권했어요') : (me ? '이겼어요! 🎉' : '졌어요');
+      body = r.resigned ? (me ? '내 승리로 기록해 두었어요.' : '상대의 승리로 기록해 두었어요.') : (me ? '${r.winner!.label} 승리!' : '다음엔 꼭 이겨 봐요!');
+      face = r.winner;
     } else if (r.resigned) {
       // 기권: 진 쪽이 기권했다 (기록에도 남았다)
       title = c.vsCpu ? '기권했어요' : '${r.winner!.other.label}이 기권했어요';

@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import '../core/getcolor_rules.dart';
 
 /// 물 색깔 13가지 (색 번호 → 색). 비슷해 보이는 짝(빨강/분홍, 연두/초록, 청록/하늘, 파랑/남색…)은
-/// 색을 최대한 벌려 놓았고, 파랑과 헷갈리는 남색에만 아래 [kWaterPatterns] 무늬를 겹쳐 그린다.
+/// 색을 최대한 벌려 놓았고, 색만으로는 헷갈리기 쉬운 초록 계열(연두·초록·청록)과 파랑과 비슷한 남색에는
+/// 아래 [kWaterPatterns] 무늬(질감)를 겹쳐 그려서 색을 구별하기 어려워도 한눈에 알아볼 수 있게 한다.
 const List<Color> kWaterColors = [
   Color(0xFFDB2F36), // 0 빨강
   Color(0xFFF5841F), // 1 주황
@@ -29,9 +30,9 @@ const List<WaterPattern> kWaterPatterns = [
   WaterPattern.solid, // 0 빨강
   WaterPattern.solid, // 1 주황
   WaterPattern.solid, // 2 노랑
-  WaterPattern.solid, // 3 연두
-  WaterPattern.solid, // 4 초록
-  WaterPattern.solid, // 5 청록
+  WaterPattern.dots, // 3 연두 (초록 계열: 점)
+  WaterPattern.slash, // 4 초록 (초록 계열: 사선)
+  WaterPattern.bars, // 5 청록 (초록 계열: 가로줄)
   WaterPattern.solid, // 6 하늘
   WaterPattern.solid, // 7 파랑
   WaterPattern.solid, // 8 보라
@@ -222,7 +223,7 @@ void _paintPattern(Canvas canvas, double w, Rect area, Color base, WaterPattern 
   if (pattern == WaterPattern.solid || area.height <= 0.5) return;
   // 바탕이 밝으면 어두운 선, 어두우면 밝은 선
   final light = base.computeLuminance() > 0.45;
-  final ink = (light ? Colors.black : Colors.white).withValues(alpha: light ? 0.34 : 0.42);
+  final ink = (light ? Colors.black : Colors.white).withValues(alpha: light ? 0.4 : 0.5);
   final line = Paint()
     ..color = ink
     ..style = PaintingStyle.stroke

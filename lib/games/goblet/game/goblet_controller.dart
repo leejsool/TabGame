@@ -64,12 +64,18 @@ class GobbletController extends ChangeNotifier {
 
   final PlayMode mode;
 
-  /// 아래쪽(내 쪽)에 놓이는 팀. CPU 대전이면 사람의 팀.
+  /// 아래쪽(내 쪽)에 놓이는 팀. CPU 대전·Wi‑Fi 대결이면 이 기기를 쓰는 사람의 팀.
   final Team humanTeam;
   final CpuLevel level;
   Team startingTeam;
 
   bool get vsCpu => mode == PlayMode.vsCpu;
+
+  /// 같은 Wi‑Fi의 다른 기기와 겨루는 판인가. 내 수는 [onLocalMove]로 알리고, 상대의 수는 [receiveMove]로 받는다.
+  bool get online => mode == PlayMode.wifi;
+
+  /// 이 기기에서 한 팀만 맡는 판인가 (CPU 대결이거나 Wi‑Fi 대결).
+  bool get oneSeat => vsCpu || online;
   Team get cpuTeam => humanTeam.other;
 
   late GobbletBoard board;
@@ -96,15 +102,18 @@ class GobbletController extends ChangeNotifier {
   /// 말을 집거나 놓을 때 알림 (진동 등).
   void Function(String kind)? onFeedback;
 
+  /// 내가 둔 수를 알린다 (Wi‑Fi 대결에서 상대에게 보내려고).
+  void Function(GobbletMove move)? onLocalMove;
+
   Team get turn => board.turnTeam;
   bool get isOver => result != null;
 
   /// 지금까지 둔 수 (양쪽 합계).
   int get moveCount => _history.length;
-  bool get canUndo => _history.isNotEmpty && !thinking;
+  bool get canUndo => _history.isNotEmpty && !thinking && !online; // (Wi‑Fi 대결은 되돌릴 수 없다)
 
   /// 지금 사람이 말을 움직일 수 있는가.
-  bool get humanCanAct => !isOver && !thinking && (!vsCpu || turn == humanTeam);
+  bool get humanCanAct => !isOver && !thinking && (!oneSeat || turn == humanTeam);
 
   void _reset() {
     board = GobbletBoard();
@@ -134,8 +143,8 @@ class GobbletController extends ChangeNotifier {
   /// 기권할 수 있는가 (한 수라도 둔 진행 중인 판).
   bool get canResign => !isOver && _history.isNotEmpty;
 
-  /// 기권하는 팀: CPU 대결이면 사람, 둘이서 할 때는 지금 차례인 팀.
-  Team get resigningTeam => vsCpu ? humanTeam : turn;
+  /// 기권하는 팀: CPU 대결·Wi‑Fi 대결이면 나, 둘이서 할 때는 지금 차례인 팀.
+  Team get resigningTeam => oneSeat ? humanTeam : turn;
 
   /// 기권한다 (상대가 이긴 것으로 끝난다). CPU가 생각 중이었으면 그 수는 버린다.
   bool resign() {
@@ -146,6 +155,15 @@ class GobbletController extends ChangeNotifier {
     result = GobbletResult.win(resigningTeam.other, const [], resigned: true);
     notifyListeners();
     return true;
+  }
+
+  /// 상대가 기권했다는 소식을 받았다 (Wi‑Fi 대결). 내가 이긴 것으로 끝난다.
+  void opponentResigned() {
+    if (!online || isOver) return;
+    selected = null;
+    targets = {};
+    result = GobbletResult.win(humanTeam, const [], resigned: true);
+    notifyListeners();
   }
 
   // ── 조회 ──
@@ -250,7 +268,21 @@ class GobbletController extends ChangeNotifier {
         : GobbletMove.slide(loc[id], cell, size);
     _applyMove(move, id);
     onFeedback?.call('drop');
+    onLocalMove?.call(move);
     _maybeCpu();
+    return true;
+  }
+
+  /// 상대 기기에서 온 수를 둔다 (Wi‑Fi 대결). 상대 차례가 아니거나 둘 수 없는 수면 false (그러면 판이 어긋난 것이다).
+  /// [index]는 상대가 센 "지금까지 둔 수"로, 우리 쪽 수와 다르면 어긋난 것이다.
+  bool receiveMove(GobbletMove move, {int? index}) {
+    if (!online || isOver || turn == humanTeam) return false;
+    if (index != null && index != moveCount) return false;
+    if (!board.isLegal(move)) return false;
+    selected = null;
+    targets = {};
+    _applyMove(move, _idForMove(move));
+    onFeedback?.call('drop');
     return true;
   }
 

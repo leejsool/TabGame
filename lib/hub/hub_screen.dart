@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/game_filter.dart';
 import '../core/game_info.dart';
 import '../core/game_registry.dart';
 import '../core/settings.dart';
@@ -8,101 +9,6 @@ import '../records/records_screen.dart';
 import 'game_card.dart';
 import 'launch.dart';
 import 'settings_screen.dart';
-
-enum _Filter { all, solo, multi }
-
-extension on _Filter {
-  IconData get icon => switch (this) {
-        _Filter.all => Icons.apps_rounded,
-        _Filter.solo => Icons.person_rounded,
-        _Filter.multi => Icons.groups_rounded,
-      };
-
-  String get label => switch (this) {
-        _Filter.all => '전체',
-        _Filter.solo => '혼자',
-        _Filter.multi => '함께',
-      };
-}
-
-/// 칸 구분선 없이 알약 모양으로 고르는 필터. 고른 항목만 아이콘+글자, 나머지는 아이콘만 보인다.
-class _FilterBar extends StatelessWidget {
-  const _FilterBar({required this.selected, required this.onChanged});
-
-  final _Filter selected;
-  final ValueChanged<_Filter> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: .6),
-        borderRadius: BorderRadius.circular(32),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final f in _Filter.values)
-            _FilterPill(
-              filter: f,
-              selected: f == selected,
-              onTap: () => onChanged(f),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({required this.filter, required this.selected, required this.onTap});
-
-  final _Filter filter;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final fg = selected ? scheme.onPrimary : scheme.onSurfaceVariant;
-    return Tooltip(
-      message: filter.label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(horizontal: selected ? 20 : 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? scheme.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(filter.icon, size: 24, color: fg),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                child: selected
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(filter.label,
-                            softWrap: false,
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: fg)),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// 첫 화면: 게임 목록.
 class HubScreen extends StatefulWidget {
@@ -115,7 +21,7 @@ class HubScreen extends StatefulWidget {
 }
 
 class _HubScreenState extends State<HubScreen> {
-  _Filter _filter = _Filter.all;
+  GameFilter _filter = GameFilter.all;
 
   @override
   void initState() {
@@ -136,14 +42,25 @@ class _HubScreenState extends State<HubScreen> {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(context)),
-            if (_filter != _Filter.multi) ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
-            if (_filter != _Filter.solo) ..._section(context, '함께 놀기', Icons.groups_rounded, multi),
+            if (_filter == GameFilter.all || _filter == GameFilter.solo)
+              ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
+            if (_filter == GameFilter.all || _filter == GameFilter.multi)
+              ..._section(context, '함께 놀기', Icons.groups_rounded, multi),
+            // Wi‑Fi·교과학습처럼 등록 정보로 정해지는 분류는 해당 게임만 한 묶음으로 모아 보여 준다
+            if (_filter != GameFilter.all && _filter != GameFilter.solo && _filter != GameFilter.multi)
+              ..._section(context, _filterTitle(_filter), _filter.icon, [for (final g in allGames) if (_filter.matches(g)) g]),
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
     );
   }
+
+  String _filterTitle(GameFilter f) => switch (f) {
+        GameFilter.wifi => '같은 Wi‑Fi로 함께',
+        GameFilter.lesson => '교과학습이 있는 게임',
+        _ => f.label,
+      };
 
   Widget _buildHeader(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -158,11 +75,13 @@ class _HubScreenState extends State<HubScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('TabGame',
-                        style: text.displaySmall
-                            ?.copyWith(fontWeight: FontWeight.w900)),
-                    Text('혼자서도, 함께도 즐거운 게임 놀이터',
-                        style: text.bodyLarge),
+                    Text(
+                      'TabGame',
+                      style: text.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text('혼자서도, 함께도 즐거운 게임 놀이터', style: text.bodyLarge),
                   ],
                 ),
               ),
@@ -186,7 +105,7 @@ class _HubScreenState extends State<HubScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          _FilterBar(
+          GameFilterBar(
             selected: _filter,
             onChanged: (f) => setState(() => _filter = f),
           ),
@@ -195,23 +114,28 @@ class _HubScreenState extends State<HubScreen> {
     );
   }
 
-  List<Widget> _section(BuildContext context, String title, IconData icon, List<GameInfo> games) {
+  List<Widget> _section(
+    BuildContext context,
+    String title,
+    IconData icon,
+    List<GameInfo> games,
+  ) {
     final compact = MediaQuery.sizeOf(context).width < 600;
     return [
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
-          child: Row(children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 10),
-            Text(
-              title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ]),
+          child: Row(
+            children: [
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
         ),
       ),
       // 폰처럼 좁은 화면에서는 카드 폭을 절반으로 줄여 한 줄에 두 장씩 놓는다 (스크롤을 줄이려고)

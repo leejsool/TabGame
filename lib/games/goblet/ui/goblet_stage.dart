@@ -259,6 +259,7 @@ class _GobbletStageState extends State<GobbletStage> with SingleTickerProviderSt
     if (c.isOver) return team.label;
     if (c.turn != team) return team.label;
     if (c.vsCpu && team == c.cpuTeam) return '${team.label} · CPU 차례';
+    if (c.online && team != c.humanTeam) return '${team.label} · 상대 차례';
     return '${team.label} · 내 차례';
   }
 

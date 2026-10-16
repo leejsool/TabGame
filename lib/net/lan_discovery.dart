@@ -44,18 +44,21 @@ class LanRoom {
   Future<LanConnection> join() => LanConnection.connect(address, port);
 }
 
-/// 방을 연 쪽: 손님 한 명을 기다린다. 손님이 오면 [guests]로 연결이 나온다 (첫 메시지 `hello` 확인 뒤).
+/// 방을 연 쪽: 손님을 기다린다 (보통 한 명, 여러 명이 함께 하는 게임은 [open]의 `maxGuests`만큼).
+/// 손님이 오면 [guests]로 연결이 나온다 (첫 메시지 `hello` 확인 뒤).
 ///
-/// 손님을 받은 동안에는 다른 손님에게 `busy`를 알리고, 손님이 나가면 다시 받는다.
+/// 손님이 다 찬 동안에는 다른 손님에게 `busy`를 알리고, 손님이 나가면 다시 받는다.
 /// 게임이 시작되면 [close]로 기다리기만 끝낸다 (이미 이어진 연결은 그대로).
 class LanHost {
-  LanHost._(this._server, this._udp, this.game, this._info);
+  LanHost._(this._server, this._udp, this.game, this._info, this.maxGuests);
 
   /// 방을 연다. [info]는 방을 찾는 기기에게 보여 줄 정보 (JSON으로 보낼 수 있는 값만).
   /// 시험에서는 [discoveryPort]를 바꿔 쓴다. [discoveryPort]가 null이면 방 찾기 응답은 하지 않는다.
+  /// [maxGuests]는 한 번에 받을 손님 수 (기본 1명).
   static Future<LanHost> open({
     required String game,
     required Map<String, dynamic> info,
+    int maxGuests = 1,
     int gamePort = kLanGamePort,
     int? discoveryPort = kLanDiscoveryPort,
     InternetAddress? bindAddress,
@@ -75,7 +78,7 @@ class LanHost {
         udp = null; // 방 찾기 응답은 못 해도, 주소를 직접 입력해서 들어올 수는 있다.
       }
     }
-    final host = LanHost._(server, udp, game, info);
+    final host = LanHost._(server, udp, game, info, maxGuests);
     host._listen();
     return host;
   }
@@ -83,8 +86,9 @@ class LanHost {
   final ServerSocket _server;
   final RawDatagramSocket? _udp;
   final String game;
+  final int maxGuests;
   Map<String, dynamic> _info;
-  LanConnection? _guest;
+  final List<LanConnection> _conns = [];
   bool _closed = false;
   final StreamController<LanConnection> _guests = StreamController<LanConnection>.broadcast();
 
@@ -94,7 +98,12 @@ class LanHost {
   Stream<LanConnection> get guests => _guests.stream;
 
   /// 지금 손님이 있는가.
-  bool get hasGuest => _guest != null;
+  bool get hasGuest => _conns.isNotEmpty;
+
+  /// 지금 들어와 있는 손님 수.
+  int get guestCount => _conns.length;
+
+  bool get _full => _conns.length >= maxGuests;
 
   /// 방 정보를 바꾼다 (방 찾는 기기에게 보이는 값).
   void updateInfo(Map<String, dynamic> info) => _info = info;
@@ -108,16 +117,14 @@ class LanHost {
         if (m['t'] != 'hello') return;
         timeout.cancel();
         sub.cancel();
-        if (_closed || _guest != null || m['game'] != game) {
+        if (_closed || _full || m['game'] != game) {
           conn.send(const {'t': 'busy'});
           conn.close();
           return;
         }
-        _guest = conn;
+        _conns.add(conn);
         conn.peer = m;
-        conn.closed.then((_) {
-          if (identical(_guest, conn)) _guest = null;
-        });
+        conn.closed.then((_) => _conns.remove(conn));
         conn.send({'t': 'welcome'});
         if (!_guests.isClosed) _guests.add(conn);
       });
@@ -126,7 +133,7 @@ class LanHost {
     _udp?.listen((event) {
       if (event != RawSocketEvent.read) return;
       final d = _udp.receive();
-      if (d == null || _guest != null) return;
+      if (d == null || _full) return;
       try {
         final m = jsonDecode(utf8.decode(d.data));
         if (m is Map && m['t'] == _find && m['game'] == game) {
