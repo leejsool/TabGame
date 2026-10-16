@@ -14,6 +14,7 @@ import 'package:tabgame/games/rummikub/core/rummikub_ai.dart';
 import 'package:tabgame/games/rummikub/core/rummikub_rules.dart';
 import 'package:tabgame/games/rummikub/data/rummikub_history.dart';
 import 'package:tabgame/games/rummikub/game/rummikub_controller.dart';
+import 'package:tabgame/games/rummikub/game/rummikub_layout.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_records_tab.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_screen.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_setup_screen.dart';
@@ -75,6 +76,7 @@ Finder tileFinder(int id) => find.byWidgetPredicate((w) => w is RkTile && w.id =
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    RummikubScreen.showFirstHint = false; // (팝업은 아래 시험에서만 켠다)
     final loader = FontLoader('NanumGothic');
     for (final f in ['Regular', 'Bold', 'ExtraBold']) {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
@@ -296,6 +298,113 @@ void main() {
     });
   });
 
+  group('녹색 판: 낱개 놓기·겹침 풀기·묶음 통째로 이동', () {
+    test('겹치게 놓은 묶음은 자동으로 비켜서 겹치지 않는다 (방금 만진 묶음은 제자리를 지킨다)', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(0, 5), t(0, 6), t(0, 7), t(3, 1)]);
+      c.layoutSets(10, 8);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
+      // 같은 자리에 다른 묶음을 억지로 놓는다
+      c.moveTiles([t(0, 5), t(0, 6), t(0, 7)], at: const Offset(0, 0));
+      final spots = c.layoutSets(10, 8);
+      final rects = [for (var i = 0; i < c.work.length; i++) setRect(spots[i], c.work[i].length, 8)];
+      for (var i = 0; i < rects.length; i++) {
+        for (var j = i + 1; j < rects.length; j++) {
+          expect(rects[i].overlaps(rects[j]), isFalse, reason: '$i와 $j가 겹쳐요');
+        }
+      }
+      // 방금 만진 묶음(5-6-7)이 제자리 (0,0)
+      final moved = c.work.indexWhere((s) => s.contains(t(0, 5)));
+      expect(spots[moved], const Offset(0, 0));
+    });
+
+    test('묶음에 타일이 붙어 길어져서 옆 묶음과 겹치면 옆 묶음이 비켜 준다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 10), t(0, 5), t(0, 6), t(0, 7), t(0, 8)]);
+      c.layoutSets(12, 10);
+      c.moveTiles([t(0, 5), t(0, 6), t(0, 7)], at: const Offset(0, 0));
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(4.2, 0)); // 바로 옆
+      c.moveTiles([t(0, 8)], to: c.work.firstWhere((s) => s.contains(t(0, 5)))); // 앞 묶음이 한 칸 길어진다
+      final spots = c.layoutSets(12, 10);
+      final rects = [for (var i = 0; i < c.work.length; i++) setRect(spots[i], c.work[i].length, 10)];
+      expect(rects[0].overlaps(rects[1]), isFalse);
+    });
+
+    test('낱개 한 장도 아무 빈자리에 놓을 수 있고, 아주 가까울 때만 자석처럼 붙는다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 4), t(0, 1)]);
+      c.layoutSets(10, 8);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
+      // 묶음 옆 1칸쯤 떨어진 곳에는 그냥 놓인다 (붙지 않는다)
+      c.dropTiles([t(3, 4)], const Offset(4.6, 0));
+      expect(c.work.length, 2);
+      expect(c.work.any((s) => s.length == 1 && s.first == t(3, 4)), isTrue);
+      // 바싹 붙이면 합쳐진다
+      c.dropTiles([t(0, 1)], const Offset(3.6, 0));
+      expect(c.work.length, 2);
+      expect(c.work.first.length + c.work.last.length, 5);
+      // 한 장짜리 묶음이 있어도 끝내기는 막히고 이유가 나온다
+      expect(c.endTurn(), isFalse);
+    });
+  });
+
+  group('끌기 방식: 그냥 끌면 낱개, 꾹 눌러 끌면 묶음 통째로', () {
+    testWidgets('판 위 타일을 그냥 끌면 한 장만, 꾹 눌렀다가 끌면 그 묶음 전체가 옮겨진다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 4)]);
+      await tester.pumpWidget(await app(RummikubScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      c.layoutSets(c.layoutWidth, c.layoutPerRow);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
+      await settle(tester, rounds: 3);
+      final table = tester.getRect(find.byType(DragTarget<List<int>>).first);
+
+      // 1) 그냥 끌기: 한 장만 떨어져 나와 새 묶음이 된다
+      final g = await tester.startGesture(tester.getCenter(tileFinder(t(2, 10))));
+      await g.moveBy(const Offset(0, 25));
+      await g.moveTo(Offset(table.center.dx, table.bottom - 60));
+      await tester.pump(const Duration(milliseconds: 100));
+      await g.up();
+      await settle(tester, rounds: 3);
+      expect(c.work.length, 2);
+      expect(c.work.where((s) => s.length == 1).single, [t(2, 10)]);
+
+      // 2) 꾹 눌렀다가 끌기: 묶음(남은 두 장) 통째로 옮겨진다
+      final pair = c.work.firstWhere((s) => s.length == 2);
+      final before = c.anchorOf(pair)!;
+      final g2 = await tester.startGesture(tester.getCenter(tileFinder(t(0, 10))));
+      await tester.pump(const Duration(milliseconds: 600)); // 꾹
+      await g2.moveBy(const Offset(0, 40));
+      await g2.moveTo(Offset(table.center.dx, table.center.dy));
+      await tester.pump(const Duration(milliseconds: 100));
+      await g2.up();
+      await settle(tester, rounds: 3);
+      final movedPair = c.work.firstWhere((s) => s.contains(t(0, 10)));
+      expect(movedPair.length, 2); // 둘이 함께 움직였다
+      expect(movedPair.contains(t(1, 10)), isTrue);
+      expect(c.anchorOf(movedPair), isNot(before));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('처음 내 차례에는 규칙 팝업이 한 번 뜨고, 그 뒤로는 화면에 긴 안내 글이 없다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      RummikubScreen.showFirstHint = true;
+      addTearDown(() => RummikubScreen.showFirstHint = false);
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10)]);
+      await tester.pumpWidget(await app(RummikubScreen(controller: c)));
+      await settle(tester, rounds: 3);
+      expect(find.text('처음 내려놓을 때'), findsOneWidget);
+      await tester.tap(find.text('알겠어요'));
+      await settle(tester, rounds: 8);
+      expect(find.text('처음 내려놓을 때'), findsNothing);
+      expect(find.textContaining('끌어다 맞추거나'), findsNothing); // 예전의 긴 안내 문구는 없다
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   group('Wi‑Fi 대결 판 진행', () {
     test('두 기기가 같은 씨앗으로 시작해 수를 주고받으면 끝까지 똑같은 판이다', () {
       final (a, b) = wiredPair();
@@ -416,7 +525,7 @@ void main() {
       final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 4), t(0, 1)]);
       await tester.pumpWidget(await app(RummikubScreen(controller: c)));
       await settle(tester, rounds: 2);
-      expect(find.textContaining('내 차례'), findsOneWidget);
+      expect(c.myTurn, isTrue);
       expect(find.text('내 타일 5장'), findsOneWidget);
       expect(find.text('끝내기'), findsOneWidget);
 
@@ -440,7 +549,7 @@ void main() {
         await settle(tester, rounds: 2);
       }
       expect(c.turn, 0);
-      expect(find.textContaining('내 차례'), findsOneWidget);
+      expect(c.myTurn, isTrue);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
@@ -511,6 +620,9 @@ void main() {
       await settle(tester, rounds: 2);
       c.moveTiles([t(0, 2), t(1, 2), t(2, 2)]);
       await settle(tester, rounds: 1);
+      // 안 되는 이유는 화면 자리를 쓰지 않고 짧은 알림으로 알려 준다
+      await tester.tap(find.text('끝내기'));
+      await settle(tester, rounds: 1);
       expect(find.text(PlayError.needPoints.message), findsOneWidget);
       await tester.tap(find.byType(RkTileBack).first); // 바닥의 타일을 한 장 고른다
       await settle(tester, rounds: 2);
@@ -557,7 +669,7 @@ void main() {
       final mirror = RummikubController(animate: false, mode: PlayMode.wifi, humanSeat: 1, seed: 21);
       await tester.pumpWidget(await app(RummikubScreen(mode: PlayMode.wifi, controller: c, link: mine)));
       await settle(tester, rounds: 2);
-      expect(find.textContaining('내 차례'), findsOneWidget);
+      expect(c.myTurn, isTrue);
       expect(find.text('새 판'), findsNothing);
 
       await tester.tap(find.byType(RkTileBack).first);
@@ -567,7 +679,7 @@ void main() {
       expect(received.single['draw'], 1);
       expect(received.single['pick'], isA<int>()); // 고른 바닥 타일의 자리
       expect(c.turn, 1);
-      expect(find.textContaining('기다리는 중'), findsOneWidget);
+      expect(c.myTurn, isFalse); // 상대 차례
 
       // 상대(미러)가 뽑는다
       theirs.send({'t': 'move', 'i': 1, 'draw': 1});

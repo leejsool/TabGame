@@ -123,6 +123,7 @@ class RummikubController extends ChangeNotifier {
     hand = [...state.racks[humanSeat]]..sort(compareByColor);
     custom.clear();
     anchors.clear();
+    _recent.clear();
     _animEpoch++;
     _animating = false;
     flying.clear();
@@ -257,32 +258,52 @@ class RummikubController extends ChangeNotifier {
   List<Offset> layoutSets(double widthUnits, int perRow) {
     layoutWidth = widthUnits;
     layoutPerRow = perRow;
-    final res = List<Offset?>.filled(work.length, null);
-    final rects = <Rect>[];
-    for (var i = 0; i < work.length; i++) {
+    final n = work.length;
+    final want = List<Offset?>.filled(n, null);
+    for (var i = 0; i < n; i++) {
       var a = anchorOf(work[i]);
       if (a == null) continue;
       final maxX = max(0.0, widthUnits - setRect(a, work[i].length, perRow).width);
       if (a.dx > maxX) a = Offset(maxX, a.dy);
-      res[i] = a;
-      rects.add(setRect(a, work[i].length, perRow));
+      want[i] = a;
     }
-    for (var i = 0; i < work.length; i++) {
-      if (res[i] != null) continue;
+    // 겹치지 않게 자리를 정한다: 방금 만진 묶음을 가장 먼저 (그 자리를 지킨다), 그다음 이미 자리가 있던 묶음들을 위에서 아래로, 새 묶음은 맨 나중에.
+    // 앞서 놓인 묶음과 겹치면 뒤에 오는 묶음이 가장 가까운 빈자리로 비켜 준다.
+    final order = List<int>.generate(n, (i) => i)
+      ..sort((x, y) {
+        int rank(int i) => _recent.isNotEmpty && work[i].any(_recent.contains) ? 0 : (want[i] != null ? 1 : 2);
+        final r = rank(x).compareTo(rank(y));
+        if (r != 0) return r;
+        final ax = want[x], ay = want[y];
+        if (ax == null || ay == null) return x.compareTo(y);
+        final dy = ax.dy.compareTo(ay.dy);
+        return dy != 0 ? dy : ax.dx.compareTo(ay.dx);
+      });
+    final res = List<Offset?>.filled(n, null);
+    final placed = <Rect>[];
+    for (final i in order) {
       final size = setRect(Offset.zero, work[i].length, perRow);
-      final spot = findFreeSpot(rects, size, widthUnits);
+      var spot = want[i];
+      if (spot == null) {
+        spot = findFreeSpot(placed, size, widthUnits);
+      } else if (overlapsAny(setRect(spot, work[i].length, perRow), placed, margin: 0.12)) {
+        spot = snapToFree(placed, size, widthUnits, spot);
+      }
       res[i] = spot;
-      rects.add(setRect(spot, work[i].length, perRow));
+      placed.add(setRect(spot, work[i].length, perRow));
     }
-    for (var i = 0; i < work.length; i++) {
+    for (var i = 0; i < n; i++) {
       _setAnchor(work[i], res[i]!);
     }
     return [for (final a in res) a!];
   }
 
+  /// 방금 만진 묶음의 타일들 (자리를 정할 때 이 묶음의 자리를 가장 먼저 지킨다).
+  final Set<int> _recent = {};
+
   /// 끌어 온 타일들 [ids]를 판 위 [topLeft](타일 칸 단위, 끌어 온 상자의 왼쪽 위)에 놓는다.
-  /// 근처(틈 [magnet]칸 이내)에 다른 묶음이 있으면 자석처럼 그 묶음에 붙고, 없으면 그 자리에 새 묶음을 만든다.
-  void dropTiles(Iterable<int> ids, Offset topLeft, {double magnet = 0.9}) {
+  /// 아주 가까이(틈 [magnet]칸 이내) 다른 묶음이 있으면 자석처럼 그 묶음에 붙고, 아니면 낱개 한 장이라도 그 자리에 새 묶음으로 놓인다.
+  void dropTiles(Iterable<int> ids, Offset topLeft, {double magnet = 0.4}) {
     if (!canAct) return;
     final moving = ids.toSet();
     if (moving.isEmpty) return;
@@ -359,6 +380,12 @@ class RummikubController extends ChangeNotifier {
       if (at != null) _setAnchor(order, at);
     }
     work.removeWhere((s) => s.isEmpty);
+    _recent
+      ..clear()
+      ..addAll(order);
+    for (final s in work) {
+      if (s.any(order.contains)) _recent.addAll(s);
+    }
     selected.clear();
     notice = null;
     onFeedback?.call('place');

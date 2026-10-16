@@ -100,6 +100,7 @@ void playAi(DavinciController c, Random rng) {
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    DavinciController.animateByDefault = false; // (상대 수 연출은 아래 시험에서만 켠다)
     final loader = FontLoader('NanumGothic');
     for (final f in ['Regular', 'Bold', 'ExtraBold']) {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
@@ -213,6 +214,103 @@ void main() {
       a.opponentResigned();
       expect(a.halted, isTrue);
       expect(a.resignWinner, a.humanSeat);
+    });
+  });
+
+  group('상대가 둔 수 보여 주기 (연출)', () {
+    /// 내가 0번, 상대(1번)가 맞히는 판. 상대 차례로 맞춰 둔다.
+    DavinciController opponentTurn({int seed = 5}) {
+      final c = DavinciController(mode: PlayMode.wifi, humanSeat: 0, seed: seed, animate: true)..cpuStepDelay = const Duration(milliseconds: 40);
+      c.state.rows[0]
+        ..clear()
+        ..addAll([b(1), w(4), b(6)]);
+      c.state.rows[1]
+        ..clear()
+        ..addAll([b(2), w(7), b(10)]);
+      c.state.revealed.clear();
+      c.state.turn = 1;
+      c.state.phase = DvPhase.guess;
+      c.state.drawn = w(7); // 상대가 방금 뽑은 타일 (틀리면 공개된다)
+      return c;
+    }
+
+    test('맞히는 수: 추측 중에는 고른 타일이 떠오르고 아직 숨은 것으로 보이다가, 결과가 나오면 공개(눕힘)된다', () async {
+      final c = opponentTurn();
+      final seen = <String>[];
+      c.addListener(() {
+        final e = c.effect;
+        if (e != null) seen.add('${e.stage.name}:${c.liftedTile != null}:${c.hiddenOverride.contains(w(4))}');
+      });
+      // 상대가 내 두 번째 타일(흰색 4)을 4라고 맞힌다
+      expect(c.receiveMove(DvMove.guess(0, 1, 4), index: 0), isTrue);
+      expect(c.state.isRevealed(w(4)), isTrue); // (판 자체는 바로 반영된다)
+      expect(c.effect, isNotNull);
+      expect(c.effect!.stage, DvEffectStage.ask);
+      expect(c.liftedTile, w(4));
+      expect(c.hiddenOverride, contains(w(4))); // 연출 동안은 아직 세워진 숨은 타일로 보인다
+      expect(c.effectBusy, isTrue);
+      expect(c.humanCanAct, isFalse);
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(c.effect?.stage, DvEffectStage.result);
+      expect(c.effect!.correct, isTrue);
+      expect(c.liftedTile, isNull);
+      expect(c.hiddenOverride, isEmpty); // 맞혔으니 이제 눕는다
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(c.effect, isNull);
+      expect(c.effectBusy, isFalse);
+      expect(seen.first, startsWith('ask:true:true'));
+      c.dispose();
+    });
+
+    test('틀리면 ✕가 뜨고 고른 타일은 제자리로 돌아가며, 상대가 뽑았던 타일은 결과 뒤에 공개된다', () async {
+      final c = opponentTurn();
+      expect(c.receiveMove(DvMove.guess(0, 1, 9), index: 0), isTrue); // 틀림
+      expect(c.effect!.guesserTile, w(7));
+      expect(c.hiddenOverride, contains(w(7))); // 상대의 뽑은 타일은 아직 숨은 채
+      expect(c.state.isRevealed(w(7)), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 70));
+      expect(c.effect!.stage, DvEffectStage.result);
+      expect(c.effect!.correct, isFalse);
+      expect(c.liftedTile, isNull); // 떠 있던 타일이 내려왔다
+      expect(c.hiddenOverride, contains(w(7))); // 아직 눕지 않았다
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(c.hiddenOverride, isEmpty); // 연출이 끝나면 공개(눕힘)
+      expect(c.turn, 0);
+      c.dispose();
+    });
+
+    test('CPU도 수마다 연출을 보이고, 연출이 끝나야 다음 수를 둔다', () async {
+      final c = DavinciController(mode: PlayMode.vsCpu, humanSeat: 0, seed: 3, animate: true)..cpuStepDelay = const Duration(milliseconds: 20);
+      c.state.blackPool
+        ..clear()
+        ..add(b(5));
+      c.state.whitePool.clear();
+      expect(c.draw(0), isTrue);
+      c.selectTarget(1, 0);
+      final actual = dvNumber(c.state.rows[1][0]);
+      // 일부러 틀리게 맞혀서 CPU 차례로 넘긴다
+      c.guess(dvIsJoker(c.state.rows[1][0]) ? 0 : (actual == 11 ? 10 : actual + 1));
+      final kinds = <int>[];
+      c.addListener(() {
+        final e = c.effect;
+        if (e != null && e.actor == 1 && (kinds.isEmpty || kinds.last != e.kind)) kinds.add(e.kind);
+      });
+      for (var i = 0; i < 200 && c.turn != 0; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(kinds, isNotEmpty);
+      expect(kinds.contains(2), isTrue); // 맞히는 수를 보여 줬다
+      c.dispose();
+    });
+
+    test('연출을 끄면 (시험용) 막지 않고 바로 반영된다', () {
+      final c = DavinciController(mode: PlayMode.wifi, humanSeat: 0, seed: 5, animate: false);
+      expect(c.effectBusy, isFalse);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.draw;
+      expect(c.receiveMove(DvMove.drawMove(0), index: 0), isTrue);
+      expect(c.effect, isNull);
+      c.dispose();
     });
   });
 

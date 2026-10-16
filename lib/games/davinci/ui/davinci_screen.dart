@@ -307,6 +307,8 @@ class _DavinciScreenState extends State<DavinciScreen> {
     }
     if (_opponentGone) return '상대와 연결이 끊겼어요';
     if (!c.humanCanAct) {
+      final e = c.effect;
+      if (e != null && e.actor != c.humanSeat) return '${_name(e.actor)}이(가) ${e.kind == 2 ? '추측하는 중…' : '두는 중…'}';
       return c.thinking && c.turn != c.humanSeat ? '${_name(s.turn)}이(가) 생각하는 중…' : '${_name(s.turn)} 차례';
     }
     return switch (s.phase) {
@@ -322,6 +324,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
   String? get _lastEvent {
     final g = c.state.lastGuess;
     if (g == null || c.isOver) return null;
+    if (c.effect != null) return null; // (연출 중에는 결과를 미리 알려 주지 않는다)
     final num = g.number == kJokerGuess ? '조커' : '${g.number}';
     final target = g.target == c.humanSeat ? '내' : '${_name(g.target)}의';
     return '${_name(g.guesser)}: $target ${g.index + 1}번째 타일을 "$num"(이)라고 추측 → ${g.correct ? '맞혔어요!' : '틀렸어요'}';
@@ -401,10 +404,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
       child: Row(
         children: [
           IconButton(tooltip: '뒤로', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.of(context).maybePop()),
-          Flexible(
+          Expanded(
             child: Text('다빈치 코드', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
           ),
-          const Spacer(),
           IconButton(tooltip: '내 기록', icon: const Icon(Icons.emoji_events_rounded), onPressed: () => openRecords(context, game: 'davinci_code')),
           IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showDavinciRules(context)),
         ],
@@ -449,7 +451,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
     final canPick = c.humanCanAct && !me && !out && (s.phase == DvPhase.guess || s.phase == DvPhase.decide);
     final placing = me && c.humanCanAct && s.phase == DvPhase.placeJoker;
     final revealing = me && c.humanCanAct && s.phase == DvPhase.reveal;
-    final g = s.lastGuess;
+    final e = c.effect;
+    final override = c.hiddenOverride;
+    final liftedTile = c.liftedTile;
 
     return LayoutBuilder(
       builder: (context, box) {
@@ -475,8 +479,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
         for (var i = 0; i < row.length; i++) {
           if (placing) tiles.add(slot(i));
           final t = row[i];
-          final revealed = s.isRevealed(t);
-          final hit = g != null && g.target == seat && g.index == i;
+          // 공개된 타일은 눕혀서 보이고, 숨은 타일은 세워서 둔다. (상대의 수를 보여 주는 동안에는 아직 숨은 것으로 보여야 하는 타일이 있다)
+          final revealed = s.isRevealed(t) && !override.contains(t);
+          final isEffectTile = e != null && e.kind == 2 && e.tile == t && e.target == seat;
           tiles.add(Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: DvTile(
@@ -484,9 +489,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
               id: t,
               width: tw,
               faceUp: me || revealed,
-              revealed: revealed,
+              lying: revealed,
+              lifted: isEffectTile && liftedTile == t,
               selected: c.selSeat == seat && c.selIndex == i,
-              mark: hit ? g.correct : null,
+              mark: isEffectTile && e.stage == DvEffectStage.result ? e.correct : null,
               fresh: me && s.drawn == t && !revealed && !s.isOver,
               onTap: canPick && !revealed
                   ? () => c.selectTarget(seat, i)
@@ -516,26 +522,42 @@ class _DavinciScreenState extends State<DavinciScreen> {
                     Text('탈락', style: TextStyle(fontWeight: FontWeight.w800, color: scheme.error))
                   else if (active)
                     const Text('차례', style: TextStyle(fontWeight: FontWeight.w800, color: kDavinciColor)),
+                  // 이 사람이 지금 하는 일: 말풍선 ("7?" → 맞으면 ○, 틀리면 ✕)
+                  if (e != null && e.actor == seat) ...[
+                    const SizedBox(width: 8),
+                    DvBubble(key: ValueKey('bubble$seat'), text: _bubbleText(e), result: e.kind == 2 && e.stage == DvEffectStage.result ? e.correct : null),
+                  ],
                   const Spacer(),
                   if (me) Text('숨은 타일 ${s.hiddenCount(seat)}장', style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.65))),
                 ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Opacity(
                 opacity: out ? 0.6 : 1,
-                child: Wrap(runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: tiles),
-              ),
-              if (me)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('주황 밑줄 = 이미 모두에게 공개된 타일', style: TextStyle(fontSize: 11, color: scheme.onSurface.withValues(alpha: 0.55))),
+                // 떠오르는 타일과 ○/✕ 표시가 들어갈 위쪽 여유, 눕힌 타일도 바닥에 맞춰 놓이게 아래 정렬
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: tw * 1.4 + 4),
+                    child: Wrap(runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.end, children: tiles),
+                  ),
                 ),
+              ),
             ],
           ),
         );
       },
     );
   }
+
+  /// 말풍선에 쓸 글: 맞히기는 "7?", 그 밖의 수는 짧은 말.
+  String _bubbleText(DvEffect e) => switch (e.kind) {
+        0 => '${e.number == 0 ? '검정' : '흰색'} 뽑기',
+        1 => '조커 놓기',
+        2 => e.number == kJokerGuess ? '‑ ?' : '${e.number} ?',
+        3 => '멈춤',
+        _ => '타일 공개',
+      };
 
   // ── 지금 할 일 ──
 

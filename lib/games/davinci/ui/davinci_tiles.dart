@@ -10,10 +10,14 @@ const Color _whiteTile = Color(0xFFF6F1E4);
 
 /// 다빈치 코드 타일 한 장.
 ///
+/// 실제 게임처럼 **숨은 타일은 세워져 있고, 공개된 타일은 눕혀져 있다** ([lying]). 눕힌 타일은 낮고 넓게, 숫자가 위로 보이게 그려서
+/// 한눈에 구별된다. (내 줄에서도, 상대 줄에서도 같다)
+///
 ///  - [faceUp]: 숫자가 보인다 (내 타일, 공개된 타일). 아니면 뒷면(색만 보인다) — 남의 숨은 타일.
-///  - [revealed]: 이미 공개된 타일이라는 표시 (내 줄에서 내 타일 중 남들에게 공개된 것을 구별하려고 테두리를 바꾼다).
+///  - [lying]: 공개되어 눕혀진 타일.
 ///  - [selected]: 맞히려고 고른 타일 (위로 들리고 테두리가 진해진다).
-///  - [mark]: 방금 맞히기의 결과 표시 (true 맞혔다 / false 틀렸다 / null 없음).
+///  - [lifted]: 상대가 맞히려고 고른 타일 (살짝 떠오른다).
+///  - [mark]: 맞히기 결과 표시 (true ○ / false ✕ / null 없음).
 ///  - [fresh]: 방금 뽑은 타일 (작은 별 표시).
 class DvTile extends StatelessWidget {
   const DvTile({
@@ -21,8 +25,9 @@ class DvTile extends StatelessWidget {
     required this.id,
     this.width = 38,
     this.faceUp = false,
-    this.revealed = false,
+    this.lying = false,
     this.selected = false,
+    this.lifted = false,
     this.mark,
     this.fresh = false,
     this.onTap,
@@ -31,13 +36,16 @@ class DvTile extends StatelessWidget {
   final int id;
   final double width;
   final bool faceUp;
-  final bool revealed;
+  final bool lying;
   final bool selected;
+  final bool lifted;
   final bool? mark;
   final bool fresh;
   final VoidCallback? onTap;
 
-  double get height => width * 1.4;
+  /// 세워진 타일의 높이와 눕힌 타일의 높이.
+  double get standHeight => width * 1.4;
+  double get lieHeight => width * 0.82;
 
   @override
   Widget build(BuildContext context) {
@@ -45,59 +53,107 @@ class DvTile extends StatelessWidget {
     final bg = black ? _blackTile : _whiteTile;
     final fg = black ? Colors.white : const Color(0xFF2A2D32);
     final joker = dvIsJoker(id);
-    Color border = black ? const Color(0xFF5A5F68) : const Color(0xFFBDB29A);
+    var border = black ? const Color(0xFF5A5F68) : const Color(0xFFBDB29A);
     var borderWidth = 1.2;
-    if (revealed) {
-      border = const Color(0xFFC0742A);
-      borderWidth = 2;
-    }
-    if (mark != null) {
-      border = mark! ? const Color(0xFF2E9E4F) : const Color(0xFFD64545);
-      borderWidth = 2.6;
-    }
     if (selected) {
       border = const Color(0xFF5B8DEF);
       borderWidth = 2.6;
+    } else if (lifted) {
+      border = const Color(0xFFE0A100);
+      borderWidth = 2.4;
     }
     final label = joker ? '‑' : '${dvNumber(id)}';
+    final shown = faceUp || lying;
+    final dy = selected ? -width * 0.14 : (lifted ? -width * 0.32 : 0.0);
 
     final face = Stack(
       alignment: Alignment.center,
+      clipBehavior: Clip.none,
       children: [
-        if (faceUp)
-          Text(label, style: TextStyle(fontSize: width * (joker ? 0.9 : 0.66), fontWeight: FontWeight.w900, color: fg, height: 1.0))
+        if (shown)
+          Text(label, style: TextStyle(fontSize: width * (joker ? 0.9 : (lying ? 0.58 : 0.66)), fontWeight: FontWeight.w900, color: fg, height: 1.0))
         else
           // 뒷면: 색은 보이고 숫자는 안 보인다
           Icon(Icons.help_outline_rounded, size: width * 0.5, color: fg.withValues(alpha: 0.28)),
-        if (revealed && faceUp)
-          Positioned(
-            bottom: width * 0.08,
-            child: Container(width: width * 0.5, height: 3, decoration: BoxDecoration(color: const Color(0xFFC0742A), borderRadius: BorderRadius.circular(2))),
-          ),
         if (fresh)
           Positioned(top: 1, right: 2, child: Icon(Icons.star_rounded, size: width * 0.3, color: const Color(0xFFE0A100))),
+        if (mark != null)
+          Positioned(
+            top: -width * 0.55,
+            child: Container(
+              width: width * 0.62,
+              height: width * 0.62,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: mark! ? const Color(0xFF2E9E4F) : const Color(0xFFD64545), width: 2.4),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 3)],
+              ),
+              child: Icon(mark! ? Icons.circle_outlined : Icons.close_rounded, size: width * 0.42, color: mark! ? const Color(0xFF2E9E4F) : const Color(0xFFD64545)),
+            ),
+          ),
       ],
     );
 
+    // 세워진 타일은 키가 크고 밑동이 두껍게(받침 그림자), 눕힌 타일은 낮고 평평하게 보인다
+    final height = lying ? lieHeight : standHeight;
     final tile = AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeInOutCubic,
       width: width,
       height: height,
-      transform: Matrix4.translationValues(0, selected ? -width * 0.14 : 0, 0),
+      transform: Matrix4.translationValues(0, dy, 0),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(width * 0.14),
+        color: lying ? Color.lerp(bg, Colors.grey, 0.12) : bg,
+        borderRadius: BorderRadius.circular(width * (lying ? 0.16 : 0.14)),
         border: Border.all(color: border, width: borderWidth),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: selected ? 0.3 : 0.2), blurRadius: selected ? 4 : 2, offset: Offset(0, selected ? 3 : 1.5))],
+        boxShadow: [
+          if (!lying) BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 0, offset: Offset(0, width * 0.1)), // 세워진 두께
+          BoxShadow(color: Colors.black.withValues(alpha: (selected || lifted) ? 0.3 : 0.18), blurRadius: (selected || lifted) ? 6 : 2, offset: Offset(0, (selected || lifted) ? 4 : 1.5)),
+        ],
       ),
       child: face,
     );
     return Semantics(
-      label: '${black ? '검정' : '흰색'} ${faceUp ? (joker ? '조커' : '${dvNumber(id)}') : '숨은 타일'}',
+      label: '${black ? '검정' : '흰색'} ${shown ? (joker ? '조커' : '${dvNumber(id)}') : '숨은 타일'}${lying ? ' (공개됨)' : ''}',
       button: onTap != null,
       selected: selected,
       child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: tile),
+    );
+  }
+}
+
+/// 말풍선: 상대가 하는 말("7?")과 결과(○ / ✕)를 보여 준다.
+class DvBubble extends StatelessWidget {
+  const DvBubble({super.key, required this.text, this.result});
+
+  final String text;
+
+  /// 결과: true ○ / false ✕ / null 아직 모름.
+  final bool? result;
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = result == true;
+    final color = result == null ? kDavinciColor : (ok ? const Color(0xFF2E9E4F) : const Color(0xFFD64545));
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color, width: 1.8),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(text, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
+          if (result != null) ...[
+            const SizedBox(width: 4),
+            Icon(ok ? Icons.circle_outlined : Icons.close_rounded, size: 18, color: color),
+          ],
+        ],
+      ),
     );
   }
 }

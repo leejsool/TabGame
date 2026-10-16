@@ -80,7 +80,7 @@ Widget _row(List<int> ids, {required bool faceUp, int? selectedIndex, Map<int, b
               id: ids[i],
               width: ids.length > 4 ? 46 : 54,
               faceUp: faceUp || revealedIndex == i,
-              revealed: revealedIndex == i,
+              lying: revealedIndex == i,
               selected: selectedIndex == i,
               mark: marks[i],
             ),

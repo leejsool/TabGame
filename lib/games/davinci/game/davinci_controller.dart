@@ -19,12 +19,20 @@ class DavinciController extends ChangeNotifier {
     this.humanSeat = 0,
     this.level = DvLevel.normal,
     int? seed,
-  }) : seed = seed ?? Random().nextInt(1 << 30) {
+    bool? animate,
+  })  : seed = seed ?? Random().nextInt(1 << 30),
+        animate = animate ?? animateByDefault {
     _deal();
   }
 
   final PlayMode mode;
   final int players;
+
+  /// 상대(CPU·다른 기기)가 둔 수를 한 단계씩 보여 주는 연출을 쓰는가.
+  final bool animate;
+
+  /// [animate]를 안 정했을 때의 기본값 (시험에서는 끄고 필요한 시험만 켠다).
+  static bool animateByDefault = true;
 
   /// 이 기기에서 내가 맡은 자리 (0 = 먼저). 한 판 더 할 때마다 한 칸씩 돈다.
   int humanSeat;
@@ -78,7 +86,90 @@ class DavinciController extends ChangeNotifier {
   int moveSerial = 0;
 
   /// 지금 내가 수를 둘 수 있는가.
-  bool get humanCanAct => !isOver && !halted && !thinking && turn == humanSeat;
+  bool get humanCanAct => !isOver && !halted && !thinking && !effectBusy && turn == humanSeat;
+
+  // ── 상대가 둔 수 보여 주기 ──
+
+  /// 지금 보여 주는 연출 (없으면 null).
+  DvEffect? effect;
+  final List<DvEffect> _effects = [];
+  bool _pumping = false;
+  int _fxEpoch = 0;
+  Completer<void>? _idle;
+
+  /// 상대의 수를 보여 주는 중이라 내가 아직 못 두는가.
+  bool get effectBusy => animate && ((effect?.blocking ?? false) || _effects.any((e) => e.blocking));
+
+  /// 연출 동안 (실제로는 이미 공개됐더라도) 아직 숨은 타일로 보여야 하는 타일들.
+  /// 맞힌 타일은 "추측 중"일 때까지, 틀렸을 때 내가 뽑았던 타일은 결과가 다 보일 때까지 세워 둔다.
+  Set<int> get hiddenOverride {
+    final e = effect;
+    if (e == null || e.kind != 2) return const {};
+    return {
+      if (e.correct == true && e.stage == DvEffectStage.ask) e.tile!,
+      if (e.correct == false && e.guesserTile != null) e.guesserTile!,
+    };
+  }
+
+  /// 연출 중 맞히려고 떠올라 있는 타일.
+  int? get liftedTile {
+    final e = effect;
+    return e != null && e.kind == 2 && e.stage == DvEffectStage.ask ? e.tile : null;
+  }
+
+  Duration _ms(double factor) => cpuStepDelay * factor;
+
+  void _enqueue(DvEffect e) {
+    if (!animate || _disposed) return;
+    _effects.add(e);
+    _pump();
+  }
+
+  Future<void> _pump() async {
+    if (_pumping) return;
+    _pumping = true;
+    final epoch = _fxEpoch;
+    while (_effects.isNotEmpty && !_disposed && epoch == _fxEpoch) {
+      final e = _effects.removeAt(0);
+      effect = e;
+      if (!e.ask) e.stage = DvEffectStage.result;
+      if (e.ask) {
+        e.stage = DvEffectStage.ask;
+        notifyListeners();
+        await Future<void>.delayed(_ms(e.kind == 2 ? 1.3 : 0.8));
+        if (_disposed || epoch != _fxEpoch) break;
+      }
+      if (e.kind == 2) {
+        e.stage = DvEffectStage.result;
+        notifyListeners();
+        await Future<void>.delayed(_ms(1.1));
+        if (_disposed || epoch != _fxEpoch) break;
+      }
+      effect = null;
+      notifyListeners();
+    }
+    if (epoch == _fxEpoch) {
+      effect = null;
+      _pumping = false;
+      _idle?.complete();
+      _idle = null;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  void _clearEffects() {
+    _fxEpoch++;
+    _effects.clear();
+    effect = null;
+    _pumping = false;
+    _idle?.complete();
+    _idle = null;
+  }
+
+  Future<void> _effectsIdle() {
+    if (!_pumping && _effects.isEmpty) return Future.value();
+    return (_idle ??= Completer<void>()).future;
+  }
 
   void _deal() {
     state = DvState.deal(players, seed);
@@ -93,6 +184,7 @@ class DavinciController extends ChangeNotifier {
   /// 새 판. 씨앗이 바뀌고 자리가 한 칸 돈다. Wi‑Fi 대결에서는 모든 기기가 같은 순서로 부르면 같은 판이 된다.
   void restart() {
     _epoch++;
+    _clearEffects();
     _cpuRunning = false;
     seed = nextSeed(seed);
     humanSeat = (humanSeat + 1) % players;
@@ -163,12 +255,33 @@ class DavinciController extends ChangeNotifier {
 
   void _apply(List<int> move) {
     final before = state.lastGuess;
+    final actor = state.turn;
+    final preDrawn = state.drawn;
+    final tile = move[0] == 2 ? state.rows[move[1]][move[2]] : null;
     moves.add(move);
     state.apply(move);
     selSeat = -1;
     selIndex = -1;
     moveSerial++;
     final g = state.lastGuess;
+    // 상대(CPU·다른 기기)가 둔 수는 한 단계씩 보여 준다. 내가 맞힌 결과는 막지 않고 바로 표시만 한다.
+    final mine = actor == humanSeat;
+    if (move[0] == 2 && g != null && !identical(g, before)) {
+      _enqueue(DvEffect(
+        actor: actor,
+        kind: 2,
+        target: move[1],
+        index: move[2],
+        tile: tile,
+        number: move[3],
+        correct: g.correct,
+        guesserTile: !g.correct ? preDrawn : null,
+        blocking: !mine,
+        ask: !mine,
+      ));
+    } else if (!mine) {
+      _enqueue(DvEffect(actor: actor, kind: move[0], number: move[0] == 0 ? move[1] : null, blocking: true, ask: true));
+    }
     if (state.isOver) {
       onFeedback?.call('win');
     } else if (move[0] == 2 && g != null && !identical(g, before)) {
@@ -207,10 +320,8 @@ class DavinciController extends ChangeNotifier {
       if (_disposed || epoch != _epoch || isOver || halted) break;
       final move = DvAi.choose(state, level, _rng);
       _apply(move);
-      if (move[0] == 2) {
-        // 맞히는 수는 결과를 볼 시간을 조금 더 준다
-        await Future<void>.delayed(cpuStepDelay ~/ 2);
-      }
+      // 이 수가 어떤 수였는지 다 보여 줄 때까지 기다렸다가 다음 수를 둔다
+      await _effectsIdle();
     }
     if (_disposed || epoch != _epoch) return;
     _cpuRunning = false;
@@ -226,6 +337,7 @@ class DavinciController extends ChangeNotifier {
   bool resign() {
     if (!canResign) return false;
     _epoch++;
+    _clearEffects();
     _cpuRunning = false;
     clearSelection();
     halted = true;
@@ -238,6 +350,7 @@ class DavinciController extends ChangeNotifier {
   void opponentResigned() {
     if (!online || isOver || halted) return;
     _epoch++;
+    _clearEffects();
     clearSelection();
     halted = true;
     resignWinner = humanSeat;
@@ -262,6 +375,45 @@ class DavinciController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _epoch++;
+    _fxEpoch++;
+    _idle?.complete();
     super.dispose();
   }
+}
+
+/// 연출의 단계: 추측하는 중(말풍선 "7?", 고른 타일이 떠오른다) → 결과(○ / ✕).
+enum DvEffectStage { ask, result }
+
+/// 상대가 둔 수 하나를 화면에 보여 주기 위한 정보.
+class DvEffect {
+  DvEffect({
+    required this.actor,
+    required this.kind,
+    this.target,
+    this.index,
+    this.tile,
+    this.number,
+    this.correct,
+    this.guesserTile,
+    this.blocking = true,
+    this.ask = true,
+  });
+
+  /// 둔 사람의 자리와 수의 종류 (0 뽑기, 1 조커 놓기, 2 맞히기, 3 멈추기, 4 내 타일 공개).
+  final int actor, kind;
+
+  /// 맞히기: 맞힌 상대 자리, 그 줄에서의 순서, 그 타일, 말한 숫자(조커 12), 맞았는가.
+  final int? target, index, tile, number;
+  final bool? correct;
+
+  /// 틀렸을 때 함께 공개되는, 그 사람이 방금 뽑았던 타일.
+  final int? guesserTile;
+
+  /// 보여 주는 동안 내가 둘 수 없는가 (상대의 수는 막고, 내가 맞힌 결과 표시는 막지 않는다).
+  final bool blocking;
+
+  /// "추측하는 중" 단계를 보여 주는가 (내가 맞힐 때는 건너뛰고 결과만 보인다).
+  final bool ask;
+
+  DvEffectStage stage = DvEffectStage.ask;
 }

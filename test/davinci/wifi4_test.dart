@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/davinci/core/davinci_rules.dart';
+import 'package:tabgame/games/davinci/game/davinci_controller.dart';
 import 'package:tabgame/games/davinci/ui/davinci_screen.dart';
 import 'package:tabgame/games/davinci/ui/davinci_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
@@ -27,6 +28,7 @@ Future<LanConnection> joinAs(WidgetTester tester, String nick, int port, List<Ma
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    DavinciController.animateByDefault = false; // (상대 수 연출은 아래 시험에서만 켠다)
     final loader = FontLoader('NanumGothic');
     for (final f in ['Regular', 'Bold', 'ExtraBold']) {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));

@@ -43,7 +43,7 @@ void main() {
     final theme = ThemeData(useMaterial3: true, fontFamily: 'NanumGothic');
     final key = GlobalKey();
 
-    Future<void> pumpHome(Widget home, {Size size = const Size(400, 800)}) async {
+    Future<void> pumpHome(Widget home, {Size size = const Size(412, 890)}) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
       await tester.pumpWidget(RepaintBoundary(

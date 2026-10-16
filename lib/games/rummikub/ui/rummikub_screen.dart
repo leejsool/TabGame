@@ -48,6 +48,9 @@ class RummikubScreen extends StatefulWidget {
   /// (테스트용) 미리 만든 컨트롤러.
   final RummikubController? controller;
 
+  /// 처음 내 차례에 "처음 내려놓을 때" 팝업을 띄우는가 (시험에서는 끈다).
+  static bool showFirstHint = true;
+
   @override
   State<RummikubScreen> createState() => _RummikubScreenState();
 }
@@ -76,7 +79,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
       _linkSub = link.messages.listen(_onNet);
       link.closed.then((_) => _onLinkClosed());
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      c.start();
+      _maybeFirstHint();
+    });
   }
 
   @override
@@ -228,6 +234,30 @@ class _RummikubScreenState extends State<RummikubScreen> {
     ));
   }
 
+  bool _hintShown = false;
+
+  /// 처음 내 차례가 되면 (아직 처음 내려놓기 전이면) 규칙을 한 번만 팝업으로 알려 준다. 화면에 긴 안내 글을 두지 않으려고.
+  void _maybeFirstHint() {
+    if (!RummikubScreen.showFirstHint || _hintShown || !mounted || !c.myTurn || c.state.melded[c.humanSeat]) return;
+    _hintShown = true;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.info_outline_rounded),
+        title: const Text('처음 내려놓을 때'),
+        content: const Text(
+          '내 타일로만 묶음을 만들어 숫자 합이 30점 이상이어야 해요.\n\n'
+          '• 타일은 끌어서 녹색 판 아무 데나 놓아요 (한 장씩 먼저 놓아 둬도 돼요)\n'
+          '• 꾹 눌렀다가 끌면 묶음 통째로 옮겨요\n'
+          '• 낼 수 없으면 바닥에서 한 장을 골라 뽑아요',
+          style: TextStyle(height: 1.45),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
+      ),
+    );
+  }
+
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
@@ -271,25 +301,6 @@ class _RummikubScreenState extends State<RummikubScreen> {
   }
 
   // ── 안내 글 ──
-
-  String get _status {
-    final s = c.state;
-    if (c.isOver) {
-      final w = s.winner;
-      if (w == null) return '아무도 낼 수 없어 끝났어요 · 무승부예요';
-      if (w == c.humanSeat) return '이겼어요! 🎉';
-      return '${_name(w)}이(가) 이겼어요';
-    }
-    if (_opponentGone) return '상대와 연결이 끊겼어요';
-    if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
-    if (c.myTurn) {
-      if (!s.melded[c.humanSeat]) return '내 차례 · 처음에는 내 타일로만 30점 이상을 내려놓아야 해요';
-      return '내 차례 · 타일을 판에 끌어다 맞추거나, 안 되면 바닥에서 한 장 골라 뽑아요';
-    }
-    if (c.thinking) return '${_name(s.turn)}이(가) 생각하는 중…';
-    if (c.animating) return '${_name(s.turn)}이(가) 타일을 옮기는 중…';
-    return '${_name(s.turn)} 차례${c.online ? ' · 기다리는 중이에요' : ''}';
-  }
 
   String? get _lastEvent {
     if (c.lastActor < 0 || c.isOver) return null;
@@ -349,9 +360,9 @@ class _RummikubScreenState extends State<RummikubScreen> {
       children: [
         _playerChips(),
         _statusBanner(),
-        Expanded(flex: 4, child: _tablePanel(tableTile)),
+        Expanded(flex: 5, child: _tablePanel(tableTile)),
         _floorPool(height: 92, tileW: 20),
-        Expanded(flex: 5, child: _bottomPanel(width < 500 ? 34 : 42)),
+        Expanded(flex: 4, child: _bottomPanel(width < 500 ? 34 : 42)),
       ],
     );
   }
@@ -396,18 +407,18 @@ class _RummikubScreenState extends State<RummikubScreen> {
           final win = c.isOver && c.state.winner == seat;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(
               color: color.withValues(alpha: active || win ? 0.2 : 0.07),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: active || win ? 1 : 0.3), width: active || win ? 2.5 : 1.2),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withValues(alpha: active || win ? 1 : 0.3), width: active || win ? 2 : 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(me ? Icons.person_rounded : (c.online ? Icons.wifi_rounded : Icons.smart_toy_rounded), size: 18, color: color),
-                const SizedBox(width: 5),
-                Text(_name(seat), style: TextStyle(fontWeight: FontWeight.w800, color: color)),
+                Icon(me ? Icons.person_rounded : (c.online ? Icons.wifi_rounded : Icons.smart_toy_rounded), size: 15, color: color),
+                const SizedBox(width: 4),
+                Text(_name(seat), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
                 if (c.isOver) ...[
                   const SizedBox(width: 8),
                   Text('${c.state.rackPoints(seat)}점', style: TextStyle(fontWeight: FontWeight.w900, color: color)),
@@ -418,39 +429,48 @@ class _RummikubScreenState extends State<RummikubScreen> {
         }
 
         return Padding(
-          padding: const EdgeInsets.only(top: 6, left: 8, right: 8),
-          child: Wrap(spacing: 8, runSpacing: 6, alignment: WrapAlignment.center, children: [for (var i = 0; i < c.players; i++) chip(i)]),
+          padding: const EdgeInsets.only(top: 3, left: 8, right: 8),
+          child: Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.center, children: [for (var i = 0; i < c.players; i++) chip(i)]),
         );
       },
     );
   }
 
+  /// 한 줄짜리 상태: 긴 안내 글은 없애고, 상대가 하고 있는 일이나 결과처럼 꼭 필요한 것만 짧게 보인다. (설명은 규칙 창과 팝업으로)
   Widget _statusBanner() {
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) {
-        final color = c.isOver || c.halted ? Colors.grey : (c.myTurn ? kRkWood : const Color(0xFF455A64));
-        final event = _lastEvent;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color.withValues(alpha: 0.5)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_status, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-              if (event != null && !c.myTurn)
-                Text(event, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
-            ],
+        final text = _shortStatus;
+        if (text == null) return const SizedBox(height: 2);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 2, 12, 0),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75)),
           ),
         );
       },
     );
+  }
+
+  /// 지금 꼭 알려야 할 짧은 상태 (없으면 null).
+  String? get _shortStatus {
+    final s = c.state;
+    if (c.isOver) {
+      final w = s.winner;
+      if (w == null) return '아무도 낼 수 없어 끝났어요 · 무승부';
+      return w == c.humanSeat ? '이겼어요! 🎉' : '${_name(w)}이(가) 이겼어요';
+    }
+    if (_opponentGone) return '상대와 연결이 끊겼어요';
+    if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다려요…' : '기권으로 끝난 판이에요';
+    if (c.thinking) return '${_name(s.turn)}이(가) 생각하는 중…';
+    if (c.animating) return '${_name(s.turn)}이(가) 타일을 옮기는 중…';
+    if (!c.myTurn) return _lastEvent ?? '${_name(s.turn)} 차례';
+    return null;
   }
 
   // ── 끌기와 타일 ──
@@ -493,8 +513,30 @@ class _RummikubScreenState extends State<RummikubScreen> {
       glow: (fromTable && c.placed.contains(id)) || (!fromTable && id == c.lastDrawn),
       onTap: c.canAct ? () => c.toggleSelect(id) : null,
     );
-    return _draggable(data: _dragged(id), width: width, child: tile);
+    final single = _draggable(data: _dragged(id), width: width, child: tile);
+    if (!fromTable || !c.canAct) return Opacity(opacity: fromTable && _setDrag.contains(id) ? 0.35 : 1, child: single);
+    // 판 위 타일: 그냥 끌면 낱개 한 장, 꾹 눌렀다가 끌면 그 묶음 통째로 옮긴다
+    final set = c.work.firstWhere((x) => x.contains(id), orElse: () => [id]);
+    final setIds = arrangeSet(set);
+    final shown = setIds.length > 8 ? 8 : setIds.length;
+    final fw = shown * (width + 3), fh = width * 1.35;
+    return Opacity(
+      opacity: _setDrag.contains(id) ? 0.35 : 1,
+      child: LongPressDraggable<List<int>>(
+        data: setIds,
+        delay: const Duration(milliseconds: 350),
+        dragAnchorStrategy: (d, ctx, pos) => Offset(fw / 2, fh / 2),
+        feedback: _dragFeedback(setIds, width),
+        childWhenDragging: const SizedBox.shrink(),
+        onDragStarted: () => setState(() => _setDrag = setIds.toSet()),
+        onDragEnd: (_) => setState(() => _setDrag = {}),
+        child: single,
+      ),
+    );
   }
+
+  /// 묶음 통째로 끌고 있는 동안 그 묶음의 타일들 (흐리게 보인다).
+  Set<int> _setDrag = {};
 
   // ── 녹색 판 ──
 
@@ -677,9 +719,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      pool.isEmpty
-                          ? '바닥이 비었어요'
-                          : (canPick ? '낼 수 없으면 한 장을 골라 뽑아요' : ''),
+                      pool.isEmpty ? '바닥이 비었어요' : '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
@@ -726,6 +766,16 @@ class _RummikubScreenState extends State<RummikubScreen> {
         );
       },
     );
+  }
+
+  /// 끝내기: 안 되면 이유를 짧은 알림으로 보여 준다 (화면 자리를 쓰지 않으려고 글을 따로 두지 않는다).
+  void _endTurn() {
+    if (c.endTurn()) return;
+    final msg = c.notice;
+    if (msg == null) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg), duration: const Duration(milliseconds: 2200), behavior: SnackBarBehavior.floating));
   }
 
   /// 바닥의 [index]번째 타일을 뽑는다. 판을 만져 둔 게 있으면 사라진다고 먼저 알려 준다.
@@ -840,7 +890,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tiles.isEmpty ? '내 정리판 · 타일을 끌어다 마음대로 놓아 두세요' : '내 정리판 (정렬 단추와 상관없어요)',
+                    '내 정리판',
                     style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: scheme.onSurface.withValues(alpha: 0.6)),
                   ),
                   const SizedBox(height: 4),
@@ -886,26 +936,12 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   Widget _actions() {
     final compact = OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), visualDensity: VisualDensity.compact);
-    final scheme = Theme.of(context).colorScheme;
-    final err = c.error;
     final modified = c.canAct && (c.changed || !_sameAsTable());
-    String? hint = c.notice;
-    if (hint == null && c.canAct && modified && err != null) hint = err.message;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (c.canAct && c.selected.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text('${c.selected.length}장을 골랐어요 · 끌어다 놓거나, 놓을 묶음을 눌러요', style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.75))),
-            )
-          else if (hint != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(hint, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: err == null ? scheme.onSurface.withValues(alpha: 0.75) : scheme.error, fontWeight: FontWeight.w700)),
-            ),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 8,
@@ -933,7 +969,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                   label: const Text('넘기기'),
                 ),
               FilledButton.icon(
-                onPressed: c.canAct ? c.endTurn : null,
+                onPressed: c.canAct ? _endTurn : null,
                 icon: const Icon(Icons.check_rounded, size: 20),
                 label: const Text('끝내기'),
                 style: FilledButton.styleFrom(backgroundColor: kRkWood, visualDensity: VisualDensity.compact),

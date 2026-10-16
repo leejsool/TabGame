@@ -74,6 +74,38 @@ void main() {
     c3.selectTarget(1, 1);
     await pumpHome(DavinciScreen(players: 3, controller: c3));
     await _shot(tester, key, '$dir/game3_phone.png');
+    // 상대(CPU)가 내 타일을 맞히는 연출: 추측 중(떠오름 + 말풍선) → 결과
+    DavinciController fx() {
+      final c = DavinciController(mode: PlayMode.wifi, humanSeat: 0, seed: 5, animate: true)..cpuStepDelay = const Duration(seconds: 1);
+      c.state.rows[0]
+        ..clear()
+        ..addAll([dvTile(0, 1), dvTile(1, 4), dvTile(0, 6), dvTile(1, 9)]);
+      c.state.rows[1]
+        ..clear()
+        ..addAll([dvTile(0, 2), dvTile(1, 7), dvTile(0, 10), dvTile(1, 11)]);
+      c.state.revealed
+        ..clear()
+        ..addAll([dvTile(1, 7), dvTile(0, 1)]);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.guess;
+      c.state.drawn = dvTile(0, 10);
+      return c;
+    }
+
+    final cfx = fx();
+    await pumpHome(DavinciScreen(controller: cfx));
+    cfx.receiveMove(DvMove.guess(0, 1, 4), index: 0); // 맞힘
+    await tester.pump(const Duration(milliseconds: 300));
+    await _shot(tester, key, '$dir/fx_ask.png');
+    await tester.pump(const Duration(milliseconds: 1300));
+    await _shot(tester, key, '$dir/fx_right.png');
+    await tester.pump(const Duration(seconds: 2));
+    final cfx2 = fx();
+    await pumpHome(DavinciScreen(controller: cfx2));
+    cfx2.receiveMove(DvMove.guess(0, 2, 8), index: 0); // 틀림
+    await tester.pump(const Duration(milliseconds: 1500));
+    await _shot(tester, key, '$dir/fx_wrong.png');
+    await tester.pump(const Duration(seconds: 3));
     final c2 = midgame(2);
     await pumpHome(DavinciScreen(controller: c2));
     await _shot(tester, key, '$dir/game2_draw.png');
