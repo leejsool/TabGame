@@ -174,7 +174,7 @@ void main() {
       c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
       expect(c.layoutSets(10, 8).first, const Offset(0, 0));
       // 묶음 바로 옆에 놓으면 붙는다 (틈이 0.9칸 이내)
-      c.dropTiles([t(3, 10)], const Offset(3.8, 0));
+      c.dropTiles([t(3, 10)], const Offset(3.6, 0));
       expect(c.work.length, 1);
       expect(c.work.first.length, 4);
       // 멀리 놓으면 그 자리에 새 묶음
@@ -199,7 +199,7 @@ void main() {
       // 다른 묶음 바로 옆으로 끌면 합쳐진다
       final other = c.work.firstWhere((s) => s.contains(t(0, 5)));
       final anchor = c.anchorOf(other)!;
-      c.dropTiles(c.work.firstWhere((s) => s.contains(t(0, 10))), Offset(anchor.dx + 3.7, anchor.dy));
+      c.dropTiles(c.work.firstWhere((s) => s.contains(t(0, 10))), Offset(anchor.dx + 3.5, anchor.dy));
       expect(c.work.length, 1);
       expect(c.work.first.length, 6);
     });
@@ -379,6 +379,31 @@ void main() {
       expect(c.work.first.length + c.work.last.length, 5);
       // 한 장짜리 묶음이 있어도 끝내기는 막히고 이유가 나온다
       expect(c.endTurn(), isFalse);
+    });
+  });
+
+  group('정리: 묶음은 그대로 두고 자리만 가지런히', () {
+    test('흩어진 묶음들이 위쪽부터 줄 맞춰 놓이고, 묶음의 구성은 그대로이며, 한 단계 되돌리기로 돌아간다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(0, 3), t(0, 4), t(0, 5), t(1, 7), t(1, 8), t(1, 9)]);
+      c.layoutSets(9, 10);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(5, 6));
+      c.moveTiles([t(0, 3), t(0, 4), t(0, 5)], at: const Offset(0, 9));
+      c.moveTiles([t(1, 7), t(1, 8), t(1, 9)], at: const Offset(5, 2));
+      final before = [for (final s in c.work) ([...s]..sort()).join(',')]..sort();
+      final spots = c.layoutSets(9, 10);
+      expect(spots.map((o) => o.dy).reduce(max), greaterThan(3));
+      c.tidySets();
+      final after = c.layoutSets(9, 10);
+      expect([for (final s in c.work) ([...s]..sort()).join(',')]..sort(), before); // 묶음은 그대로
+      // 런(빨강 3-4-5, 파랑 7-8-9)이 먼저, 그룹(10)이 나중. 9칸 폭에 3.8칸짜리 둘이 한 줄 → 셋째는 다음 줄
+      int at(List<int> tile) => c.work.indexWhere((s) => s.contains(tile.first));
+      expect(after[at([t(0, 3)])], const Offset(0, 0));
+      expect(after[at([t(1, 7)])].dy, 0);
+      expect(after[at([t(0, 10)])].dy, 1);
+      expect(after.map((o) => o.dy).reduce(max), lessThan(2));
+      expect(c.canUndoStep, isTrue);
+      c.undoStep();
+      expect(c.layoutSets(9, 10)[at([t(0, 10)])], const Offset(5, 6));
     });
   });
 
@@ -592,7 +617,7 @@ void main() {
       await settle(tester, rounds: 2);
       expect(c.myTurn, isTrue);
       expect(find.text('내 타일 5장'), findsOneWidget);
-      expect(find.text('끝내기'), findsOneWidget);
+      expect(find.byTooltip('끝내기'), findsOneWidget);
 
       for (final id in [t(0, 10), t(1, 10), t(2, 10)]) {
         await tester.tap(tileFinder(id));
@@ -604,7 +629,7 @@ void main() {
       expect(c.work.length, 1);
       expect(find.text('내 타일 2장'), findsOneWidget);
 
-      await tester.tap(find.text('끝내기'));
+      await tester.tap(find.byTooltip('끝내기'));
       await settle(tester, rounds: 2);
       expect(c.turn, 1);
       expect(find.textContaining('CPU 1'), findsWidgets);
@@ -711,7 +736,7 @@ void main() {
       c.moveTiles([t(0, 2), t(1, 2), t(2, 2)]);
       await settle(tester, rounds: 1);
       // 안 되는 이유는 화면 자리를 쓰지 않고 짧은 알림으로 알려 준다
-      await tester.tap(find.text('끝내기'));
+      await tester.tap(find.byTooltip('끝내기'));
       await settle(tester, rounds: 1);
       expect(find.text(PlayError.needPoints.message), findsOneWidget);
       await tester.tap(find.byType(RkTileBack).first); // 바닥의 타일을 한 장 고른다

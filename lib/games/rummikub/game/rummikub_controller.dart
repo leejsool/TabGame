@@ -261,6 +261,58 @@ class RummikubController extends ChangeNotifier {
     return [for (final a in res) a!];
   }
 
+  /// 정리: 묶음은 그대로 두고 자리만 바꿔서 녹색 판 위쪽부터 가지런히 채운다.
+  /// 런(같은 색 연속)은 색별로 작은 숫자부터, 그룹(같은 숫자)은 숫자 순으로, 올바르지 않은 묶음은 맨 끝에 놓고,
+  /// 왼쪽에서 오른쪽으로, 넘치면 다음 줄로 이어 놓는다. 한 단계 되돌리기로 되돌릴 수 있다.
+  void tidySets() {
+    if (!canAct || work.isEmpty || layoutWidth <= 0) return;
+    _remember();
+    int kindOf(List<int> set) {
+      final m = analyzeMeld(set);
+      return m == null ? 2 : (m.isRun ? 0 : 1);
+    }
+
+    int firstNumber(List<int> set) {
+      final m = analyzeMeld(set);
+      final order = m?.order ?? arrangeSet(set);
+      final plain = order.where((t) => !isJoker(t));
+      return plain.isEmpty ? kMaxNumber + 1 : numberOf(plain.first);
+    }
+
+    int colorKey(List<int> set) {
+      final plain = set.where((t) => !isJoker(t));
+      return plain.isEmpty ? kColors : colorOf(plain.first);
+    }
+
+    final sorted = [...work]
+      ..sort((a, b) {
+        final k = kindOf(a).compareTo(kindOf(b));
+        if (k != 0) return k;
+        if (kindOf(a) == 0) {
+          final c = colorKey(a).compareTo(colorKey(b));
+          if (c != 0) return c;
+        }
+        final n = firstNumber(a).compareTo(firstNumber(b));
+        return n != 0 ? n : b.length.compareTo(a.length);
+      });
+    var x = 0.0, y = 0.0, rowH = 1.0;
+    for (final set in sorted) {
+      final r = setRect(Offset.zero, set.length, layoutPerRow);
+      final w = r.width;
+      if (x > 0 && x + w > layoutWidth + 0.001) {
+        x = 0;
+        y += rowH;
+        rowH = 1;
+      }
+      _setAnchor(set, Offset(x, y));
+      x += w + 0.15;
+      rowH = max(rowH, (set.length / layoutPerRow).ceil().toDouble());
+    }
+    _recent.clear();
+    selected.clear();
+    notifyListeners();
+  }
+
   // ── 한 단계 되돌리기 ──
 
   /// 이번 차례에 만지기 전 모습들 (판·손·묶음 자리). 끝내기·뽑기·처음으로·새 판에서 비운다.

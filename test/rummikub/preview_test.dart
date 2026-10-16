@@ -37,6 +37,8 @@ void main() {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
     }
     await loader.load();
+    final icons = FontLoader('MaterialIcons')..addFont(Future.value(File('C:/myapp/tools/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync().buffer.asByteData()));
+    await icons.load();
     Directory(dir!).createSync(recursive: true);
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();
@@ -79,8 +81,24 @@ void main() {
       return c;
     }
 
-    await pumpHome(RummikubScreen(controller: midgame(3)));
+    final phone = midgame(3);
+    await pumpHome(RummikubScreen(controller: phone));
     await _shot(tester, key, '$dir/game_phone.png');
+    phone.tidySets();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pump(const Duration(milliseconds: 900));
+    await _shot(tester, key, '$dir/game_phone_tidy.png');
+    // 손이 많을 때: 두 줄(딱 붙임) → 더 많으면 두 줄 안에서 겹침
+    for (final n in [14, 26]) {
+      final many = midgame(3);
+      many.hand = [for (var i = 0; i < n; i++) i * 3 % 104];
+      many.sortHand(byColor: true);
+      await pumpHome(RummikubScreen(controller: many), size: const Size(360, 740));
+      await _shot(tester, key, '$dir/game_360_hand$n.png');
+    }
+    await pumpHome(RummikubScreen(controller: midgame(3)), size: const Size(360, 740));
+    await _shot(tester, key, '$dir/game_360_few.png');
     await pumpHome(RummikubScreen(controller: midgame(2)), size: const Size(1100, 700));
     await _shot(tester, key, '$dir/game_tablet.png');
     await pumpHome(const RummikubSetupScreen(mode: PlayMode.vsCpu));

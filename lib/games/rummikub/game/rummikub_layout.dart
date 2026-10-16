@@ -14,7 +14,7 @@ Rect setRect(Offset anchor, int length, int perRow) {
 }
 
 /// 묶음 가로에 더해지는 좌우 여백 (칸).
-const double kSetPad = 0.8;
+const double kSetPad = 0.6;
 
 /// 두 상자 사이의 틈 (겹치면 0). 칸 단위.
 double rectGap(Rect a, Rect b) {
