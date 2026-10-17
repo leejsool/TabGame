@@ -437,6 +437,7 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
     });
     LanConnection? conn;
     var started = false;
+    var waitedInLobby = false; // 여러 명이 모이는 방에서 기다리던 중이었나
     _cancelled = false;
     try {
       conn = await LanConnection.connect(host, port);
@@ -452,6 +453,7 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
         if (t == 'lobby') {
           limit?.cancel();
           limit = null;
+          waitedInLobby = true;
           final names = m['names'];
           if (mounted && names is List) setState(() => _lobbyNames = [for (final n in names) '$n']);
           _lobbyNeed = m['need'] is int ? m['need'] as int : null;
@@ -490,7 +492,11 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
       if (mounted) _startFinder();
     } catch (_) {
       conn?.close();
-      if (mounted && !started && !_cancelled) setState(() => _message = '방에 들어갈 수 없어요. 방이 아직 열려 있는지, 같은 Wi‑Fi인지 확인해 주세요.');
+      if (mounted && !started && !_cancelled) {
+        setState(() => _message = waitedInLobby
+            ? '기다리던 방과 연결이 끊어졌어요. 방이 아직 열려 있으면 다시 들어와 보세요.'
+            : '방에 들어갈 수 없어요. 방이 아직 열려 있는지, 같은 Wi‑Fi인지 확인해 주세요.');
+      }
     } finally {
       if (mounted) setState(() => _connecting = false);
     }

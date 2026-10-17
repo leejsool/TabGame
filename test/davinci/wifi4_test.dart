@@ -130,4 +130,60 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('4명 판: 맞히려고 고른 타일이 다른 기기에도 알려지고, 방장은 손님의 선택을 확인해 나머지 손님들에게 전한다', (tester) async {
+    await pumpHost(tester, players: 4, port: 46173, discovery: 46184);
+    final logs = [for (var i = 0; i < 3; i++) <Map<String, dynamic>>[]];
+    final guests = [for (var i = 0; i < 3; i++) await joinAs(tester, '손님${i + 1}', 46173, logs[i])];
+    await settle(tester, rounds: 6);
+    final seats = [for (final l in logs) l.firstWhere((m) => m['t'] == 'start')['side'] as int];
+    final guestOfSeat = {for (var i = 0; i < 3; i++) seats[i]: i};
+    final c = (tester.state(find.byType(DavinciScreen)) as dynamic).c;
+
+    // 방장(0번)이 뽑은 뒤 상대 타일을 고르면 모든 손님에게 간다
+    expect(c.draw(0), isTrue);
+    await settle(tester, rounds: 3);
+    c.selectTarget(1, 0);
+    await settle(tester, rounds: 3);
+    for (final l in logs) {
+      expect(l.where((m) => m['t'] == 'sel').single, {'t': 'sel', 'a': 0, 's': 1, 'n': 0});
+    }
+    c.selectTarget(1, 0); // 같은 타일을 다시 눌러 고름을 푼다
+    await settle(tester, rounds: 3);
+    for (final l in logs) {
+      expect(l.where((m) => m['t'] == 'sel').last, {'t': 'sel', 'a': 0, 's': -1, 'n': -1});
+    }
+
+    // 방장이 틀리게 맞혀 차례가 1번 자리로 넘어간 뒤, 그 손님의 선택은 방장 화면에 보이고 나머지 손님들에게 전해진다
+    final target = c.state.rows[1] as List<int>;
+    final actual = dvNumber(target[0]);
+    c.selectTarget(1, 0);
+    expect(c.guess(dvIsJoker(target[0]) ? 0 : (actual == 11 ? 10 : actual + 1)), isTrue);
+    await settle(tester, rounds: 3);
+    expect(c.turn, 1);
+    final g1 = guestOfSeat[1]!;
+    final mine = c.state.rows[0] as List<int>;
+    final hiddenIdx = [for (var i = 0; i < mine.length; i++) if (!c.state.isRevealed(mine[i])) i].first;
+    guests[g1].send({'t': 'sel', 'a': 1, 's': 0, 'n': hiddenIdx});
+    await settle(tester, rounds: 4);
+    expect(c.remoteSel, (actor: 1, seat: 0, index: hiddenIdx));
+    expect(find.text('고민 중…'), findsOneWidget);
+    for (var i = 0; i < 3; i++) {
+      final sels = logs[i].where((m) => m['t'] == 'sel' && m['a'] == 1).toList();
+      expect(sels.length, i == g1 ? 0 : 1, reason: '보낸 사람에게는 되돌려 주지 않고 나머지에게는 전해요');
+    }
+
+    // 차례가 아닌 손님(2번 자리)이 1번 사람인 척 보내도 무시한다
+    final g2 = guestOfSeat[2]!;
+    guests[g2].send({'t': 'sel', 'a': 1, 's': 0, 'n': hiddenIdx});
+    await settle(tester, rounds: 4);
+    expect(find.text('판이 서로 어긋났어요'), findsNothing); // (선택 소식은 잘못돼도 판을 깨지 않는다)
+    expect(logs[g1].where((m) => m['t'] == 'sel' && m['a'] == 1), isEmpty);
+
+    await tester.pumpWidget(const SizedBox());
+    for (final g in guests) {
+      await tester.runAsync(g.close);
+    }
+    await settle(tester, rounds: 4);
+  });
 }

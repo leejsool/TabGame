@@ -211,7 +211,7 @@ class DavinciController extends ChangeNotifier {
   }
 
   /// 아직 다 보여 주지 못한 연출(지금 보이는 것과 줄 서 있는 것)이 있는가.
-  bool get effectsPending => animate && (effect != null || _effects.isNotEmpty);
+  bool get effectsPending => animate && (effect != null || _effects.isNotEmpty || _incoming.isNotEmpty);
 
   /// 연출이 끝나기 전에는 아직 "탈락"으로 보이면 안 되는 자리들: 맞혔다고 보여 주는 중인(또는 줄 서 있는) 추측의 대상.
   /// (판 자체는 이미 반영돼 있어서, 이렇게 하지 않으면 ○ / ✕가 뜨기도 전에 탈락이 떠 버린다)
@@ -265,15 +265,36 @@ class DavinciController extends ChangeNotifier {
     if (epoch == _fxEpoch) {
       effect = null;
       _pumping = false;
-      _idle?.complete();
-      _idle = null;
+      _drainIncoming(); // 줄 서 있던 다음 소식을 반영한다 (수면 새 연출이 시작된다)
+      if (!_pumping && _effects.isEmpty && _incoming.isEmpty) {
+        _idle?.complete();
+        _idle = null;
+      }
       if (!_disposed) notifyListeners();
     }
+  }
+
+  /// 줄 서 있는 소식을 연출이 쉬는 동안 하나씩 판에 반영한다. 수를 반영하면 새 연출이 시작되니 거기서 멈추고, 그 연출이 끝나면 이어서 한다.
+  void _drainIncoming() {
+    while (_incoming.isNotEmpty && !_pumping && _effects.isEmpty && !_disposed) {
+      final item = _incoming.removeAt(0);
+      if (item.move != null) {
+        if (!state.isLegal(item.move!)) continue; // (줄 세울 때 이미 확인한 수라 여기까지 오지 않는다)
+        _apply(item.move!);
+        _next(); // (다음이 CPU 차례이면 방장 기기가 CPU의 수를 둔다)
+      } else {
+        _showSelection(item.actor!, item.seat!, item.index!);
+      }
+    }
+    if (_incoming.isEmpty) _shadow = null;
   }
 
   void _clearEffects() {
     _fxEpoch++;
     _effects.clear();
+    _incoming.clear();
+    _shadow = null;
+    remoteSel = null;
     effect = null;
     _pumping = false;
     _idle?.complete();
@@ -281,9 +302,28 @@ class DavinciController extends ChangeNotifier {
   }
 
   Future<void> _effectsIdle() {
-    if (!_pumping && _effects.isEmpty) return Future.value();
+    if (!_pumping && _effects.isEmpty && _incoming.isEmpty) return Future.value();
     return (_idle ??= Completer<void>()).future;
   }
+
+  // ── 다른 기기의 수를 연출 순서대로 반영하기 (Wi‑Fi 대결) ──
+
+  /// 아직 판에 반영하지 않고 줄 세워 둔 소식들 (다른 기기가 둔 수, 상대가 고르는 중인 타일).
+  /// 상대가 연달아 여러 번 맞히면 소식은 한꺼번에 오는데, 판을 바로 바꾸면 화면이 마지막 상태로 먼저 가 버려서
+  /// 연출이 보여 주는 순서와 어긋난다. 그래서 앞의 연출이 다 끝난 뒤에 하나씩 판에 반영한다.
+  final List<_Incoming> _incoming = [];
+
+  /// 줄 서 있는 수까지 모두 둔 모습 (줄 서 있는 수가 규칙에 맞는지, 누구 차례인지 알아보려고). 줄이 비면 null.
+  DvState? _shadow;
+
+  DvState get _latest => _shadow ?? state;
+
+  /// 지금 남이 맞히려고 고르고 있는 타일: 고르는 사람 자리, 고른 타일의 주인 자리, 그 줄에서의 순서.
+  /// (맞히기 전에 "무슨 숫자일까" 고민하는 모습을 다른 기기에서도 볼 수 있게 한다)
+  ({int actor, int seat, int index})? remoteSel;
+
+  /// 내가 고른 타일이 바뀔 때 (다른 기기에 알리려고). 고름을 풀면 seat와 index가 -1이다.
+  void Function(int seat, int index)? onLocalSelect;
 
   /// 사람(자리)마다 가장 최근에 가져온 타일. 그 타일에 별표를 달아 누가 무엇을 가져갔는지 알 수 있게 한다.
   final Map<int, int> drawnBy = {};
@@ -349,6 +389,7 @@ class DavinciController extends ChangeNotifier {
       selIndex = index;
     }
     notifyListeners();
+    onLocalSelect?.call(selSeat, selIndex);
   }
 
   void clearSelection() {
@@ -356,6 +397,7 @@ class DavinciController extends ChangeNotifier {
     selSeat = -1;
     selIndex = -1;
     notifyListeners();
+    onLocalSelect?.call(-1, -1);
   }
 
   /// 고른 타일이 [number](조커는 [kJokerGuess])라고 맞힌다.
@@ -384,6 +426,7 @@ class DavinciController extends ChangeNotifier {
 
   void _apply(List<int> move) {
     final before = state.lastGuess;
+    remoteSel = null; // (수를 두면 고르던 타일 표시는 그 수의 연출로 이어진다)
     final actor = state.turn;
     final preDrawn = state.drawn;
     final tile = move[0] == 2 ? state.rows[move[1]][move[2]] : null;
@@ -445,13 +488,47 @@ class DavinciController extends ChangeNotifier {
   // ── 다른 기기의 수 (Wi‑Fi 대결) ──
 
   /// 다른 기기에서 온 수를 둔다. 순서가 어긋났거나 규칙에 안 맞는 수면 false (그러면 판이 어긋난 것이다).
+  ///
+  /// 앞의 수를 보여 주는 연출이 아직 끝나지 않았으면 판에 바로 반영하지 않고 줄 세워 두었다가, 연출이 끝나는 대로 하나씩 반영한다.
+  /// (규칙에 맞는지는 줄 서 있는 수까지 둔 모습으로 미리 확인한다)
   bool receiveMove(List<int> move, {int? index}) {
-    if (!online || isOver || halted || turn == humanSeat) return false;
-    if (index != null && index != moveCount) return false;
-    if (!state.isLegal(move)) return false;
-    _apply(move);
-    _next(); // (다음이 CPU 차례이면 방장 기기가 CPU의 수를 둔다)
+    final latest = _latest;
+    if (!online || latest.isOver || halted || latest.turn == humanSeat) return false;
+    if (index != null && index != moveCount + _incoming.where((e) => e.move != null).length) return false;
+    if (!latest.isLegal(move)) return false;
+    if (!animate || (_incoming.isEmpty && !_pumping && _effects.isEmpty)) {
+      _apply(move);
+      _next(); // (다음이 CPU 차례이면 방장 기기가 CPU의 수를 둔다)
+      return true;
+    }
+    (_shadow ??= state.clone()).apply(move);
+    _incoming.add(_Incoming.move(move));
+    notifyListeners();
     return true;
+  }
+
+  /// 다른 기기의 사람이 맞히려고 상대 타일([seat]의 [index]번째)을 골랐다는 소식 (고름을 풀면 둘 다 -1).
+  /// 앞의 수를 보여 주는 동안이면 그 연출이 끝난 뒤에 보여 준다.
+  void receiveSelection(int actor, int seat, int index) {
+    if (!online || isOver || halted || actor == humanSeat || actor < 0 || actor >= players) return;
+    if (!animate || (_incoming.isEmpty && !_pumping && _effects.isEmpty)) {
+      _showSelection(actor, seat, index);
+      return;
+    }
+    _incoming.add(_Incoming.selection(actor, seat, index));
+  }
+
+  void _showSelection(int actor, int seat, int index) {
+    // 지금 그 사람 차례이고, 판에 있는 숨은 타일일 때만 보여 준다 (엉뚱한 소식은 무시)
+    var ok = actor == state.turn && seat >= 0 && seat < players && seat != actor && index >= 0;
+    if (ok) {
+      final row = state.rows[seat];
+      ok = index < row.length && !state.isRevealed(row[index]) && !state.isOut(seat);
+    }
+    final next = ok ? (actor: actor, seat: seat, index: index) : null;
+    if (next == remoteSel) return;
+    remoteSel = next;
+    notifyListeners();
   }
 
   // ── CPU ──
@@ -565,6 +642,19 @@ class DavinciController extends ChangeNotifier {
     _idle?.complete();
     super.dispose();
   }
+}
+
+/// 줄 서서 기다리는 소식 하나: 다른 기기가 둔 수, 또는 상대가 고르는 중인 타일.
+class _Incoming {
+  _Incoming.move(List<int> this.move)
+      : actor = null,
+        seat = null,
+        index = null;
+
+  _Incoming.selection(int this.actor, int this.seat, int this.index) : move = null;
+
+  final List<int>? move;
+  final int? actor, seat, index;
 }
 
 /// 연출의 단계: 타일을 고르는 중(고른 타일이 떠오른다) → 추측하는 중(말풍선 "7?") → 결과(○ / ✕).

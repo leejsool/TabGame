@@ -294,6 +294,8 @@ class _DavinciScreenState extends State<DavinciScreen> {
         if (held != null) _sendAll(held);
         _sendAll(msg);
       };
+      // 맞히려고 상대 타일을 고르면(또는 고름을 풀면) 다른 기기에도 알려서, 무슨 숫자일까 고민하는 모습이 보이게 한다
+      c.onLocalSelect = (seat, index) => _sendAll({'t': 'sel', 'a': c.humanSeat, 's': seat, 'n': index});
       for (var i = 0; i < links.length; i++) {
         _linkSubs.add(links[i].messages.listen((m) => _onNet(i, m)));
         links[i].closed.then((_) => _onLinkClosed());
@@ -316,6 +318,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
     c.removeListener(_onChanged);
     c.onFeedback = null;
     c.onLocalMove = null;
+    c.onLocalSelect = null;
     c.dispose();
     super.dispose();
   }
@@ -340,6 +343,13 @@ class _DavinciScreenState extends State<DavinciScreen> {
         } else if (_hub) {
           _sendAll(m, except: from);
         }
+      case 'sel':
+        // 다른 사람이 맞히려고 고른 타일 (방장은 보낸 손님이 맞는지 확인하고 다른 손님들에게도 전한다)
+        final a = m['a'], s = m['s'], n = m['n'];
+        if (a is! int || s is! int || n is! int) return;
+        if (_hub && _seatOfLink(from) != a) return;
+        c.receiveSelection(a, s, n);
+        if (_hub) _sendAll(m, except: from);
       case 'resign':
         c.opponentResigned();
       case 'again':
@@ -802,6 +812,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
     final e = c.effect;
     final override = c.hiddenOverride;
     final liftedTile = c.liftedTile;
+    final rs = c.remoteSel; // 다른 사람이 맞히려고 고르고 있는 타일
 
     return LayoutBuilder(
       builder: (context, box) {
@@ -841,7 +852,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
               width: tw,
               faceUp: me || revealed,
               lying: revealed,
-              lifted: isEffectTile && liftedTile == t,
+              lifted: (isEffectTile && liftedTile == t) || (rs != null && rs.seat == seat && rs.index == i),
               selected: c.selSeat == seat && c.selIndex == i,
               mark: isEffectTile && e.stage == DvEffectStage.result ? e.correct : null,
               fresh: c.drawnBy[seat] == t && !revealed && !s.isOver, // 가장 최근에 가져온 타일 (내 것도, 상대 것도)
@@ -881,6 +892,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
                   if (e != null && e.actor == seat && !(e.kind == 2 && e.stage == DvEffectStage.pick)) ...[
                     const SizedBox(width: 8),
                     DvBubble(key: ValueKey('bubble$seat'), text: _bubbleText(e), result: e.kind == 2 && e.stage == DvEffectStage.result ? e.correct : null),
+                  ] else if (rs != null && rs.actor == seat) ...[
+                    // 타일을 골랐고 아직 숫자를 말하지 않았다: 무슨 숫자일까 고민하는 중
+                    const SizedBox(width: 8),
+                    DvBubble(key: ValueKey('thinking$seat'), text: '고민 중…'),
                   ],
                   const Spacer(),
                   if (me) Text('숨은 타일 ${s.hiddenCount(seat)}장', style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.65))),

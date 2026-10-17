@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'keep_awake.dart';
 import 'lan_connection.dart';
 
 /// 같은 Wi‑Fi에서 방을 찾는 약속: 방을 연 기기는 이 UDP 포트로 "방 있나요?"를 기다리고,
@@ -80,6 +81,7 @@ class LanHost {
     }
     final host = LanHost._(server, udp, game, info, maxGuests);
     host._listen();
+    KeepAwake.acquire(); // 방을 열어 두는 동안 화면이 꺼지지 않게 (닫으면 푼다)
     return host;
   }
 
@@ -148,6 +150,7 @@ class LanHost {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    KeepAwake.release();
     _udp?.close();
     await _server.close();
     await _guests.close();

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../core/nickname.dart';
+import 'keep_awake.dart';
 
 /// 같은 Wi‑Fi(공유기)에 연결된 두 기기가 주고받는 한 줄짜리 JSON 메시지 연결.
 ///
@@ -23,6 +24,7 @@ class LanConnection {
     this.giveUp,
   }) {
     _socket.setOption(SocketOption.tcpNoDelay, true);
+    KeepAwake.acquire(); // 이어져 있는 동안 화면이 꺼지지 않게 (끊기면 푼다)
     _lastRx = DateTime.now();
     _lastTick = _lastRx;
     _socket.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter()).listen(
@@ -140,6 +142,7 @@ class LanConnection {
   void _finish() {
     if (_closed.isCompleted) return;
     _closed.complete();
+    KeepAwake.release();
     _timer.cancel();
     stalledSince = null;
     _publishStalled();
