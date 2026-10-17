@@ -195,7 +195,11 @@ class DavinciController extends ChangeNotifier {
   /// 사람(자리)마다 가장 최근에 가져온 타일. 그 타일에 별표를 달아 누가 무엇을 가져갔는지 알 수 있게 한다.
   final Map<int, int> drawnBy = {};
 
+  /// 남이 뽑았지만 아직 보여 주지 않는 조커의 더미 색 (자리를 정하면 보여 준다).
+  int? _heldDrawColor;
+
   void _deal() {
+    _heldDrawColor = null;
     drawnBy.clear();
     state = DvState.deal(players, seed);
     moves.clear();
@@ -295,6 +299,14 @@ class DavinciController extends ChangeNotifier {
     final g = state.lastGuess;
     // 상대(CPU·다른 기기)가 둔 수는 한 단계씩 보여 준다. 내가 맞힌 결과는 막지 않고 바로 표시만 한다.
     final mine = actor == humanSeat;
+    // 남이 조커를 뽑았다: 자리를 정할 때까지 아무것도 보여 주지 않는다 (소리도, 날아가는 타일도 없다).
+    // 자리를 정하면 그제서야 일반 타일을 뽑을 때와 똑같은 연출 하나로 보여 준다. (그래야 조커를 뽑았는지 알 수 없다)
+    if (!mine && move[0] == 0 && state.phase == DvPhase.placeJoker) {
+      _heldDrawColor = move[1];
+      return;
+    }
+    final heldColor = move[0] == 1 && !mine ? _heldDrawColor : null;
+    _heldDrawColor = null;
     if (move[0] == 2 && g != null && !identical(g, before)) {
       _enqueue(DvEffect(
         actor: actor,
@@ -309,12 +321,13 @@ class DavinciController extends ChangeNotifier {
         ask: !mine,
       ));
     } else if (!mine) {
-      // 뽑기는 어느 더미에서 어느 타일을 뽑았는지도 담아 둔다 (조커는 아직 줄에 놓기 전이다)
+      // 뽑기는 어느 더미에서 어느 타일을 뽑았는지도 담아 둔다. 조커는 자리를 정한 뒤 "뽑기" 하나로 합쳐 보여 준다.
+      final isDraw = move[0] == 0 || heldColor != null;
       _enqueue(DvEffect(
         actor: actor,
-        kind: move[0],
-        number: move[0] == 0 ? move[1] : null,
-        tile: move[0] == 0 ? (state.pendingJoker ?? state.drawn) : null,
+        kind: isDraw ? 0 : move[0],
+        number: isDraw ? (heldColor ?? move[1]) : null,
+        tile: isDraw ? (state.pendingJoker ?? state.drawn) : null,
         blocking: true,
         ask: true,
       ));
@@ -323,7 +336,7 @@ class DavinciController extends ChangeNotifier {
       onFeedback?.call('win');
     } else if (move[0] == 2 && g != null && !identical(g, before)) {
       onFeedback?.call(g.correct ? 'right' : 'wrong');
-    } else if (move[0] == 0) {
+    } else if (move[0] == 0 || heldColor != null) {
       onFeedback?.call('draw');
     }
     notifyListeners();
@@ -357,6 +370,8 @@ class DavinciController extends ChangeNotifier {
       if (_disposed || epoch != _epoch || isOver || halted) break;
       final move = DvAi.choose(state, level, _rng);
       _apply(move);
+      // 조커를 뽑았으면 자리도 바로 정한다 (보는 사람에게는 뽑기 하나로 보인다)
+      if (state.phase == DvPhase.placeJoker && isCpuSeat(turn)) _apply(DvAi.choose(state, level, _rng));
       // 이 수가 어떤 수였는지 다 보여 줄 때까지 기다렸다가 다음 수를 둔다
       await _effectsIdle();
     }

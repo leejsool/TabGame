@@ -393,7 +393,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('내가 더미에서 뽑으면 타일이 더미에서 내 줄로 날아오고, 도착하면 줄에 나타난다', (tester) async {
+    testWidgets('내가 더미에서 뽑으면 타일이 더미에서 내 손패 한가운데를 거쳐 제 자리로 날아오고, 도착하면 줄에 나타난다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -410,7 +410,9 @@ void main() {
       expect(find.byKey(const ValueKey('fly')), findsOneWidget);
       Opacity wrap() => tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('tile-0-1')), matching: find.byType(Opacity)).first);
       expect(wrap().opacity, 0); // 날아오는 동안 줄에서는 숨겨져 있다
-      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(find.byKey(const ValueKey('fly')), findsOneWidget); // 아직 날아가는 중 (한가운데를 거쳐 가느라 오래 걸린다)
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.byKey(const ValueKey('fly')), findsNothing);
       expect(wrap().opacity, 1);
       expect(tester.takeException(), isNull);
@@ -447,7 +449,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('상대가 조커를 뽑아 놓아도 "조커"라는 말은 나오지 않는다 (타일 놓기로만 보인다)', (tester) async {
+    testWidgets('상대가 조커를 뽑아도 자리를 정하기 전에는 아무것도 안 보이고, 정하면 일반 뽑기와 똑같이 한 번에 보인다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -456,24 +458,76 @@ void main() {
         [b(2), w(7)],
       ], black: [24], mode: PlayMode.wifi, animate: true)
         ..cpuStepDelay = const Duration(milliseconds: 200);
+      final sounds = <String>[];
+      c.onFeedback = sounds.add;
       c.state.turn = 1;
       c.state.phase = DvPhase.draw;
       await tester.pumpWidget(await app(DavinciScreen(controller: c)));
       await settle(tester, rounds: 2);
+      c.onFeedback = sounds.add;
       expect(c.receiveMove(DvMove.drawMove(0), index: 0), isTrue); // 상대가 조커를 뽑는다
+      // 아직 자리를 안 정했다: 효과도, 날아가는 타일도, 소리도 없다
+      expect(c.effect, isNull);
+      expect(sounds, isEmpty);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      expect(c.effect, isNull);
+      // 자리를 정하면 뽑기 하나로 보인다 (손패 한가운데를 거쳐 제 자리로 날아간다)
       expect(c.receiveMove(DvMove.placeJoker(1), index: 1), isTrue);
+      expect(c.effect?.kind, 0);
+      expect(c.effect?.number, 0);
+      expect(c.effect?.tile, 24);
+      expect(sounds, ['draw']);
       final seenTexts = <String>{};
+      var flew = false;
       for (var i = 0; i < 40; i++) {
         await tester.pump(const Duration(milliseconds: 60));
+        flew = flew || find.byKey(const ValueKey('fly')).evaluate().isNotEmpty;
         for (final t in tester.widgetList<Text>(find.byType(Text))) {
           final d = t.data ?? '';
           if (d.contains('조커') || d.contains('타일 놓기') || d.contains('뽑기')) seenTexts.add(d);
         }
       }
+      expect(flew, isTrue);
       expect(seenTexts.any((x) => x.contains('조커')), isFalse, reason: '상대의 조커가 드러났어요: $seenTexts');
-      expect(seenTexts, contains('타일 놓기'));
+      expect(seenTexts.any((x) => x.contains('타일 놓기')), isFalse, reason: '조커를 뽑으면 놓기 단계가 따로 보여요: $seenTexts');
+      expect(seenTexts, contains('검정 뽑기'));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('CPU가 조커를 뽑아도 일반 타일처럼 뽑기 하나로 보이고 날아가는 모양도 같다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      Future<List<String>> run(int tile) async {
+        final c = fixed([
+          [b(1), b(6)],
+          [b(2), w(7)],
+        ], black: [tile], animate: true)
+          ..cpuStepDelay = const Duration(milliseconds: 200);
+        c.state.turn = 1;
+        c.state.phase = DvPhase.draw;
+        await tester.pumpWidget(await app(DavinciScreen(controller: c)));
+        await settle(tester, rounds: 2);
+        c.start();
+        final log = <String>[];
+        for (var i = 0; i < 24; i++) {
+          await tester.pump(const Duration(milliseconds: 60));
+          final fly = find.byKey(const ValueKey('fly')).evaluate().isNotEmpty;
+          final e = c.effect;
+          log.add('${e == null ? '-' : 'k${e.kind}'}${fly ? 'F' : ''}');
+        }
+        await tester.pumpWidget(const SizedBox());
+        return log;
+      }
+
+      final normal = await run(b(4));
+      final joker = await run(24);
+      expect(joker.any((x) => x.startsWith('k1')), isFalse, reason: '조커를 놓는 단계가 따로 보여요: $joker');
+      expect(joker.take(10), normal.take(10), reason: '조커 뽑기와 일반 뽑기가 달라 보여요');
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('상대가 맞혀서 누군가 탈락해도, ○ / ✕ 연출이 끝난 뒤에야 "탈락"이 보인다', (tester) async {
@@ -526,6 +580,38 @@ void main() {
       await settle(tester, rounds: 2);
       expect(c.state.rows[0], [b(1), 24, b(6)]);
       expect(c.phase, DvPhase.guess);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('내가 조커를 뽑으면 손패 한가운데로 날아가 떠 있다가, 자리를 정하면 그 자리로 날아간다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = fixed([
+        [b(1), b(6)],
+        [b(2), w(7)],
+      ], black: [24], animate: true);
+      await tester.pumpWidget(await app(DavinciScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      await tester.tap(find.byKey(const ValueKey('pile0')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('fly')), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      expect(find.byKey(const ValueKey('hover')), findsOneWidget); // 자리를 정할 때까지 떠 있다
+      await tester.tap(find.byKey(const ValueKey('slot1')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byKey(const ValueKey('hover')), findsNothing);
+      expect(find.byKey(const ValueKey('fly')), findsOneWidget);
+      Opacity wrap() => tester.widget<Opacity>(find.ancestor(of: find.byKey(const ValueKey('tile-0-1')), matching: find.byType(Opacity)).first);
+      expect(wrap().opacity, 0);
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.byKey(const ValueKey('fly')), findsNothing);
+      expect(wrap().opacity, 1);
+      expect(c.state.rows[0], [b(1), 24, b(6)]);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
@@ -610,6 +696,35 @@ void main() {
       expect(c.moveCount, 3);
       expect(c.state.rows[1].length, greaterThan(4));
       expect(find.text('새 판'), findsNothing); // Wi‑Fi 대결에는 새 판이 없다
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(theirs.close);
+    });
+
+    testWidgets('내가 조커를 뽑으면 자리를 정할 때까지 상대에게 아무것도 보내지 않고, 정하면 두 수를 이어서 보낸다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final (mine, theirs) = (await tester.runAsync(connectionPair))!;
+      final received = <Map<String, dynamic>>[];
+      theirs.messages.listen(received.add);
+      final c = fixed([
+        [b(1), b(6)],
+        [b(2), w(7)],
+      ], black: [24], mode: PlayMode.wifi);
+      await tester.pumpWidget(await app(DavinciScreen(mode: PlayMode.wifi, controller: c, link: mine)));
+      await settle(tester, rounds: 2);
+      await tester.tap(find.byKey(const ValueKey('pile0')));
+      await settle(tester, rounds: 3);
+      expect(c.phase, DvPhase.placeJoker);
+      expect(received, isEmpty, reason: '조커를 뽑은 걸 상대가 알아요');
+      await tester.tap(find.byKey(const ValueKey('slot1')));
+      await settle(tester, rounds: 3);
+      expect(received.map((m) => m['mv']).toList(), [
+        [0, 0],
+        [1, 1],
+      ]);
+      expect(received.map((m) => m['i']).toList(), [0, 1]);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await tester.runAsync(theirs.close);

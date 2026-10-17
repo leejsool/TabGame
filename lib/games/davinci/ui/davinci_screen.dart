@@ -79,6 +79,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
   bool _opponentGone = false;
   bool _leaving = false;
 
+  /// 아직 보내지 않은 "조커 뽑기" 수 (자리를 정하면 다음 수와 함께 보낸다).
+  Map<String, dynamic>? _heldMove;
+
   // ── 타일을 뽑아 오는 연출 (더미 → 뽑은 사람의 줄) ──
 
   final GlobalKey _stackKey = GlobalKey();
@@ -104,17 +107,129 @@ class _DavinciScreenState extends State<DavinciScreen> {
     return rb.localToGlobal(rb.size.center(Offset.zero));
   }
 
-  /// [tile]이 더미에서 [seat]의 줄로 날아간다. 줄에 이미 들어 있는 타일은 도착할 때까지 숨겨 둔다.
+  /// 뽑은 조커가 자리를 정할 때까지 내 손패 한가운데 떠 있는 곳 (화면 스택 좌표).
+  Offset? _hover;
+  int? _hoverTile;
+
+  bool get _hovering => _hover != null && _hoverTile != null && c.state.phase == DvPhase.placeJoker && c.turn == c.humanSeat;
+
+  /// [tile]이 더미에서 [seat]의 손패 한가운데로 날아갔다가 자기 자리를 찾아간다. (조커든 아니든 똑같이 움직인다)
+  /// 아직 줄에 없는 타일(내가 뽑은 조커)은 한가운데에 떠서 자리를 정하기를 기다린다.
+  /// 줄에 이미 들어 있는 타일은 도착할 때까지 숨겨 둔다.
   void _flyDraw({required int? tile, required int seat, required Offset? from, required Duration duration}) {
     if (tile == null || from == null) return;
     final inRow = c.state.rows[seat].contains(tile);
+    if (!inRow && seat != c.humanSeat) return; // 남의 줄에 없는 타일은 보여 주지 않는다 (조커는 자리를 정한 뒤에야 보인다)
     if (inRow) _hiddenTile = tile;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // 남이 뽑은 조커는 아직 줄에 없지만, 조커라는 걸 들키지 않도록 줄의 아무 타일 쪽으로 날아가게 한다 (일반 타일처럼 보이게)
+      final me = seat == c.humanSeat;
+      final width = me ? 44.0 : 38.0;
       final row = c.state.rows[seat];
-      final fake = !inRow && seat != c.humanSeat && row.isNotEmpty ? _globalCenter(_tileKeys[row[tile % row.length]]) : null;
-      final to = (inRow ? _globalCenter(_tileKeys[tile]) : null) ?? fake ?? _globalCenter(_rowKeys[seat]);
+      final rowCenter = _globalCenter(_rowKeys[seat]);
+      final mid = row.isEmpty ? null : _globalCenter(_tileKeys[row[row.length ~/ 2]]);
+      final center = rowCenter == null ? null : Offset(rowCenter.dx, (mid?.dy ?? rowCenter.dy) - width * 0.7);
+      final to = inRow ? _globalCenter(_tileKeys[tile]) : null;
+      final stack = _stackKey.currentContext?.findRenderObject();
+      void arrive() {
+        if (mounted && _hiddenTile == tile) setState(() => _hiddenTile = null);
+      }
+
+      if (center == null || stack is! RenderBox || (inRow && to == null)) {
+        arrive();
+        return;
+      }
+      setState(() {
+        _fly = _Fly(
+          from: stack.globalToLocal(from),
+          via: stack.globalToLocal(center),
+          to: to == null ? null : stack.globalToLocal(to),
+          tile: tile,
+          faceUp: me,
+          width: width,
+          duration: inRow ? duration : duration * 0.55,
+          serial: ++_flySerial,
+          onEnd: arrive,
+        );
+      });
+    });
+  }
+
+  /// 상대(CPU·다른 기기)가 뽑으면 그 더미에서 상대 손패 한가운데로, 그리고 제 자리로 타일이 날아간다.
+  void _maybeFlyOpponentDraw() {
+    final e = c.effect;
+    if (e == null || e.kind != 0 || identical(e, _flownEffect)) return;
+    _flownEffect = e;
+    _flyDraw(tile: e.tile, seat: e.actor, from: _globalCenter(_pileKeys[e.number ?? 0]), duration: c.cpuStepDelay * 1.1);
+  }
+
+  Widget _flyOverlay() {
+    final f = _fly!;
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('fly${f.serial}'),
+      tween: Tween(begin: 0, end: 1),
+      duration: f.duration,
+      onEnd: () {
+        if (!mounted) return;
+        setState(() {
+          if (_fly?.serial == f.serial) {
+            _fly = null;
+            if (f.to == null && f.via != null) {
+              _hover = f.via;
+              _hoverTile = f.tile;
+            }
+          }
+        });
+        f.onEnd();
+      },
+      builder: (context, t, _) {
+        final p = f.at(t);
+        final w = f.width * (1 + 0.3 * p.pop);
+        return Positioned(
+          key: const ValueKey('fly'),
+          left: p.pos.dx - w / 2,
+          top: p.pos.dy - p.lift - w * 1.4 / 2,
+          child: IgnorePointer(child: DvTile(id: f.tile, width: w, faceUp: f.faceUp)),
+        );
+      },
+    );
+  }
+
+  /// 내가 뽑은 조커가 손패 한가운데 떠서 자리를 기다린다.
+  Widget _hoverOverlay() {
+    const w = 44.0;
+    return Positioned(
+      key: const ValueKey('hover'),
+      left: _hover!.dx - w / 2,
+      top: _hover!.dy - w * 1.4 / 2,
+      child: IgnorePointer(child: DvTile(id: _hoverTile!, width: w, faceUp: true)),
+    );
+  }
+
+  /// 내가 더미에서 뽑는다 (뽑은 타일이 더미에서 내 손패 한가운데로 날아온 뒤 자리를 찾아간다. 조커는 자리를 정할 때까지 떠 있다).
+  void _drawFromPile(int color) {
+    final from = _globalCenter(_pileKeys[color]);
+    if (!c.draw(color) || !c.animate) return;
+    _flyDraw(tile: c.state.pendingJoker ?? c.state.drawn, seat: c.humanSeat, from: from, duration: const Duration(milliseconds: 1100));
+    if (_hiddenTile != null) setState(() {});
+  }
+
+  /// 뽑은 조커를 [pos]번째 칸에 놓는다 (떠 있던 조커가 그 자리로 날아간다).
+  void _placeJoker(int pos) {
+    final tile = c.state.pendingJoker;
+    final from = _hover;
+    if (!c.placeJoker(pos)) return;
+    _hover = null;
+    _hoverTile = null;
+    if (!c.animate || tile == null || from == null) {
+      setState(() {});
+      return;
+    }
+    _hiddenTile = tile;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final to = _globalCenter(_tileKeys[tile]);
       final stack = _stackKey.currentContext?.findRenderObject();
       void arrive() {
         if (mounted && _hiddenTile == tile) setState(() => _hiddenTile = null);
@@ -125,61 +240,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
         return;
       }
       setState(() {
-        _fly = _Fly(
-          from: stack.globalToLocal(from),
-          to: stack.globalToLocal(to),
-          tile: tile,
-          faceUp: seat == c.humanSeat,
-          width: seat == c.humanSeat ? 44 : 38,
-          duration: duration,
-          serial: ++_flySerial,
-          onEnd: arrive,
-        );
+        _fly = _Fly(from: from, to: stack.globalToLocal(to), tile: tile, faceUp: true, width: 44, duration: const Duration(milliseconds: 500), serial: ++_flySerial, onEnd: arrive);
       });
     });
-  }
-
-  /// 상대(CPU·다른 기기)가 뽑으면 그 더미에서 상대 줄로 타일이 날아간다.
-  void _maybeFlyOpponentDraw() {
-    final e = c.effect;
-    if (e == null || e.kind != 0 || identical(e, _flownEffect)) return;
-    _flownEffect = e;
-    _flyDraw(tile: e.tile, seat: e.actor, from: _globalCenter(_pileKeys[e.number ?? 0]), duration: c.cpuStepDelay * 0.9);
-  }
-
-  Widget _flyOverlay() {
-    final f = _fly!;
-    return TweenAnimationBuilder<double>(
-      key: ValueKey('fly${f.serial}'),
-      tween: Tween(begin: 0, end: 1),
-      duration: f.duration,
-      curve: Curves.easeInOutCubic,
-      onEnd: () {
-        if (!mounted) return;
-        setState(() {
-          if (_fly?.serial == f.serial) _fly = null;
-        });
-        f.onEnd();
-      },
-      builder: (context, t, _) {
-        final pos = Offset.lerp(f.from, f.to, t)! - Offset(0, sin(pi * t) * 30);
-        final w = f.width * (1 + 0.3 * sin(pi * t));
-        return Positioned(
-          key: const ValueKey('fly'),
-          left: pos.dx - w / 2,
-          top: pos.dy - w * 1.4 / 2,
-          child: IgnorePointer(child: DvTile(id: f.tile, width: w, faceUp: f.faceUp)),
-        );
-      },
-    );
-  }
-
-  /// 내가 더미에서 뽑는다 (뽑은 타일이 더미에서 내 줄로 날아온다).
-  void _drawFromPile(int color) {
-    final from = _globalCenter(_pileKeys[color]);
-    if (!c.draw(color) || !c.animate) return;
-    _flyDraw(tile: c.state.pendingJoker ?? c.state.drawn, seat: c.humanSeat, from: from, duration: const Duration(milliseconds: 700));
-    if (_hiddenTile != null) setState(() {});
   }
 
   /// "한 판 더"를 누른 자리들 (나 포함). 모두 누르면 새 판이 시작된다.
@@ -194,7 +257,18 @@ class _DavinciScreenState extends State<DavinciScreen> {
     c.addListener(_onChanged);
     final links = _links;
     if (links.isNotEmpty) {
-      c.onLocalMove = (move) => _sendAll({'t': 'move', 'i': c.moveCount - 1, 'mv': move});
+      c.onLocalMove = (move) {
+        final msg = {'t': 'move', 'i': c.moveCount - 1, 'mv': move};
+        // 조커를 뽑은 수는 자리를 정할 때까지 보내지 않는다. (뽑자마자 상대 화면에 보이면 조커를 뽑은 걸 들킨다)
+        if (move[0] == 0 && c.state.phase == DvPhase.placeJoker) {
+          _heldMove = msg;
+          return;
+        }
+        final held = _heldMove;
+        _heldMove = null;
+        if (held != null) _sendAll(held);
+        _sendAll(msg);
+      };
       for (var i = 0; i < links.length; i++) {
         _linkSubs.add(links[i].messages.listen((m) => _onNet(i, m)));
         links[i].closed.then((_) => _onLinkClosed());
@@ -295,6 +369,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
   void _checkRematch() {
     if (_againSeats.length >= c.players) {
       setState(_againSeats.clear);
+      _heldMove = null;
+      _hover = null;
+      _hoverTile = null;
       _resultHandled = false;
       c.restart();
     }
@@ -462,6 +539,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
         key: _stackKey,
         children: [
           Positioned.fill(child: _scaffoldBody(dark)),
+          if (_fly == null && _hovering) _hoverOverlay(),
           if (_fly != null) _flyOverlay(),
         ],
       ),
@@ -591,7 +669,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
         Widget slot(int pos) => GestureDetector(
               key: ValueKey('slot$pos'),
               behavior: HitTestBehavior.opaque,
-              onTap: () => c.placeJoker(pos),
+              onTap: () => _placeJoker(pos),
               child: Container(
                 width: tw * 0.5,
                 height: tw * 1.4,
@@ -944,15 +1022,40 @@ Future<void> showDavinciRules(BuildContext context) {
   );
 }
 
-/// 더미에서 줄로 날아가는 타일 한 장.
+/// 날아가는 타일 한 장. [from]에서 [via](손패 한가운데)를 거쳐 [to](제 자리)로 간다.
+/// [via]가 없으면 곧장 [to]로 가고, [to]가 없으면 [via]에서 멈춰 떠 있는다.
 class _Fly {
-  _Fly({required this.from, required this.to, required this.tile, required this.faceUp, required this.width, required this.duration, required this.serial, required this.onEnd});
+  _Fly({required this.from, this.via, this.to, required this.tile, required this.faceUp, required this.width, required this.duration, required this.serial, required this.onEnd})
+      : assert(via != null || to != null);
 
-  final Offset from, to;
+  final Offset from;
+  final Offset? via, to;
   final int tile;
   final bool faceUp;
   final double width;
   final Duration duration;
   final int serial;
   final VoidCallback onEnd;
+
+  /// 시간 [t](0~1)의 위치와 떠오른 높이, 커진 정도(0~1).
+  ({Offset pos, double lift, double pop}) at(double t) {
+    final v = via, d = to;
+    var a = from, b = (v ?? d)!;
+    var u = t, arc = 30.0;
+    if (v != null && d != null) {
+      // 먼저 한가운데로 (앞 절반), 잠깐 머물렀다가 (조금), 제 자리로 (뒤쪽)
+      if (t < 0.5) {
+        u = t / 0.5;
+      } else if (t < 0.62) {
+        return (pos: v, lift: 0, pop: 0);
+      } else {
+        a = v;
+        b = d;
+        u = (t - 0.62) / 0.38;
+        arc = 12;
+      }
+    }
+    final e = Curves.easeInOutCubic.transform(u.clamp(0.0, 1.0));
+    return (pos: Offset.lerp(a, b, e)!, lift: sin(pi * u) * arc, pop: sin(pi * u));
+  }
 }
