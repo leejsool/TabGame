@@ -5,8 +5,8 @@
 param([switch]$All, [Parameter(ValueFromRemainingArguments = $true)][string[]]$Paths)
 
 Set-Location (Split-Path $PSScriptRoot -Parent)
-New-Item -ItemType Directory -Force C:\ftmp | Out-Null
-$env:TEMP = 'C:\ftmp'; $env:TMP = 'C:\ftmp'
+New-Item -ItemType Directory -Force F:\MyApp\tools\tmp | Out-Null
+$env:TEMP = 'F:\MyApp\tools\tmp'; $env:TMP = 'F:\MyApp\tools\tmp'
 
 $testArgs = @('test')
 if (-not $All) { $testArgs += @('--exclude-tags', 'slow') }

@@ -8,10 +8,10 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 # 한글 사용자 폴더 때문에 flutter_tester 가 죽는 일을 피한다 (테스트용 설정과 동일)
-New-Item -ItemType Directory -Force C:\ftmp | Out-Null
-$env:TEMP = 'C:\ftmp'; $env:TMP = 'C:\ftmp'
-# 안드로이드 네이티브(jni) 빌드도 한글 경로를 못 읽으니, 패키지 캐시를 영문 경로로 쓴다
-$env:PUB_CACHE = 'C:\pubcache'
+New-Item -ItemType Directory -Force F:\MyApp\tools\tmp | Out-Null
+$env:TEMP = 'F:\MyApp\tools\tmp'; $env:TMP = 'F:\MyApp\tools\tmp'
+# 안드로이드 네이티브(jni) 빌드도 한글 경로를 못 읽으니, 패키지 캐시를 영문 경로로 쓴다 (개발 도구는 모두 F:\MyApp\tools)
+$env:PUB_CACHE = 'F:\MyApp\tools\pub-cache'
 $env:TABGAME_DEV = '1'
 
 flutter pub get
@@ -25,6 +25,7 @@ Copy-Item build\app\outputs\flutter-apk\app-release.apk $apk -Force
 Write-Host "만들었어요: $((Resolve-Path $apk).Path)"
 
 if (-not $NoInstall) {
-  $adb = 'C:\android\sdk\platform-tools\adb.exe'
+  $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { 'F:\MyApp\tools\sdk' }
+  $adb = Join-Path $sdk 'platform-tools\adb.exe'
   & $adb install -r $apk
 }
