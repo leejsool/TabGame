@@ -21,12 +21,22 @@ List<String> _generateInBackground(int difficultyIndex) {
 }
 
 /// 새 판을 만들어 게임 화면을 연다. [replace]면 지금 화면을 새 판으로 바꾼다.
-Future<void> startSudokuGame(
+/// [askIfSaved]면 이어하던 판이 있을 때 덮어써도 되는지 먼저 묻는다. 새 판을 시작했으면 true.
+Future<bool> startSudokuGame(
   BuildContext context,
   Difficulty difficulty, {
   bool replace = false,
+  bool askIfSaved = false,
 }) async {
   final navigator = Navigator.of(context);
+  if (askIfSaved) {
+    final saved = await SudokuStorage.loadSaved();
+    if (saved != null && context.mounted) {
+      final ok = await confirmOverwrite(context, gameName: '스도쿠');
+      if (!ok) return false;
+    }
+  }
+  if (!context.mounted) return false;
   showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -48,6 +58,7 @@ Future<void> startSudokuGame(
   } else {
     await navigator.push(route);
   }
+  return true;
 }
 
 /// 기록에서 고른 판(같은 문제)을 처음부터 다시 푼다. 이어하던 판이 있으면 먼저 물어본다.

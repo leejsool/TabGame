@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/sfx_pool.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
@@ -53,6 +54,10 @@ class _GobbletScreenState extends State<GobbletScreen> {
       );
   bool _resultShown = false;
 
+  /// 한 기기·CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
+  late final GameSaver _saver = GameSaver(gameId: 'goblet_gobblers', snapshot: () => c.savable ? c.toJson() : null);
+  int _savedAtMove = -1;
+
   // ── 같은 Wi‑Fi 대결 ──
   LanConnection? get _link => c.online ? widget.link : null;
   StreamSubscription<Map<String, dynamic>>? _linkSub;
@@ -74,6 +79,10 @@ class _GobbletScreenState extends State<GobbletScreen> {
     _clack.load();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
+    if (!c.online) {
+      _savedAtMove = c.moveCount;
+      _saver.attach();
+    }
     final link = _link;
     if (link != null) {
       c.onLocalMove = (m) => link.send({'t': 'move', 'i': c.moveCount - 1, 'f': m.from, 'to': m.to, 's': m.size});
@@ -85,6 +94,7 @@ class _GobbletScreenState extends State<GobbletScreen> {
 
   @override
   void dispose() {
+    _saver.detach();
     _clack.dispose();
     _leaving = true;
     _linkSub?.cancel();
@@ -98,6 +108,14 @@ class _GobbletScreenState extends State<GobbletScreen> {
     c.onLocalMove = null;
     c.dispose();
     super.dispose();
+  }
+
+
+  /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
+  Future<void> _newGameNow() async {
+    if (_saver.active && !await confirmNewGame(context)) return;
+    if (!mounted) return;
+    c.restart();
   }
 
   void _onNet(Map<String, dynamic> m) {
@@ -225,7 +243,20 @@ class _GobbletScreenState extends State<GobbletScreen> {
       ));
       Future<void>.delayed(const Duration(milliseconds: 1300), _showResult);
     } else if (r == null) {
+      if (_resultShown) _saver.rearm(); // 한 판 더: 새 판은 다시 보관할 수 있다
       _resultShown = false;
+    }
+    if (!c.online) _autosave();
+  }
+
+  /// 수를 둘 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
+  void _autosave() {
+    if (c.moveCount == 0 && !c.isOver) _saver.rearm(); // 새 판이 시작됐다
+    if (c.isOver) {
+      _saver.finish();
+    } else if (c.moveCount != _savedAtMove) {
+      _savedAtMove = c.moveCount;
+      _saver.save();
     }
   }
 
@@ -266,6 +297,10 @@ class _GobbletScreenState extends State<GobbletScreen> {
     return ListenableBuilder(
       listenable: c,
       builder: (context, child) {
+        if (!c.online) {
+          // 한 기기·CPU 대결: 나가기 전에 저장할지 묻는다
+          return SaveLeaveGuard(active: () => _saver.active, onSave: _saver.save, onDiscard: _saver.discard, child: child!);
+        }
         final askBeforeLeave = c.online && !c.isOver && !_opponentGone;
         return PopScope(
           canPop: !askBeforeLeave,
@@ -443,7 +478,7 @@ class _GobbletScreenState extends State<GobbletScreen> {
               ),
               OutlinedButton.icon(
                 style: compact,
-                onPressed: () => c.restart(),
+                onPressed: _newGameNow,
                 icon: const Icon(Icons.refresh_rounded, size: 20),
                 label: const Text('새 판'),
               ),

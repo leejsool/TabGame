@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/solitaire_tutorial.dart';
@@ -70,7 +71,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
     c.onCompleted = null;
     c.onNoMoves = null;
     c.onFeedback = null;
-    SolitaireStorage.save(c);
+    _save();
     c.dispose();
     super.dispose();
   }
@@ -79,13 +80,13 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       c.setPaused(true);
-      SolitaireStorage.save(c);
+      _save();
     }
   }
 
   void _onChanged() {
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () => SolitaireStorage.save(c));
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _save);
   }
 
   void _feedback(String kind) {
@@ -183,15 +184,16 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
       case 'restart':
         c.restart();
       case 'new':
-        _startNewGame();
+        _startNewGame(askIfSaved: true);
       case 'giveup':
         _giveUp();
     }
   }
 
   /// 같은 뽑기 장수로 무작위 새 판을 시작한다 (이 화면을 새 판으로 바꾼다).
-  Future<void> _startNewGame() async {
-    await startSolitaireDeal(context, randomSolitaireDeal(), c.draw, replace: true);
+  /// [askIfSaved]면 하던 판이 보관돼 있을 때 사라져도 되는지 먼저 묻는다 (이긴 뒤·포기한 뒤에는 보관된 판이 없다).
+  Future<void> _startNewGame({bool askIfSaved = false}) async {
+    await startSolitaireDeal(context, randomSolitaireDeal(), c.draw, replace: true, askIfSaved: askIfSaved);
   }
 
   Future<void> _giveUp() async {
@@ -239,8 +241,29 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
 
   // ── 화면 ──
 
+  /// "저장 안 하고 나가기"를 골랐다: 이 판은 더 보관하지 않는다.
+  bool _discarded = false;
+
+  /// 이어하기용으로 지금 판을 보관한다 (저장 안 하고 나가는 중이면 하지 않는다).
+  Future<void> _save() async {
+    if (!_discarded) await SolitaireStorage.save(c);
+  }
+
+  Future<void> _discard() async {
+    _discarded = true;
+    _saveDebounce?.cancel();
+    await SolitaireStorage.clearSave(c);
+  }
+
+  /// 나갈 때 저장할지 물어야 하는 판인가 (아직 아무것도 안 했거나 이미 끝난 판이면 그냥 나간다).
+  bool _inProgress() => !c.completed && !c.gaveUp && !c.untouched;
+
   @override
   Widget build(BuildContext context) {
+    return SaveLeaveGuard(active: _inProgress, onSave: _save, onDiscard: _discard, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -365,7 +388,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
               icon: const Icon(Icons.more_vert_rounded),
               onSelected: (v) {
                 if (v == 'restart') _confirmRestart();
-                if (v == 'new') _startNewGame();
+                if (v == 'new') _startNewGame(askIfSaved: true);
                 if (v == 'giveup') _giveUp();
                 if (v == 'rules') showSolitaireRules(context);
               },

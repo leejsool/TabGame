@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../data/jigsaw_history.dart';
@@ -70,7 +71,23 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
     _saveDebounce = Timer(const Duration(milliseconds: 700), _save);
   }
 
-  void _save() => JigsawStorage.save(s.controller, s.source, s.pieceTarget);
+  /// "저장 안 하고 나가기"를 골랐다: 이 판은 더 보관하지 않는다.
+  bool _discarded = false;
+
+  /// 이어하기용으로 지금 판을 보관한다 (저장 안 하고 나가는 중이면 하지 않는다).
+  Future<void> _save() async {
+    if (!_discarded) await JigsawStorage.save(s.controller, s.source, s.pieceTarget);
+  }
+
+  Future<void> _discard() async {
+    _discarded = true;
+    _saveDebounce?.cancel();
+    await JigsawStorage.abandon(s.controller, s.source);
+    await JigsawStorage.pruneAfterHistoryChange();
+  }
+
+  /// 나갈 때 저장할지 물어야 하는 판인가 (이미 끝난 판이면 그냥 나간다).
+  bool _inProgress() => !s.controller.completed && !s.controller.gaveUp;
 
   void _onSnap() {
     if (SettingsScope.of(context).haptics) HapticFeedback.mediumImpact();
@@ -193,6 +210,10 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
+    return SaveLeaveGuard(active: _inProgress, onSave: _save, onDiscard: _discard, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     final c = s.controller;
     return Scaffold(
       body: SafeArea(

@@ -53,6 +53,57 @@ class SproutsController extends ChangeNotifier {
   })  : _rng = rng ?? Random(),
         board = board ?? SproutsBoard.initial(dotCount, rng ?? Random());
 
+  /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
+  static SproutsController? fromJson(Map<String, dynamic> j) {
+    try {
+      final mode = PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final humanSide = j['humanSide'] as int;
+      final levelIndex = j['level'] as int;
+      if ((humanSide != 0 && humanSide != 1) || levelIndex < 0 || levelIndex >= SproutsLevel.values.length) return null;
+      List<double> data(Object? raw) => [for (final v in raw as List) (v as num).toDouble()];
+      final c = SproutsController(
+        mode: mode,
+        dotCount: j['dotCount'] as int,
+        humanSide: humanSide,
+        level: SproutsLevel.values[levelIndex],
+        board: SproutsBoard.fromData(data(j['board'])),
+      );
+      c.turn = j['turn'] as int;
+      c.moveCount = j['moveCount'] as int;
+      if (c.turn != 0 && c.turn != 1) return null;
+      for (final h in j['history'] as List) {
+        final m = h as Map<String, dynamic>;
+        c._history.add(_Snapshot(SproutsBoard.fromData(data(m['board'])), m['turn'] as int, m['moves'] as int));
+      }
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (이어하기용). 되돌리기에 쓰는 최근 몇 수의 판도 함께 담는다.
+  Map<String, dynamic> toJson() {
+    List<double> round(List<double> d) => [for (final v in d) (v * 100).roundToDouble() / 100];
+    final recent = _history.length > 12 ? _history.sublist(_history.length - 12) : _history;
+    return {
+      'v': 1,
+      'mode': mode.name,
+      'dotCount': dotCount,
+      'humanSide': humanSide,
+      'level': level.index,
+      'turn': turn,
+      'moveCount': moveCount,
+      'board': round(board.toData()),
+      'history': [
+        for (final h in recent) {'board': round(h.board.toData()), 'turn': h.turn, 'moves': h.moves},
+      ],
+    };
+  }
+
+  /// 이어하기로 보관할 만한 판인가 (같은 Wi‑Fi가 아니고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => !online && !isOver && moveCount > 0;
+
   final PlayMode mode;
   final int dotCount;
 

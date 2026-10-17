@@ -20,6 +20,46 @@ class UtttController extends ChangeNotifier {
     _rebuild();
   }
 
+  /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
+  static UtttController? fromJson(Map<String, dynamic> j) {
+    try {
+      final mode = PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final humanSide = j['humanSide'] as int;
+      final firstTurn = j['firstTurn'] as int;
+      final levelIndex = j['level'] as int;
+      if ((humanSide != kX && humanSide != kO) || (firstTurn != kX && firstTurn != kO)) return null;
+      if (levelIndex < 0 || levelIndex >= UttLevel.values.length) return null;
+      final moves = [for (final m in j['moves'] as List) m as int];
+      final c = UtttController(mode: mode, humanSide: humanSide, level: UttLevel.values[levelIndex], firstTurn: firstTurn);
+      // 수를 하나씩 다시 둔다 (둘 수 없는 수가 끼어 있으면 저장이 깨진 것)
+      final check = UttState.fromMoves(const [], firstTurn: firstTurn);
+      for (final m in moves) {
+        if (!check.isLegal(m)) return null;
+        check.apply(m);
+      }
+      c.moves.addAll(moves);
+      c._rebuild();
+      c.lastMove = moves.isEmpty ? -1 : moves.last;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (이어하기용). 수들만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'mode': mode.name,
+        'humanSide': humanSide,
+        'level': level.index,
+        'firstTurn': firstTurn,
+        'moves': moves,
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (같은 Wi‑Fi가 아니고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => !online && !isOver && !halted && moves.isNotEmpty;
+
   final PlayMode mode;
 
   /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 쪽 (kX / kO).

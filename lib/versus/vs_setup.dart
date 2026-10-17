@@ -1,14 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../core/game_save.dart';
+import '../records/record_widgets.dart' show confirmOverwrite;
 import '../records/records_screen.dart';
 import '../tutorial/tutorial_button.dart';
 import '../tutorial/tutorial.dart';
+
+/// 이어하던 판이 있는 대결 게임의 이어하기 설정.
+class VsResume {
+  const VsResume({required this.gameName, required this.describe, required this.onResume});
+
+  /// "이어하던 ○○ 판은 사라져요" 같은 안내에 쓰는 게임 이름.
+  final String gameName;
+
+  /// 저장된 판을 한 줄로 설명한다 (예: "CPU 2명 · 보통 · 12번째 차례").
+  final String Function(Map<String, dynamic> saved) describe;
+
+  /// 저장된 판을 열어 이어서 한다.
+  final void Function(Map<String, dynamic> saved) onResume;
+}
 
 /// 대결 게임(CPU와 / 둘이서)의 시작 전 설정 화면 틀.
 ///
 /// 위에는 게임마다 다른 선택(내 쪽, 점의 수 …)을 [children]으로 넣고, 아래의 "시작하기",
 /// "튜토리얼 보기", (있으면) "교과학습" 버튼과 앱바의 "내 기록" 버튼은 이 틀이 만든다.
-class VsSetupScaffold extends StatelessWidget {
+/// [resume]이 있으면 이어하던 판이 있을 때 맨 위에 "이어하기" 카드를 보여 주고,
+/// 그 상태에서 새로 시작하려 하면 이어하던 판이 사라져도 되는지 먼저 묻는다.
+class VsSetupScaffold extends StatefulWidget {
   const VsSetupScaffold({
     super.key,
     required this.gameId,
@@ -18,6 +36,7 @@ class VsSetupScaffold extends StatelessWidget {
     required this.tutorial,
     this.onLesson,
     this.startLabel = '시작하기',
+    this.resume,
   });
 
   /// game_registry의 id (내 기록 버튼이 이 게임의 기록을 연다).
@@ -35,17 +54,64 @@ class VsSetupScaffold extends StatelessWidget {
   /// 시작 버튼의 글자.
   final String startLabel;
 
+  /// 이어하기 (같은 Wi‑Fi 방 만들기처럼 이어할 수 없는 설정이면 null).
+  final VsResume? resume;
+
+  @override
+  State<VsSetupScaffold> createState() => _VsSetupScaffoldState();
+}
+
+class _VsSetupScaffoldState extends State<VsSetupScaffold> {
+  Map<String, dynamic>? _saved;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.resume != null) {
+      GameSave.changes.addListener(_load);
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.resume != null) GameSave.changes.removeListener(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final saved = await GameSave.load(widget.gameId);
+    if (mounted) setState(() => _saved = saved);
+  }
+
+  Future<void> _start() async {
+    final resume = widget.resume;
+    if (resume != null) {
+      // 판이 끝나는 순간에 지워지니, 눌린 시점에 보관된 것이 있는지 다시 본다
+      final saved = await GameSave.load(widget.gameId);
+      if (saved != null) {
+        if (!mounted) return;
+        final ok = await confirmOverwrite(context, gameName: resume.gameName);
+        if (!ok) return;
+        await GameSave.clear(widget.gameId);
+      }
+    }
+    widget.onStart();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final resume = widget.resume;
+    final saved = _saved;
     return Scaffold(
       appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.transparent,
         actions: [
           IconButton(
             tooltip: '내 기록',
             icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () => openRecords(context, game: gameId),
+            onPressed: () => openRecords(context, game: widget.gameId),
           ),
         ],
       ),
@@ -57,23 +123,27 @@ class VsSetupScaffold extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
-                ...children,
+                if (resume != null && saved != null) ...[
+                  _ResumeCard(describe: resume.describe(saved), onTap: () => resume.onResume(saved)),
+                  const SizedBox(height: 20),
+                ],
+                ...widget.children,
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: onStart,
+                  onPressed: _start,
                   icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text(startLabel),
+                  label: Text(widget.startLabel),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 10),
-                TutorialButton(tutorial: tutorial),
-                if (onLesson != null) ...[
+                TutorialButton(tutorial: widget.tutorial),
+                if (widget.onLesson != null) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    onPressed: onLesson,
+                    onPressed: widget.onLesson,
                     icon: const Icon(Icons.menu_book_rounded),
                     label: const Text('교과학습'),
                     style: OutlinedButton.styleFrom(
@@ -85,6 +155,48 @@ class VsSetupScaffold extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 맨 위의 "이어하기" 카드.
+class _ResumeCard extends StatelessWidget {
+  const _ResumeCard({required this.describe, required this.onTap});
+
+  final String describe;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const ValueKey('vs-resume'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+          child: Row(
+            children: [
+              Icon(Icons.play_circle_fill_rounded, size: 40, color: scheme.primary),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('이어하기', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 2),
+                    Text(describe, style: const TextStyle(fontSize: 13.5)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/rummikub_ai.dart';
+import '../game/rummikub_controller.dart';
 import '../tutorial/rummikub_tutorial.dart';
 import 'rummikub_screen.dart';
 import 'rummikub_tiles.dart';
@@ -38,6 +39,14 @@ class _RummikubSetupScreenState extends State<RummikubSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = RummikubController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => RummikubScreen(controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
@@ -45,6 +54,18 @@ class _RummikubSetupScreenState extends State<RummikubSetupScreen> {
       title: _wifi ? '루미큐브 · 방 만들기' : '루미큐브 · CPU와 대결',
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
+      resume: _wifi
+          ? null
+          : VsResume(
+              gameName: '루미큐브',
+              describe: (j) {
+                final cpus = (j['players'] as int? ?? 2) - 1;
+                final level = j['level'] as int? ?? 0;
+                final name = level >= 0 && level < RkLevel.values.length ? RkLevel.values[level].label : '';
+                return 'CPU $cpus명 · $name · ${j['moveCount'] ?? 0}차례째';
+              },
+              onResume: _resume,
+            ),
       tutorial: rummikubTutorial,
       children: [
         if (!_wifi) ...[

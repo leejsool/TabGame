@@ -140,7 +140,16 @@ void main() {
       expect(c.moveCount, 0);
       await tester.tapAt(cellPos(tester, 40));
       await tester.pump(const Duration(milliseconds: 400));
+      // 하던 판이 있으면 새 판을 시작하기 전에 묻는다 (취소하면 하던 판 그대로)
       await tester.tap(find.text('새 판'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('새 판을 시작할까요?'), findsOneWidget);
+      await tester.tap(find.text('취소'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(c.moveCount, 1);
+      await tester.tap(find.text('새 판'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('새 판')));
       await tester.pump();
       expect(c.moveCount, 0);
       await tester.pumpWidget(const SizedBox());

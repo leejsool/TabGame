@@ -33,6 +33,44 @@ class QuoridorController extends ChangeNotifier {
     _rebuild();
   }
 
+  /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
+  static QuoridorController? fromJson(Map<String, dynamic> j) {
+    try {
+      final mode = PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final players = j['players'] as int;
+      final humanSeat = j['humanSeat'] as int;
+      final levelIndex = j['level'] as int;
+      if ((players != 2 && players != 4) || humanSeat < 0 || humanSeat >= players) return null;
+      if (levelIndex < 0 || levelIndex >= QLevel.values.length) return null;
+      final moves = [for (final m in j['moves'] as List) m as int];
+      final c = QuoridorController(mode: mode, players: players, humanSeat: humanSeat, level: QLevel.values[levelIndex]);
+      c.rotation = j['rotation'] as int;
+      c.moves.addAll(moves);
+      c._rebuild();
+      if (c.state.moveCount != moves.length) return null;
+      c.lastMover = j['lastMover'] as int;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (이어하기용). 수들만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'mode': mode.name,
+        'players': players,
+        'humanSeat': humanSeat,
+        'level': level.index,
+        'rotation': rotation,
+        'moves': moves,
+        'lastMover': lastMover,
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (같은 Wi‑Fi가 아니고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => !online && !isOver && !halted && moves.isNotEmpty;
+
   final PlayMode mode;
   final int players;
 

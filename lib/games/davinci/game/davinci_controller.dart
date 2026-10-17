@@ -32,6 +32,53 @@ class DavinciController extends ChangeNotifier {
     _deal();
   }
 
+  /// 저장해 둔 판([toJson])을 되살린다 (CPU 대결만). 같은 씨앗으로 나눠서 저장된 수들을 다시 둔다. 맞지 않는 내용이면 null.
+  static DavinciController? fromJson(Map<String, dynamic> j, {bool? animate}) {
+    try {
+      final players = j['players'] as int, humanSeat = j['humanSeat'] as int, levelIndex = j['level'] as int;
+      if (players < 2 || players > 4 || humanSeat < 0 || humanSeat >= players) return null;
+      if (levelIndex < 0 || levelIndex >= DvLevel.values.length) return null;
+      final c = DavinciController(
+        mode: PlayMode.vsCpu,
+        players: players,
+        humanSeat: humanSeat,
+        level: DvLevel.values[levelIndex],
+        seed: j['seed'] as int,
+        animate: animate,
+      );
+      c.rotation = j['rotation'] as int;
+      for (final raw in j['moves'] as List) {
+        final move = [for (final v in raw as List) v as int];
+        if (!c.state.isLegal(move)) return null;
+        final actor = c.state.turn;
+        c.moves.add(move);
+        c.state.apply(move);
+        if (move[0] == 0 || move[0] == 1) {
+          final t = c.state.drawn;
+          if (t != null) c.drawnBy[actor] = t;
+        }
+      }
+      c.moveSerial = c.moves.length;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (CPU 대결의 이어하기용). 씨앗과 둔 수만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'players': players,
+        'humanSeat': humanSeat,
+        'level': level.index,
+        'seed': seed,
+        'rotation': rotation,
+        'moves': moves,
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (CPU 대결이고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => vsCpu && !isOver && !halted && moves.isNotEmpty;
+
   final PlayMode mode;
   final int players;
 

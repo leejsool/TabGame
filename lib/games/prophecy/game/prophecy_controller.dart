@@ -23,6 +23,38 @@ class ProphecyController extends ChangeNotifier {
     _rebuild();
   }
 
+  /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
+  static ProphecyController? fromJson(Map<String, dynamic> j) {
+    try {
+      final mode = PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final rows = j['rows'] as int, cols = j['cols'] as int, humanSide = j['humanSide'] as int, levelIndex = j['level'] as int;
+      if (rows < 1 || cols < 1 || rows * cols > 100 || (humanSide != 0 && humanSide != 1)) return null;
+      if (levelIndex < 0 || levelIndex >= ProphLevel.values.length) return null;
+      final c = ProphecyController(mode: mode, rows: rows, cols: cols, humanSide: humanSide, level: ProphLevel.values[levelIndex]);
+      c.moves.addAll([for (final m in j['moves'] as List) m as int]);
+      c._rebuild();
+      c.moveSerial = c.moves.length;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (이어하기용). 수들만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'mode': mode.name,
+        'rows': rows,
+        'cols': cols,
+        'humanSide': humanSide,
+        'level': level.index,
+        'moves': moves,
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (같은 Wi‑Fi가 아니고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => !online && !isOver && !halted && moves.isNotEmpty;
+
   final PlayMode mode;
   final int rows, cols;
 

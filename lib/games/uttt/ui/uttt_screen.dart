@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
@@ -54,6 +55,10 @@ class _UtttScreenState extends State<UtttScreen> {
       UtttController(mode: widget.mode, humanSide: widget.humanSide, level: widget.level);
   bool _resultHandled = false;
 
+  /// 한 기기·CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
+  late final GameSaver _saver = GameSaver(gameId: 'ultimate_tictactoe', snapshot: () => c.savable ? c.toJson() : null);
+  int _savedAtMove = -1;
+
   // ── 같은 Wi‑Fi 대결 ──
   LanConnection? get _link => c.online ? widget.link : null;
   StreamSubscription<Map<String, dynamic>>? _linkSub;
@@ -71,6 +76,10 @@ class _UtttScreenState extends State<UtttScreen> {
     super.initState();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
+    if (!c.online) {
+      _savedAtMove = c.moveCount;
+      _saver.attach();
+    }
     final link = _link;
     if (link != null) {
       c.onLocalMove = (move) => link.send({'t': 'move', 'i': c.moveCount - 1, 'm': move});
@@ -82,6 +91,7 @@ class _UtttScreenState extends State<UtttScreen> {
 
   @override
   void dispose() {
+    _saver.detach();
     _leaving = true;
     _linkSub?.cancel();
     final link = _link;
@@ -237,8 +247,29 @@ class _UtttScreenState extends State<UtttScreen> {
       ));
       Future<void>.delayed(const Duration(milliseconds: 1500), _showResult);
     } else if (!c.isOver) {
+      if (_resultHandled) _saver.rearm(); // 한 판 더: 새 판은 다시 보관할 수 있다
       _resultHandled = false;
     }
+    if (!c.online) _autosave();
+  }
+
+  /// 수를 둘 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
+  void _autosave() {
+    if (c.moveCount == 0 && !c.isOver) _saver.rearm(); // 새 판이 시작됐다
+    if (c.isOver || c.halted) {
+      _saver.finish();
+    } else if (c.moveCount != _savedAtMove) {
+      _savedAtMove = c.moveCount;
+      _saver.save();
+    }
+  }
+
+
+  /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
+  Future<void> _newGameNow() async {
+    if (_saver.active && !await confirmNewGame(context)) return;
+    if (!mounted) return;
+    c.restart();
   }
 
   Future<void> _resign() async {
@@ -329,6 +360,10 @@ class _UtttScreenState extends State<UtttScreen> {
     return ListenableBuilder(
       listenable: c,
       builder: (context, child) {
+        if (!c.online) {
+          // 한 기기·CPU 대결: 나가기 전에 저장할지 묻는다
+          return SaveLeaveGuard(active: () => _saver.active, onSave: _saver.save, onDiscard: _saver.discard, child: child!);
+        }
         final askBeforeLeave = c.online && !c.isOver && !c.halted && !_opponentGone;
         return PopScope(
           canPop: !askBeforeLeave,
@@ -546,7 +581,7 @@ class _UtttScreenState extends State<UtttScreen> {
               ),
               OutlinedButton.icon(
                 style: compact,
-                onPressed: () => c.restart(),
+                onPressed: _newGameNow,
                 icon: const Icon(Icons.refresh_rounded, size: 20),
                 label: const Text('새 판'),
               ),

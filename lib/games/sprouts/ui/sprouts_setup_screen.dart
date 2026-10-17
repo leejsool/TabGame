@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/sprouts_ai.dart';
+import '../game/sprouts_controller.dart';
 import '../tutorial/sprouts_tutorial.dart';
 import 'sprouts_lesson_screen.dart';
 import 'sprouts_painter.dart';
@@ -35,12 +36,28 @@ class _SproutsSetupScreenState extends State<SproutsSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = SproutsController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => SproutsScreen(mode: controller.mode, controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
       gameId: 'sprouts',
       title: _vsCpu ? '콩나물 · CPU와 대결' : '콩나물 · 둘이서',
       onStart: _start,
+      resume: VsResume(
+        gameName: '콩나물',
+        describe: (j) {
+          final cpu = j['mode'] == PlayMode.vsCpu.name;
+          return '${cpu ? 'CPU 대결' : '둘이서'} · 점 ${j['dotCount'] ?? 3}개 · ${j['moveCount'] ?? 0}수째';
+        },
+        onResume: _resume,
+      ),
       tutorial: sproutsTutorial,
       onLesson: () => openSproutsLesson(context),
       children: [

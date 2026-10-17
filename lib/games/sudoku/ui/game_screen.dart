@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../data/sudoku_history.dart';
@@ -62,7 +63,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
     game.onMistakeLimit = null;
     game.onCompleted = null;
     game.onPlaced = null;
-    SudokuStorage.save(game);
+    _save();
     super.dispose();
   }
 
@@ -70,7 +71,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       game.setPaused(true);
-      SudokuStorage.save(game);
+      _save();
     }
   }
 
@@ -79,7 +80,22 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
     _saveDebounce = Timer(const Duration(milliseconds: 400), _save);
   }
 
-  void _save() => SudokuStorage.save(game);
+  /// "저장 안 하고 나가기"를 골랐다: 이 판은 더 보관하지 않는다.
+  bool _discarded = false;
+
+  /// 이어하기용으로 지금 판을 보관한다 (저장 안 하고 나가는 중이면 하지 않는다).
+  Future<void> _save() async {
+    if (!_discarded) await SudokuStorage.save(game);
+  }
+
+  Future<void> _discard() async {
+    _discarded = true;
+    _saveDebounce?.cancel();
+    await SudokuStorage.clearSave(game);
+  }
+
+  /// 나갈 때 저장할지 물어야 하는 판인가 (아직 아무것도 안 했거나 이미 끝난 판이면 그냥 나간다).
+  bool _inProgress() => !game.completed && !game.gaveUp && game.canUndo;
 
   void _onPlaced(bool correct) {
     final settings = SettingsScope.of(context);
@@ -109,7 +125,8 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
       case _MistakeChoice.keepGoing || null:
         game.continueAnyway();
       case _MistakeChoice.newGame:
-        startSudokuGame(context, game.puzzle.difficulty, replace: true);
+        // 하던 판이 사라지니 먼저 묻는다 (취소하면 하던 판을 계속한다)
+        if (!await startSudokuGame(context, game.puzzle.difficulty, replace: true, askIfSaved: true)) game.continueAnyway();
     }
   }
 
@@ -195,6 +212,10 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
 
   @override
   Widget build(BuildContext context) {
+    return SaveLeaveGuard(active: _inProgress, onSave: _save, onDiscard: _discard, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
@@ -239,7 +260,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
               if (v == 'restart') _confirmRestart();
               if (v == 'giveup') _giveUp();
               if (v == 'new') {
-                startSudokuGame(context, game.puzzle.difficulty, replace: true);
+                startSudokuGame(context, game.puzzle.difficulty, replace: true, askIfSaved: true);
               }
             },
             itemBuilder: (_) => [

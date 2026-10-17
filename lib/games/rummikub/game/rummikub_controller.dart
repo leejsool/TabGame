@@ -37,6 +37,68 @@ class RummikubController extends ChangeNotifier {
     _deal();
   }
 
+  /// 저장해 둔 판([toJson])을 되살린다 (CPU 대결만). 이번 차례에 판 위에 올려 두던 타일은 손으로 돌아온다.
+  /// 맞지 않는 내용이면 null.
+  static RummikubController? fromJson(Map<String, dynamic> j, {bool animate = true}) {
+    try {
+      final st = RkState.fromJson(j['state'] as Map<String, dynamic>);
+      final players = j['players'] as int;
+      final humanSeat = j['humanSeat'] as int;
+      final levelIndex = j['level'] as int;
+      if (st == null || st.players != players || humanSeat < 0 || humanSeat >= players) return null;
+      if (levelIndex < 0 || levelIndex >= RkLevel.values.length) return null;
+      final c = RummikubController(
+        mode: PlayMode.vsCpu,
+        players: players,
+        humanSeat: humanSeat,
+        level: RkLevel.values[levelIndex],
+        seed: j['seed'] as int,
+        animate: animate,
+      );
+      c.state = st;
+      c.rotation = j['rotation'] as int;
+      c.moveCount = j['moveCount'] as int;
+      c.lastActor = j['lastActor'] as int;
+      c.lastDrew = j['lastDrew'] as bool;
+      c.lastCount = j['lastCount'] as int;
+      // 내 손: 저장한 순서를 지키되, 실제 손과 다르면 정렬해서 다시 만든다
+      final rack = st.racks[humanSeat];
+      final saved = [for (final t in j['hand'] as List) t as int];
+      final ok = saved.length == rack.length && saved.toSet().containsAll(rack);
+      c.hand = ok ? saved : ([...rack]..sort(compareByColor));
+      c.anchors.clear();
+      (j['anchors'] as Map<String, dynamic>).forEach((k, v) {
+        final a = v as List;
+        c.anchors[int.parse(k)] = Offset((a[0] as num).toDouble(), (a[1] as num).toDouble());
+      });
+      c.work = c._copyTable();
+      c._liveSig = c._workSig();
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (CPU 대결의 이어하기용). 이번 차례에 판 위에 올려 둔 타일은 저장하지 않는다 (손으로 돌아온다).
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'players': players,
+        'humanSeat': humanSeat,
+        'level': level.index,
+        'seed': seed,
+        'rotation': rotation,
+        'moveCount': moveCount,
+        'lastActor': lastActor,
+        'lastDrew': lastDrew,
+        'lastCount': lastCount,
+        'state': state.toJson(),
+        'hand': hand,
+        'anchors': {for (final e in anchors.entries) '${e.key}': [e.value.dx, e.value.dy]},
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (CPU 대결이고, 한 차례라도 지났고, 끝나지 않았다).
+  bool get savable => vsCpu && !isOver && !halted && moveCount > 0;
+
   final PlayMode mode;
   final int players;
 

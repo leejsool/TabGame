@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/mines_tutorial.dart';
@@ -60,7 +61,7 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
     c.onWon = null;
     c.onLost = null;
     c.onFeedback = null;
-    MinesStorage.save(c);
+    _save();
     c.dispose();
     super.dispose();
   }
@@ -69,13 +70,13 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       c.setPaused(true);
-      MinesStorage.save(c);
+      _save();
     }
   }
 
   void _onChanged() {
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () => MinesStorage.save(c));
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _save);
   }
 
   void _feedback(String kind) {
@@ -222,8 +223,29 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
 
   // ── 화면 ──
 
+  /// "저장 안 하고 나가기"를 골랐다: 이 판은 더 보관하지 않는다.
+  bool _discarded = false;
+
+  /// 이어하기용으로 지금 판을 보관한다 (저장 안 하고 나가는 중이면 하지 않는다).
+  Future<void> _save() async {
+    if (!_discarded) await MinesStorage.save(c);
+  }
+
+  Future<void> _discard() async {
+    _discarded = true;
+    _saveDebounce?.cancel();
+    await MinesStorage.clearSave(c);
+  }
+
+  /// 나갈 때 저장할지 물어야 하는 판인가 (아직 아무것도 안 했거나 이미 끝난 판이면 그냥 나간다).
+  bool _inProgress() => c.saveable;
+
   @override
   Widget build(BuildContext context) {
+    return SaveLeaveGuard(active: _inProgress, onSave: _save, onDiscard: _discard, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Column(

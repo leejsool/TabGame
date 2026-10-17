@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/dandelion_ai.dart';
+import '../game/dandelion_controller.dart';
 import '../core/dandelion_rules.dart';
 import '../tutorial/dandelion_tutorial.dart';
 import 'dandelion_art.dart';
@@ -31,12 +32,21 @@ class _DandelionSetupScreenState extends State<DandelionSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = DandelionController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => DandelionScreen(mode: controller.mode, controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
       gameId: 'dandelion',
       title: 'CPU와 대결',
       onStart: _start,
+      resume: VsResume(gameName: '민들레', describe: dandelionSavedLabel, onResume: _resume),
       tutorial: dandelionTutorial,
       onLesson: () => openDandelionLesson(context),
       children: [
@@ -139,4 +149,10 @@ class _RolePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RolePainter old) => old.role != role;
+}
+
+/// 이어하던 판을 한 줄로 설명한다 (설정 화면·시작 화면의 "이어하기" 카드).
+String dandelionSavedLabel(Map<String, dynamic> j) {
+  final cpu = j['mode'] == PlayMode.vsCpu.name;
+  return '${cpu ? 'CPU 대결' : '한 기기로 함께'} · ${(j['moves'] as List?)?.length ?? 0}수째';
 }

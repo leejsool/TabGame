@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
@@ -91,6 +92,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
       );
   bool _resultHandled = false;
 
+  /// CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
+  late final GameSaver _saver = GameSaver(gameId: 'rummikub', snapshot: () => c.savable ? c.toJson() : null);
+  int _savedAtMove = -1;
+
   // ── 같은 Wi‑Fi 대결 ──
   List<LanConnection> get _links => c.online ? (widget.links ?? [if (widget.link != null) widget.link!]) : const [];
   final List<StreamSubscription<Map<String, dynamic>>> _linkSubs = [];
@@ -124,6 +129,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
     if (RummikubScreen.playSounds) _tileSound = RkTileSound()..load();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
+    if (!c.online) {
+      _savedAtMove = c.moveCount;
+      _saver.attach();
+    }
     final links = _links;
     if (links.isNotEmpty) {
       c.onLocalMove = (move) => _sendAll({'t': 'move', ...move});
@@ -143,6 +152,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   @override
   void dispose() {
+    _saver.detach();
     _turnTimer?.cancel();
     _hoverTarget.dispose();
     _tileSound?.dispose();
@@ -398,8 +408,21 @@ class _RummikubScreenState extends State<RummikubScreen> {
       _record(winner: c.state.winner);
       if (c.state.winner == c.humanSeat) _celebrateWin();
     } else if (!c.isOver && !c.halted) {
+      if (_resultHandled) _saver.rearm(); // 한 판 더: 새 판은 다시 보관할 수 있다
       _resultHandled = false;
       _celebrate = false;
+    }
+    if (!c.online) _autosave();
+  }
+
+  /// 한 차례가 지날 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
+  void _autosave() {
+    if (c.moveCount == 0 && !c.isOver) _saver.rearm(); // 새 판이 시작됐다
+    if (c.isOver || c.halted) {
+      _saver.finish();
+    } else if (c.moveCount != _savedAtMove) {
+      _savedAtMove = c.moveCount;
+      _saver.save();
     }
   }
 
@@ -462,6 +485,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
     return ListenableBuilder(
       listenable: c,
       builder: (context, child) {
+        if (!c.online) {
+          // CPU 대결: 나가기 전에 저장할지 묻는다
+          return SaveLeaveGuard(active: () => _saver.active, onSave: _saver.save, onDiscard: _saver.discard, child: child!);
+        }
         final askBeforeLeave = c.online && !c.isOver && !c.halted && !_opponentGone;
         return PopScope(
           canPop: !askBeforeLeave,

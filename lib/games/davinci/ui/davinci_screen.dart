@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
@@ -81,6 +82,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
         cpuHost: widget.linkSeats != null, // (방을 연 기기가 CPU의 수를 정한다)
       );
   bool _resultHandled = false;
+
+  /// CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
+  late final GameSaver _saver = GameSaver(gameId: 'davinci_code', snapshot: () => c.savable ? c.toJson() : null);
+  int _savedAtMove = -1;
 
   // ── 같은 Wi‑Fi 대결 ──
   List<LanConnection> get _links => c.online ? (widget.links ?? [if (widget.link != null) widget.link!]) : const [];
@@ -271,6 +276,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
     super.initState();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
+    if (!c.online) {
+      _savedAtMove = c.moveCount;
+      _saver.attach();
+    }
     final links = _links;
     if (links.isNotEmpty) {
       c.onLocalMove = (move) {
@@ -295,6 +304,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
 
   @override
   void dispose() {
+    _saver.detach();
     _leaving = true;
     for (final s in _linkSubs) {
       s.cancel();
@@ -463,6 +473,26 @@ class _DavinciScreenState extends State<DavinciScreen> {
     } else if (!c.isOver && !c.halted) {
       _resultHandled = false;
     }
+    if (!c.online) _autosave();
+  }
+
+  /// 수를 둘 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
+  void _autosave() {
+    if (c.moveCount == 0 && !c.isOver) _saver.rearm(); // 새 판이 시작됐다
+    if (c.isOver || c.halted) {
+      _saver.finish();
+    } else if (c.moveCount != _savedAtMove) {
+      _savedAtMove = c.moveCount;
+      _saver.save();
+    }
+  }
+
+  /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
+  Future<void> _newGameNow() async {
+    if (_saver.active && !await confirmNewGame(context)) return;
+    if (!mounted) return;
+    _resultHandled = false;
+    c.restart();
   }
 
   String _name(int seat) {
@@ -546,6 +576,10 @@ class _DavinciScreenState extends State<DavinciScreen> {
     return ListenableBuilder(
       listenable: c,
       builder: (context, child) {
+        if (!c.online) {
+          // CPU 대결: 나가기 전에 저장할지 묻는다
+          return SaveLeaveGuard(active: () => _saver.active, onSave: _saver.save, onDiscard: _saver.discard, child: child!);
+        }
         final askBeforeLeave = c.online && !c.isOver && !c.halted && !_opponentGone;
         return PopScope(
           canPop: !askBeforeLeave,
@@ -941,10 +975,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
         if (c.selSeat >= 0 && c.humanCanAct)
           OutlinedButton.icon(style: compact, onPressed: c.clearSelection, icon: const Icon(Icons.close_rounded, size: 18), label: const Text('고름 풀기')),
         if (c.vsCpu)
-          OutlinedButton.icon(style: compact, onPressed: () {
-            _resultHandled = false;
-            c.restart();
-          }, icon: const Icon(Icons.refresh_rounded, size: 20), label: const Text('새 판')),
+          OutlinedButton.icon(style: compact, onPressed: _newGameNow, icon: const Icon(Icons.refresh_rounded, size: 20), label: const Text('새 판')),
         if (c.vsCpu || c.players == 2)
           OutlinedButton.icon(style: compact, onPressed: c.canResign ? _resign : null, icon: const Icon(Icons.flag_outlined, size: 20), label: const Text('기권')),
       ],

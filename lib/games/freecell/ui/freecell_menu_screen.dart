@@ -74,7 +74,7 @@ class _FreecellMenuScreenState extends State<FreecellMenuScreen> {
   Future<void> _newGame() async {
     final deal = await pickDeal(_level);
     if (!mounted) return;
-    await startFreecellDeal(context, deal);
+    await startFreecellDeal(context, deal, askIfSaved: true);
     if (mounted) _load();
   }
 
@@ -90,7 +90,7 @@ class _FreecellMenuScreenState extends State<FreecellMenuScreen> {
     }
     setState(() => _error = null);
     FocusScope.of(context).unfocus();
-    await startFreecellDeal(context, n);
+    await startFreecellDeal(context, n, askIfSaved: true);
     if (mounted) _load();
   }
 

@@ -50,7 +50,7 @@ class _SudokuMenuScreenState extends State<SudokuMenuScreen> {
   }
 
   Future<void> _start(Difficulty d) async {
-    await startSudokuGame(context, d);
+    await startSudokuGame(context, d, askIfSaved: true);
     if (mounted) _load();
   }
 

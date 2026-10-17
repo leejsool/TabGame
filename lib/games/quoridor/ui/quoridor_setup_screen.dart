@@ -4,6 +4,7 @@ import '../../../core/game_info.dart';
 import '../../../net/lan_screens.dart' show kRandomSide;
 import '../../../versus/vs_setup.dart';
 import '../core/quoridor_ai.dart';
+import '../game/quoridor_controller.dart';
 import '../tutorial/quoridor_tutorial.dart';
 import 'quoridor_board.dart';
 import 'quoridor_screen.dart';
@@ -39,6 +40,14 @@ class _QuoridorSetupScreenState extends State<QuoridorSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = QuoridorController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => QuoridorScreen(mode: controller.mode, players: controller.players, controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
@@ -46,6 +55,17 @@ class _QuoridorSetupScreenState extends State<QuoridorSetupScreen> {
       title: _vsCpu ? '쿼리도 · CPU와 대결' : (_wifi ? '쿼리도 · 방 만들기' : '쿼리도 · 한 기기로 함께'),
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
+      resume: _wifi
+          ? null
+          : VsResume(
+              gameName: '쿼리도',
+              describe: (j) {
+                final cpu = j['mode'] == PlayMode.vsCpu.name;
+                final who = cpu ? 'CPU 대결' : '한 기기로 함께';
+                return '$who · ${j['players'] ?? 2}명 · ${(j['moves'] as List?)?.length ?? 0}수째';
+              },
+              onResume: _resume,
+            ),
       tutorial: quoridorTutorial,
       children: [
         const VsSectionTitle('몇 명이 할까요?'),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings.dart';
 import '../../../core/settings_scope.dart';
@@ -79,7 +80,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
     c.onCompleted = null;
     c.onNoMoves = null;
     c.onFeedback = null;
-    FreecellStorage.save(c);
+    _save();
     c.dispose();
     super.dispose();
   }
@@ -88,13 +89,13 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       c.setPaused(true);
-      FreecellStorage.save(c);
+      _save();
     }
   }
 
   void _onChanged() {
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () => FreecellStorage.save(c));
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _save);
   }
 
   void _feedback(String kind) {
@@ -194,18 +195,19 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
       case 'restart':
         c.restart();
       case 'new':
-        _startNewGame();
+        _startNewGame(askIfSaved: true);
       case 'giveup':
         _giveUp();
     }
   }
 
   /// 메뉴에서 마지막으로 고른 난이도로 새 판을 시작한다 (이 화면을 새 판으로 바꾼다).
-  Future<void> _startNewGame() async {
+  /// [askIfSaved]면 하던 판이 보관돼 있을 때 사라져도 되는지 먼저 묻는다 (이긴 뒤·포기한 뒤에는 보관된 판이 없다).
+  Future<void> _startNewGame({bool askIfSaved = false}) async {
     final level = await FreecellStorage.loadLevel();
     final deal = await pickDeal(level);
     if (!mounted) return;
-    await startFreecellDeal(context, deal, replace: true);
+    await startFreecellDeal(context, deal, replace: true, askIfSaved: askIfSaved);
   }
 
   Future<void> _giveUp() async {
@@ -252,8 +254,29 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
 
   // ── 화면 ──
 
+  /// "저장 안 하고 나가기"를 골랐다: 이 판은 더 보관하지 않는다.
+  bool _discarded = false;
+
+  /// 이어하기용으로 지금 판을 보관한다 (저장 안 하고 나가는 중이면 하지 않는다).
+  Future<void> _save() async {
+    if (!_discarded) await FreecellStorage.save(c);
+  }
+
+  Future<void> _discard() async {
+    _discarded = true;
+    _saveDebounce?.cancel();
+    await FreecellStorage.clearSave(c);
+  }
+
+  /// 나갈 때 저장할지 물어야 하는 판인가 (아직 아무것도 안 했거나 이미 끝난 판이면 그냥 나간다).
+  bool _inProgress() => !c.completed && !c.gaveUp && !c.untouched;
+
   @override
   Widget build(BuildContext context) {
+    return SaveLeaveGuard(active: _inProgress, onSave: _save, onDiscard: _discard, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     // 폰을 가로로 돌렸을 때는 세로가 모자라니, 도구를 위·아래가 아닌 좌·우로 뺀다
     final size = MediaQuery.sizeOf(context);
     final sideBars = size.shortestSide < 600 && size.width > size.height;

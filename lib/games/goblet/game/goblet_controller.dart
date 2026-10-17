@@ -45,6 +45,17 @@ class _Snapshot {
         loc = List.of(c.loc),
         seen = Map.of(c._seen);
 
+  _Snapshot.raw(this.owners, this.turn, this.loc, this.seen);
+
+  factory _Snapshot.fromJson(Map<String, dynamic> j) => _Snapshot.raw(
+        [for (final v in j['owners'] as List) v as int],
+        j['turn'] as int,
+        [for (final v in j['loc'] as List) v as int],
+        {for (final e in (j['seen'] as Map<String, dynamic>).entries) e.key: e.value as int},
+      );
+
+  Map<String, dynamic> toJson() => {'owners': owners, 'turn': turn, 'loc': loc, 'seen': seen};
+
   final List<int> owners;
   final int turn;
   final List<int> loc;
@@ -61,6 +72,54 @@ class GobbletController extends ChangeNotifier {
   }) {
     _reset();
   }
+
+  /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
+  static GobbletController? fromJson(Map<String, dynamic> j) {
+    try {
+      final mode = PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final humanIndex = j['humanTeam'] as int, startIndex = j['startingTeam'] as int, levelIndex = j['level'] as int;
+      if (humanIndex < 0 || humanIndex >= Team.values.length || startIndex < 0 || startIndex >= Team.values.length) return null;
+      if (levelIndex < 0 || levelIndex >= CpuLevel.values.length) return null;
+      final c = GobbletController(
+        mode: mode,
+        humanTeam: Team.values[humanIndex],
+        level: CpuLevel.values[levelIndex],
+        startingTeam: Team.values[startIndex],
+      );
+      final owners = [for (final v in j['owners'] as List) v as int];
+      final loc = [for (final v in j['loc'] as List) v as int];
+      if (owners.length != 27 || loc.length != 12) return null;
+      c.board = GobbletBoard.raw(owners, j['turn'] as int);
+      c.loc.setAll(0, loc);
+      c._seen
+        ..clear()
+        ..addAll({for (final e in (j['seen'] as Map<String, dynamic>).entries) e.key: e.value as int});
+      c._history
+        ..clear()
+        ..addAll([for (final h in j['history'] as List) _Snapshot.fromJson(h as Map<String, dynamic>)]);
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (이어하기용). 되돌리기에 쓰는 지난 모습들도 함께 담는다.
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'mode': mode.name,
+        'humanTeam': humanTeam.index,
+        'startingTeam': startingTeam.index,
+        'level': level.index,
+        'turn': board.turn,
+        'owners': board.owners,
+        'loc': loc,
+        'seen': _seen,
+        'history': [for (final h in _history) h.toJson()],
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (같은 Wi‑Fi가 아니고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => !online && !isOver && _history.isNotEmpty;
 
   final PlayMode mode;
 

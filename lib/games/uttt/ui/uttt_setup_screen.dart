@@ -4,6 +4,7 @@ import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/uttt_ai.dart';
 import '../core/uttt_rules.dart';
+import '../game/uttt_controller.dart';
 import '../tutorial/uttt_tutorial.dart';
 import 'uttt_lesson_screen.dart';
 import 'uttt_board.dart';
@@ -31,12 +32,21 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = UtttController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => UtttScreen(mode: controller.mode, controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
       gameId: 'ultimate_tictactoe',
       title: 'CPU와 대결',
       onStart: _start,
+      resume: VsResume(gameName: '궁극 틱택토', describe: utttSavedLabel, onResume: _resume),
       tutorial: utttTutorial,
       onLesson: () => openUtttLesson(context),
       children: [
@@ -140,4 +150,10 @@ class _SidePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SidePainter old) => old.side != side;
+}
+
+/// 이어하던 판을 한 줄로 설명한다 (설정 화면·시작 화면의 "이어하기" 카드).
+String utttSavedLabel(Map<String, dynamic> j) {
+  final cpu = j['mode'] == PlayMode.vsCpu.name;
+  return '${cpu ? 'CPU 대결' : '한 기기로 함께'} · ${(j['moves'] as List?)?.length ?? 0}수째';
 }

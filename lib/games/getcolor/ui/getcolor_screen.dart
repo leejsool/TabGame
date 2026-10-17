@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../data/getcolor_storage.dart';
@@ -48,7 +49,7 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
     c.removeListener(_onChanged);
     c.onFeedback = null;
     c.onWon = null;
-    GetColorStorage.save(c);
+    _save();
     // 저장은 비동기로 컨트롤러 상태를 읽으므로, 저장 쪽에서 먼저 JSON 으로 굳힌 뒤 정리한다.
     Future<void>.microtask(c.dispose);
     super.dispose();
@@ -58,13 +59,13 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
       c.setPaused(true);
-      GetColorStorage.save(c);
+      _save();
     }
   }
 
   void _onChanged() {
     _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 500), () => GetColorStorage.save(c));
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _save);
     // 더 부을 곳이 없고 병도 더할 수 없으면 막다른 길이다
     if (c.noMoves && !c.canAddBottle && !_stuckShown) _onStuck();
   }
@@ -251,8 +252,29 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
 
   // ── 화면 ──
 
+  /// "저장 안 하고 나가기"를 골랐다: 이 판은 더 보관하지 않는다.
+  bool _discarded = false;
+
+  /// 이어하기용으로 지금 판을 보관한다 (저장 안 하고 나가는 중이면 하지 않는다).
+  Future<void> _save() async {
+    if (!_discarded) await GetColorStorage.save(c);
+  }
+
+  Future<void> _discard() async {
+    _discarded = true;
+    _saveDebounce?.cancel();
+    await GetColorStorage.clearSave(c);
+  }
+
+  /// 나갈 때 저장할지 물어야 하는 판인가 (아직 아무것도 안 했거나 이미 끝난 판이면 그냥 나간다).
+  bool _inProgress() => !c.completed && !c.gaveUp && !c.untouched;
+
   @override
   Widget build(BuildContext context) {
+    return SaveLeaveGuard(active: _inProgress, onSave: _save, onDiscard: _discard, child: _scaffold(context));
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Column(

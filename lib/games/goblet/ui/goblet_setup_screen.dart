@@ -4,6 +4,7 @@ import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/goblet_ai.dart';
 import '../core/goblet_rules.dart';
+import '../game/goblet_controller.dart';
 import 'goblet_piece.dart';
 import '../tutorial/goblet_tutorial.dart';
 import 'goblet_screen.dart';
@@ -30,12 +31,21 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = GobbletController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => GobbletScreen(mode: controller.mode, controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
       gameId: 'goblet_gobblers',
       title: 'CPU와 대결',
       onStart: _start,
+      resume: VsResume(gameName: '고블렛 고블러스', describe: gobletSavedLabel, onResume: _resume),
       tutorial: gobletTutorial,
       children: [
         const VsSectionTitle('내 팀'),
@@ -129,4 +139,10 @@ class _TeamCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 이어하던 판을 한 줄로 설명한다 (설정 화면·시작 화면의 "이어하기" 카드).
+String gobletSavedLabel(Map<String, dynamic> j) {
+  final cpu = j['mode'] == PlayMode.vsCpu.name;
+  return '${cpu ? 'CPU 대결' : '한 기기로 함께'} · ${(j['history'] as List?)?.length ?? 0}수째';
 }

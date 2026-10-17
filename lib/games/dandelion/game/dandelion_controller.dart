@@ -19,6 +19,45 @@ class DandelionController extends ChangeNotifier {
     _rebuild();
   }
 
+  /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
+  static DandelionController? fromJson(Map<String, dynamic> j) {
+    try {
+      final mode = PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final roleIndex = j['humanRole'] as int, levelIndex = j['level'] as int;
+      if (roleIndex < 0 || roleIndex >= Role.values.length || levelIndex < 0 || levelIndex >= DandLevel.values.length) return null;
+      final moves = [for (final m in j['moves'] as List) m as int];
+      // 수를 하나씩 다시 둔다 (둘 수 없는 수가 끼어 있으면 저장이 깨진 것)
+      final check = DandState.fromMoves(const []);
+      for (final m in moves) {
+        final ok = check.turn == Role.dandelion
+            ? m >= 0 && m < check.cells.length && check.canPlant(m)
+            : m >= 0 && m < WindDir.values.length && check.canBlow(WindDir.values[m]);
+        if (!ok) return null;
+        check.apply(m);
+      }
+      final c = DandelionController(mode: mode, humanRole: Role.values[roleIndex], level: DandLevel.values[levelIndex]);
+      c.moves.addAll(moves);
+      c._rebuild();
+      c.moveSerial = moves.length;
+      return c;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 지금 판의 모습을 JSON으로 (이어하기용). 수들만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> toJson() => {
+        'v': 1,
+        'mode': mode.name,
+        'humanRole': humanRole.index,
+        'level': level.index,
+        'moves': moves,
+      };
+
+  /// 이어하기로 보관할 만한 판인가 (같은 Wi‑Fi가 아니고, 한 수라도 뒀고, 끝나지 않았다).
+  bool get savable => !online && !isOver && !halted && moves.isNotEmpty;
+
   final PlayMode mode;
 
   /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 쪽. Wi‑Fi 대결은 한 판 더 할 때마다 서로 바뀐다 (민들레와 바람은 유불리가 달라서).

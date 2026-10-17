@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/davinci_ai.dart';
+import '../game/davinci_controller.dart';
 import '../tutorial/davinci_tutorial.dart';
 import 'davinci_screen.dart';
 import 'davinci_tiles.dart';
@@ -38,6 +39,14 @@ class _DavinciSetupScreenState extends State<DavinciSetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = DavinciController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => DavinciScreen(controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
@@ -45,6 +54,17 @@ class _DavinciSetupScreenState extends State<DavinciSetupScreen> {
       title: _wifi ? '다빈치 코드 · 방 만들기' : '다빈치 코드 · CPU와 대결',
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
+      resume: _wifi
+          ? null
+          : VsResume(
+              gameName: '다빈치 코드',
+              describe: (j) {
+                final level = j['level'] as int? ?? 0;
+                final name = level >= 0 && level < DvLevel.values.length ? DvLevel.values[level].label : '';
+                return 'CPU ${(j['players'] as int? ?? 2) - 1}명 · $name · ${(j['moves'] as List?)?.length ?? 0}수째';
+              },
+              onResume: _resume,
+            ),
       tutorial: davinciTutorial,
       children: [
         if (!_wifi) ...[

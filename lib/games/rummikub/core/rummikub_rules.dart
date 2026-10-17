@@ -182,6 +182,46 @@ class RkState {
     return s;
   }
 
+  /// 저장한 모습(JSON)에서 되살린다. 맞지 않는 내용이면 null.
+  static RkState? fromJson(Map<String, dynamic> j) {
+    try {
+      final players = j['players'] as int;
+      if (players < 2 || players > 4) return null;
+      List<int> ints(Object? raw) => [for (final t in raw as List) t as int];
+      final racks = [for (final r in j['racks'] as List) ints(r)];
+      final pool = ints(j['pool']);
+      final table = [for (final s in j['table'] as List) ints(s)];
+      final melded = [for (final m in j['melded'] as List) m as bool];
+      if (racks.length != players || melded.length != players) return null;
+      // 타일은 모두 한 번씩만, 번호 범위 안에서 나와야 한다
+      final all = [for (final r in racks) ...r, ...pool, for (final s in table) ...s];
+      if (all.length != kTileCount || all.toSet().length != kTileCount || all.any((t) => t < 0 || t >= kTileCount)) return null;
+      final s = RkState._(players, racks, pool, table, melded);
+      s.turn = j['turn'] as int;
+      if (s.turn < 0 || s.turn >= players) return null;
+      s.passStreak = j['passStreak'] as int;
+      s.over = j['over'] as bool;
+      s.winner = j['winner'] as int?;
+      s.turnCount = j['turnCount'] as int;
+      return s;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Map<String, dynamic> toJson() => {
+        'players': players,
+        'racks': racks,
+        'pool': pool,
+        'table': table,
+        'melded': melded,
+        'turn': turn,
+        'passStreak': passStreak,
+        'over': over,
+        'winner': winner,
+        'turnCount': turnCount,
+      };
+
   final int players;
 
   /// 사람마다 손에 든 타일.

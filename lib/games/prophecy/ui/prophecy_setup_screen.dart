@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../versus/vs_setup.dart';
 import '../core/prophecy_ai.dart';
+import '../game/prophecy_controller.dart';
 import '../tutorial/prophecy_tutorial.dart';
 import 'prophecy_board.dart';
 import 'prophecy_lesson_screen.dart';
@@ -41,6 +42,14 @@ class _ProphecySetupScreenState extends State<ProphecySetupScreen> {
     );
   }
 
+  void _resume(Map<String, dynamic> saved) {
+    final controller = ProphecyController.fromJson(saved);
+    if (controller == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => ProphecyScreen(mode: controller.mode, controller: controller)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return VsSetupScaffold(
@@ -48,6 +57,16 @@ class _ProphecySetupScreenState extends State<ProphecySetupScreen> {
       title: _vsCpu ? '예언 · CPU와 대결' : (_wifi ? '예언 · 방 만들기' : '예언 · 둘이서'),
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
+      resume: _wifi
+          ? null
+          : VsResume(
+              gameName: '예언',
+              describe: (j) {
+                final cpu = j['mode'] == PlayMode.vsCpu.name;
+                return '${cpu ? 'CPU 대결' : '둘이서'} · ${j['rows'] ?? 5}×${j['cols'] ?? 5} · ${(j['moves'] as List?)?.length ?? 0}수째';
+              },
+              onResume: _resume,
+            ),
       tutorial: prophecyTutorial,
       onLesson: () => openProphecyLesson(context),
       children: [
