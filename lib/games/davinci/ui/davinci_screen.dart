@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -32,6 +33,7 @@ class DavinciScreen extends StatefulWidget {
     this.links,
     this.linkSeats,
     this.names,
+    this.cpuSeats,
   });
 
   final PlayMode mode;
@@ -57,6 +59,9 @@ class DavinciScreen extends StatefulWidget {
   /// 같은 Wi‑Fi 대결에서 자리(0번부터)별 이름. 없으면 2명 대결은 상대의 별명을 쓴다.
   final List<String>? names;
 
+  /// 같은 Wi‑Fi 방에서 CPU가 앉은 자리들 (사람 n명 + CPU m명으로 할 때). CPU의 수는 방장 기기가 정해서 알려 준다.
+  final List<int>? cpuSeats;
+
   /// (테스트용) 미리 만든 컨트롤러.
   final DavinciController? controller;
 
@@ -66,15 +71,26 @@ class DavinciScreen extends StatefulWidget {
 
 class _DavinciScreenState extends State<DavinciScreen> {
   late final DavinciController c = widget.controller ??
-      DavinciController(mode: widget.mode, players: widget.players, humanSeat: widget.humanSeat, level: widget.level, seed: widget.seed);
+      DavinciController(
+        mode: widget.mode,
+        players: widget.players,
+        humanSeat: widget.humanSeat,
+        level: widget.level,
+        seed: widget.seed,
+        cpuSeats: widget.mode == PlayMode.wifi ? (widget.cpuSeats ?? const []) : null,
+        cpuHost: widget.linkSeats != null, // (방을 연 기기가 CPU의 수를 정한다)
+      );
   bool _resultHandled = false;
 
   // ── 같은 Wi‑Fi 대결 ──
   List<LanConnection> get _links => c.online ? (widget.links ?? [if (widget.link != null) widget.link!]) : const [];
   final List<StreamSubscription<Map<String, dynamic>>> _linkSubs = [];
 
-  /// 방장이고 손님이 여럿인가 (그러면 손님이 보낸 수를 확인해서 다른 손님들에게 전해 준다).
-  bool get _hub => widget.linkSeats != null && _links.length > 1;
+  /// 방장인가 (그러면 손님이 보낸 수가 그 손님 차례의 수인지 확인하고, 손님이 여럿이면 다른 손님들에게 전해 준다).
+  bool get _hub => widget.linkSeats != null;
+
+  /// [link]번째 연결의 손님이 지금 앉은 자리 (한 판 더 할 때마다 자리가 한 칸씩 돈다).
+  int _seatOfLink(int link) => (widget.linkSeats![link] + c.rotation) % c.players;
 
   bool _opponentGone = false;
   bool _leaving = false;
@@ -308,7 +324,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
         final raw = m['mv'];
         final move = raw is List && raw.every((e) => e is int) ? raw.cast<int>() : null;
         // 방장은 보낸 손님이 지금 차례인 사람인지도 확인한다
-        final fromOk = !_hub || widget.linkSeats![from] == c.turn;
+        final fromOk = !_hub || _seatOfLink(from) == c.turn;
         if (move == null || !fromOk || !c.receiveMove(move, index: m['i'] as int?)) {
           _desync();
         } else if (_hub) {
@@ -317,7 +333,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
       case 'resign':
         c.opponentResigned();
       case 'again':
-        final seat = _hub ? widget.linkSeats![from] : (m['seat'] is int ? m['seat'] as int : (c.players == 2 ? 1 - c.humanSeat : null));
+        final seat = _hub ? _seatOfLink(from) : (m['seat'] is int ? m['seat'] as int : (c.players == 2 ? 1 - c.humanSeat : null));
         if (seat == null || seat < 0 || seat >= c.players) return;
         setState(() => _againSeats.add(seat));
         if (_hub) _sendAll({'t': 'again', 'seat': seat}, except: from);
@@ -367,7 +383,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
   }
 
   void _checkRematch() {
-    if (_againSeats.length >= c.players) {
+    if (_againSeats.length >= c.humans) {
       setState(_againSeats.clear);
       _heldMove = null;
       _hover = null;
@@ -423,8 +439,18 @@ class _DavinciScreenState extends State<DavinciScreen> {
     ));
   }
 
+  /// 이긴 소리를 이미 냈는가 (판이 끝난 뒤 마지막 ○ / ✕ 연출까지 다 보이면 한 번만 낸다).
+  bool _winSounded = false;
+
   void _onChanged() {
     _maybeFlyOpponentDraw();
+    final iWon = (c.showOver && c.state.winner == c.humanSeat) || (c.halted && c.resignWinner == c.humanSeat);
+    if (iWon && !_winSounded) {
+      _winSounded = true;
+      WinSound.play(context); // 이겼을 때 "짜잔"
+    } else if (!c.isOver && !c.halted) {
+      _winSounded = false;
+    }
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       _record(winner: c.state.winner!);
@@ -442,7 +468,8 @@ class _DavinciScreenState extends State<DavinciScreen> {
   String _name(int seat) {
     if (seat == c.humanSeat) return '나';
     final given = widget.names;
-    if (c.online && given != null && seat < given.length) return given[seat];
+    // (이름표는 처음 앉은 자리 기준이라, 한 판 더 해서 자리가 돈 만큼 되돌려 찾는다)
+    if (c.online && given != null && given.length == c.players) return given[(seat - c.rotation) % c.players];
     if (c.online) return _links.isEmpty ? '상대' : _links.first.peerNick;
     return 'CPU ${seat < c.humanSeat ? seat + 1 : seat}';
   }
@@ -727,7 +754,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
                 height: 32, // 말풍선이 떠도 줄 높이가 변하지 않게 늘 같은 높이
                 child: Row(
                 children: [
-                  Icon(me ? Icons.person_rounded : (c.online ? Icons.wifi_rounded : Icons.smart_toy_rounded), size: 18, color: kDavinciColor),
+                  Icon(me ? Icons.person_rounded : (c.isCpuSeat(seat) || !c.online ? Icons.smart_toy_rounded : Icons.wifi_rounded), size: 18, color: kDavinciColor),
                   const SizedBox(width: 5),
                   Text(_name(seat), style: const TextStyle(fontWeight: FontWeight.w800)),
                   const SizedBox(width: 8),

@@ -1,11 +1,15 @@
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/core/game_info.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
+import 'package:tabgame/games/quoridor/core/quoridor_ai.dart';
 import 'package:tabgame/games/quoridor/core/quoridor_rules.dart';
+import 'package:tabgame/games/quoridor/game/quoridor_controller.dart';
 import 'package:tabgame/games/quoridor/data/quoridor_history.dart';
 import 'package:tabgame/games/quoridor/ui/quoridor_screen.dart';
 import 'package:tabgame/games/quoridor/ui/quoridor_wifi_screen.dart';
@@ -29,6 +33,7 @@ Future<LanConnection> joinAs(WidgetTester tester, String nick, int port, List<Ma
 }
 
 void main() {
+  hybridTests();
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     final loader = FontLoader('NanumGothic');
@@ -224,4 +229,121 @@ void main() {
 /// 시험에서 쓰는 별명 읽기.
 class SettingsScopeNick {
   static String of(WidgetTester tester) => SettingsScope.of(tester.element(find.byType(Scaffold).first)).nickname;
+}
+
+/// 사람 + CPU 방 (컨트롤러끼리 직접 이은 시험)
+void hybridTests() {
+  group('사람 + CPU 방', () {
+    test('사람 3명 + CPU 1명: 방장이 CPU의 수를 정해 알리고, 모든 기기가 같은 판으로 끝난다 (한 판 더도)', () async {
+      final rng = Random(6);
+      QuoridorController make(int seat, {bool host = false}) =>
+          QuoridorController(mode: PlayMode.wifi, players: 4, humanSeat: seat, cpuSeats: [3], cpuHost: host, level: QLevel.easy)..autoStepDelay = Duration.zero;
+      final hostC = make(0, host: true), g1 = make(1), g2 = make(2);
+      expect([hostC.runsCpu, g1.runsCpu, g2.runsCpu], [true, false, false]);
+      expect([hostC.humans, g1.isCpuSeat(3), g1.isCpuSeat(1)], [3, true, false]);
+      var cpuMoves = 0;
+      // 별 모양으로 잇는다: 방장은 모두에게, 손님은 방장에게 보내고 방장이 다른 손님에게 전해 준다
+      hostC.onLocalMove = (m) {
+        if (hostC.lastMover == 3) cpuMoves++;
+        final i = hostC.moveCount - 1;
+        expect(g1.receiveMove(m, index: i), isTrue);
+        expect(g2.receiveMove(m, index: i), isTrue);
+      };
+      g1.onLocalMove = (m) {
+        final i = g1.moveCount - 1;
+        expect(hostC.receiveMove(m, index: i), isTrue);
+        expect(g2.receiveMove(m, index: i), isTrue);
+      };
+      g2.onLocalMove = (m) {
+        final i = g2.moveCount - 1;
+        expect(hostC.receiveMove(m, index: i), isTrue);
+        expect(g1.receiveMove(m, index: i), isTrue);
+      };
+
+      // 사람이 두는 것과 같은 길 (칸 누르기 / 벽 놓고 확정)
+      void play(QuoridorController c) {
+        final m = QAi.choose(c.state, QLevel.easy, rng);
+        if (isWallMove(m)) {
+          if (c.wallOrientPick != wallOrient(m)) {
+            c.setWallMode(true);
+            c.toggleWallOrient();
+          }
+          c.placeWall(wallRow(m), wallCol(m));
+          if (c.wallOrientPick != wallOrient(m)) c.toggleWallOrient();
+          expect(c.confirmWall(), isTrue);
+        } else {
+          expect(c.tapCell(m), isTrue);
+        }
+      }
+
+      Future<void> playOut() async {
+        for (var i = 0; i < 4000 && !hostC.isOver; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          for (final c in [hostC, g1, g2]) {
+            if (c.humanCanAct) play(c);
+          }
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(hostC.isOver, isTrue, reason: '판이 끝나지 않았어요');
+        for (final c in [g1, g2]) {
+          expect(c.isOver, isTrue);
+          expect(c.moves, hostC.moves);
+          expect(c.state.winner, hostC.state.winner);
+        }
+      }
+
+      hostC.start();
+      await playOut();
+      expect(cpuMoves, greaterThan(0), reason: 'CPU가 한 번도 안 뒀어요');
+
+      // 한 판 더: 사람과 CPU 자리가 함께 한 칸씩 돈다
+      for (final c in [hostC, g1, g2]) {
+        c.restart(rotate: true);
+      }
+      expect(hostC.cpuSeats, {0});
+      expect([hostC.humanSeat, g1.humanSeat, g2.humanSeat, hostC.rotation], [1, 2, 3, 1]);
+      for (final c in [hostC, g1, g2]) {
+        c.dispose();
+      }
+    }, timeout: const Timeout(Duration(minutes: 3)));
+
+    testWidgets('4명 방(사람 3 + CPU 1): 사람 셋이 모이면 시작하고, 남은 자리가 CPU로 정해져 모두에게 알려진다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues({});
+      final settings = await Settings.load();
+      await tester.pumpWidget(SettingsScope(
+        settings: settings,
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          home: const QuoridorHostScreen(hostSide: 0, players: 4, cpus: 1, gamePort: 46072, discoveryPort: 46063),
+        ),
+      ));
+      await settle(tester, rounds: 4);
+      expect(find.text('모인 사람 (1/3명)'), findsOneWidget);
+      expect(find.textContaining('4명 (사람 3 + CPU 1)'), findsWidgets);
+
+      final logs = [for (var i = 0; i < 2; i++) <Map<String, dynamic>>[]];
+      final guests = <LanConnection>[];
+      for (var i = 0; i < 2; i++) {
+        guests.add(await joinAs(tester, '손님${i + 1}', 46072, logs[i]));
+        await settle(tester, rounds: 4);
+      }
+      final starts = [for (final l in logs) l.firstWhere((m) => m['t'] == 'start')];
+      expect(starts.every((s) => s['players'] == 4 && (s['cpus'] as List).length == 1), isTrue);
+      final cpu = (starts.first['cpus'] as List).single as int;
+      expect(starts.every((s) => (s['cpus'] as List).single == cpu && s['side'] != cpu && s['side'] != 0), isTrue);
+      expect((starts.first['names'] as List)[cpu], 'CPU 1');
+      final host = tester.widget<QuoridorScreen>(find.byType(QuoridorScreen));
+      expect(host.cpuSeats, [cpu]);
+      expect(host.links!.length, 2);
+
+      await tester.pumpWidget(const SizedBox());
+      for (final g in guests) {
+        await tester.runAsync(g.close);
+      }
+      await settle(tester, rounds: 4);
+    });
+  });
 }

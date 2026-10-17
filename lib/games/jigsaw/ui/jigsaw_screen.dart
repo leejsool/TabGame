@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../data/jigsaw_history.dart';
 import '../data/jigsaw_storage.dart';
@@ -76,6 +77,7 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
   }
 
   Future<void> _onCompleted() async {
+    WinSound.play(context); // 이겼을 때 "짜잔"
     final seconds = s.controller.elapsed.value;
     await JigsawStorage.clear(s.controller, s.source);
     final isBest = await JigsawStorage.recordWin(s.pieceTarget, seconds);

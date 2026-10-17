@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/settings_scope.dart';
+import '../../../core/win_sound.dart';
 import '../audio/rhythm_audio.dart';
 import '../core/rhythm_chart.dart';
 import '../core/rhythm_judge.dart';
@@ -229,6 +230,7 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
       return;
     }
     final j = c.judge;
+    if (j.stars >= RhythmCourse.passStars) WinSound.play(context); // 합격했을 때 "짜잔"
     final best = await RhythmStorage.record(
       RhythmResult(stars: j.stars, accuracy: j.accuracy, score: j.score, maxCombo: j.maxCombo),
       widget.course,

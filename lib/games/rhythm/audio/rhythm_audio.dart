@@ -5,14 +5,16 @@ import 'package:flutter/foundation.dart';
 
 /// 리듬 검사단에서 쓰는 효과음 (tool/make_rhythm_sounds.dart 로 만든 assets/rhythm/*.wav).
 enum Sfx {
-  hitLeft('hit_left'),
-  hitRight('hit_right'),
-  npcLeft('npc_left'),
-  npcRight('npc_right'),
-  swipeLeft('swipe_left'),
-  swipeRight('swipe_right'),
-  npcSwipeLeft('npc_swipe_left'),
-  npcSwipeRight('npc_swipe_right'),
+  // 좌우 공격음: 직접 고른 검 베기 소리 (왼쪽 = 퐉, 오른쪽 = 쉭). 앞사람(NPC)은 같은 소리를 작게.
+  hitLeft('slash_left'),
+  hitRight('slash_right'),
+  npcLeft('slash_left', volume: 0.62),
+  npcRight('slash_right', volume: 0.62),
+  // 가로로 긋는(횡베기) 소리: 직접 고른 베기 소리. 앞사람(NPC)은 같은 소리를 작게.
+  swipeLeft('slash_side'),
+  swipeRight('slash_side'),
+  npcSwipeLeft('slash_side', volume: 0.62),
+  npcSwipeRight('slash_side', volume: 0.62),
   kick('kick'),
   hat('hat'),
   tick('tick'),
@@ -23,8 +25,15 @@ enum Sfx {
   stageClear('stage_clear'),
   allClear('all_clear');
 
-  const Sfx(this.file);
+  const Sfx(this.file, {this.volume = 1.0});
+
+  /// assets/rhythm/ 안의 wav 파일 이름 (확장자 빼고). 지연에 민감해서, 앞 무음을 미리 자른 wav를 쓴다.
   final String file;
+
+  /// 틀 때 소리 크기 (0~1). 합성한 wav는 크기가 이미 반영돼 있어 1이다.
+  final double volume;
+
+  String get asset => 'rhythm/$file.wav';
 }
 
 /// 소리를 내는 쪽. 테스트나 소리 끔 상태에서는 [SilentSfx]를 쓴다.
@@ -92,7 +101,8 @@ class PoolSfx implements RhythmSfx {
               await p.setPlayerMode(PlayerMode.lowLatency);
               await p.setReleaseMode(ReleaseMode.stop);
               await p.setAudioContext(_context);
-              await p.setSource(AssetSource('rhythm/${s.file}.wav'));
+              await p.setSource(AssetSource(s.asset));
+              if (s.volume != 1.0) await p.setVolume(s.volume);
               list.add(p);
             }
             _voices[s] = list;
@@ -103,7 +113,7 @@ class PoolSfx implements RhythmSfx {
       await warm.setPlayerMode(PlayerMode.lowLatency);
       await warm.setReleaseMode(ReleaseMode.stop);
       await warm.setAudioContext(_context);
-      await warm.setSource(AssetSource('rhythm/${Sfx.tick.file}.wav'));
+      await warm.setSource(AssetSource(Sfx.tick.asset));
       await warm.setVolume(0);
       _warm = warm;
       _ready = true;

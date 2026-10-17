@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -222,6 +223,7 @@ class _DandelionScreenState extends State<DandelionScreen> {
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
+      if (!c.oneSeat || c.winner == c.humanRole) WinSound.play(context); // 이겼을 때 "짜잔"
       DandelionHistory.add(DandelionRecord(
         at: DateTime.now().millisecondsSinceEpoch,
         vsCpu: c.vsCpu,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/click_sound.dart';
 import 'core/settings.dart';
 import 'core/settings_scope.dart';
 import 'hub/hub_screen.dart';
@@ -19,6 +20,8 @@ class TabGameApp extends StatelessWidget {
       colorScheme: scheme,
       useMaterial3: true,
       fontFamily: 'NanumGothic',
+      // 버튼을 누를 때마다 딸깍 소리 (설정의 "효과음"을 끄면 나지 않는다)
+      splashFactory: const ClickSplashFactory(),
       scaffoldBackgroundColor: brightness == Brightness.light
           ? const Color(0xFFF6F3EE)
           : const Color(0xFF15181C),
@@ -31,7 +34,10 @@ class TabGameApp extends StatelessWidget {
       settings: settings,
       child: ListenableBuilder(
         listenable: settings,
-        builder: (context, _) => MaterialApp(
+        builder: (context, _) {
+          ClickSound.soundOn = settings.sound;
+          ClickSound.load(); // (소리를 미리 불러 둔다. 이미 불렀으면 아무것도 안 한다)
+          return MaterialApp(
           title: 'TabGame',
           debugShowCheckedModeBanner: false,
           theme: _theme(Brightness.light),
@@ -40,7 +46,8 @@ class TabGameApp extends StatelessWidget {
           // 같은 Wi‑Fi 대결에서 상대 응답이 끊기면 어느 화면에서든 "기다리는 중" 안내가 위에 뜬다
           builder: (context, child) => LanStallOverlay(child: child ?? const SizedBox.shrink()),
           home: HubScreen(settings: settings),
-        ),
+          );
+        },
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../tutorial/uttt_tutorial.dart';
@@ -224,6 +225,7 @@ class _UtttScreenState extends State<UtttScreen> {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       final o = c.outcome;
+      if (o != Outcome.draw && (!c.oneSeat || (o == Outcome.xWins ? kX : kO) == c.humanSide)) WinSound.play(context); // 이겼을 때 "짜잔"
       UtttHistory.add(UtttRecord(
         at: DateTime.now().millisecondsSinceEpoch,
         vsCpu: c.vsCpu,

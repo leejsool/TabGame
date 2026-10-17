@@ -828,5 +828,115 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await settle(tester, rounds: 3);
     });
+
+    testWidgets('사람 2명 + CPU 1명 방: 들어가면 두 화면이 시작하고, 남은 자리가 CPU로 정해진다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      const discovery = 46102;
+      final navKey = GlobalKey<NavigatorState>();
+      SharedPreferences.setMockInitialValues({});
+      final settings = await Settings.load();
+      await tester.pumpWidget(SettingsScope(
+        settings: settings,
+        child: MaterialApp(
+          navigatorKey: navKey,
+          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          home: const Scaffold(body: SizedBox()),
+        ),
+      ));
+      unawaited(navKey.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const DavinciHostScreen(hostSide: 0, players: 3, cpus: 1, gamePort: 0, discoveryPort: discovery, seed: 778),
+      )));
+      await settle(tester, rounds: 4);
+      expect(find.textContaining('3명 (사람 2 + CPU 1)'), findsWidgets);
+
+      unawaited(navKey.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const DavinciJoinScreen(discoveryPort: discovery, extraTargets: ['127.0.0.1']),
+      )));
+      for (var i = 0; i < 40 && find.widgetWithText(FilledButton, '들어가기').evaluate().isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await settle(tester, rounds: 2);
+      expect(find.textContaining('다빈치 코드 · 3명 (사람 2 + CPU 1)'), findsWidgets);
+      await tester.tap(find.widgetWithText(FilledButton, '들어가기').first);
+      for (var i = 0; i < 60 && find.byType(DavinciScreen, skipOffstage: false).evaluate().length < 2; i++) {
+        await settle(tester, rounds: 1);
+      }
+      await settle(tester, rounds: 2);
+      final screens = tester.widgetList<DavinciScreen>(find.byType(DavinciScreen, skipOffstage: false)).toList();
+      expect(screens.length, 2);
+      expect(screens.every((s) => s.players == 3 && s.seed == 778 && s.cpuSeats!.length == 1), isTrue);
+      final cpu = screens.first.cpuSeats!.single;
+      expect(screens.every((s) => s.cpuSeats!.single == cpu && s.humanSeat != cpu), isTrue);
+      expect(screens.map((s) => s.humanSeat).toSet().length, 2);
+      expect(screens.first.names![cpu], 'CPU 1');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await settle(tester, rounds: 3);
+    });
+  });
+
+  group('사람 + CPU 방 (컨트롤러)', () {
+    test('사람 3명 + CPU 1명: 방장이 CPU의 수를 정해 알리고, 모든 기기가 같은 판으로 끝난다 (한 판 더도)', () async {
+      final rng = Random(8);
+      DavinciController make(int seat, {bool host = false}) =>
+          DavinciController(mode: PlayMode.wifi, players: 4, humanSeat: seat, seed: 21, cpuSeats: [3], cpuHost: host)..cpuStepDelay = Duration.zero;
+      final hostC = make(0, host: true), g1 = make(1), g2 = make(2);
+      expect([hostC.runsCpu, g1.runsCpu, g2.runsCpu], [true, false, false]);
+      var cpuMoves = 0;
+      // 별 모양으로 잇는다: 방장은 모두에게, 손님은 방장에게 보내고 방장이 다른 손님에게 전해 준다
+      hostC.onLocalMove = (m) {
+        if (hostC.turn == 3 || hostC.state.lastGuess?.guesser == 3) cpuMoves++;
+        final i = hostC.moveCount - 1;
+        expect(g1.receiveMove(m, index: i), isTrue);
+        expect(g2.receiveMove(m, index: i), isTrue);
+      };
+      g1.onLocalMove = (m) {
+        final i = g1.moveCount - 1;
+        expect(hostC.receiveMove(m, index: i), isTrue);
+        expect(g2.receiveMove(m, index: i), isTrue);
+      };
+      g2.onLocalMove = (m) {
+        final i = g2.moveCount - 1;
+        expect(hostC.receiveMove(m, index: i), isTrue);
+        expect(g1.receiveMove(m, index: i), isTrue);
+      };
+
+      Future<void> playOut() async {
+        for (var i = 0; i < 4000 && !hostC.isOver; i++) {
+          await Future<void>.delayed(Duration.zero);
+          for (final c in [hostC, g1, g2]) {
+            if (c.humanCanAct) playAi(c, rng);
+          }
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(hostC.isOver, isTrue, reason: '판이 끝나지 않았어요');
+        for (final c in [g1, g2]) {
+          expect(c.isOver, isTrue);
+          expect(c.moves, hostC.moves);
+          expect(c.state.winner, hostC.state.winner);
+          expect(c.state.rows, hostC.state.rows);
+        }
+      }
+
+      hostC.start();
+      await playOut();
+      expect(cpuMoves, greaterThan(0), reason: 'CPU가 한 번도 안 뒀어요');
+
+      // 한 판 더: 사람과 CPU 자리가 함께 한 칸씩 돌고, 이번엔 0번 자리의 CPU가 먼저 둔다
+      for (final c in [hostC, g1, g2]) {
+        c.restart();
+      }
+      expect(hostC.cpuSeats, {0});
+      expect([hostC.humanSeat, g1.humanSeat, g2.humanSeat], [1, 2, 3]);
+      cpuMoves = 0;
+      await playOut();
+      expect(cpuMoves, greaterThan(0));
+      for (final c in [hostC, g1, g2]) {
+        c.dispose();
+      }
+    });
   });
 }

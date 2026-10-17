@@ -6,11 +6,12 @@ import '../../../core/game_info.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_discovery.dart';
 import '../../../net/lan_screens.dart';
+import '../core/davinci_ai.dart';
 import 'davinci_screen.dart';
 import 'davinci_setup_screen.dart';
 import 'davinci_tiles.dart';
 
-export '../../../net/lan_screens.dart' show kRandomSide;
+export '../../../net/lan_screens.dart' show kRandomSide, roomSizeText;
 
 const String _game = 'davinci_code';
 
@@ -47,6 +48,8 @@ class DavinciHostScreen extends StatelessWidget {
     super.key,
     required this.hostSide,
     this.players = 2,
+    this.cpus = 0,
+    this.level = DvLevel.normal,
     this.gamePort = kLanGamePort,
     this.discoveryPort = kLanDiscoveryPort,
     this.seed,
@@ -55,8 +58,12 @@ class DavinciHostScreen extends StatelessWidget {
   /// 내가 맡을 자리 (0 = 먼저 … 3, [kRandomSide] = 모두 모이면 무작위).
   final int hostSide;
 
-  /// 모두 몇 명이 하는지 (2~4).
+  /// 모두 몇 명이 하는지 (CPU 포함, 2~4).
   final int players;
+
+  /// 그중 CPU가 몇 명인지 (사람은 둘 이상이어야 한다). CPU의 수는 방을 연 기기가 정한다.
+  final int cpus;
+  final DvLevel level;
 
   /// (시험용) 연결을 기다리는 포트와 방 찾기 응답 포트, 패를 나눌 씨앗.
   final int gamePort, discoveryPort;
@@ -65,12 +72,13 @@ class DavinciHostScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hostNick = SettingsScope.of(context).nickname;
+    final humans = players - cpus;
     return LanLobbyScreen(
       game: _game,
       gameName: '다빈치 코드',
-      info: {'hostSide': hostSide, 'players': players},
-      summary: ['$players명', _sideText(hostSide, mine: true)],
-      needGuests: players - 1,
+      info: {'hostSide': hostSide, 'players': players, 'cpus': cpus},
+      summary: [roomSizeText(players, cpus), if (cpus > 0) 'CPU ${level.label}', _sideText(hostSide, mine: true)],
+      needGuests: humans - 1,
       gamePort: gamePort,
       discoveryPort: discoveryPort,
       onFull: (guests) {
@@ -86,19 +94,26 @@ class DavinciHostScreen extends StatelessWidget {
             ..remove(hostSeat)
             ..shuffle(rng);
         }
+        // 남은 자리 중 앞에서부터 손님이, 나머지는 CPU가 앉는다
+        final cpuSeats = seats.sublist(guests.length)..sort();
         final names = List<String>.filled(players, '');
         names[hostSeat] = hostNick;
         for (var i = 0; i < guests.length; i++) {
           names[seats[i]] = guests[i].peerNick;
         }
+        for (var i = 0; i < cpuSeats.length; i++) {
+          names[cpuSeats[i]] = 'CPU ${i + 1}';
+        }
         final s = seed ?? rng.nextInt(1 << 30);
         return LanLobbyPlan(
-          messages: [for (var i = 0; i < guests.length; i++) {'side': seats[i], 'players': players, 'names': names, 'seed': s}],
+          messages: [for (var i = 0; i < guests.length; i++) {'side': seats[i], 'players': players, 'names': names, 'cpus': cpuSeats, 'seed': s}],
           hostScreen: (conns) => DavinciScreen(
             mode: PlayMode.wifi,
             players: players,
             humanSeat: hostSeat,
+            level: level,
             names: names,
+            cpuSeats: cpuSeats,
             seed: s,
             links: conns,
             linkSeats: seats.sublist(0, conns.length),
@@ -126,8 +141,9 @@ class DavinciJoinScreen extends StatelessWidget {
       extraTargets: extraTargets,
       roomTitle: (r) {
         final n = r.info['players'] is int ? r.info['players'] as int : 2;
+        final cpus = r.info['cpus'] is int ? r.info['cpus'] as int : 0;
         final joined = r.info['joined'] is int ? r.info['joined'] as int : 1;
-        return '다빈치 코드 · $n명 ($joined/$n)';
+        return '다빈치 코드 · ${roomSizeText(n, cpus)} ($joined/${n - cpus})';
       },
       roomSubtitle: (r) => _sideText(r.info['hostSide'] is int ? r.info['hostSide'] as int : kRandomSide, mine: false),
       buildGame: (m, conn) {
@@ -137,7 +153,10 @@ class DavinciJoinScreen extends StatelessWidget {
         if (side is! int || side < 0 || side >= players || seed is! int) return null;
         final raw = m['names'];
         final names = raw is List && raw.length == players ? [for (final n in raw) '$n'] : null;
-        return DavinciScreen(mode: PlayMode.wifi, players: players, humanSeat: side, names: names, seed: seed, links: [conn]);
+        final rawCpus = m['cpus'];
+        final cpuSeats = rawCpus is List ? [for (final x in rawCpus) if (x is int) x] : <int>[];
+        if (cpuSeats.any((x) => x < 0 || x >= players || x == side) || players - cpuSeats.length < 2) return null;
+        return DavinciScreen(mode: PlayMode.wifi, players: players, humanSeat: side, names: names, cpuSeats: cpuSeats, seed: seed, links: [conn]);
       },
     );
   }

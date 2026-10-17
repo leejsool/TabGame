@@ -31,6 +31,7 @@ Future<void> _shot(WidgetTester tester, GlobalKey key, String path) async {
 }
 
 void main() {
+  RummikubScreen.playSounds = false; // (시험에서는 소리를 내지 않는다)
   final dir = Platform.environment['RUMMIKUB_PREVIEW_DIR'];
   testWidgets('루미큐브 화면 미리보기', (tester) async {
     final loader = FontLoader('NanumGothic');

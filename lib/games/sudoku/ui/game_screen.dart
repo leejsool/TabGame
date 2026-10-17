@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../data/sudoku_history.dart';
 import '../data/sudoku_storage.dart';
@@ -115,6 +116,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
   // ── 완성 ──
 
   Future<void> _onCompleted() async {
+    WinSound.play(context); // 이겼을 때 "짜잔"
     final seconds = game.elapsed.value;
     final diff = game.puzzle.difficulty;
     await SudokuStorage.clearSave(game);

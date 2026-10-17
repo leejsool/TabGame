@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/mines_tutorial.dart';
 import '../core/mines_rules.dart';
@@ -94,6 +95,7 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
   // ── 끝났을 때 ──
 
   Future<void> _onWon() async {
+    WinSound.play(context); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     await MinesStorage.clearSave(c);
     final isBest = await MinesStorage.recordWin(MinesRecord(

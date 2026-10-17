@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -169,6 +170,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
     if (c.isOver) return;
     c.opponentResigned();
     _resultHandled = true;
+    WinSound.play(context); // 이겼을 때 "짜잔"
     await SproutsHistory.add(SproutsRecord(
       at: DateTime.now().millisecondsSinceEpoch,
       vsCpu: false,
@@ -241,6 +243,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
   void _onChanged() {
     if (c.isOver && !_resultHandled && !c.resigned) {
       _resultHandled = true;
+      if (!c.oneSeat || c.winner == c.humanSide) WinSound.play(context); // 이겼을 때 "짜잔"
       SproutsHistory.add(SproutsRecord(
         at: DateTime.now().millisecondsSinceEpoch,
         vsCpu: c.vsCpu,

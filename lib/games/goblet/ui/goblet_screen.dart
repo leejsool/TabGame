@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/sfx_pool.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../tutorial/goblet_tutorial.dart';
@@ -63,9 +65,13 @@ class _GobbletScreenState extends State<GobbletScreen> {
   bool _rematchAsked = false;
   bool _rematchOffered = false;
 
+  /// 말을 놓을 때 나는 "탁" 소리 (assets/goblet/clack.wav).
+  final SfxPool _clack = SfxPool('goblet/clack.wav');
+
   @override
   void initState() {
     super.initState();
+    _clack.load();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
     final link = _link;
@@ -79,6 +85,7 @@ class _GobbletScreenState extends State<GobbletScreen> {
 
   @override
   void dispose() {
+    _clack.dispose();
     _leaving = true;
     _linkSub?.cancel();
     final link = _link;
@@ -186,7 +193,9 @@ class _GobbletScreenState extends State<GobbletScreen> {
   }
 
   void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
+    final settings = SettingsScope.of(context);
+    if (kind == 'drop' && settings.sound) _clack.play(); // 말을 놓을 때 (내 수도, 상대·CPU의 수도) "탁"
+    if (!settings.haptics) return;
     switch (kind) {
       case 'pick':
         HapticFeedback.selectionClick();
@@ -201,6 +210,7 @@ class _GobbletScreenState extends State<GobbletScreen> {
     final r = c.result;
     if (r != null && !_resultShown) {
       _resultShown = true;
+      if (!c.oneSeat || r.winner == c.humanTeam) WinSound.play(context); // 이겼을 때 "짜잔"
       // 한 판이 끝날 때마다 한 번만 기록한다
       GobbletHistory.add(GobbletRecord(
         at: DateTime.now().millisecondsSinceEpoch,

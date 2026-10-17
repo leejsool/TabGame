@@ -77,6 +77,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     RummikubScreen.showFirstHint = false; // (팝업은 아래 시험에서만 켠다)
+    RummikubScreen.playSounds = false; // (시험에서는 소리를 내지 않는다)
     final loader = FontLoader('NanumGothic');
     for (final f in ['Regular', 'Bold', 'ExtraBold']) {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
@@ -1005,16 +1006,22 @@ void main() {
       )));
       await settle(tester, rounds: 4);
       expect(find.text('방이 열렸어요'), findsOneWidget);
-      expect(find.text('내가 나중에 시작'), findsOneWidget);
+      expect(find.text('내가 두 번째로 시작'), findsOneWidget);
 
       unawaited(navKey.currentState!.push(MaterialPageRoute<void>(
         builder: (_) => const RummikubJoinScreen(discoveryPort: discovery, extraTargets: ['127.0.0.1']),
       )));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 600)));
-      await settle(tester, rounds: 6);
-      expect(find.text('루미큐브'), findsWidgets);
+      for (var i = 0; i < 40 && find.widgetWithText(FilledButton, '들어가기').evaluate().isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await settle(tester, rounds: 2);
+      expect(find.textContaining('루미큐브 · 2명'), findsWidgets);
       await tester.tap(find.widgetWithText(FilledButton, '들어가기').first);
-      await settle(tester, rounds: 12);
+      for (var i = 0; i < 60 && find.byType(RummikubScreen, skipOffstage: false).evaluate().length < 2; i++) {
+        await settle(tester, rounds: 1);
+      }
+      await settle(tester, rounds: 2);
       final screens = tester.widgetList<RummikubScreen>(find.byType(RummikubScreen, skipOffstage: false)).toList();
       expect(screens.length, 2);
       expect(screens.map((s) => s.humanSeat).toSet(), {0, 1});
@@ -1022,6 +1029,159 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
       await settle(tester, rounds: 3);
+    });
+
+    testWidgets('사람 2명 + CPU 1명 방: 들어가면 두 화면이 시작하고, 남은 자리가 CPU로 정해진다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      const discovery = 46032;
+      final navKey = GlobalKey<NavigatorState>();
+      SharedPreferences.setMockInitialValues({});
+      final settings = await Settings.load();
+      await tester.pumpWidget(SettingsScope(
+        settings: settings,
+        child: MaterialApp(
+          navigatorKey: navKey,
+          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          home: const Scaffold(body: SizedBox()),
+        ),
+      ));
+      unawaited(navKey.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const RummikubHostScreen(hostSide: 0, players: 3, cpus: 1, gamePort: 0, discoveryPort: discovery, seed: 778),
+      )));
+      await settle(tester, rounds: 4);
+      expect(find.textContaining('3명 (사람 2 + CPU 1)'), findsWidgets);
+
+      unawaited(navKey.currentState!.push(MaterialPageRoute<void>(
+        builder: (_) => const RummikubJoinScreen(discoveryPort: discovery, extraTargets: ['127.0.0.1']),
+      )));
+      for (var i = 0; i < 40 && find.widgetWithText(FilledButton, '들어가기').evaluate().isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await settle(tester, rounds: 2);
+      expect(find.textContaining('루미큐브 · 3명 (사람 2 + CPU 1)'), findsWidgets);
+      await tester.tap(find.widgetWithText(FilledButton, '들어가기').first);
+      for (var i = 0; i < 60 && find.byType(RummikubScreen, skipOffstage: false).evaluate().length < 2; i++) {
+        await settle(tester, rounds: 1);
+      }
+      await settle(tester, rounds: 2);
+      final screens = tester.widgetList<RummikubScreen>(find.byType(RummikubScreen, skipOffstage: false)).toList();
+      expect(screens.length, 2);
+      expect(screens.every((s) => s.players == 3 && s.seed == 778 && s.cpuSeats!.length == 1), isTrue);
+      final cpu = screens.first.cpuSeats!.single;
+      expect(screens.every((s) => s.cpuSeats!.single == cpu && s.humanSeat != cpu), isTrue);
+      expect(screens.map((s) => s.humanSeat).toSet().length, 2);
+      expect(screens.first.names![cpu], 'CPU 1');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await settle(tester, rounds: 3);
+    });
+  });
+
+  group('타일 소리 신호', () {
+    test('손에서 순서를 바꾸거나 판에 놓거나 되돌리면 place, 뽑으면 draw, 상대가 한 장씩 옮기면 step', () async {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 4)]);
+      final kinds = <String>[];
+      c.onFeedback = kinds.add;
+      c.moveInHand([t(3, 4)], beforeId: t(0, 10));
+      expect(kinds, ['place']);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)]);
+      expect(kinds, ['place', 'place']);
+      c.returnToHand([t(2, 10)]);
+      expect(kinds, ['place', 'place', 'place']);
+      c.reset();
+      c.draw();
+      expect(kinds.last, 'draw');
+      c.dispose();
+
+      // 상대가 바닥에서 타일을 고를 때 한 번 (판 위에서 한 장씩 옮길 때도 한 장마다 같은 신호가 나온다)
+      final a = RummikubController(animate: true, mode: PlayMode.wifi, players: 3, humanSeat: 1, seed: 5, cpuSeats: [2])..stepDelay = const Duration(milliseconds: 3);
+      final seen = <String>[];
+      a.onFeedback = seen.add;
+      expect(a.receiveMove({'t': 'move', 'i': 0, 'draw': 1, 'pick': 0}), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(seen.where((k) => k == 'step').length, 1);
+      a.dispose();
+    });
+  });
+
+  group('사람 + CPU 방 (컨트롤러)', () {
+    test('사람 3명 + CPU 1명: 방장이 CPU의 수를 정해 알리고, 서로 수를 전해 주면 모든 기기가 같은 판이 된다', () async {
+      final rng = Random(4);
+      final host = RummikubController(animate: true, mode: PlayMode.wifi, players: 4, humanSeat: 0, seed: 31, cpuSeats: [3], cpuHost: true)..stepDelay = const Duration(milliseconds: 4);
+      final g1 = RummikubController(animate: true, mode: PlayMode.wifi, players: 4, humanSeat: 1, seed: 31, cpuSeats: [3])..stepDelay = const Duration(milliseconds: 4);
+      final g2 = RummikubController(animate: true, mode: PlayMode.wifi, players: 4, humanSeat: 2, seed: 31, cpuSeats: [3])..stepDelay = const Duration(milliseconds: 9);
+      expect([host.runsCpu, g1.runsCpu, g2.runsCpu], [true, false, false]);
+      var desync = false;
+      for (final c in [host, g1, g2]) {
+        c.onDesync = () => desync = true;
+      }
+      // 별 모양으로 잇는다: 방장은 모두에게, 손님은 방장에게 보내고 방장이 다른 손님에게 전해 준다
+      var cpuMoved = false;
+      host.onLocalMove = (m) {
+        if (host.turn == 3) cpuMoved = true; // (방장 자신의 수는 둔 뒤라 차례가 1번으로 넘어가 있다. 3번은 CPU가 정한 수)
+        final msg = {'t': 'move', ...m};
+        expect(g1.receiveMove(msg), isTrue);
+        expect(g2.receiveMove(msg), isTrue);
+      };
+      g1.onLocalMove = (m) {
+        final msg = {'t': 'move', ...m};
+        expect(host.receiveMove(msg, fromSeat: 1), isTrue);
+        expect(g2.receiveMove(msg), isTrue);
+      };
+      g2.onLocalMove = (m) {
+        final msg = {'t': 'move', ...m};
+        expect(host.receiveMove(msg, fromSeat: 2), isTrue);
+        expect(g1.receiveMove(msg), isTrue);
+      };
+      host.start();
+      for (var i = 0; i < 1200 && host.moveCount < 9 && !host.isOver && !desync; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 15));
+        for (final c in [host, g1, g2]) {
+          if (!c.canAct) continue;
+          final s = c.state;
+          final plan = RkAi.plan(rack: [...s.currentRack], table: [for (final t in s.table) [...t]], melded: s.melded[s.turn], level: RkLevel.normal, rng: rng);
+          if (plan != null && s.checkPlay(plan) == null) {
+            c.work = [for (final set in plan) [...set]];
+            expect(c.endTurn(), isTrue);
+          } else {
+            c.draw();
+          }
+        }
+      }
+      expect(desync, isFalse, reason: '기기들의 판이 어긋났어요');
+      expect(host.moveCount, greaterThanOrEqualTo(6), reason: '판이 진행되지 않았어요 (${host.moveCount}수, 차례 ${host.turn})');
+      expect(cpuMoved, isTrue, reason: 'CPU가 한 번도 안 뒀어요');
+      // 마지막 수까지 다 보여 줄 때까지 기다린다
+      for (var i = 0; i < 200 && [host, g1, g2].any((c) => c.animating || c.thinking); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 15));
+      }
+      expect(desync, isFalse);
+      expect(g1.moveCount, host.moveCount);
+      expect(g2.moveCount, host.moveCount);
+      for (final c in [g1, g2]) {
+        expect(c.state.table, host.state.table);
+        expect(c.state.turn, host.state.turn);
+        for (var p = 0; p < 4; p++) {
+          expect(c.state.racks[p].toSet(), host.state.racks[p].toSet());
+        }
+      }
+      for (final c in [host, g1, g2]) {
+        c.dispose();
+      }
+    });
+
+    test('CPU가 낀 방은 기권이 없고(3명 이상), 한 판 더 하면 사람·CPU 자리가 함께 한 칸씩 돈다', () {
+      final c = RummikubController(animate: false, mode: PlayMode.wifi, players: 3, humanSeat: 2, seed: 5, cpuSeats: [0]);
+      expect(c.canResign, isFalse);
+      expect(c.humans, 2);
+      c.restart();
+      expect([c.humanSeat, c.cpuSeats.toList(), c.rotation], [0, [1], 1]);
+      c.restart();
+      expect([c.humanSeat, c.cpuSeats.toList(), c.rotation], [1, [2], 2]);
+      c.dispose();
     });
   });
 }

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -29,11 +30,12 @@ class QuoridorScreen extends StatefulWidget {
     this.links,
     this.linkSeats,
     this.names,
+    this.cpuSeats,
   });
 
   final PlayMode mode;
 
-  /// 앉은 사람 수 (2 또는 4, CPU 포함). 같은 Wi‑Fi 대결은 2명.
+  /// 앉은 사람 수 (2 또는 4, CPU 포함).
   final int players;
   final int humanSeat;
   final QLevel level;
@@ -51,6 +53,9 @@ class QuoridorScreen extends StatefulWidget {
   /// 같은 Wi‑Fi 대결에서 자리(0번부터)별 이름. 없으면 2명 대결은 상대의 별명을 쓴다.
   final List<String>? names;
 
+  /// 같은 Wi‑Fi 방에서 CPU가 앉은 자리들 (사람 n명 + CPU m명으로 할 때). CPU의 수는 방장 기기가 정해서 알려 준다.
+  final List<int>? cpuSeats;
+
   /// (테스트용) 미리 만든 컨트롤러.
   final QuoridorController? controller;
 
@@ -59,16 +64,26 @@ class QuoridorScreen extends StatefulWidget {
 }
 
 class _QuoridorScreenState extends State<QuoridorScreen> {
-  late final QuoridorController c =
-      widget.controller ?? QuoridorController(mode: widget.mode, players: widget.players, humanSeat: widget.humanSeat, level: widget.level);
+  late final QuoridorController c = widget.controller ??
+      QuoridorController(
+        mode: widget.mode,
+        players: widget.players,
+        humanSeat: widget.humanSeat,
+        level: widget.level,
+        cpuSeats: widget.mode == PlayMode.wifi ? (widget.cpuSeats ?? const []) : null,
+        cpuHost: widget.linkSeats != null, // (방을 연 기기가 CPU의 수를 정한다)
+      );
   bool _resultHandled = false;
 
   // ── 같은 Wi‑Fi 대결 ──
   List<LanConnection> get _links => c.online ? (widget.links ?? [if (widget.link != null) widget.link!]) : const [];
   final List<StreamSubscription<Map<String, dynamic>>> _linkSubs = [];
 
-  /// 방장이고 손님이 여럿인가 (그러면 손님이 보낸 수를 확인해서 다른 손님들에게 전해 준다).
-  bool get _hub => widget.linkSeats != null && _links.length > 1;
+  /// 방장인가 (그러면 손님이 보낸 수가 그 손님 차례의 수인지 확인하고, 손님이 여럿이면 다른 손님들에게 전해 준다).
+  bool get _hub => widget.linkSeats != null;
+
+  /// [link]번째 연결의 손님이 지금 앉은 자리 (한 판 더 할 때마다 자리가 한 칸씩 돈다).
+  int _seatOfLink(int link) => (widget.linkSeats![link] + c.rotation) % c.players;
 
   bool _opponentGone = false;
   bool _leaving = false;
@@ -124,7 +139,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     switch (m['t']) {
       case 'move':
         // 방장은 보낸 손님이 지금 차례인 사람인지도 확인한다
-        final fromOk = !_hub || widget.linkSeats![from] == c.turn;
+        final fromOk = !_hub || _seatOfLink(from) == c.turn;
         if (!fromOk || m['m'] is! int || !c.receiveMove(m['m'] as int, index: m['i'] as int?)) {
           _desync();
         } else if (_hub) {
@@ -133,7 +148,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
       case 'resign':
         _onOpponentResigned();
       case 'again':
-        final seat = _hub ? widget.linkSeats![from] : (m['seat'] is int ? m['seat'] as int : (c.players == 2 ? 1 - c.humanSeat : null));
+        final seat = _hub ? _seatOfLink(from) : (m['seat'] is int ? m['seat'] as int : (c.players == 2 ? 1 - c.humanSeat : null));
         if (seat == null || seat < 0 || seat >= c.players) return;
         setState(() => _againSeats.add(seat));
         if (_hub) _sendAll({'t': 'again', 'seat': seat}, except: from);
@@ -179,6 +194,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     if (c.isOver || c.halted) return;
     c.opponentResigned();
     _resultHandled = true;
+    WinSound.play(context); // 이겼을 때 "짜잔"
     await _record(winner: c.humanSeat, resigned: true);
     if (!mounted) return;
     final again = await showDialog<bool>(
@@ -212,7 +228,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
 
   /// 모든 사람이 한 판 더를 눌렀으면 (자리가 한 칸씩 돌아) 새 판을 시작한다.
   void _checkRematch() {
-    if (_againSeats.length >= c.players) _startRematch();
+    if (_againSeats.length >= c.humans) _startRematch();
   }
 
   void _startRematch() {
@@ -268,6 +284,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
+      if (!c.oneSeat || c.state.winner == c.humanSeat) WinSound.play(context); // 이겼을 때 "짜잔"
       _record(winner: c.state.winner!);
     } else if (!c.isOver && !c.halted) {
       _resultHandled = false;
@@ -279,7 +296,8 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     if (!c.oneSeat) return '플레이어 ${seat + 1}';
     if (seat == c.humanSeat) return '나';
     final given = widget.names;
-    if (c.online && given != null && seat < given.length) return given[seat];
+    // (이름표는 처음 앉은 자리 기준이라, 한 판 더 해서 자리가 돈 만큼 되돌려 찾는다)
+    if (c.online && given != null && given.length == c.players) return given[(seat - c.rotation) % c.players];
     if (c.online) return _links.isEmpty ? '상대' : _links.first.peerNick;
     return 'CPU ${seat < c.humanSeat ? seat + 1 : seat}';
   }

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -13,6 +14,7 @@ import '../core/rummikub_ai.dart';
 import '../core/rummikub_rules.dart';
 import '../data/rummikub_history.dart';
 import '../game/rummikub_controller.dart';
+import '../audio/rummikub_sfx.dart';
 import '../game/rummikub_layout.dart';
 import '../tutorial/rummikub_tutorial.dart';
 import 'rummikub_celebration.dart';
@@ -31,11 +33,15 @@ class RummikubScreen extends StatefulWidget {
     this.seed,
     this.controller,
     this.link,
+    this.links,
+    this.linkSeats,
+    this.names,
+    this.cpuSeats,
   });
 
   final PlayMode mode;
 
-  /// 앉은 사람 수 (CPU 포함). 같은 Wi‑Fi 대결은 2명.
+  /// 앉은 사람 수 (CPU 포함, 같은 Wi‑Fi 대결은 2~4명).
   final int players;
   final int humanSeat;
   final RkLevel level;
@@ -46,11 +52,27 @@ class RummikubScreen extends StatefulWidget {
   /// 같은 Wi‑Fi 대결에서 상대 기기와의 연결. 이 화면이 닫을 때 같이 닫는다.
   final LanConnection? link;
 
+  /// 같은 Wi‑Fi 대결에서 이어진 연결들. 방을 만든 쪽(방장)은 손님마다 하나씩, 손님은 방장과의 연결 하나다.
+  /// 3명 이상이 할 때는 모든 수가 방장을 거쳐 오간다 (방장이 확인하고 다른 손님들에게 전해 준다).
+  final List<LanConnection>? links;
+
+  /// 방장일 때: [links]의 각 손님이 앉은 자리. 이게 있으면 이 기기가 방장이다.
+  final List<int>? linkSeats;
+
+  /// 같은 Wi‑Fi 대결에서 자리(0번부터)별 이름. 없으면 2명 대결은 상대의 별명을 쓴다.
+  final List<String>? names;
+
+  /// 같은 Wi‑Fi 방에서 CPU가 앉은 자리들 (사람 n명 + CPU m명으로 할 때). CPU의 수는 방장 기기가 정해서 알려 준다.
+  final List<int>? cpuSeats;
+
   /// (테스트용) 미리 만든 컨트롤러.
   final RummikubController? controller;
 
   /// 처음 내 차례에 "처음 내려놓을 때" 팝업을 띄우는가 (시험에서는 끈다).
   static bool showFirstHint = true;
+
+  /// 타일 소리를 내는가 (시험에서는 끈다). 설정의 "효과음"이 꺼져 있으면 이게 켜져 있어도 소리가 나지 않는다.
+  static bool playSounds = true;
 
   @override
   State<RummikubScreen> createState() => _RummikubScreenState();
@@ -58,28 +80,60 @@ class RummikubScreen extends StatefulWidget {
 
 class _RummikubScreenState extends State<RummikubScreen> {
   late final RummikubController c = widget.controller ??
-      RummikubController(mode: widget.mode, players: widget.players, humanSeat: widget.humanSeat, level: widget.level, seed: widget.seed);
+      RummikubController(
+        mode: widget.mode,
+        players: widget.players,
+        humanSeat: widget.humanSeat,
+        level: widget.level,
+        seed: widget.seed,
+        cpuSeats: widget.mode == PlayMode.wifi ? (widget.cpuSeats ?? const []) : null,
+        cpuHost: widget.linkSeats != null, // (방을 연 기기가 CPU의 수를 정한다)
+      );
   bool _resultHandled = false;
 
   // ── 같은 Wi‑Fi 대결 ──
-  LanConnection? get _link => c.online ? widget.link : null;
-  StreamSubscription<Map<String, dynamic>>? _linkSub;
+  List<LanConnection> get _links => c.online ? (widget.links ?? [if (widget.link != null) widget.link!]) : const [];
+  final List<StreamSubscription<Map<String, dynamic>>> _linkSubs = [];
   bool _opponentGone = false;
   bool _leaving = false;
-  bool _rematchAsked = false;
-  bool _rematchOffered = false;
+
+  /// 방장인가 (그러면 손님이 보낸 수가 그 손님 차례의 수인지 확인하고, 손님이 여럿이면 다른 손님들에게 전해 준다).
+  bool get _hub => widget.linkSeats != null;
+
+  /// [link]번째 연결의 손님이 지금 앉은 자리 (한 판 더 할 때마다 자리가 한 칸씩 돈다).
+  int _seatOfLink(int link) => (widget.linkSeats![link] + c.rotation) % c.players;
+
+  /// "한 판 더"를 누른 자리들 (나 포함). 사람이 모두 누르면 새 판이 시작된다.
+  final Set<int> _againSeats = {};
+  bool get _rematchAsked => _againSeats.contains(c.humanSeat);
+  bool get _rematchOffered => _againSeats.any((s) => s != c.humanSeat);
+
+  void _sendAll(Map<String, dynamic> m, {int? except}) {
+    final links = _links;
+    for (var i = 0; i < links.length; i++) {
+      if (i != except) links[i].send(m);
+    }
+  }
+
+  /// 타일 소리 (패를 뽑거나, 놓거나, 옮길 때의 "딸깍").
+  RkTileSound? _tileSound;
 
   @override
   void initState() {
     super.initState();
+    if (RummikubScreen.playSounds) _tileSound = RkTileSound()..load();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
-    final link = _link;
-    if (link != null) {
-      c.onLocalMove = (move) => link.send({'t': 'move', ...move});
-      c.onLocalLive = (live) => link.send({'t': 'live', ...live}); // (판을 만질 때마다 상대 화면에 실시간으로 보인다)
-      _linkSub = link.messages.listen(_onNet);
-      link.closed.then((_) => _onLinkClosed());
+    final links = _links;
+    if (links.isNotEmpty) {
+      c.onLocalMove = (move) => _sendAll({'t': 'move', ...move});
+      c.onLocalLive = (live) => _sendAll({'t': 'live', ...live}); // (판을 만질 때마다 상대 화면에 실시간으로 보인다)
+      c.onDesync = _desync;
+      for (var i = 0; i < links.length; i++) {
+        final from = i;
+        _linkSubs.add(links[i].messages.listen((m) => _onNet(from, m)));
+        links[i].closed.then((_) => _onLinkClosed());
+      }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       c.start();
@@ -91,10 +145,12 @@ class _RummikubScreenState extends State<RummikubScreen> {
   void dispose() {
     _turnTimer?.cancel();
     _hoverTarget.dispose();
+    _tileSound?.dispose();
     _leaving = true;
-    _linkSub?.cancel();
-    final link = _link;
-    if (link != null) {
+    for (final s in _linkSubs) {
+      s.cancel();
+    }
+    for (final link in _links) {
       link.send(const {'t': 'bye'});
       link.close();
     }
@@ -102,22 +158,33 @@ class _RummikubScreenState extends State<RummikubScreen> {
     c.onFeedback = null;
     c.onLocalMove = null;
     c.onLocalLive = null;
+    c.onDesync = null;
     c.dispose();
     super.dispose();
   }
 
-  void _onNet(Map<String, dynamic> m) {
+  void _onNet(int from, Map<String, dynamic> m) {
     if (!mounted) return;
+    // 방장은 보낸 손님의 자리도 알려서, 그 손님 차례의 수인지 확인하게 한다
+    final fromSeat = _hub ? _seatOfLink(from) : null;
     switch (m['t']) {
       case 'move':
-        if (!c.receiveMove(m)) _desync();
+        if (!c.receiveMove(m, fromSeat: fromSeat)) {
+          _desync();
+        } else if (_hub) {
+          _sendAll(m, except: from);
+        }
       case 'live':
-        c.receiveLive(m); // (맞지 않는 내용은 조용히 버린다 — 끝낼 때 오는 수가 진짜다)
+        // (맞지 않는 내용은 조용히 버린다 — 끝낼 때 오는 수가 진짜다)
+        if (c.receiveLive(m, fromSeat: fromSeat) && _hub) _sendAll(m, except: from);
       case 'resign':
         _onOpponentResigned();
       case 'again':
-        setState(() => _rematchOffered = true);
-        if (_rematchAsked) _startRematch();
+        final seat = _hub ? _seatOfLink(from) : (m['seat'] is int ? m['seat'] as int : (c.players == 2 ? 1 - c.humanSeat : null));
+        if (seat == null || seat < 0 || seat >= c.players) return;
+        setState(() => _againSeats.add(seat));
+        if (_hub) _sendAll({'t': 'again', 'seat': seat}, except: from);
+        _checkRematch();
       case 'bye':
         _onLinkClosed();
     }
@@ -126,9 +193,11 @@ class _RummikubScreenState extends State<RummikubScreen> {
   Future<void> _desync() async {
     if (_opponentGone || _leaving) return;
     _opponentGone = true;
-    await _link?.close();
+    for (final link in _links) {
+      await link.close();
+    }
     if (!mounted) return;
-    await _notice('판이 서로 어긋났어요', '두 기기의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
+    await _notice('판이 서로 어긋났어요', '기기들의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -157,6 +226,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     if (c.isOver || c.halted) return;
     c.opponentResigned();
     _resultHandled = true;
+    WinSound.play(context); // 이겼을 때 "짜잔"
     await _record(winner: c.humanSeat, resigned: true);
     if (!mounted) return;
     final again = await showDialog<bool>(
@@ -183,16 +253,14 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   void _requestRematch() {
     if (_rematchAsked || _opponentGone) return;
-    setState(() => _rematchAsked = true);
-    _link?.send(const {'t': 'again'});
-    if (_rematchOffered) _startRematch();
+    setState(() => _againSeats.add(c.humanSeat));
+    _sendAll({'t': 'again', 'seat': c.humanSeat});
+    _checkRematch();
   }
 
-  void _startRematch() {
-    setState(() {
-      _rematchAsked = false;
-      _rematchOffered = false;
-    });
+  void _checkRematch() {
+    if (_againSeats.length < c.humans) return;
+    setState(_againSeats.clear);
     _resultHandled = false;
     c.restart();
   }
@@ -214,7 +282,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
   }
 
   void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
+    final settings = SettingsScope.of(context);
+    // 패를 뽑거나('draw'), 놓거나 옮길 때('place'), 상대가 패를 옮길 때('step') 딸깍 소리가 난다
+    if (settings.sound && (kind == 'place' || kind == 'draw' || kind == 'step')) _tileSound?.play();
+    if (!settings.haptics) return;
     switch (kind) {
       case 'turn':
         HapticFeedback.mediumImpact();
@@ -339,6 +410,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
   /// 내가 이기면 색종이가 쏟아지고 "승리!" 현판이 튀어 오르며 진동이 길게 울린다.
   void _celebrateWin() {
     if (!c.animate || !mounted) return;
+    WinSound.play(context); // 이겼을 때 "짜잔"
     setState(() => _celebrate = true);
     if (SettingsScope.of(context).haptics) {
       HapticFeedback.heavyImpact();
@@ -349,7 +421,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   String _name(int seat) {
     if (seat == c.humanSeat) return '나';
-    if (c.online) return _link?.peerNick ?? '상대';
+    final given = widget.names;
+    // (이름표는 처음 앉은 자리 기준이라, 한 판 더 해서 자리가 돈 만큼 되돌려 찾는다)
+    if (c.online && given != null && given.length == c.players) return given[(seat - c.rotation) % c.players];
+    if (c.online) return _links.isEmpty ? '상대' : _links.first.peerNick;
     return 'CPU ${seat < c.humanSeat ? seat + 1 : seat}';
   }
 
@@ -358,7 +433,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     final ok = await confirmGiveUp(context, detail: c.vsCpu ? 'CPU의 승리로 기록돼요.' : '상대의 승리로 기록돼요.', retry: false, verb: '기권');
     if (!ok || !mounted || !c.resign()) return;
     _resultHandled = true;
-    _link?.send(const {'t': 'resign'});
+    _sendAll(const {'t': 'resign'});
     await _record(winner: (c.humanSeat + 1) % c.players, resigned: true);
     if (!mounted) return;
     final again = await showGaveUpDialog(
@@ -524,7 +599,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(me ? Icons.person_rounded : (c.online ? Icons.wifi_rounded : Icons.smart_toy_rounded), size: 15, color: color),
+                Icon(me ? Icons.person_rounded : (c.isCpuSeat(seat) || !c.online ? Icons.smart_toy_rounded : Icons.wifi_rounded), size: 15, color: color),
                 const SizedBox(width: 4),
                 Text(_name(seat), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: color)),
                 if (c.isOver) ...[

@@ -25,13 +25,29 @@ class RummikubController extends ChangeNotifier {
     this.level = RkLevel.normal,
     int? seed,
     this.animate = true,
+    Iterable<int>? cpuSeats,
+    this.cpuHost = false,
   }) : seed = seed ?? Random().nextInt(1 << 30) {
-    assert(mode == PlayMode.vsCpu || (mode == PlayMode.wifi && players == 2));
+    assert(mode == PlayMode.vsCpu || (mode == PlayMode.wifi && players >= 2 && players <= 4));
+    // CPU 대결은 나 말고 모두 CPU다. 같은 Wi‑Fi 방에서는 [cpuSeats]에 든 자리들이 CPU다.
+    this.cpuSeats = {...?cpuSeats};
+    if (mode == PlayMode.vsCpu && cpuSeats == null) {
+      this.cpuSeats.addAll([for (var p = 0; p < players; p++) if (p != humanSeat) p]);
+    }
     _deal();
   }
 
   final PlayMode mode;
   final int players;
+
+  /// CPU가 앉은 자리들. 한 판 더 할 때마다 사람과 함께 한 칸씩 돈다.
+  late final Set<int> cpuSeats;
+
+  /// 같은 Wi‑Fi 방에서 CPU의 수를 이 기기가 정해서 다른 기기들에 알리는가 (방을 연 기기만).
+  final bool cpuHost;
+
+  /// 한 판 더 한 횟수 (자리가 이만큼 돌았다).
+  int rotation = 0;
 
   /// CPU와 상대 기기의 수를 타일을 한 장씩 옮기는 모습으로 보여 주는가 (시험에서는 끄고 한 번에 반영한다).
   final bool animate;
@@ -45,6 +61,17 @@ class RummikubController extends ChangeNotifier {
 
   bool get vsCpu => mode == PlayMode.vsCpu;
   bool get online => mode == PlayMode.wifi;
+
+  bool isCpuSeat(int seat) => cpuSeats.contains(seat);
+
+  /// 이 기기가 CPU의 수를 정하는가 (CPU 대결, 또는 CPU가 낀 Wi‑Fi 방의 방장).
+  bool get runsCpu => cpuSeats.isNotEmpty && (vsCpu || cpuHost);
+
+  /// 판에 앉은 사람 수 (CPU 빼고).
+  int get humans => players - cpuSeats.length;
+
+  /// 다른 기기에서 온 수가 어긋났을 때 (대기열에 있던 수를 나중에 적용하다 알게 된 경우).
+  void Function()? onDesync;
 
   late RkState state;
 
@@ -122,6 +149,7 @@ class RummikubController extends ChangeNotifier {
   bool get canArrange => !isOver && !halted;
 
   void _deal() {
+    _queuedMoves.clear();
     state = RkState.deal(players, seed);
     moveCount = 0;
     hand = [...state.racks[humanSeat]]..sort(compareByColor);
@@ -150,6 +178,11 @@ class RummikubController extends ChangeNotifier {
     _cpu.cancel();
     seed = nextSeed(seed);
     humanSeat = (humanSeat + 1) % players;
+    rotation++;
+    final rotated = {for (final s in cpuSeats) (s + 1) % players};
+    cpuSeats
+      ..clear()
+      ..addAll(rotated);
     halted = false;
     _deal();
     notifyListeners();
@@ -208,6 +241,7 @@ class RummikubController extends ChangeNotifier {
     if (at < 0) at = hand.length;
     hand.insertAll(at, order);
     selected.clear();
+    onFeedback?.call('place');
     notifyListeners();
   }
 
@@ -485,6 +519,7 @@ class RummikubController extends ChangeNotifier {
     }
     work.removeWhere((s) => s.isEmpty);
     selected.clear();
+    onFeedback?.call('place');
     notifyListeners();
   }
 
@@ -611,8 +646,9 @@ class RummikubController extends ChangeNotifier {
 
   /// 상대가 이번 차례에 판을 만지는 모습을 받는다: 그대로 내 화면의 판에 보여 준다 (끝낼 때 오는 수와는 따로, 보여 주기만 한다).
   /// 맞지 않는 내용은 조용히 버린다. 받았으면 true.
-  bool receiveLive(Map<String, dynamic> m) {
+  bool receiveLive(Map<String, dynamic> m, {int? fromSeat}) {
     if (!online || isOver || halted || turn == humanSeat || _animating) return false;
+    if (fromSeat != null && fromSeat != turn) return false;
     if (m['i'] != moveCount) return false;
     final rawSets = m['sets'];
     if (rawSets is! List) return false;
@@ -652,8 +688,16 @@ class RummikubController extends ChangeNotifier {
   // ── 상대 기기의 수 (Wi‑Fi 대결) ──
 
   /// 상대 기기에서 온 수를 둔다. 순서가 어긋났거나 규칙에 안 맞는 수면 false (그러면 판이 어긋난 것이다).
-  bool receiveMove(Map<String, dynamic> m) {
-    if (!online || isOver || halted || turn == humanSeat) return false;
+  ///
+  /// 방장은 손님이 보낸 수를 받을 때 그 손님의 자리 [fromSeat]를 알려 준다 (그 손님 차례의 수여야 한다).
+  /// 앞선 수를 아직 한 장씩 보여 주는 중이면 대기열에 두었다가, 다 보여 준 뒤에 적용한다.
+  bool receiveMove(Map<String, dynamic> m, {int? fromSeat}) {
+    if (!online || isOver || halted) return false;
+    if (_animating) {
+      _queuedMoves.add((m: m, fromSeat: fromSeat));
+      return true;
+    }
+    if (turn == humanSeat || (fromSeat != null && fromSeat != turn)) return false;
     if (m['i'] != moveCount) return false;
     if (m['draw'] == 1) {
       final pick = m['pick'];
@@ -685,16 +729,31 @@ class RummikubController extends ChangeNotifier {
       _liveActive = false;
       flying.clear();
       _applyPlay(table);
+      _maybeCpu();
       return true;
     }
     _playOpponent(table: table);
     return true;
   }
 
+  /// 앞선 수를 보여 주는 동안 도착한 다른 기기의 수들 (보여 주기가 끝나면 차례로 적용한다).
+  final List<({Map<String, dynamic> m, int? fromSeat})> _queuedMoves = [];
+
+  void _drainQueued() {
+    while (!_animating && _queuedMoves.isNotEmpty && !_cpu.disposed) {
+      final next = _queuedMoves.removeAt(0);
+      if (!receiveMove(next.m, fromSeat: next.fromSeat)) {
+        _queuedMoves.clear();
+        onDesync?.call();
+        return;
+      }
+    }
+  }
+
   // ── CPU ──
 
   void _maybeCpu() {
-    if (_cpu.disposed || !vsCpu || isOver || halted || turn == humanSeat) return;
+    if (_cpu.disposed || !runsCpu || isOver || halted || !isCpuSeat(turn)) return;
     _cpuTurn();
   }
 
@@ -713,9 +772,12 @@ class RummikubController extends ChangeNotifier {
     );
     if (plan == null) return;
     if (plan.isEmpty || state.checkPlay(plan) != null) {
-      await _playOpponent(pick: state.pool.isEmpty ? null : _rng.nextInt(state.pool.length), draw: true);
+      final pick = state.pool.isEmpty ? null : _rng.nextInt(state.pool.length);
+      if (online) onLocalMove?.call({'i': moveCount, 'draw': 1, 'pick': ?pick}); // (같은 Wi‑Fi 방이면 CPU의 수도 다른 기기들에 알린다)
+      await _playOpponent(pick: pick, draw: true, fromCpu: true);
     } else {
-      await _playOpponent(table: plan);
+      if (online) onLocalMove?.call({'i': moveCount, 'table': plan});
+      await _playOpponent(table: plan, fromCpu: true);
     }
     _maybeCpu();
   }
@@ -724,10 +786,11 @@ class RummikubController extends ChangeNotifier {
 
   /// 상대(CPU·다른 기기)의 차례를 반영한다. 판 위에서는 타일을 한 장씩 끌어다 놓는 모습으로, 타일을 뽑을 때는 바닥의 한 장을 들어 올리는
   /// 모습으로 보여 준 뒤 실제 판에 적용한다. [animate]가 꺼져 있으면 바로 적용한다.
-  Future<void> _playOpponent({List<List<int>>? table, int? pick, bool draw = false}) async {
+  Future<void> _playOpponent({List<List<int>>? table, int? pick, bool draw = false, bool fromCpu = false}) async {
     final isDraw = table == null;
     if (!animate) {
       _finishOpponent(table, pick);
+      if (!fromCpu) _maybeCpu(); // (CPU의 수 뒤에는 CPU 쪽에서 이어 간다)
       return;
     }
     final epoch = ++_animEpoch;
@@ -741,11 +804,13 @@ class RummikubController extends ChangeNotifier {
       for (final step in steps) {
         if (_cpu.disposed || epoch != _animEpoch) return;
         step();
+        onFeedback?.call('step'); // (상대가 타일을 한 장 옮길 때마다 딸깍 소리)
         notifyListeners();
         await Future<void>.delayed(Duration(milliseconds: ms));
       }
     } else if (isDraw && pick != null && pick < state.pool.length) {
       opponentPick = state.pool[pick];
+      onFeedback?.call('step');
       notifyListeners();
       await Future<void>.delayed(stepDelay * 1.4);
     }
@@ -754,6 +819,8 @@ class RummikubController extends ChangeNotifier {
     opponentPick = null;
     flying.clear();
     _finishOpponent(table, pick);
+    _drainQueued(); // (보여 주는 동안 도착한 다른 기기의 수가 있으면 이어서 보여 준다)
+    if (!fromCpu) _maybeCpu();
   }
 
   void _finishOpponent(List<List<int>>? table, int? pick) {
@@ -820,12 +887,14 @@ class RummikubController extends ChangeNotifier {
 
   // ── 기권 ──
 
-  bool get canResign => !isOver && !halted && moveCount > 0;
+  /// 기권할 수 있는가. 3~4명이 Wi‑Fi로 할 때는 누가 이기는 건지 정할 수 없어 기권이 없다.
+  bool get canResign => !isOver && !halted && moveCount > 0 && (vsCpu || players == 2);
 
   /// 기권한다. CPU가 생각 중이었으면 그 수는 버린다.
   bool resign() {
     if (!canResign) return false;
     _cpu.cancel();
+    _queuedMoves.clear();
     _animEpoch++;
     _animating = false;
     flying.clear();
@@ -839,6 +908,7 @@ class RummikubController extends ChangeNotifier {
   /// 상대가 기권했다는 소식을 받았다 (Wi‑Fi 대결).
   void opponentResigned() {
     if (!online || isOver || halted) return;
+    _queuedMoves.clear();
     _animEpoch++;
     _animating = false;
     flying.clear();

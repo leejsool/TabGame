@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -229,6 +230,8 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
+      final winner = c.state.winner;
+      if (winner != null && (!c.oneSeat || winner == c.humanSide)) WinSound.play(context); // 이겼을 때 "짜잔"
       final sc = c.state.scores();
       ProphHistory.add(ProphRecord(
         at: DateTime.now().millisecondsSinceEpoch,

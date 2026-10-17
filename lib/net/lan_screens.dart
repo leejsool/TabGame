@@ -17,6 +17,9 @@ import 'lan_discovery.dart';
 /// 방을 만드는 쪽이 "내 쪽"을 상대가 들어올 때 무작위로 정하겠다고 할 때의 값.
 const int kRandomSide = -1;
 
+/// 방 크기 글: CPU가 없으면 "3명", 있으면 "4명 (사람 3 + CPU 1)".
+String roomSizeText(int players, int cpus) => cpus > 0 ? '$players명 (사람 ${players - cpus} + CPU $cpus)' : '$players명';
+
 /// 같은 Wi‑Fi 안에서 이 기기를 가리키는 짧은 "방 번호": 주소의 마지막 숫자 (예: 192.168.0.37 → 37).
 /// 방 목록에 방이 안 떠도 이 번호만 입력하면 들어갈 수 있다. (주소가 없으면 null)
 String? roomNumberOf(List<String> addresses) => addresses.isEmpty ? null : addresses.first.split('.').last;

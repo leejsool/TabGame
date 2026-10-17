@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../tutorial/solitaire_tutorial.dart';
 import '../data/solitaire_storage.dart';
@@ -100,6 +101,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
   // ── 끝났을 때 ──
 
   Future<void> _onCompleted() async {
+    WinSound.play(context); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     final moves = c.moveCount;
     await SolitaireStorage.clearSave(c);

@@ -21,13 +21,29 @@ class QuoridorController extends ChangeNotifier {
     this.players = 2,
     this.humanSeat = 0,
     this.level = QLevel.normal,
+    Iterable<int>? cpuSeats,
+    this.cpuHost = false,
   }) {
     assert(players == 2 || players == 4);
+    // CPU 대결은 나 말고 모두 CPU다. 같은 Wi‑Fi 방에서는 [cpuSeats]에 든 자리들이 CPU다.
+    this.cpuSeats = {...?cpuSeats};
+    if (mode == PlayMode.vsCpu && cpuSeats == null) {
+      this.cpuSeats.addAll([for (var p = 0; p < players; p++) if (p != humanSeat) p]);
+    }
     _rebuild();
   }
 
   final PlayMode mode;
   final int players;
+
+  /// CPU가 앉은 자리들. 한 판 더 할 때마다 사람과 함께 한 칸씩 돈다.
+  late final Set<int> cpuSeats;
+
+  /// 같은 Wi‑Fi 방에서 CPU의 수를 이 기기가 정해서 다른 기기들에 알리는가 (방을 연 기기만).
+  final bool cpuHost;
+
+  /// 한 판 더 한 횟수 (자리가 이만큼 돌았다).
+  int rotation = 0;
 
   /// CPU 대결·Wi‑Fi 대결에서 내가 맡은 자리. 한 판 더 할 때마다 한 칸씩 돈다.
   int humanSeat;
@@ -39,7 +55,13 @@ class QuoridorController extends ChangeNotifier {
   /// 이 기기에서 한 자리만 맡는 판인가 (CPU 대결이거나 Wi‑Fi 대결).
   bool get oneSeat => vsCpu || online;
 
-  bool isCpuSeat(int seat) => vsCpu && seat != humanSeat;
+  bool isCpuSeat(int seat) => cpuSeats.contains(seat);
+
+  /// 이 기기가 CPU의 수를 정하는가 (CPU 대결, 또는 CPU가 낀 Wi‑Fi 방의 방장).
+  bool get runsCpu => cpuSeats.isNotEmpty && (vsCpu || cpuHost);
+
+  /// 판에 앉은 사람 수 (CPU 빼고).
+  int get humans => players - cpuSeats.length;
 
   /// 내가 둔 수를 알린다 (Wi‑Fi 대결에서 상대에게 보내려고).
   void Function(int move)? onLocalMove;
@@ -143,7 +165,14 @@ class QuoridorController extends ChangeNotifier {
 
   /// 새 판. [rotate]가 true면 내 자리가 한 칸 돈다 (CPU·Wi‑Fi 대결의 한 판 더).
   void restart({bool rotate = false}) {
-    if (rotate && oneSeat) humanSeat = (humanSeat + 1) % players;
+    if (rotate && oneSeat) {
+      humanSeat = (humanSeat + 1) % players;
+      rotation++;
+      final rotated = {for (final s in cpuSeats) (s + 1) % players};
+      cpuSeats
+        ..clear()
+        ..addAll(rotated);
+    }
     halted = false;
     moves.clear();
     _clearPick();
@@ -273,7 +302,7 @@ class QuoridorController extends ChangeNotifier {
   // ── CPU ──
 
   void _maybeCpu() {
-    if (_cpu.disposed || !vsCpu || isOver || halted || !isCpuSeat(turn)) return;
+    if (_cpu.disposed || !runsCpu || isOver || halted || !isCpuSeat(turn)) return;
     _cpuTurn();
   }
 
@@ -286,6 +315,7 @@ class QuoridorController extends ChangeNotifier {
     );
     if (move == null) return;
     _apply(move);
+    if (online) onLocalMove?.call(move); // (같은 Wi‑Fi 방이면 CPU의 수도 다른 기기들에 알린다)
     _next();
   }
 

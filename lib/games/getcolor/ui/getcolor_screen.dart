@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
 import '../../../core/give_up.dart';
+import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../data/getcolor_storage.dart';
 import '../game/getcolor_controller.dart';
@@ -125,6 +126,7 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
   // ── 끝났을 때 ──
 
   Future<void> _onWon() async {
+    WinSound.play(context); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     final moves = c.moveCount;
     await GetColorStorage.clearSave(c);

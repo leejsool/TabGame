@@ -20,13 +20,29 @@ class DavinciController extends ChangeNotifier {
     this.level = DvLevel.normal,
     int? seed,
     bool? animate,
+    Iterable<int>? cpuSeats,
+    this.cpuHost = false,
   })  : seed = seed ?? Random().nextInt(1 << 30),
         animate = animate ?? animateByDefault {
+    // CPU 대결은 나 말고 모두 CPU다. 같은 Wi‑Fi 방에서는 [cpuSeats]에 든 자리들이 CPU다.
+    this.cpuSeats = {...?cpuSeats};
+    if (mode == PlayMode.vsCpu && cpuSeats == null) {
+      this.cpuSeats.addAll([for (var p = 0; p < players; p++) if (p != humanSeat) p]);
+    }
     _deal();
   }
 
   final PlayMode mode;
   final int players;
+
+  /// CPU가 앉은 자리들. 한 판 더 할 때마다 사람과 함께 한 칸씩 돈다.
+  late final Set<int> cpuSeats;
+
+  /// 같은 Wi‑Fi 방에서 CPU의 수를 이 기기가 정해서 다른 기기들에 알리는가 (방을 연 기기만).
+  final bool cpuHost;
+
+  /// 한 판 더 한 횟수 (자리가 이만큼 돌았다).
+  int rotation = 0;
 
   /// 상대(CPU·다른 기기)가 둔 수를 한 단계씩 보여 주는 연출을 쓰는가.
   final bool animate;
@@ -60,7 +76,13 @@ class DavinciController extends ChangeNotifier {
   /// 기권으로 끝났을 때 이긴 사람 (기권이 아니면 null).
   int? resignWinner;
 
-  bool isCpuSeat(int seat) => vsCpu && seat != humanSeat;
+  bool isCpuSeat(int seat) => cpuSeats.contains(seat);
+
+  /// 이 기기가 CPU의 수를 정하는가 (CPU 대결, 또는 CPU가 낀 Wi‑Fi 방의 방장).
+  bool get runsCpu => cpuSeats.isNotEmpty && (vsCpu || cpuHost);
+
+  /// 판에 앉은 사람 수 (CPU 빼고).
+  int get humans => players - cpuSeats.length;
 
   /// 내가 한 수를 알린다 (Wi‑Fi 대결에서 다른 기기에 보내려고).
   void Function(List<int> move)? onLocalMove;
@@ -217,6 +239,11 @@ class DavinciController extends ChangeNotifier {
     _cpuRunning = false;
     seed = nextSeed(seed);
     humanSeat = (humanSeat + 1) % players;
+    rotation++;
+    final rotated = {for (final s in cpuSeats) (s + 1) % players};
+    cpuSeats
+      ..clear()
+      ..addAll(rotated);
     halted = false;
     resignWinner = null;
     _deal();
@@ -350,13 +377,14 @@ class DavinciController extends ChangeNotifier {
     if (index != null && index != moveCount) return false;
     if (!state.isLegal(move)) return false;
     _apply(move);
+    _next(); // (다음이 CPU 차례이면 방장 기기가 CPU의 수를 둔다)
     return true;
   }
 
   // ── CPU ──
 
   void _next() {
-    if (_disposed || !vsCpu || isOver || halted || !isCpuSeat(turn) || _cpuRunning) return;
+    if (_disposed || !runsCpu || isOver || halted || !isCpuSeat(turn) || _cpuRunning) return;
     _cpuLoop();
   }
 
@@ -367,11 +395,17 @@ class DavinciController extends ChangeNotifier {
     notifyListeners();
     while (!_disposed && epoch == _epoch && !isOver && !halted && isCpuSeat(turn)) {
       await Future<void>.delayed(cpuStepDelay);
-      if (_disposed || epoch != _epoch || isOver || halted) break;
+      await _effectsIdle(); // (직전에 다른 사람이 둔 수를 다 보여 준 뒤에 둔다)
+      if (_disposed || epoch != _epoch || isOver || halted || !isCpuSeat(turn)) break;
       final move = DvAi.choose(state, level, _rng);
       _apply(move);
+      if (online) onLocalMove?.call(move); // (같은 Wi‑Fi 방이면 CPU의 수도 다른 기기들에 알린다)
       // 조커를 뽑았으면 자리도 바로 정한다 (보는 사람에게는 뽑기 하나로 보인다)
-      if (state.phase == DvPhase.placeJoker && isCpuSeat(turn)) _apply(DvAi.choose(state, level, _rng));
+      if (state.phase == DvPhase.placeJoker && isCpuSeat(turn)) {
+        final place = DvAi.choose(state, level, _rng);
+        _apply(place);
+        if (online) onLocalMove?.call(place);
+      }
       // 이 수가 어떤 수였는지 다 보여 줄 때까지 기다렸다가 다음 수를 둔다
       await _effectsIdle();
     }
