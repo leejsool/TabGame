@@ -74,6 +74,14 @@ void main() {
     c3.selectTarget(1, 1);
     await pumpHome(DavinciScreen(players: 3, controller: c3));
     await _shot(tester, key, '$dir/game3_phone.png');
+    // 탭 S9 FE 크기 (세로·가로), 4명 판(가장 긴 화면)도
+    for (final (players, size) in const [(3, Size(800, 1280)), (3, Size(1280, 800)), (4, Size(800, 1280))]) {
+      final ct = midgame(players)
+        ..draw(0)
+        ..selectTarget(1, 1);
+      await pumpHome(DavinciScreen(players: players, controller: ct), size: size);
+      await _shot(tester, key, '$dir/game${players}_tab_${size.width.toInt()}x${size.height.toInt()}.png');
+    }
     // 상대(CPU)가 내 타일을 맞히는 연출: 추측 중(떠오름 + 말풍선) → 결과
     DavinciController fx() {
       final c = DavinciController(mode: PlayMode.wifi, humanSeat: 0, seed: 5, animate: true)..cpuStepDelay = const Duration(seconds: 1);

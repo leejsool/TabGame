@@ -9,6 +9,7 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
+import '../../../core/tablet_scale.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
 import '../core/davinci_ai.dart';
@@ -686,19 +687,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
   Widget _scaffold() {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: Stack(
-        key: _stackKey,
-        children: [
-          Positioned.fill(child: _scaffoldBody(dark)),
-          if (_fly == null && _hovering) _hoverOverlay(),
-          if (_fly != null) _flyOverlay(),
-        ],
-      ),
-    );
-  }
-
-  Widget _scaffoldBody(bool dark) {
-    return DecoratedBox(
+      body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -707,41 +696,56 @@ class _DavinciScreenState extends State<DavinciScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              _topBar(),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 720),
-                    child: ListenableBuilder(
-                      listenable: c,
-                      builder: (context, _) => SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _statusBanner(),
-                            const SizedBox(height: 8),
-                            for (var seat = 0; seat < c.players; seat++)
-                              if (seat != c.humanSeat) ...[_playerRow(seat), const SizedBox(height: 8)],
-                            if (!c.showOver && !c.halted) ...[_pilesStrip(), const SizedBox(height: 8)],
-                            _actionPanel(),
-                            const SizedBox(height: 8),
-                            _playerRow(c.humanSeat),
-                            const SizedBox(height: 8),
-                            if (c.showOver) _resultPanel() else _bottomBar(),
-                          ],
-                        ),
-                      ),
-                    ),
+          // 태블릿에서는 폰 배치를 통째로 키워 화면을 채운다 (날아가는 타일도 함께 커진다)
+          child: TabletScale(
+            child: Stack(
+              key: _stackKey,
+              children: [
+                Positioned.fill(child: _scaffoldBody()),
+                if (_fly == null && _hovering) _hoverOverlay(),
+                if (_fly != null) _flyOverlay(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _scaffoldBody() {
+    return Column(
+      children: [
+        _topBar(),
+        Expanded(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: ListenableBuilder(
+                listenable: c,
+                builder: (context, _) => SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _statusBanner(),
+                      const SizedBox(height: 8),
+                      for (var seat = 0; seat < c.players; seat++)
+                        if (seat != c.humanSeat) ...[_playerRow(seat), const SizedBox(height: 8)],
+                      if (!c.showOver && !c.halted) ...[_pilesStrip(), const SizedBox(height: 8)],
+                      _actionPanel(),
+                      const SizedBox(height: 8),
+                      _playerRow(c.humanSeat),
+                      const SizedBox(height: 8),
+                      if (c.showOver) _resultPanel() else _bottomBar(),
+                    ],
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
+      ],
     );
   }
 

@@ -9,6 +9,7 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
+import '../../../core/tablet_scale.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
 import '../core/rummikub_ai.dart';

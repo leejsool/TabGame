@@ -53,9 +53,6 @@ double rkTabletTableTileSize(double inner, {double target = 34.0 * kTabletTileSc
   return best ?? (inner / rkRowUnitsFor3(1)).clamp(20.0, target).floorToDouble();
 }
 
-/// 이 기기를 태블릿으로 보는 화면의 짧은 쪽 길이 (논리 픽셀).
-const double kTabletMinSide = 600;
-
 /// 타일 크기를 정할 때 쓰는 묶음 사이 여유 (칸). 예전 여백 값으로 고정해 두어, [kSetPad]를 바꿔도 타일 크기는 변하지 않는다.
 const double _kTileFitPad = 0.6;
 

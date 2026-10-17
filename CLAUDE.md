@@ -25,6 +25,7 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 | History storage | `lib/core/json_history.dart` (`JsonHistoryStore`; record needs `toJson`/`fromJson`) |
 | Versus setup / CPU / records | `VsSetupScaffold`, `VsChoiceCard`, `VsLevelPicker`; `CpuTurnRunner`; `VsRecordsBoard` |
 | Playing cards | `lib/games/freecell/ui/playing_card.dart`, looks in `lib/core/card_look.dart` |
+| Phone layout looks small on a tablet | `lib/core/tablet_scale.dart` (`TabletScale` scales the whole screen; `kTabletMinSide`) |
 | Big win celebration | `lib/games/freecell/ui/win_celebration.dart` (cards), `lib/games/rummikub/ui/rummikub_celebration.dart` (general) |
 If two games need the same widget, move it to a shared folder instead of copying it.
 
