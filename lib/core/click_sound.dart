@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 /// 버튼을 누를 때 나는 "딸깍" 소리 (assets/sfx/click.wav).
 ///
 /// 앱 테마의 물결(splash) 효과를 이 소리가 나는 것으로 바꿔 두면, 머티리얼 버튼·아이콘 버튼·목록 항목 등
-/// 눌러서 쓰는 거의 모든 단추가 따로 손대지 않아도 한 번 눌릴 때마다 소리를 낸다. (누르고 끌어서 취소한 건 소리가 나지 않는다)
+/// 눌러서 쓰는 거의 모든 단추가 따로 손대지 않아도 눌리는 순간 소리를 낸다.
+/// (손가락을 뗄 때가 아니라 닿는 순간에 내야 늦지 않다. 스크롤 목록 안에서는 Flutter가 닿은 지 0.1초가 지나거나
+/// 누르기로 정해진 뒤에야 알려 주므로, 바로 끌어서 스크롤하면 소리가 나지 않는다.)
 /// 설정의 "효과음"을 끄면 나지 않는다.
 class ClickSound {
   ClickSound._();
@@ -76,7 +78,7 @@ class ClickSound {
   }
 }
 
-/// 눌러서 확정될 때([InkRipple.confirm]) 딸깍 소리를 내는 물결 효과. 모양은 보통 물결 효과([InkRipple])와 같다.
+/// 눌리는 순간(물결이 생길 때) 딸깍 소리를 내는 물결 효과. 모양은 보통 물결 효과([InkRipple])와 같다.
 class ClickSplashFactory extends InteractiveInkFeatureFactory {
   const ClickSplashFactory();
 
@@ -123,11 +125,7 @@ class _ClickRipple extends InkRipple {
     super.customBorder,
     super.radius,
     super.onRemoved,
-  });
-
-  @override
-  void confirm() {
+  }) {
     ClickSound.play();
-    super.confirm();
   }
 }

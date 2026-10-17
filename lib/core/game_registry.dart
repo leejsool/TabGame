@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../games/dandelion/dandelion_entry.dart';
+import '../games/dotcannon/dotcannon_entry.dart';
+import '../games/dotcannon/tutorial/dot_tutorial.dart';
+import '../games/dotcannon/ui/dot_records_tab.dart';
 import '../games/davinci/davinci_entry.dart';
 import '../games/davinci/tutorial/davinci_tutorial.dart';
 import '../games/davinci/ui/davinci_records_tab.dart';
@@ -129,6 +132,18 @@ const List<GameInfo> allGames = [
     tutorial: getColorTutorial,
     iconPainter: paintGetColorIcon,
     recordsTab: GetColorRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'dot_cannon',
+    title: '도트 캐논',
+    tagline: '대포로 도트 그림을 지워요',
+    icon: Icons.grid_view_rounded,
+    color: Color(0xFF2F8FDB),
+    modes: [PlayMode.solo],
+    builder: buildDotCannon,
+    tutorial: dotTutorial,
+    iconPainter: paintDotCannonIcon,
+    recordsTab: DotRecordsTab.new,
   ),
   GameInfo(
     id: 'rhythm_swords',

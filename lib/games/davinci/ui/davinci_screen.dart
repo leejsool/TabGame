@@ -474,6 +474,85 @@ class _DavinciScreenState extends State<DavinciScreen> {
       _resultHandled = false;
     }
     if (!c.online) _autosave();
+    // 사람이 모두 탈락해서 CPU끼리 순위만 가리는 중이면, 계속 볼지 끝낼지 한 번 묻는다
+    if (c.humansAllOut && !c.watchPrompted) {
+      c.watchPrompted = true;
+      if (!c.online) c.cpuHold = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _askWatchOrEnd());
+    }
+  }
+
+  /// 내 타일이 모두 공개돼 탈락했고 CPU끼리만 남았다: 끝까지 지켜볼지, 여기서 끝낼지 고른다.
+  Future<void> _askWatchOrEnd() async {
+    if (!mounted || c.isOver || c.halted) {
+      c.cpuHold = false;
+      return;
+    }
+    final left = c.state.alive;
+    final host = c.online && _hub;
+    final end = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => ListenableBuilder(
+        listenable: c,
+        builder: (ctx, _) {
+          // 기다리는 사이 판이 끝나 버렸으면(다른 기기에서 이어지는 Wi‑Fi 판) 창을 닫는다
+          if (c.isOver || c.halted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              // (이미 닫히는 중인 창이면 건드리지 않는다: 그러면 그 뒤에 뜬 화면이 대신 닫혀 버린다)
+              if (ctx.mounted && (ModalRoute.of(ctx)?.isCurrent ?? false)) Navigator.pop(ctx);
+            });
+          }
+          return AlertDialog(
+            icon: const Icon(Icons.visibility_rounded, size: 32),
+            title: const Text('내 타일이 모두 공개됐어요', textAlign: TextAlign.center),
+            content: Text(
+              '탈락했어요. 이제 남은 CPU $left명이 순위를 가리는 일만 남았어요.\n끝까지 지켜볼까요, 여기서 끝낼까요?'
+              '${host ? '\n\n(방을 만든 기기에서 끝내면 다른 기기의 판도 끝나요)' : ''}',
+              textAlign: TextAlign.center,
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actionsOverflowAlignment: OverflowBarAlignment.center,
+            actions: [
+              TextButton(key: const ValueKey('dv-end-game'), onPressed: () => Navigator.pop(ctx, true), child: const Text('게임 끝내기')),
+              FilledButton(key: const ValueKey('dv-keep-watching'), onPressed: () => Navigator.pop(ctx, false), child: const Text('계속 지켜보기')),
+            ],
+          );
+        },
+      ),
+    );
+    c.cpuHold = false;
+    if (end != true || !mounted || c.isOver || c.halted) return;
+    if (!c.endWatching()) return;
+    // 내가 탈락했으니 졌다. 이긴 쪽은 그때 숨은 타일이 가장 많이 남은 CPU로 기록한다
+    _resultHandled = true;
+    await _record(winner: c.resignWinner!);
+    if (!mounted) return;
+    if (c.online) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final again = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.flag_rounded, size: 32),
+        title: const Text('게임을 끝냈어요', textAlign: TextAlign.center),
+        content: Text('CPU ${c.level.label} · ${c.state.turnCount}차례\n내가 탈락해서 진 것으로 기록했어요.', textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('메뉴로')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('새 판')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (again ?? false) {
+      _resultHandled = false;
+      c.restart();
+    } else {
+      Navigator.of(context).pop();
+    }
   }
 
   /// 수를 둘 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
@@ -539,6 +618,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
       final w = s.winner!;
       return w == c.humanSeat ? '이겼어요! 🎉' : '${_name(w)}이(가) 이겼어요';
     }
+    if (c.endedWatching) return '탈락해서 게임을 끝냈어요';
     if (c.halted) {
       final w = c.resignWinner;
       return w == c.humanSeat ? '상대가 기권해서 이겼어요! 🎉' : '기권했어요';

@@ -123,7 +123,31 @@ class DavinciController extends ChangeNotifier {
   /// 기권으로 끝났을 때 이긴 사람 (기권이 아니면 null).
   int? resignWinner;
 
+  /// 사람이 모두 탈락한 뒤 "여기서 끝내기"를 골라서 멈춘 판인가 ([halted]도 함께 true다).
+  bool endedWatching = false;
+
+  /// 사람이 모두 탈락했을 때 계속 볼지 끝낼지 이미 물어봤는가 (판마다 한 번만 묻는다).
+  bool watchPrompted = false;
+
   bool isCpuSeat(int seat) => cpuSeats.contains(seat);
+
+  /// 사람(CPU가 아닌 자리)이 모두 탈락해서 CPU끼리 순위만 가리는 중인가.
+  /// 판이 끝나지 않았고 CPU가 둘 이상 남아 있다. (마지막으로 맞힌 추측의 ○ 연출이 끝나기 전에는 아직 아니다)
+  bool get humansAllOut => !effectsPending && _humansOutNow;
+
+  bool get _humansOutNow {
+    if (isOver || halted || cpuSeats.isEmpty) return false;
+    var humanSeats = 0;
+    for (var p = 0; p < players; p++) {
+      if (isCpuSeat(p)) continue;
+      humanSeats++;
+      if (!state.isOut(p)) return false;
+    }
+    return humanSeats > 0;
+  }
+
+  /// 사람에게 계속 볼지 끝낼지 묻는 동안 CPU가 수를 두지 않고 기다린다 (CPU 대결에서만 쓴다).
+  bool cpuHold = false;
 
   /// 이 기기가 CPU의 수를 정하는가 (CPU 대결, 또는 CPU가 낀 Wi‑Fi 방의 방장).
   bool get runsCpu => cpuSeats.isNotEmpty && (vsCpu || cpuHost);
@@ -292,6 +316,8 @@ class DavinciController extends ChangeNotifier {
       ..clear()
       ..addAll(rotated);
     halted = false;
+    endedWatching = false;
+    watchPrompted = false;
     resignWinner = null;
     _deal();
     moveSerial++;
@@ -443,6 +469,9 @@ class DavinciController extends ChangeNotifier {
     while (!_disposed && epoch == _epoch && !isOver && !halted && isCpuSeat(turn)) {
       await Future<void>.delayed(cpuStepDelay);
       await _effectsIdle(); // (직전에 다른 사람이 둔 수를 다 보여 준 뒤에 둔다)
+      while (cpuHold && !_disposed && epoch == _epoch) {
+        await Future<void>.delayed(const Duration(milliseconds: 100)); // (사람이 고르는 동안 기다린다)
+      }
       if (_disposed || epoch != _epoch || isOver || halted || !isCpuSeat(turn)) break;
       final move = DvAi.choose(state, level, _rng);
       _apply(move);
@@ -475,6 +504,30 @@ class DavinciController extends ChangeNotifier {
     clearSelection();
     halted = true;
     resignWinner = _winnerWhenResigned(humanSeat);
+    notifyListeners();
+    return true;
+  }
+
+  /// 사람이 모두 탈락한 판을 여기서 끝낸다 (CPU끼리의 남은 순위 싸움은 보지 않는다).
+  /// 이긴 사람은 [resignWinner]: 그 시점에 숨은 타일이 가장 많이 남은 CPU. 끝냈으면 true.
+  bool endWatching() {
+    if (!_humansOutNow) return false;
+    _epoch++;
+    _clearEffects();
+    _cpuRunning = false;
+    clearSelection();
+    var best = -1, bestN = -1;
+    for (var p = 0; p < players; p++) {
+      if (state.isOut(p)) continue;
+      final n = state.hiddenCount(p);
+      if (n > bestN) {
+        bestN = n;
+        best = p;
+      }
+    }
+    halted = true;
+    endedWatching = true;
+    resignWinner = best;
     notifyListeners();
     return true;
   }

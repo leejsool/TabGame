@@ -71,7 +71,19 @@ class DvTile extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         if (shown)
-          Text(label, style: TextStyle(fontSize: width * (joker ? 0.9 : (lying ? 0.58 : 0.66)), fontWeight: FontWeight.w900, color: fg, height: 1.0))
+          // 두 자리 숫자(10, 11)가 타일 폭에 안 들어가도 줄이 바뀌지 않게, 한 줄로 두고 넘치면 글자를 줄여 맞춘다
+          SizedBox(
+            width: width * 0.86,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(fontSize: width * (joker ? 0.9 : (lying ? 0.58 : 0.66)), fontWeight: FontWeight.w900, color: fg, height: 1.0),
+              ),
+            ),
+          )
         else
           // 뒷면: 색은 보이고 숫자는 안 보인다
           Icon(Icons.help_outline_rounded, size: width * 0.5, color: fg.withValues(alpha: 0.28)),
