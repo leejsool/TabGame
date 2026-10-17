@@ -803,8 +803,9 @@ class RummikubController extends ChangeNotifier {
       await Future<void>.delayed(Duration(milliseconds: ms ~/ 2));
       for (final step in steps) {
         if (_cpu.disposed || epoch != _animEpoch) return;
-        step();
-        onFeedback?.call('step'); // (상대가 타일을 한 장 옮길 때마다 딸깍 소리)
+        // 이미 제자리에 있는 타일은 옮길 게 없으니 소리도 기다림도 없이 넘어간다
+        if (!step()) continue;
+        onFeedback?.call('step'); // (상대가 타일을 실제로 한 장 옮길 때마다 딸깍 소리)
         notifyListeners();
         await Future<void>.delayed(Duration(milliseconds: ms));
       }
@@ -835,7 +836,8 @@ class RummikubController extends ChangeNotifier {
 
   /// 지금 판([work])에서 [target] 모습이 되도록 타일을 한 장씩 옮기는 동작들 (각 동작이 판을 한 걸음 바꾼다).
   /// 목표 묶음마다 지금 판에서 가장 많이 겹치는 묶음을 "바탕"으로 삼고, 나머지 타일을 그 묶음으로 옮겨 온다.
-  List<void Function()> _stepsFor(List<List<int>> target) {
+  /// 각 동작은 타일을 실제로 옮겼으면 true, 이미 제자리라 할 일이 없었으면 false를 돌려준다.
+  List<bool Function()> _stepsFor(List<List<int>> target) {
     final hosts = List<List<int>?>.filled(target.length, null);
     final claimed = <List<int>>[];
     List<int> hostFor(int k) {
@@ -859,12 +861,12 @@ class RummikubController extends ChangeNotifier {
       return hosts[k] = best;
     }
 
-    final steps = <void Function()>[];
+    final steps = <bool Function()>[];
     for (var k = 0; k < target.length; k++) {
       for (final t in arrangeSet(target[k])) {
         steps.add(() {
           final host = hostFor(k);
-          if (host.contains(t)) return;
+          if (host.contains(t)) return false;
           final wasOnTable = work.any((s) => s.contains(t));
           for (final s in work) {
             s.remove(t);
@@ -879,6 +881,7 @@ class RummikubController extends ChangeNotifier {
           host.add(t);
           _setAnchor(host, a);
           work.removeWhere((s) => s.isEmpty);
+          return true;
         });
       }
     }

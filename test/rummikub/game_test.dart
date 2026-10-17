@@ -1107,6 +1107,50 @@ void main() {
     });
   });
 
+  group('녹색 판 타일 크기', () {
+    test('세로 화면의 판 위 타일은 34를 넘지 않고, 묶음 사이 여백을 줄여도 커지지 않아 더 많이 들어간다', () {
+      // 폭 400 기기: 안쪽 392 → 예전 크기 34 (여백을 줄였다고 36으로 커지면 안 된다)
+      expect(rkTableTileSize(392), 34);
+      expect(rkTableTileSize(900), 34);
+      expect(rkTableTileSize(352), 31); // 폭 360 기기
+      expect(rkTableTileSize(100), 20);
+      // 태블릿은 1.5배까지 (폭 800 → 51), 폰 크기의 폭에서는 배율이 있어도 한계 안에서 같다
+      expect(rkTableTileSize(792, scale: kTabletTileScale), 51);
+      expect(rkTableTileSize(392, scale: kTabletTileScale), 34);
+      expect(rkTableTileSize(792), 34);
+      // 같은 폭에서 한 줄에 들어가는 3장 묶음의 수: 여백이 좁아진 만큼 예전보다 더 많이 들어간다
+      const inner = 392.0;
+      final tile = rkTableTileSize(inner);
+      final perRowNow = (inner / tile / (3 + kSetPad)).floor();
+      final perRowBefore = (inner / tile / (3 + 0.6)).floor();
+      expect(perRowNow, greaterThanOrEqualTo(perRowBefore));
+      expect(perRowNow * (3 + kSetPad) * tile, lessThanOrEqualTo(inner));
+    });
+  });
+
+  group('상대 차례 소리', () {
+    test('상대가 타일 3장을 내려놓으면 딸깍은 3번만 난다 (판 위에 이미 있던 묶음의 타일은 소리 없이 넘어간다)', () async {
+      final a = RummikubController(animate: true, mode: PlayMode.wifi, players: 2, humanSeat: 0, seed: 5)..stepDelay = const Duration(milliseconds: 3);
+      final old = [t(0, 1), t(0, 2), t(0, 3)];
+      final fresh = [t(1, 5), t(1, 6), t(1, 7)];
+      a.state.table.add([...old]);
+      a.state.racks[1]
+        ..clear()
+        ..addAll([...fresh, t(2, 9)]);
+      a.state.racks[0].removeWhere((x) => old.contains(x) || fresh.contains(x) || x == t(2, 9));
+      a.state.melded[1] = true;
+      a.state.turn = 1;
+      a.work = [for (final s in a.state.table) [...s]];
+      final kinds = <String>[];
+      a.onFeedback = kinds.add;
+      expect(a.receiveMove({'t': 'move', 'i': 0, 'table': [old, fresh]}), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(kinds.where((k) => k == 'step').length, 3);
+      expect(a.state.table.length, 2);
+      a.dispose();
+    });
+  });
+
   group('사람 + CPU 방 (컨트롤러)', () {
     test('사람 3명 + CPU 1명: 방장이 CPU의 수를 정해 알리고, 서로 수를 전해 주면 모든 기기가 같은 판이 된다', () async {
       final rng = Random(4);

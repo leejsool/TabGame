@@ -13,8 +13,27 @@ Rect setRect(Offset anchor, int length, int perRow) {
   return Rect.fromLTWH(anchor.dx, anchor.dy, cols + kSetPad, rows - 0.12);
 }
 
-/// 묶음 가로에 더해지는 좌우 여백 (칸).
+/// 묶음 가로에 더해지는 좌우 여백 (칸). 좁을수록 한 줄에 묶음이 더 많이 들어간다.
 const double kSetPad = 0.3;
+
+/// 세로로 묶음 줄 사이의 틈 (픽셀). 좁을수록 녹색 판에 줄이 더 많이 들어간다.
+const double kSetRowGap = 4;
+
+/// 세로 화면에서 녹색 판 위 타일 한 장의 가로 크기.
+///
+/// 3장짜리 묶음 셋이 한 줄에 들어가는 크기로 정하되, 이 크기는 묶음 사이 여백([kSetPad])을 줄여도 **그대로**다.
+/// (여백을 줄인 만큼 타일을 키우면 판에 보이는 타일이 오히려 줄어든다. 여백은 줄이고 타일은 그대로 두어 더 많이 보이게 한다.)
+/// [inner]는 판 안쪽 가로(테두리·여백을 뺀 폭)다.
+double rkTableTileSize(double inner, {double scale = 1}) => (inner / (3 * (3 + _kTileFitPad) + 0.45)).clamp(20.0, 34.0 * scale).floorToDouble();
+
+/// 태블릿(짧은 쪽이 [kTabletMinSide] 이상)에서는 판 위 타일을 이만큼 키운다. 화면이 넓어 타일이 훨씬 커도 많이 들어간다.
+const double kTabletTileScale = 1.5;
+
+/// 이 기기를 태블릿으로 보는 화면의 짧은 쪽 길이 (논리 픽셀).
+const double kTabletMinSide = 600;
+
+/// 타일 크기를 정할 때 쓰는 묶음 사이 여유 (칸). 예전 여백 값으로 고정해 두어, [kSetPad]를 바꿔도 타일 크기는 변하지 않는다.
+const double _kTileFitPad = 0.6;
 
 /// 두 상자 사이의 틈 (겹치면 0). 칸 단위.
 double rectGap(Rect a, Rect b) {
