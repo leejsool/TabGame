@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/tablet_scale.dart';
 import '../core/prophecy_rules.dart';
 import '../game/prophecy_controller.dart';
 
@@ -40,9 +41,9 @@ const Color _ink = Color(0xFF4A3B3B);
 
 /// 표가 그려지는 자리: 칸 크기와 위치, 칸 ↔ 좌표 바꾸기. 그리기와 누르기가 같은 계산을 쓴다.
 class ProphLayout {
-  ProphLayout(Size size, this.rows, this.cols, {this.gutter = 26}) {
+  ProphLayout(Size size, this.rows, this.cols, {this.gutter = 26, double maxCell = 84}) {
     final w = size.width - gutter - 4, h = size.height - gutter - 4;
-    cell = max(8.0, min(min(w / cols, h / rows), 84.0));
+    cell = max(8.0, min(min(w / cols, h / rows), maxCell));
     final totalW = cell * cols + gutter, totalH = cell * rows + gutter;
     origin = Offset((size.width - totalW) / 2, (size.height - totalH) / 2);
   }
@@ -77,6 +78,7 @@ class ProphBoardPainter extends CustomPainter {
     this.reveal = 0,
     this.flags = const {},
     this.showCounts = true,
+    this.maxCell = 84,
   });
 
   final ProphState state;
@@ -96,9 +98,12 @@ class ProphBoardPainter extends CustomPainter {
   /// 줄 끝에 지금 숫자가 몇 개인지 보일지.
   final bool showCounts;
 
+  /// 칸 한 개의 가장 큰 크기 ([ProphLayout] 참고).
+  final double maxCell;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final L = ProphLayout(size, state.rows, state.cols, gutter: showCounts ? 26 : 0);
+    final L = ProphLayout(size, state.rows, state.cols, gutter: showCounts ? 26 : 0, maxCell: maxCell);
     final cell = L.cell;
     final grid = L.grid;
 
@@ -272,6 +277,9 @@ class ProphBoardPainter extends CustomPainter {
   bool shouldRepaint(ProphBoardPainter old) => true;
 }
 
+/// 게임 화면 표의 칸 한 개의 가장 큰 크기: 태블릿에서는 칸을 더 크게 해서 표가 화면을 넉넉히 쓰게 한다 (폰은 그대로).
+double prophMaxCell(BuildContext context) => MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide ? 150.0 : 84.0;
+
 /// 눌러서 칸을 고르는 예언 표.
 class ProphBoard extends StatefulWidget {
   const ProphBoard({super.key, required this.controller});
@@ -313,10 +321,11 @@ class _ProphBoardState extends State<ProphBoard> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final rows = c.rows, cols = c.cols;
+    final maxCell = prophMaxCell(context);
     return LayoutBuilder(
       builder: (context, box) {
         final size = Size(box.maxWidth, box.maxHeight);
-        final layout = ProphLayout(size, rows, cols);
+        final layout = ProphLayout(size, rows, cols, maxCell: maxCell);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapUp: (d) {
@@ -332,6 +341,7 @@ class _ProphBoardState extends State<ProphBoard> with SingleTickerProviderStateM
                 selected: c.humanCanAct ? c.selected : c.cpuCell,
                 lastCell: c.lastCell,
                 reveal: Curves.easeInOut.transform(_reveal.value),
+                maxCell: maxCell,
               ),
             ),
           ),

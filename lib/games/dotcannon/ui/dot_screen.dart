@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../core/format.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/settings_scope.dart';
+import '../../../core/tablet_scale.dart';
 import '../../../core/win_sound.dart';
 import '../core/dot_levels.dart';
 import '../core/dot_rules.dart';
@@ -451,7 +452,9 @@ class _QueuePanel extends StatelessWidget {
               builder: (context, box) {
                 final cols = g.queue.length;
                 final colW = (box.maxWidth - 16) / cols;
-                final tile = colW.clamp(34.0, 64.0) - 6;
+                // 태블릿에서는 칸이 넓으니 대포도 크게 (폰은 그대로)
+                final maxTile = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide ? 88.0 : 64.0;
+                final tile = colW.clamp(34.0, maxTile) - 6;
                 return Column(
                   children: [
                     Padding(

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/tablet_scale.dart';
 import '../../../tutorial/pulse.dart';
 import '../game/hint.dart';
 import '../game/sudoku_game.dart';
 import 'sudoku_colors.dart';
+
+/// 태블릿에서 숫자 패드·도구 단추의 글자와 그림을 키우는 배율 (폰은 1).
+double _tabletK(BuildContext context) => MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide ? 1.3 : 1.0;
 
 /// 숫자 패드. 숫자 아래에 남은 개수를 보여주고, 다 놓은 숫자는 숨긴다.
 class NumberPad extends StatelessWidget {
@@ -76,6 +80,7 @@ class _DigitButton extends StatelessWidget {
     final remaining = game.remaining(digit);
     final selected = game.quickMode && game.quickDigit == digit;
     final scheme = Theme.of(context).colorScheme;
+    final k = _tabletK(context);
     final done = remaining <= 0;
     return Opacity(
       opacity: done ? 0 : 1,
@@ -115,7 +120,7 @@ class _DigitButton extends StatelessWidget {
                         Text(
                           '$digit',
                           style: TextStyle(
-                            fontSize: wide ? 34 : 30,
+                            fontSize: (wide ? 34 : 30) * k,
                             height: 1.1,
                             fontWeight: FontWeight.w700,
                             color: selected || game.notesMode
@@ -126,7 +131,7 @@ class _DigitButton extends StatelessWidget {
                         Text(
                           '$remaining',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 13 * k,
                             color: scheme.onSurface.withValues(alpha: 0.45),
                           ),
                         ),
@@ -227,6 +232,7 @@ class _ActionButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final base = highlight ? (color ?? scheme.primary) : scheme.onSurface.withValues(alpha: 0.75);
     final fg = enabled ? base : base.withValues(alpha: 0.3);
+    final k = _tabletK(context);
     return Expanded(
       child: PulseHighlight(
         active: spotlight,
@@ -241,7 +247,7 @@ class _ActionButton extends StatelessWidget {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Icon(icon, size: 32, color: fg),
+                    Icon(icon, size: 32 * k, color: fg),
                     if (badge != null)
                       Positioned(
                         right: -16,
@@ -265,7 +271,7 @@ class _ActionButton extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text(label, style: TextStyle(fontSize: 13, color: fg)),
+                Text(label, style: TextStyle(fontSize: 13 * k, color: fg)),
               ],
             ),
           ),

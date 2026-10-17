@@ -392,20 +392,46 @@ class _SproutsScreenState extends State<SproutsScreen> {
         child: SafeArea(
           child: Stack(
             children: [
-              Column(
-            children: [
-              _topBar(),
-              _playerChips(),
-              _statusBanner(),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
-                  child: _glow(SproutsBoardView(key: ValueKey(c), controller: c)),
-                ),
+              LayoutBuilder(
+                builder: (context, box) {
+                  final board = Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
+                    child: _glow(SproutsBoardView(key: ValueKey(c), controller: c)),
+                  );
+                  // 가로 화면: 판은 왼쪽에 크게, 선수·안내·단추는 오른쪽 칸에 (다른 대결 게임과 같은 배치)
+                  if (box.maxWidth > box.maxHeight * 1.2) {
+                    return Column(
+                      children: [
+                        _topBar(),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(child: board),
+                              SizedBox(
+                                width: 340,
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    children: [_playerChips(), _statusBanner(), const SizedBox(height: 8), _bottomBar()],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Column(
+                    children: [
+                      _topBar(),
+                      _playerChips(),
+                      _statusBanner(),
+                      Expanded(child: board),
+                      _bottomBar(),
+                    ],
+                  );
+                },
               ),
-              _bottomBar(),
-            ],
-          ),
               // 이기면 색종이가 터진다 (손가락은 그대로 통과한다)
               Positioned.fill(
                 child: IgnorePointer(

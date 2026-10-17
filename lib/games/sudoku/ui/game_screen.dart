@@ -9,6 +9,7 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
+import '../../../core/tablet_scale.dart';
 import '../data/sudoku_history.dart';
 import '../data/sudoku_storage.dart';
 import '../game/sudoku_game.dart';
@@ -451,7 +452,9 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
   Widget _portrait() {
     return LayoutBuilder(
       builder: (context, box) {
-        final boardMax = min(box.maxWidth - 24, box.maxHeight * 0.56);
+        // 태블릿은 아래에 남던 자리만큼 판을 더 키운다 (폰은 그대로)
+        final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
+        final boardMax = min(box.maxWidth - 24, box.maxHeight * (tablet ? 0.64 : 0.56));
         return Column(
           children: [
             _statusRow(),

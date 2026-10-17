@@ -39,7 +39,7 @@ Future<void> settle(WidgetTester tester, {int rounds = 6}) async {
 /// 표 화면 좌표: 칸 [cell]의 가운데.
 Offset cellCenter(WidgetTester tester, ProphecyController c, int cell) {
   final rect = tester.getRect(find.byType(ProphBoard));
-  final layout = ProphLayout(rect.size, c.rows, c.cols);
+  final layout = ProphLayout(rect.size, c.rows, c.cols, maxCell: prophMaxCell(tester.element(find.byType(ProphBoard))));
   return rect.topLeft + layout.cellRect(cell).center;
 }
 
