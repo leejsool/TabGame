@@ -20,6 +20,7 @@ class Settings extends ChangeNotifier {
         _cardLayout = _readCardLayout(_prefs.getString(_kCardLayout)),
         _suitPalette = _readSuitPalette(_prefs),
         _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true,
+        _hiddenGames = {...?_prefs.getStringList(_kHiddenGames)},
         _showTutorials = _prefs.getBool(_kShowTutorials) ?? true {
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
@@ -76,6 +77,7 @@ class Settings extends ChangeNotifier {
   static const _kLastUpdateCheck = 'lastUpdateCheckMs';
   static const _kShowTutorials = 'showTutorials';
   static const _kNickname = 'nickname';
+  static const _kHiddenGames = 'hiddenGames';
 
   final SharedPreferences _prefs;
   bool _sound;
@@ -89,6 +91,7 @@ class Settings extends ChangeNotifier {
   CardLayout _cardLayout;
   SuitPalette _suitPalette;
   bool _autoUpdateCheck;
+  final Set<String> _hiddenGames;
   bool _showTutorials;
   late String _nickname;
 
@@ -181,6 +184,28 @@ class Settings extends ChangeNotifier {
   set autoUpdateCheck(bool v) {
     _autoUpdateCheck = v;
     _prefs.setBool(_kAutoUpdateCheck, v);
+    notifyListeners();
+  }
+
+  /// 메인 화면에서 숨겨 둔 게임들의 이름표 (`GameInfo.id`). 처음에는 비어 있어서 모든 게임이 보인다.
+  Set<String> get hiddenGames => Set.unmodifiable(_hiddenGames);
+
+  /// 이 게임이 메인 화면에 보이는가.
+  bool isGameVisible(String id) => !_hiddenGames.contains(id);
+
+  /// 게임을 메인 화면에 보이게 하거나 숨긴다. (숨겨도 게임과 기록은 그대로 남는다)
+  void setGameVisible(String id, bool visible) {
+    final changed = visible ? _hiddenGames.remove(id) : _hiddenGames.add(id);
+    if (!changed) return;
+    _prefs.setStringList(_kHiddenGames, _hiddenGames.toList()..sort());
+    notifyListeners();
+  }
+
+  /// 숨겨 둔 게임을 모두 다시 보이게 한다.
+  void showAllGames() {
+    if (_hiddenGames.isEmpty) return;
+    _hiddenGames.clear();
+    _prefs.remove(_kHiddenGames);
     notifyListeners();
   }
 

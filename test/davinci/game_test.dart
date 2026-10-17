@@ -637,7 +637,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('설정 화면: CPU 수와 난이도를 고르고 시작하면 판이 열리고, Wi‑Fi 방 설정에는 인원(2~4)이 있다', (tester) async {
+    testWidgets('설정 화면: CPU 수와 난이도를 고르고 시작하면 판이 열리고, Wi‑Fi 방 설정에는 인원 선택 없이 내 순서가 있다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -656,12 +656,13 @@ void main() {
 
       await tester.pumpWidget(await app(const DavinciSetupScreen(mode: PlayMode.wifi)));
       await settle(tester, rounds: 2);
-      expect(find.text('몇 명이 할까요?'), findsOneWidget);
+      // Wi‑Fi 방은 인원수를 미리 정하지 않는다 (모이는 대로 방장이 시작 단추로 정한다)
+      expect(find.text('몇 명이 할까요?'), findsNothing);
       expect(find.text('방 열기'), findsOneWidget);
-      expect(find.text('4번째'), findsNothing);
-      await tester.tap(find.text('4명'));
-      await settle(tester, rounds: 2);
-      expect(find.text('4번째'), findsOneWidget);
+      expect(find.text('내 순서'), findsOneWidget);
+      expect(find.text('무작위'), findsOneWidget);
+      expect(find.text('두 번째'), findsOneWidget);
+      expect(find.text('3번째'), findsNothing);
       expect(tester.takeException(), isNull);
     });
   });

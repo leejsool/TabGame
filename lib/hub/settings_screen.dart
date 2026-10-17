@@ -2,12 +2,14 @@ import '../core/nickname.dart';
 import 'package:flutter/material.dart';
 
 import '../core/card_look.dart';
+import '../core/game_registry.dart';
 import '../core/settings.dart';
 import '../core/update/update_service.dart';
 import '../core/update/update_ui.dart';
 import '../games/freecell/ui/playing_card.dart';
 import '../games/solitaire/ui/card_back.dart';
 import '../tutorial/tutorial_progress.dart';
+import 'game_visibility_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.settings});
@@ -30,6 +32,18 @@ class SettingsScreen extends StatelessWidget {
               subtitle: Text('${settings.nickname} · 같은 Wi‑Fi로 함께 할 때 상대에게 보여요'),
               trailing: const Icon(Icons.edit_rounded),
               onTap: () => editNickname(context, settings: settings),
+            ),
+            ListTile(
+              key: const ValueKey('settings-visible-games'),
+              leading: const Icon(Icons.visibility_rounded),
+              title: const Text('메인 화면에 보일 게임'),
+              subtitle: Text(settings.hiddenGames.isEmpty
+                  ? '모든 게임이 보여요 · 안 할 게임은 꺼서 메인 화면을 정리할 수 있어요'
+                  : '${allGames.length}개 중 ${allGames.where((g) => settings.isGameVisible(g.id)).length}개가 보여요'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => GameVisibilityScreen(settings: settings)),
+              ),
             ),
             const Divider(height: 24),
             SwitchListTile(
@@ -253,39 +267,40 @@ class _CardBackStylePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Icon(Icons.style_rounded, color: scheme.onSurfaceVariant),
-            const SizedBox(width: 16),
-            const Text('카드 뒷면', style: TextStyle(fontSize: 16)),
-          ]),
-          const SizedBox(height: 10),
-          LayoutBuilder(builder: (context, box) {
-            final columns = box.maxWidth < 420 ? 2 : 3;
-            final gap = 10.0;
-            final width = (box.maxWidth - gap * (columns - 1)) / columns;
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final style in CardBackStyle.values)
-                  SizedBox(
-                    width: width,
-                    child: _CardBackTile(
-                      style: style,
-                      selected: settings.cardBackStyle == style,
-                      onTap: () => settings.cardBackStyle = style,
-                    ),
+    // 뒷면 모양이 많아 자리를 많이 차지하니, 접고 펼 수 있게 한다 (접어 두면 지금 고른 모양만 보인다)
+    return ExpansionTile(
+      key: const ValueKey('card-back-section'),
+      leading: SizedBox(width: 28, height: 40, child: CustomPaint(painter: CardBackPainter(style: settings.cardBackStyle))),
+      title: const Text('카드 뒷면', style: TextStyle(fontSize: 16)),
+      subtitle: Text(settings.cardBackStyle.label),
+      shape: const Border(),
+      collapsedShape: const Border(),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+      iconColor: scheme.onSurfaceVariant,
+      children: [
+        LayoutBuilder(builder: (context, box) {
+          final columns = box.maxWidth < 420 ? 2 : 3;
+          final gap = 10.0;
+          final width = (box.maxWidth - gap * (columns - 1)) / columns;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final style in CardBackStyle.values)
+                SizedBox(
+                  width: width,
+                  child: _CardBackTile(
+                    style: style,
+                    selected: settings.cardBackStyle == style,
+                    onTap: () => settings.cardBackStyle = style,
                   ),
-              ],
-            );
-          }),
-        ],
-      ),
+                ),
+            ],
+          );
+        }),
+      ],
     );
   }
 }

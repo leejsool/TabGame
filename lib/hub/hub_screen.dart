@@ -34,24 +34,53 @@ class _HubScreenState extends State<HubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final solo = allGames.where((g) => g.hasSolo).toList();
-    final multi = allGames.where((g) => g.hasMulti).toList();
+    // 설정에서 숨겨 둔 게임은 메인 화면에 보이지 않는다 (설정이 바뀌면 바로 반영)
+    return ListenableBuilder(
+      listenable: widget.settings,
+      builder: (context, _) {
+        final shown = [for (final g in allGames) if (widget.settings.isGameVisible(g.id)) g];
+        final solo = shown.where((g) => g.hasSolo).toList();
+        final multi = shown.where((g) => g.hasMulti).toList();
+        return Scaffold(
+          body: SafeArea(
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(child: _buildHeader(context)),
+                if (shown.isEmpty) SliverToBoxAdapter(child: _allHidden(context)),
+                if (_filter == GameFilter.all || _filter == GameFilter.solo)
+                  ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
+                if (_filter == GameFilter.all || _filter == GameFilter.multi)
+                  ..._section(context, '함께 놀기', Icons.groups_rounded, multi),
+                // Wi‑Fi·교과학습처럼 등록 정보로 정해지는 분류는 해당 게임만 한 묶음으로 모아 보여 준다
+                if (_filter != GameFilter.all && _filter != GameFilter.solo && _filter != GameFilter.multi)
+                  ..._section(context, _filterTitle(_filter), _filter.icon, [for (final g in shown) if (_filter.matches(g)) g]),
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-    return Scaffold(
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
-            if (_filter == GameFilter.all || _filter == GameFilter.solo)
-              ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
-            if (_filter == GameFilter.all || _filter == GameFilter.multi)
-              ..._section(context, '함께 놀기', Icons.groups_rounded, multi),
-            // Wi‑Fi·교과학습처럼 등록 정보로 정해지는 분류는 해당 게임만 한 묶음으로 모아 보여 준다
-            if (_filter != GameFilter.all && _filter != GameFilter.solo && _filter != GameFilter.multi)
-              ..._section(context, _filterTitle(_filter), _filter.icon, [for (final g in allGames) if (_filter.matches(g)) g]),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
-        ),
+  /// 게임을 모두 숨겨 둔 경우의 안내.
+  Widget _allHidden(BuildContext context) {
+    return Padding(
+      key: const ValueKey('hub-all-hidden'),
+      padding: const EdgeInsets.fromLTRB(28, 40, 28, 0),
+      child: Column(
+        children: [
+          Icon(Icons.visibility_off_rounded, size: 56, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 12),
+          const Text('보이는 게임이 없어요', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          const Text('설정에서 메인 화면에 보일 게임을 켜 주세요.', textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          FilledButton.tonal(
+            onPressed: widget.settings.showAllGames,
+            child: const Text('모든 게임 다시 보이기'),
+          ),
+        ],
       ),
     );
   }
@@ -120,6 +149,7 @@ class _HubScreenState extends State<HubScreen> {
     IconData icon,
     List<GameInfo> games,
   ) {
+    if (games.isEmpty) return const []; // (모두 숨긴 묶음은 제목도 보이지 않는다)
     final compact = MediaQuery.sizeOf(context).width < 600;
     return [
       SliverToBoxAdapter(

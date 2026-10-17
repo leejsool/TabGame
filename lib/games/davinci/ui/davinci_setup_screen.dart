@@ -21,17 +21,15 @@ class DavinciSetupScreen extends StatefulWidget {
 
 class _DavinciSetupScreenState extends State<DavinciSetupScreen> {
   int _cpus = 1;
-  int _players = 2;
-  int _roomCpus = 0; // Wi‑Fi 방에서 CPU가 앉을 자리 수 (사람은 둘 이상)
   DvLevel _level = DvLevel.normal;
-  int _side = kRandomSide; // Wi‑Fi 방: 0 = 먼저 … 3, -1 = 무작위
+  int _side = kRandomSide; // Wi‑Fi 방: 0 = 먼저, 1 = 두 번째, -1 = 무작위
 
   bool get _wifi => widget.mode == PlayMode.wifi;
 
   void _start() {
-    final cpus = _cpus, level = _level, side = _side, players = _players, roomCpus = _roomCpus;
+    final cpus = _cpus, level = _level, side = _side;
     if (_wifi) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DavinciHostScreen(hostSide: side, players: players, cpus: roomCpus, level: level)));
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DavinciHostScreen(hostSide: side, flexible: true, level: level)));
       return;
     }
     Navigator.of(context).push(
@@ -82,56 +80,23 @@ class _DavinciSetupScreenState extends State<DavinciSetupScreen> {
             description: (l) => l.description,
           ),
         ] else ...[
-          const VsSectionTitle('몇 명이 할까요?'),
-          VsChoiceRow(cards: [
-            for (final n in const [2, 3, 4])
-              _CountCard(
-                count: n,
-                label: '$n명',
-                hint: '모두 $n명',
-                selected: _players == n,
-                onTap: () => setState(() {
-                  _players = n;
-                  if (_roomCpus > n - 2) _roomCpus = n - 2;
-                  if (_side >= n) _side = kRandomSide;
-                }),
-              ),
-          ]),
-          if (_players > 2) ...[
-            const VsSectionTitle('그중 CPU는 몇 명?', topGap: 24),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (var m = 0; m <= _players - 2; m++)
-                  ChoiceChip(
-                    key: ValueKey('cpus$m'),
-                    label: Text(m == 0 ? '없음 (모두 사람)' : 'CPU $m명 · 사람 ${_players - m}명'),
-                    selected: _roomCpus == m,
-                    onSelected: (_) => setState(() => _roomCpus = m),
-                  ),
-              ],
-            ),
-          ],
-          VsHint('사람 수(${_players - _roomCpus}명)만큼 기기가 모두 같은 Wi‑Fi에 연결돼 있어야 해요. 서로의 타일은 보이지 않아요. 사람이 모두 모이면 저절로 시작해요.'),
-          if (_roomCpus > 0) ...[
-            const VsSectionTitle('CPU 난이도', topGap: 24),
-            VsLevelPicker<DvLevel>(
-              levels: DvLevel.values,
-              selected: _level,
-              onChanged: (l) => setState(() => _level = l),
-              label: (l) => l.label,
-              description: (l) => l.description,
-            ),
-          ],
+          const VsHint('"모이는 대로 시작" 방이에요. 인원수를 미리 정하지 않아도 돼요. 한 명이라도 들어오면 "이대로 시작하기", "CPU 1명 넣고 시작하기", "CPU 2명 넣고 시작하기" 중에서 골라 시작해요. (모두 4명까지, 4명이 모이면 저절로 시작해요) 사람과는 각자 자기 기기로 해서 서로의 것은 보이지 않아요.'),
+          const VsSectionTitle('CPU 난이도 (CPU를 넣을 때)', topGap: 24),
+          VsLevelPicker<DvLevel>(
+            levels: DvLevel.values,
+            selected: _level,
+            onChanged: (l) => setState(() => _level = l),
+            label: (l) => l.label,
+            description: (l) => l.description,
+          ),
           const VsSectionTitle('내 순서', topGap: 24),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               ChoiceChip(label: const Text('무작위'), avatar: const Icon(Icons.casino_rounded, size: 18), selected: _side == kRandomSide, onSelected: (_) => setState(() => _side = kRandomSide)),
-              for (var i = 0; i < _players; i++)
-                ChoiceChip(label: Text(i == 0 ? '먼저 (1번째)' : '${i + 1}번째'), selected: _side == i, onSelected: (_) => setState(() => _side = i)),
+              ChoiceChip(label: const Text('먼저 (1번째)'), selected: _side == 0, onSelected: (_) => setState(() => _side = 0)),
+              ChoiceChip(label: const Text('두 번째'), selected: _side == 1, onSelected: (_) => setState(() => _side = 1)),
             ],
           ),
           const VsHint('다음 판부터는 순서가 한 칸씩 돌아가요.'),

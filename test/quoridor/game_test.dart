@@ -482,24 +482,18 @@ void main() {
       await settle(tester, rounds: 20); // CPU가 두는 동안
     });
 
-    testWidgets('Wi‑Fi 방 설정 화면에는 인원(2/4)과 내 순서 선택이 있고 "방 열기"가 있다', (tester) async {
+    testWidgets('Wi‑Fi 방 설정 화면에는 인원 선택 없이 내 순서 선택이 있고 "방 열기"가 있다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(await app(const QuoridorSetupScreen(mode: PlayMode.wifi)));
       await settle(tester, rounds: 2);
-      expect(find.text('몇 명이 할까요?'), findsOneWidget);
+      expect(find.text('몇 명이 할까요?'), findsNothing); // (모이는 대로 방장이 시작 단추로 정한다)
       expect(find.text('방 열기'), findsOneWidget);
       expect(find.text('무작위'), findsOneWidget);
-      expect(find.text('4번째'), findsNothing); // 2명이면 순서는 둘뿐
-      await tester.tap(find.text('4명'));
-      await settle(tester, rounds: 2);
-      expect(find.text('4번째'), findsOneWidget);
-      await tester.tap(find.text('4번째'));
-      await settle(tester, rounds: 1);
-      await tester.tap(find.text('2명'));
-      await settle(tester, rounds: 1);
-      expect(find.text('4번째'), findsNothing);
+      expect(find.text('먼저 (1번째)'), findsOneWidget);
+      expect(find.text('두 번째'), findsOneWidget);
+      expect(find.text('3번째'), findsNothing);
     });
   });
 

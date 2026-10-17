@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_discovery.dart';
+import '../../../net/lan_connection.dart';
 import '../../../net/lan_screens.dart';
 import '../core/davinci_ai.dart';
 import 'davinci_screen.dart';
@@ -49,6 +50,7 @@ class DavinciHostScreen extends StatelessWidget {
     required this.hostSide,
     this.players = 2,
     this.cpus = 0,
+    this.flexible = false,
     this.level = DvLevel.normal,
     this.gamePort = kLanGamePort,
     this.discoveryPort = kLanDiscoveryPort,
@@ -63,15 +65,74 @@ class DavinciHostScreen extends StatelessWidget {
 
   /// 그중 CPU가 몇 명인지 (사람은 둘 이상이어야 한다). CPU의 수는 방을 연 기기가 정한다.
   final int cpus;
+
+  /// 인원수를 정하지 않고 연 방인가. 그러면 [players]와 [cpus]는 쓰지 않고, 모이는 대로 방장이 시작 단추로 정한다
+  /// ("이대로 시작하기", "CPU 1명 넣고 시작하기", "CPU 2명 넣고 시작하기").
+  final bool flexible;
   final DvLevel level;
 
   /// (시험용) 연결을 기다리는 포트와 방 찾기 응답 포트, 패를 나눌 씨앗.
   final int gamePort, discoveryPort;
   final int? seed;
 
+  /// 모인 사람들([guests])과 CPU 수로 자리를 나누고 시작 메시지와 방장의 게임 화면을 정한다.
+  LanLobbyPlan _plan(List<LanConnection> guests, int players, int cpus, String hostNick) {
+    final rng = Random();
+    final seats = [for (var i = 0; i < players; i++) i];
+    final int hostSeat;
+    if (hostSide == kRandomSide || hostSide >= players) {
+      seats.shuffle(rng);
+      hostSeat = seats.removeAt(0);
+    } else {
+      hostSeat = hostSide;
+      seats
+        ..remove(hostSeat)
+        ..shuffle(rng);
+    }
+    // 남은 자리 중 앞에서부터 손님이, 나머지는 CPU가 앉는다
+    final cpuSeats = seats.sublist(guests.length)..sort();
+    final names = List<String>.filled(players, '');
+    names[hostSeat] = hostNick;
+    for (var i = 0; i < guests.length; i++) {
+      names[seats[i]] = guests[i].peerNick;
+    }
+    for (var i = 0; i < cpuSeats.length; i++) {
+      names[cpuSeats[i]] = 'CPU ${i + 1}';
+    }
+    final s = seed ?? rng.nextInt(1 << 30);
+    return LanLobbyPlan(
+      messages: [for (var i = 0; i < guests.length; i++) {'side': seats[i], 'players': players, 'names': names, 'cpus': cpuSeats, 'seed': s}],
+      hostScreen: (conns) => DavinciScreen(
+        mode: PlayMode.wifi,
+        players: players,
+        humanSeat: hostSeat,
+        level: level,
+        names: names,
+        cpuSeats: cpuSeats,
+        seed: s,
+        links: conns,
+        linkSeats: seats.sublist(0, conns.length),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hostNick = SettingsScope.of(context).nickname;
+    if (flexible) {
+      return LanLobbyScreen.flexible(
+        game: _game,
+        gameName: '다빈치 코드',
+        info: {'hostSide': hostSide},
+        summary: ['모이는 대로 시작 · 방장이 시작 단추로 인원을 정해요 (최대 4명)', 'CPU를 넣으면 ${level.label} 난이도', _sideText(hostSide, mine: true)],
+        room: LanFlexibleRoom(
+          allowedPlayers: const {2, 3, 4},
+          onStart: (guests, cpus) => _plan(guests, guests.length + 1 + cpus, cpus, hostNick),
+        ),
+        gamePort: gamePort,
+        discoveryPort: discoveryPort,
+      );
+    }
     final humans = players - cpus;
     return LanLobbyScreen(
       game: _game,
@@ -81,45 +142,7 @@ class DavinciHostScreen extends StatelessWidget {
       needGuests: humans - 1,
       gamePort: gamePort,
       discoveryPort: discoveryPort,
-      onFull: (guests) {
-        final rng = Random();
-        final seats = [for (var i = 0; i < players; i++) i];
-        final int hostSeat;
-        if (hostSide == kRandomSide) {
-          seats.shuffle(rng);
-          hostSeat = seats.removeAt(0);
-        } else {
-          hostSeat = hostSide;
-          seats
-            ..remove(hostSeat)
-            ..shuffle(rng);
-        }
-        // 남은 자리 중 앞에서부터 손님이, 나머지는 CPU가 앉는다
-        final cpuSeats = seats.sublist(guests.length)..sort();
-        final names = List<String>.filled(players, '');
-        names[hostSeat] = hostNick;
-        for (var i = 0; i < guests.length; i++) {
-          names[seats[i]] = guests[i].peerNick;
-        }
-        for (var i = 0; i < cpuSeats.length; i++) {
-          names[cpuSeats[i]] = 'CPU ${i + 1}';
-        }
-        final s = seed ?? rng.nextInt(1 << 30);
-        return LanLobbyPlan(
-          messages: [for (var i = 0; i < guests.length; i++) {'side': seats[i], 'players': players, 'names': names, 'cpus': cpuSeats, 'seed': s}],
-          hostScreen: (conns) => DavinciScreen(
-            mode: PlayMode.wifi,
-            players: players,
-            humanSeat: hostSeat,
-            level: level,
-            names: names,
-            cpuSeats: cpuSeats,
-            seed: s,
-            links: conns,
-            linkSeats: seats.sublist(0, conns.length),
-          ),
-        );
-      },
+      onFull: (guests) => _plan(guests, players, cpus, hostNick),
     );
   }
 }
@@ -140,6 +163,10 @@ class DavinciJoinScreen extends StatelessWidget {
       discoveryPort: discoveryPort,
       extraTargets: extraTargets,
       roomTitle: (r) {
+        if (r.info['flex'] == true) {
+          final joined = r.info['joined'] is int ? r.info['joined'] as int : 1;
+          return '다빈치 코드 · 모이는 대로 시작 (지금 $joined명)';
+        }
         final n = r.info['players'] is int ? r.info['players'] as int : 2;
         final cpus = r.info['cpus'] is int ? r.info['cpus'] as int : 0;
         final joined = r.info['joined'] is int ? r.info['joined'] as int : 1;
