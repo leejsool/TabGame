@@ -126,7 +126,7 @@ class LanChooseScreen extends StatelessWidget {
                   label: const Text('방 만들기'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -136,7 +136,7 @@ class LanChooseScreen extends StatelessWidget {
                   label: const Text('방 찾기'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -135,7 +135,7 @@ class _VsSetupScaffoldState extends State<VsSetupScaffold> {
                   label: Text(widget.startLabel),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -149,7 +149,7 @@ class _VsSetupScaffoldState extends State<VsSetupScaffold> {
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                      textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800),
                     ),
                   ),
                 ],

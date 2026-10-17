@@ -30,7 +30,7 @@ class TutorialButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(50),
         side: BorderSide(color: t.color.withValues(alpha: 0.6), width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+        textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800),
       ),
     );
   }

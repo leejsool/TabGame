@@ -41,7 +41,7 @@ bump the version's middle number at release (see Release).
 - All tools live in `F:\MyApp\tools` (flutter, jdk, sdk, pub-cache, tmp). Never install tools elsewhere.
 
 ## Rules
-- Build text styles from the theme: `Theme.of(context).textTheme.x?.copyWith(...)`. A bare `TextStyle(...)` given to a button's `textStyle` drops NanumGothic.
+- A button's `textStyle: TextStyle(...)` replaces the theme style, so it must include `fontFamily: 'NanumGothic'` (or start from `Theme.of(context).textTheme`). Same for `TextPainter`/`RichText` in painters. `test/core/app_font_test.dart` checks buttons.
 - Lay out for both phone and the user's tablet (Galaxy Tab S9 FE, ~800x1280 dp). Check previews at all three sizes after UI changes.
 - Sound effects: the user chooses sounds (`F:\MyApp\sfx`). Wire a sound only when asked.
 - Ask before big or ambiguous changes; offer 2-3 options with a recommendation.

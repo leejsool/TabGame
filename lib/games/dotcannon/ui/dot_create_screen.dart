@@ -258,7 +258,7 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
                   onPressed: (_assess == null || _failed || _starting) ? null : _start,
                   icon: const Icon(Icons.play_arrow_rounded),
                   label: const Text('이 그림으로 시작'),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54), textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 17, fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(height: 6),
                 Text(

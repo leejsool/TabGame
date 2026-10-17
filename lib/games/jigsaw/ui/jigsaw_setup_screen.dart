@@ -99,7 +99,7 @@ class _JigsawSetupScreenState extends State<JigsawSetupScreen> {
           label: const Text('퍼즐 시작'),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
-            textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
           ),
         ),
         const SizedBox(height: 6),
