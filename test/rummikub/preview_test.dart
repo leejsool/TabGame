@@ -39,7 +39,7 @@ void main() {
       loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
     }
     await loader.load();
-    final icons = FontLoader('MaterialIcons')..addFont(Future.value(File('C:/myapp/tools/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync().buffer.asByteData()));
+    final icons = FontLoader('MaterialIcons')..addFont(Future.value(File('F:/MyApp/tools/flutter/bin/cache/artifacts/material_fonts/materialicons-regular.otf').readAsBytesSync().buffer.asByteData()));
     await icons.load();
     Directory(dir!).createSync(recursive: true);
     SharedPreferences.setMockInitialValues({});
@@ -108,6 +108,16 @@ void main() {
     await _shot(tester, key, '$dir/game_360_few.png');
     await pumpHome(RummikubScreen(controller: midgame(2)), size: const Size(1100, 700));
     await _shot(tester, key, '$dir/game_tablet.png');
+    // 탭 S9 FE 크기 (세로·가로): 정리하면 녹색 판 오른쪽에 묶음 하나만큼의 빈자리가 남지 않아야 한다
+    for (final size in const [Size(800, 1280), Size(1280, 800)]) {
+      final tab = midgame(4);
+      await pumpHome(RummikubScreen(controller: tab), size: size);
+      tab.tidySets();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 900));
+      await _shot(tester, key, '$dir/game_tab_${size.width.toInt()}x${size.height.toInt()}.png');
+    }
     await pumpHome(const RummikubSetupScreen(mode: PlayMode.vsCpu));
     await _shot(tester, key, '$dir/setup.png');
     await pumpHome(rummikubTutorial().screen(tester.element(find.byType(Scaffold).first), firstTime: false));

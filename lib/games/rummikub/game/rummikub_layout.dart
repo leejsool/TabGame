@@ -26,8 +26,32 @@ const double kSetRowGap = 4;
 /// [inner]는 판 안쪽 가로(테두리·여백을 뺀 폭)다.
 double rkTableTileSize(double inner, {double scale = 1}) => (inner / (3 * (3 + _kTileFitPad) + 0.45)).clamp(20.0, 34.0 * scale).floorToDouble();
 
-/// 태블릿(짧은 쪽이 [kTabletMinSide] 이상)에서는 판 위 타일을 이만큼 키운다. 화면이 넓어 타일이 훨씬 커도 많이 들어간다.
+/// 태블릿(짧은 쪽이 [kTabletMinSide] 이상)에서는 판 위 타일을 대략 이만큼 키운다. 화면이 넓어 타일이 훨씬 커도 많이 들어간다.
+/// (실제 크기는 [rkTabletTableTileSize]가 판 폭에 맞춰 정한다.)
 const double kTabletTileScale = 1.5;
+
+/// 3장짜리 묶음 [n]개가 한 줄에 나란히 들어가는 데 필요한 판 폭 (칸).
+/// 빈자리 찾기는 0.5칸 격자에 묶음 사이를 0.1칸 이상 띄우므로, 묶음 하나의 몫은 3 + [kSetPad] + 0.1을 0.5칸 단위로 올린 값이다
+/// (마지막 묶음은 자기 폭만 있으면 된다).
+double rkRowUnitsFor3(int n) {
+  final slot = ((3 + kSetPad + 0.1) * 2).ceil() / 2;
+  return (n - 1) * slot + 3 + kSetPad + 0.02; // (0.02: 소수 계산 오차 여유)
+}
+
+/// 태블릿에서 녹색 판 위 타일 한 장의 가로 크기.
+///
+/// 폰 크기의 [kTabletTileScale]배로 고정하면 판 폭에 따라 줄 끝에 묶음 하나가 못 들어가는 애매한 빈자리가 남는다.
+/// 그래서 3장짜리 묶음 N개가 한 줄에 꼭 맞는 크기들 가운데 [target]에 가까운 크기를 고른다: [target]의 95% 이상인 것 중 가장 작은 것
+/// (타일은 거의 작아지지 않고, 줄 끝 빈자리가 사라질 만큼만 커진다). [inner]는 판 안쪽 가로다.
+double rkTabletTableTileSize(double inner, {double target = 34.0 * kTabletTileScale}) {
+  double? best;
+  for (var n = 1; n <= 30; n++) {
+    final tile = (inner / rkRowUnitsFor3(n)).floorToDouble();
+    if (tile < target * 0.95) break;
+    best = tile;
+  }
+  return best ?? (inner / rkRowUnitsFor3(1)).clamp(20.0, target).floorToDouble();
+}
 
 /// 이 기기를 태블릿으로 보는 화면의 짧은 쪽 길이 (논리 픽셀).
 const double kTabletMinSide = 600;

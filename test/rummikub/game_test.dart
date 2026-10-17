@@ -1126,6 +1126,28 @@ void main() {
       expect(perRowNow, greaterThanOrEqualTo(perRowBefore));
       expect(perRowNow * (3 + kSetPad) * tile, lessThanOrEqualTo(inner));
     });
+
+    test('태블릿 판 위 타일은 3장짜리 묶음이 한 줄에 꼭 맞는 크기라, 빈자리 찾기로 놓아도 오른쪽에 묶음 하나만큼의 빈자리가 남지 않는다', () {
+      // 탭 세로(폭 800 → 안쪽 792): 예전 51이면 4묶음 뒤에 1.7칸이 남았다 → 57로 키워 4묶음이 꽉 찬다
+      expect(rkTabletTableTileSize(792), 57);
+      // 탭 가로(판 쪽 안쪽 약 703): 예전 51이면 4번째 묶음이 0.01칸 모자라 3묶음만 → 50으로 4묶음
+      expect(rkTabletTableTileSize(703), 50);
+      for (final inner in [530.0, 592.0, 640.0, 703.0, 792.0, 900.0, 1000.0]) {
+        final tile = rkTabletTableTileSize(inner);
+        expect(tile, greaterThanOrEqualTo(34.0 * kTabletTileScale * 0.95), reason: '안쪽 $inner');
+        final units = inner / tile;
+        // 실제로 빈자리 찾기로 3장 묶음을 계속 놓아 본다
+        final placed = <Rect>[];
+        final size = setRect(Offset.zero, 3, 13);
+        while (placed.length < 30) {
+          final a = findFreeSpot(placed, size, units);
+          if (a.dy > 0) break;
+          placed.add(setRect(a, 3, 13));
+        }
+        final left = units - placed.last.right;
+        expect(left, lessThan(1.2), reason: '안쪽 $inner: 한 줄 ${placed.length}묶음, 남은 칸 $left');
+      }
+    });
   });
 
   group('상대 차례 소리', () {

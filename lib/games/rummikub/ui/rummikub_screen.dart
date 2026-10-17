@@ -545,19 +545,23 @@ class _RummikubScreenState extends State<RummikubScreen> {
   /// 화면 바깥 좌우 여백 (가능한 한 좁게).
   static const double _edge = 1;
 
-  /// 판 위 타일을 키우는 배율: 태블릿이면 [kTabletTileScale]배, 폰이면 그대로.
-  double get _tabletScale => MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide ? kTabletTileScale : 1;
+  bool get _isTablet => MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
+
+  /// 녹색 판 위 타일 크기. [inner]는 판 안쪽 가로.
+  /// 폰 세로 화면은 3장짜리 묶음 셋이 한 줄에 들어가는 크기, 폰 가로 화면은 34.
+  /// 태블릿은 더 크게 하되, 3장짜리 묶음이 한 줄에 꼭 맞아 오른쪽에 빈자리가 남지 않는 크기로 한다.
+  double _tableTile(double inner, {required bool landscape}) {
+    if (_isTablet) return rkTabletTableTileSize(inner);
+    return landscape ? 34 : rkTableTileSize(inner);
+  }
 
   Widget _portrait(double width) {
-    // 녹색 판에는 3장짜리 묶음 셋이 한 줄에 들어가도록 타일 크기를 정한다
-    final inner = width - 2 * _edge - 2 * 2 - 2 * _tablePad; // (판의 테두리 2)
-    final tableTile = rkTableTileSize(inner, scale: _tabletScale);
     final rackTile = width < 500 ? 34.0 : 42.0;
     return Column(
       children: [
         _playerChips(),
         _statusBanner(),
-        Expanded(child: _tablePanel(tableTile)),
+        Expanded(child: _tablePanel(landscape: false)),
         _floorPool(height: 0, tileW: 20),
         _bottomPanel(rackTile, width),
       ],
@@ -566,7 +570,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   Widget _landscape() => Row(
         children: [
-          Expanded(flex: 5, child: Column(children: [_playerChips(), _statusBanner(), Expanded(child: _tablePanel(34 * _tabletScale))])),
+          Expanded(flex: 5, child: Column(children: [_playerChips(), _statusBanner(), Expanded(child: _tablePanel(landscape: true))])),
           Expanded(
             flex: 4,
             child: LayoutBuilder(
@@ -856,9 +860,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   /// 녹색 판: 묶음을 어디에나 놓을 수 있는 넓은 판. 타일을 끌어다 놓으면 근처 묶음에 자석처럼 붙고, 멀면 그 자리에 새 묶음이 된다.
   /// 판 위 타일을 꾹 눌렀다가 끌면 묶음 통째로 옮긴다. 상대의 수는 타일이 한 장씩 날아와 놓이는 모습으로 보인다.
-  Widget _tablePanel(double tileW) {
-    final tileH = tileW * 1.35;
-    final ux = tileW, uy = tileH + kSetRowGap; // 묶음 안의 타일은 딱 붙이고, 줄 사이도 좁게
+  Widget _tablePanel({required bool landscape}) {
     const pad = _tablePad;
     return Container(
       width: double.infinity,
@@ -874,6 +876,9 @@ class _RummikubScreenState extends State<RummikubScreen> {
           builder: (context, box) => ListenableBuilder(
             listenable: c,
             builder: (context, _) {
+              final tileW = _tableTile(box.maxWidth - pad * 2, landscape: landscape);
+              final tileH = tileW * 1.35;
+              final ux = tileW, uy = tileH + kSetRowGap; // 묶음 안의 타일은 딱 붙이고, 줄 사이도 좁게
               final widthUnits = (box.maxWidth - pad * 2) / ux;
               final perRow = max(3, (widthUnits - kSetPad).floor());
               final spots = c.layoutSets(widthUnits, perRow);

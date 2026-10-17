@@ -85,8 +85,8 @@ class DvTile extends StatelessWidget {
             ),
           )
         else
-          // 뒷면: 색은 보이고 숫자는 안 보인다
-          Icon(Icons.help_outline_rounded, size: width * 0.5, color: fg.withValues(alpha: 0.28)),
+          // 뒷면: 색은 보이고 숫자는 안 보인다. 실제 게임처럼 연한 부등호(≤)로 "왼쪽이 작거나 같은 수, 오른쪽이 큰 수"임을 알려 준다
+          CustomPaint(size: Size(width * 0.46, width * 0.56), painter: _LessOrEqualPainter(fg.withValues(alpha: 0.3))),
         if (fresh)
           Positioned(top: 1, right: 2, child: Icon(Icons.star_rounded, size: width * 0.3, color: const Color(0xFFE0A100))),
         if (mark != null)
@@ -133,6 +133,36 @@ class DvTile extends StatelessWidget {
       child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: tile),
     );
   }
+}
+
+/// 타일 뒷면의 부등호(≤). 같은 숫자(검정·흰색)도 있으니 등호까지 넣는다. 글꼴에 따라 위치가 달라지지 않게 직접 그린다.
+class _LessOrEqualPainter extends CustomPainter {
+  const _LessOrEqualPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.15
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.78, h * 0.1)
+        ..lineTo(w * 0.22, h * 0.4)
+        ..lineTo(w * 0.78, h * 0.7)
+        ..moveTo(w * 0.22, h * 0.92)
+        ..lineTo(w * 0.78, h * 0.92),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_LessOrEqualPainter old) => old.color != color;
 }
 
 /// 말풍선: 상대가 하는 말("7?")과 결과(○ / ✕)를 보여 준다.
