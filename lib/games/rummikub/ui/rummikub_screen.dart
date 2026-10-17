@@ -90,6 +90,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
   @override
   void dispose() {
     _turnTimer?.cancel();
+    _hoverTarget.dispose();
     _leaving = true;
     _linkSub?.cancel();
     final link = _link;
@@ -671,7 +672,8 @@ class _RummikubScreenState extends State<RummikubScreen> {
   }
 
   /// 끌고 있는 타일들이 지금 놓이면 붙게 될 묶음 (없으면 null). 놓기 전에 미리 강조해서 보여 준다.
-  List<int>? _hoverTarget;
+  /// (값만 바뀌어도 화면 전체가 아니라 묶음 테두리만 다시 그려지도록 알림 통로로 둔다)
+  final ValueNotifier<List<int>?> _hoverTarget = ValueNotifier(null);
 
   // ── 끌기와 타일 ──
 
@@ -705,31 +707,33 @@ class _RummikubScreenState extends State<RummikubScreen> {
   }
 
   /// 손이나 판 위의 타일 한 장: 누르면 고르고, 끌어서 옮길 수 있다.
-  Widget _tile(int id, double width, {bool fromTable = false}) {
+  ///
+  /// 판 위 타일을 여러 장 그릴 때는 [placed](이번 차례에 올린 타일들)와 [setIds](이 타일이 든 묶음을 보기 좋게 늘어놓은 순서)를
+  /// 미리 구해서 넘긴다 (타일마다 다시 구하면 판이 클수록 느려진다).
+  Widget _tile(int id, double width, {bool fromTable = false, Set<int>? placed, List<int>? setIds}) {
     final selected = c.selected.contains(id);
     final tile = RkTile(
       id: id,
       width: width,
       selected: selected,
-      glow: (fromTable && c.placed.contains(id)) || (!fromTable && id == c.lastDrawn),
+      glow: (fromTable && (placed ?? c.placed).contains(id)) || (!fromTable && id == c.lastDrawn),
       onTap: (fromTable ? c.canAct : c.canArrange) ? () => c.toggleSelect(id) : null,
     );
     final single = _draggable(data: _dragged(id), width: width, child: tile, fromTable: fromTable);
     if (!fromTable || !c.canAct) return Opacity(opacity: fromTable && _setDrag.contains(id) ? 0.35 : 1, child: single);
     // 판 위 타일: 그냥 끌면 낱개 한 장, 꾹 눌렀다가 끌면 그 묶음 통째로 옮긴다
-    final set = c.work.firstWhere((x) => x.contains(id), orElse: () => [id]);
-    final setIds = arrangeSet(set);
-    final shown = setIds.length > 8 ? 8 : setIds.length;
+    final ids = setIds ?? arrangeSet(c.work.firstWhere((x) => x.contains(id), orElse: () => [id]));
+    final shown = ids.length > 8 ? 8 : ids.length;
     final fw = shown * width, fh = width * 1.35;
     return Opacity(
       opacity: _setDrag.contains(id) ? 0.35 : 1,
       child: LongPressDraggable<List<int>>(
-        data: setIds,
+        data: ids,
         delay: const Duration(milliseconds: 350),
         dragAnchorStrategy: (d, ctx, pos) => Offset(fw / 2, fh / 2),
-        feedback: _dragFeedback(setIds, width),
+        feedback: _dragFeedback(ids, width),
         childWhenDragging: const SizedBox.shrink(),
-        onDragStarted: () => setState(() => _setDrag = setIds.toSet()),
+        onDragStarted: () => setState(() => _setDrag = ids.toSet()),
         onDragEnd: (_) => setState(() => _setDrag = {}),
         child: single,
       ),
@@ -775,14 +779,15 @@ class _RummikubScreenState extends State<RummikubScreen> {
               final canvasH = max(box.maxHeight, bottom * uy + uy * 1.5 + 8);
               final frames = <Widget>[];
               final tiles = <Widget>[];
+              final placedNow = c.placed; // (타일마다 구하지 않고 한 번만)
               for (var i = 0; i < c.work.length; i++) {
                 final set = c.work[i];
                 final a = spots[i];
-                final ids = arrangeSet(set);
+                final meld = analyzeMeld(set); // (묶음마다 한 번만 살핀다)
+                final ids = meld?.order ?? ([...set]..sort(compareByNumber));
                 final cols = min(ids.length, perRow), rows = (ids.length / perRow).ceil();
                 final left = pad + a.dx * ux, top = 1 + a.dy * uy;
-                final bad = !isValidMeld(set) && c.canAct;
-                final hover = identical(_hoverTarget, set);
+                final bad = meld == null && c.canAct;
                 frames.add(AnimatedPositioned(
                   key: ValueKey('frame$i'),
                   duration: const Duration(milliseconds: 380),
@@ -795,17 +800,23 @@ class _RummikubScreenState extends State<RummikubScreen> {
                     behavior: HitTestBehavior.opaque,
                     onTap: c.canAct && c.selected.isNotEmpty ? () => c.moveTiles(c.selected.toList(), to: set) : null,
                     // 색이 순간적으로 바뀌면 눈이 아프니, 테두리 색은 부드럽게 바뀌게 하고 올바르지 않은 묶음도 옅은 주황으로만 알려 준다
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                      decoration: BoxDecoration(
-                        // 평소에는 묶음 틀을 그리지 않는다 (타일만 보인다). 붙을 묶음(끌 때)과 올바르지 않은 묶음만 테두리로 알려 준다.
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: hover ? const Color(0xFFFFE08A) : (bad ? const Color(0xFFE9B08A) : Colors.transparent),
-                          width: hover ? 3 : 2,
-                        ),
-                      ),
+                    child: ValueListenableBuilder<List<int>?>(
+                      valueListenable: _hoverTarget,
+                      builder: (context, target, _) {
+                        final hover = identical(target, set);
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOut,
+                          decoration: BoxDecoration(
+                            // 평소에는 묶음 틀을 그리지 않는다 (타일만 보인다). 붙을 묶음(끌 때)과 올바르지 않은 묶음만 테두리로 알려 준다.
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: hover ? const Color(0xFFFFE08A) : (bad ? const Color(0xFFE9B08A) : Colors.transparent),
+                              width: hover ? 3 : 2,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ));
@@ -819,7 +830,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                     duration: const Duration(milliseconds: 460),
                     curve: Curves.easeInOutCubic,
                     builder: (context, pos, child) => Positioned(left: pos.dx, top: pos.dy, child: child!),
-                    child: _tile(id, tileW, fromTable: true),
+                    child: _tile(id, tileW, fromTable: true, placed: placedNow, setIds: ids),
                   ));
                 }
               }
@@ -832,8 +843,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
               }
 
               void preview(List<int>? target) {
-                if (identical(_hoverTarget, target)) return;
-                setState(() => _hoverTarget = target);
+                _hoverTarget.value = target;
               }
 
               return DragTarget<List<int>>(
