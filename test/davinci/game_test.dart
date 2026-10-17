@@ -476,6 +476,38 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
+    testWidgets('상대가 맞혀서 누군가 탈락해도, ○ / ✕ 연출이 끝난 뒤에야 "탈락"이 보인다', (tester) async {
+      tester.view.physicalSize = const Size(800, 1280);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = fixed([
+        [b(1), b(6)],
+        [b(2), w(7)],
+        [w(3)],
+      ], mode: PlayMode.wifi, animate: true)
+        ..cpuStepDelay = const Duration(milliseconds: 100);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.guess;
+      c.state.drawn = w(7);
+      await tester.pumpWidget(await app(DavinciScreen(controller: c)));
+      await settle(tester, rounds: 2);
+      expect(c.receiveMove(DvMove.guess(2, 0, 3), index: 0), isTrue); // 3번 자리의 마지막 숨은 타일을 맞힌다
+      expect(c.state.isOut(2), isTrue); // (판 자체는 바로 반영된다)
+      await tester.pump();
+      expect(find.text('탈락'), findsNothing, reason: '고르는 중에 탈락이 떴어요');
+      await tester.pump(const Duration(milliseconds: 150)); // 숫자를 말하는 중
+      expect(c.effect!.stage, DvEffectStage.ask);
+      expect(find.text('탈락'), findsNothing, reason: '말하는 중에 탈락이 떴어요');
+      await tester.pump(const Duration(milliseconds: 150)); // 결과(○)가 보이는 중
+      expect(c.effect!.stage, DvEffectStage.result);
+      expect(find.text('탈락'), findsNothing, reason: '○가 뜨기도 전에 탈락이 떴어요');
+      await tester.pump(const Duration(milliseconds: 400)); // 연출이 끝났다
+      expect(c.effect, isNull);
+      expect(find.text('탈락'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
     testWidgets('조커를 뽑으면 내 줄의 자리 칸이 나타나고, 눌러서 놓는다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;

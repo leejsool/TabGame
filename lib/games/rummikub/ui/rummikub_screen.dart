@@ -77,6 +77,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     final link = _link;
     if (link != null) {
       c.onLocalMove = (move) => link.send({'t': 'move', ...move});
+      c.onLocalLive = (live) => link.send({'t': 'live', ...live}); // (판을 만질 때마다 상대 화면에 실시간으로 보인다)
       _linkSub = link.messages.listen(_onNet);
       link.closed.then((_) => _onLinkClosed());
     }
@@ -99,6 +100,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     c.removeListener(_onChanged);
     c.onFeedback = null;
     c.onLocalMove = null;
+    c.onLocalLive = null;
     c.dispose();
     super.dispose();
   }
@@ -108,6 +110,8 @@ class _RummikubScreenState extends State<RummikubScreen> {
     switch (m['t']) {
       case 'move':
         if (!c.receiveMove(m)) _desync();
+      case 'live':
+        c.receiveLive(m); // (맞지 않는 내용은 조용히 버린다 — 끝낼 때 오는 수가 진짜다)
       case 'resign':
         _onOpponentResigned();
       case 'again':
@@ -377,12 +381,6 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   // ── 안내 글 ──
 
-  String? get _lastEvent {
-    if (c.lastActor < 0 || c.isOver) return null;
-    final who = _name(c.lastActor);
-    return c.lastDrew ? '$who: 타일을 뽑았어요' : '$who: 타일 ${c.lastCount}장을 내려놓았어요';
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -442,12 +440,12 @@ class _RummikubScreenState extends State<RummikubScreen> {
   }
 
   /// 화면 바깥 좌우 여백 (가능한 한 좁게).
-  static const double _edge = 2;
+  static const double _edge = 1;
 
   Widget _portrait(double width) {
     // 녹색 판에는 3장짜리 묶음 셋이 한 줄에 들어가도록 타일 크기를 정한다
-    final inner = width - 2 * _edge - 2 * 2 - 2 * _tablePad;
-    final tableTile = (inner / (3 * (3 + kSetPad) + 0.45)).clamp(20.0, 34.0).floorToDouble();
+    final inner = width - 2 * _edge - 2 * 2 - 2 * _tablePad; // (판의 테두리 2)
+    final tableTile = (inner / (3 * (3 + kSetPad) + 0.15)).clamp(20.0, 36.0).floorToDouble();
     final rackTile = width < 500 ? 34.0 : 42.0;
     return Column(
       children: [
@@ -472,19 +470,31 @@ class _RummikubScreenState extends State<RummikubScreen> {
         ],
       );
 
+  /// 맨 위 줄: 제목 줄은 낮게(34) 줄이고 단추도 작게 해서 판 자리를 아낀다.
   Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(tooltip: '뒤로', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.of(context).maybePop()),
-          Flexible(
-            child: Text('루미큐브', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          ),
-          const Spacer(),
-          IconButton(tooltip: '내 기록', icon: const Icon(Icons.emoji_events_rounded), onPressed: () => openRecords(context, game: 'rummikub')),
-          IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showRummikubRules(context)),
-        ],
+    Widget icon(IconData data, String tip, VoidCallback onTap) => IconButton(
+          tooltip: tip,
+          icon: Icon(data, size: 22),
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 34),
+        );
+    return SizedBox(
+      height: 34,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          children: [
+            icon(Icons.arrow_back_rounded, '뒤로', () => Navigator.of(context).maybePop()),
+            Flexible(
+              child: Text('루미큐브', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 17)),
+            ),
+            const Spacer(),
+            icon(Icons.emoji_events_rounded, '내 기록', () => openRecords(context, game: 'rummikub')),
+            icon(Icons.help_outline_rounded, '규칙', () => showRummikubRules(context)),
+          ],
+        ),
       ),
     );
   }
@@ -526,7 +536,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
         }
 
         return Padding(
-          padding: const EdgeInsets.only(top: 3, left: _edge, right: _edge),
+          padding: const EdgeInsets.only(top: 0, left: _edge, right: _edge),
           child: Wrap(spacing: 8, runSpacing: 4, alignment: WrapAlignment.center, children: [for (var i = 0; i < c.players; i++) chip(i)]),
         );
       },
@@ -564,9 +574,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     }
     if (_opponentGone) return '상대와 연결이 끊겼어요';
     if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다려요…' : '기권으로 끝난 판이에요';
-    if (c.thinking) return '${_name(s.turn)}이(가) 생각하는 중…';
-    if (c.animating) return '${_name(s.turn)}이(가) 타일을 옮기는 중…';
-    if (!c.myTurn) return _lastEvent ?? '${_name(s.turn)} 차례';
+    // (누가 생각 중이고 무엇을 내려놓았는지는 따로 글로 알리지 않는다: 위의 이름 칩과 판 위의 움직임으로 보이고, 그만큼 녹색 판이 넓어진다)
     return null;
   }
 
@@ -682,8 +690,9 @@ class _RummikubScreenState extends State<RummikubScreen> {
     );
   }
 
-  Widget _draggable({required List<int> data, required double width, required Widget child, Widget? whileDragging}) {
-    if (!c.canAct) return child;
+  Widget _draggable({required List<int> data, required double width, required Widget child, Widget? whileDragging, bool fromTable = false}) {
+    // 손의 타일은 상대 차례에도 끌어서 정리할 수 있고, 판 위의 타일은 내 차례에만 끌 수 있다
+    if (!(fromTable ? c.canAct : c.canArrange)) return child;
     final shown = data.length > 8 ? 8 : data.length;
     final fw = shown * width, fh = width * 1.35;
     return Draggable<List<int>>(
@@ -703,9 +712,9 @@ class _RummikubScreenState extends State<RummikubScreen> {
       width: width,
       selected: selected,
       glow: (fromTable && c.placed.contains(id)) || (!fromTable && id == c.lastDrawn),
-      onTap: c.canAct ? () => c.toggleSelect(id) : null,
+      onTap: (fromTable ? c.canAct : c.canArrange) ? () => c.toggleSelect(id) : null,
     );
-    final single = _draggable(data: _dragged(id), width: width, child: tile);
+    final single = _draggable(data: _dragged(id), width: width, child: tile, fromTable: fromTable);
     if (!fromTable || !c.canAct) return Opacity(opacity: fromTable && _setDrag.contains(id) ? 0.35 : 1, child: single);
     // 판 위 타일: 그냥 끌면 낱개 한 장, 꾹 눌렀다가 끌면 그 묶음 통째로 옮긴다
     final set = c.work.firstWhere((x) => x.contains(id), orElse: () => [id]);
@@ -732,7 +741,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   // ── 녹색 판 ──
 
-  static const double _tablePad = 3;
+  static const double _tablePad = 1;
 
   final GlobalKey _canvasKey = GlobalKey();
 
@@ -740,15 +749,15 @@ class _RummikubScreenState extends State<RummikubScreen> {
   /// 판 위 타일을 꾹 눌렀다가 끌면 묶음 통째로 옮긴다. 상대의 수는 타일이 한 장씩 날아와 놓이는 모습으로 보인다.
   Widget _tablePanel(double tileW) {
     final tileH = tileW * 1.35;
-    final ux = tileW, uy = tileH + 8; // 묶음 안의 타일은 딱 붙인다
+    final ux = tileW, uy = tileH + 4; // 묶음 안의 타일은 딱 붙이고, 줄 사이도 좁게
     const pad = _tablePad;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(_edge, 6, _edge, 3),
+      margin: const EdgeInsets.fromLTRB(_edge, 3, _edge, 2),
       decoration: BoxDecoration(
         color: const Color(0xFF2E6B4A).withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1F4A33), width: 3),
+        border: Border.all(color: const Color(0xFF1F4A33), width: 2),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
@@ -771,7 +780,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 final a = spots[i];
                 final ids = arrangeSet(set);
                 final cols = min(ids.length, perRow), rows = (ids.length / perRow).ceil();
-                final left = pad + a.dx * ux, top = 3 + a.dy * uy;
+                final left = pad + a.dx * ux, top = 1 + a.dy * uy;
                 final bad = !isValidMeld(set) && c.canAct;
                 final hover = identical(_hoverTarget, set);
                 frames.add(AnimatedPositioned(
@@ -802,7 +811,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 ));
                 for (var k = 0; k < ids.length; k++) {
                   final id = ids[k];
-                  final dest = Offset(left + kSetPad / 2 * ux + (k % perRow) * ux, top + 3 + (k ~/ perRow) * uy);
+                  final dest = Offset(left + kSetPad / 2 * ux + (k % perRow) * ux, top + 1 + (k ~/ perRow) * uy);
                   final begin = c.flying.contains(id) ? Offset(box.maxWidth / 2 - tileW / 2, -tileH * 2) : dest;
                   tiles.add(TweenAnimationBuilder<Offset>(
                     key: ValueKey('tile$id'),
@@ -819,7 +828,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                 final rb = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
                 if (rb == null) return null;
                 final local = rb.globalToLocal(globalTopLeft);
-                return Offset((local.dx - pad) / ux, (local.dy - 3) / uy);
+                return Offset((local.dx - pad) / ux, (local.dy - 1) / uy);
               }
 
               void preview(List<int>? target) {
@@ -1047,7 +1056,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     final th = tileWidth * 1.35, rowH = th + 3, lift = 6.0;
     final bodyH = lift + plan.rows * rowH;
     return DragTarget<List<int>>(
-      onWillAcceptWithDetails: (d) => c.canAct,
+      onWillAcceptWithDetails: (d) => c.canArrange,
       onAcceptWithDetails: (d) => c.moveInHand(d.data),
       builder: (context, candidate, _) => Container(
         key: _rackAreaKey,
@@ -1073,7 +1082,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
             ),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: c.canAct && c.selected.isNotEmpty ? () => c.moveInHand(c.selected.toList()) : null,
+              onTap: c.canArrange && c.selected.isNotEmpty ? () => c.moveInHand(c.selected.toList()) : null,
               child: SizedBox(
                 height: bodyH,
                 child: Stack(
@@ -1085,7 +1094,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
                         left: (i % plan.perRow) * plan.step,
                         top: lift + (i ~/ plan.perRow) * rowH,
                         child: DragTarget<List<int>>(
-                          onWillAcceptWithDetails: (d) => c.canAct && !d.data.contains(tiles[i]),
+                          onWillAcceptWithDetails: (d) => c.canArrange && !d.data.contains(tiles[i]),
                           onAcceptWithDetails: (d) => c.moveInHand(d.data, beforeId: tiles[i]),
                           builder: (context, cand, _) => Stack(
                             clipBehavior: Clip.none,

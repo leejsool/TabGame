@@ -117,6 +117,20 @@ class DavinciController extends ChangeNotifier {
     return e != null && e.kind == 2 && e.stage != DvEffectStage.result ? e.tile : null;
   }
 
+  /// 아직 다 보여 주지 못한 연출(지금 보이는 것과 줄 서 있는 것)이 있는가.
+  bool get effectsPending => animate && (effect != null || _effects.isNotEmpty);
+
+  /// 연출이 끝나기 전에는 아직 "탈락"으로 보이면 안 되는 자리들: 맞혔다고 보여 주는 중인(또는 줄 서 있는) 추측의 대상.
+  /// (판 자체는 이미 반영돼 있어서, 이렇게 하지 않으면 ○ / ✕가 뜨기도 전에 탈락이 떠 버린다)
+  Set<int> get outPendingSeats => {
+        if (animate)
+          for (final e in [?effect, ..._effects])
+            if (e.kind == 2 && e.correct == true && e.target != null) e.target!,
+      };
+
+  /// 끝난 판의 결과를 보여 줘도 되는가 (마지막 추측의 ○ / ✕까지 다 보인 뒤).
+  bool get showOver => isOver && !effectsPending;
+
   Duration _ms(double factor) => cpuStepDelay * factor;
 
   void _enqueue(DvEffect e) {

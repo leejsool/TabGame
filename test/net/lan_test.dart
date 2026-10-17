@@ -55,15 +55,38 @@ void main() {
       b.send({'t': 'x'}); // 끊긴 뒤 보내도 오류가 나지 않는다
     });
 
-    test('신호가 오가는 동안은 끊기지 않고, 신호가 끊기면 시간이 지난 뒤 끊김으로 본다', () async {
+    test('신호가 한참 끊기고 포기 시간이 지나면 끊김으로 본다 (포기 시간을 정했을 때만)', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       final accepted = server.first;
       final raw = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
       final srvSocket = await accepted;
       // 짧은 제한 시간으로: 상대(raw)는 아무 신호도 안 보낸다.
-      final conn = LanConnection(srvSocket, heartbeat: const Duration(milliseconds: 40), timeout: const Duration(milliseconds: 200));
+      final conn = LanConnection(srvSocket, heartbeat: const Duration(milliseconds: 40), timeout: const Duration(milliseconds: 100), giveUp: const Duration(milliseconds: 400));
       await conn.closed.timeout(const Duration(seconds: 2));
       expect(conn.isClosed, isTrue);
+      raw.destroy();
+      await server.close();
+    });
+
+    test('상대 신호가 끊기면 바로 끊지 않고 "응답 없음"으로 기다리다가, 신호가 다시 오면 이어진다', () async {
+      final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final accepted = server.first;
+      final raw = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+      final srvSocket = await accepted;
+      final conn = LanConnection(srvSocket, heartbeat: const Duration(milliseconds: 40), timeout: const Duration(milliseconds: 150));
+      final got = <Map<String, dynamic>>[];
+      conn.messages.listen(got.add);
+      await Future<void>.delayed(const Duration(milliseconds: 400)); // 상대(raw)는 조용하다
+      expect(conn.isClosed, isFalse, reason: '조금 조용하다고 끊으면 안 돼요');
+      expect(conn.stalled, isTrue);
+      expect(LanConnection.stalledConnections.value, contains(conn));
+      // 돌아와서 메시지를 보낸다
+      raw.write('{"t":"x"}\n');
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(got.map((m) => m['t']), ['x']);
+      expect(conn.stalled, isFalse);
+      expect(LanConnection.stalledConnections.value, isNot(contains(conn)));
+      await conn.close();
       raw.destroy();
       await server.close();
     });

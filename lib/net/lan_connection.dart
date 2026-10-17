@@ -2,20 +2,29 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../core/nickname.dart';
 
 /// 같은 Wi‑Fi(공유기)에 연결된 두 기기가 주고받는 한 줄짜리 JSON 메시지 연결.
 ///
 /// 한 메시지는 JSON 객체 하나 + 줄바꿈이다. 게임은 `{'t': 'move', ...}`처럼 `t`(종류)가 있는 메시지를 주고받는다.
-/// 끊긴 연결을 빨리 알아채도록 2초마다 신호(`t: 'p'`)를 보내고, 9초 동안 아무것도 안 오면 끊긴 것으로 본다.
-/// (이 신호는 [messages]에 나오지 않는다)
+/// 2초마다 신호(`t: 'p'`)를 보내고(이 신호는 [messages]에 나오지 않는다), 몇 초 동안 아무것도 안 오면 "응답이 없는" 상태([stalled])로 본다.
+/// 상대가 카톡을 보러 잠깐 나간 것일 수 있어서 바로 끊지 않고 기다린다: 끊을지는 남은 사람이 정한다 ([LanStallOverlay]).
+/// 상대가 돌아와서 신호가 다시 오면 아무 일 없던 듯 이어진다. 소켓 자체가 닫히면 그때는 끊긴 것이다.
 ///
 /// 나중에 서버를 거치는 멀리서 함께하기를 만들 때는 이 클래스와 같은 모양([messages]/[send]/[closed]/[close])의
 /// 다른 구현을 끼우면 게임 쪽은 그대로 쓸 수 있다.
 class LanConnection {
-  LanConnection(this._socket, {Duration heartbeat = const Duration(seconds: 2), Duration timeout = const Duration(seconds: 9)}) {
+  LanConnection(
+    this._socket, {
+    Duration heartbeat = const Duration(seconds: 2),
+    Duration timeout = const Duration(seconds: 7),
+    this.giveUp,
+  }) {
     _socket.setOption(SocketOption.tcpNoDelay, true);
     _lastRx = DateTime.now();
+    _lastTick = _lastRx;
     _socket.cast<List<int>>().transform(utf8.decoder).transform(const LineSplitter()).listen(
       _onLine,
       onError: (Object _) => _finish(),
@@ -23,12 +32,45 @@ class LanConnection {
       cancelOnError: true,
     );
     _timer = Timer.periodic(heartbeat, (_) {
-      if (DateTime.now().difference(_lastRx) > timeout) {
+      final now = DateTime.now();
+      // 이 기기가 한동안 멈춰 있었다면(앱이 뒤로 갔다 온 경우) 그동안 쌓인 신호를 아직 못 읽은 것일 수 있으니, 바로 응답 없음으로 보지 않는다
+      if (now.difference(_lastTick) > heartbeat * 3) _lastRx = now;
+      _lastTick = now;
+      final silent = now.difference(_lastRx);
+      if (giveUp != null && silent > giveUp!) {
         _finish();
         return;
       }
+      _setStalled(silent > timeout);
       send(const {'t': 'p'});
     });
+  }
+
+  /// 이만큼 아무것도 안 오면 끊긴 것으로 본다. null이면 (기본) 스스로 끊지 않는다. (시험용)
+  final Duration? giveUp;
+
+  /// 지금 응답이 없는 연결들 (화면에 "상대를 기다리는 중"을 보여 주는 데 쓴다).
+  static final ValueNotifier<List<LanConnection>> stalledConnections = ValueNotifier(const []);
+
+  /// 상대의 응답이 끊긴 지 얼마나 됐는가 (응답이 있으면 null).
+  DateTime? stalledSince;
+
+  bool get stalled => stalledSince != null;
+
+  /// 기다리는 걸 잠깐 접어 둔 시각 ("계속 기다리기"를 누른 뒤 한동안 결정 단추를 다시 안 보이려고).
+  DateTime? decisionSnoozedUntil;
+
+  void _setStalled(bool on) {
+    if (on == stalled) return;
+    stalledSince = on ? DateTime.now() : null;
+    if (!on) decisionSnoozedUntil = null;
+    _publishStalled();
+  }
+
+  void _publishStalled() {
+    final list = [...stalledConnections.value]..remove(this);
+    if (stalled && !isClosed) list.add(this);
+    stalledConnections.value = List.unmodifiable(list);
   }
 
   /// 이미 열린 주소로 연결한다. 못 하면(주소가 틀렸거나 방이 닫힘) 예외.
@@ -44,6 +86,7 @@ class LanConnection {
   final Completer<void> _closed = Completer<void>();
   late Timer _timer;
   late DateTime _lastRx;
+  late DateTime _lastTick;
 
   /// 상대가 보낸 메시지들 (신호 제외). 듣는 쪽이 없을 때 온 메시지는 모아 두었다가 듣기 시작하면 차례대로 준다
   /// (방 화면에서 게임 화면으로 넘어가는 사이에 온 첫 수를 놓치지 않으려고).
@@ -65,6 +108,7 @@ class LanConnection {
 
   void _onLine(String line) {
     _lastRx = DateTime.now();
+    if (stalled) _setStalled(false);
     if (line.isEmpty) return;
     try {
       final m = jsonDecode(line);
@@ -97,6 +141,8 @@ class LanConnection {
     if (_closed.isCompleted) return;
     _closed.complete();
     _timer.cancel();
+    stalledSince = null;
+    _publishStalled();
     _socket.destroy();
     _messages.close();
   }

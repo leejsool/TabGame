@@ -401,7 +401,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
 
   String get _status {
     final s = c.state;
-    if (c.isOver) {
+    if (c.showOver) {
       final w = s.winner!;
       return w == c.humanSeat ? '이겼어요! 🎉' : '${_name(w)}이(가) 이겼어요';
     }
@@ -430,7 +430,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
   /// 가장 최근 맞히기를 한 줄로.
   String? get _lastEvent {
     final g = c.state.lastGuess;
-    if (g == null || c.isOver) return null;
+    if (g == null || c.isOver || c.effectsPending) return null;
     if (c.effect != null) return null; // (연출 중에는 결과를 미리 알려 주지 않는다)
     final num = g.number == kJokerGuess ? '조커' : '${g.number}';
     final target = g.target == c.humanSeat ? '내' : '${_name(g.target)}의';
@@ -497,12 +497,12 @@ class _DavinciScreenState extends State<DavinciScreen> {
                             const SizedBox(height: 8),
                             for (var seat = 0; seat < c.players; seat++)
                               if (seat != c.humanSeat) ...[_playerRow(seat), const SizedBox(height: 8)],
-                            if (!c.isOver && !c.halted) ...[_pilesStrip(), const SizedBox(height: 8)],
+                            if (!c.showOver && !c.halted) ...[_pilesStrip(), const SizedBox(height: 8)],
                             _actionPanel(),
                             const SizedBox(height: 8),
                             _playerRow(c.humanSeat),
                             const SizedBox(height: 8),
-                            if (c.isOver) _resultPanel() else _bottomBar(),
+                            if (c.showOver) _resultPanel() else _bottomBar(),
                           ],
                         ),
                       ),
@@ -534,7 +534,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
 
   /// 위쪽 안내 띠. 글이 한 줄이든 두 줄이든 높이가 늘 같다 (높이가 바뀌면 아래 화면 전체가 출렁여서 어지럽다).
   Widget _statusBanner() {
-    final color = c.isOver || c.halted ? Colors.grey : (c.turn == c.humanSeat ? kDavinciColor : const Color(0xFF6B7A85));
+    final color = c.showOver || c.halted ? Colors.grey : (c.turn == c.humanSeat ? kDavinciColor : const Color(0xFF6B7A85));
     final event = _lastEvent;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -573,8 +573,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
     final s = c.state;
     final row = s.rows[seat];
     final me = seat == c.humanSeat;
-    final active = !c.isOver && !c.halted && c.turn == seat;
-    final out = s.isOut(seat);
+    final active = !c.showOver && !c.halted && c.turn == seat;
+    // 탈락은 ○ / ✕ 연출이 다 끝난 뒤에 보인다
+    final out = s.isOut(seat) && !c.outPendingSeats.contains(seat);
     final scheme = Theme.of(context).colorScheme;
     final canPick = c.humanCanAct && !me && !out && (s.phase == DvPhase.guess || s.phase == DvPhase.decide);
     final placing = me && c.humanCanAct && s.phase == DvPhase.placeJoker;

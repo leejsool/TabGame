@@ -158,8 +158,10 @@ void main() {
     test('내 차례가 아니면 만질 수 없다', () {
       final c = fixedController(humanSeat: 1);
       final id = c.rackTiles.first;
+      // (내 손의 타일을 고르고 순서를 바꾸는 것은 상대 차례에도 된다 — 판을 만지는 것만 안 된다)
       c.toggleSelect(id);
-      expect(c.selected, isEmpty);
+      expect(c.selected, {id});
+      c.clearSelection();
       c.moveTiles([id]);
       expect(c.work, isEmpty);
       c.draw();
@@ -174,7 +176,7 @@ void main() {
       c.moveTiles([t(0, 10), t(1, 10), t(2, 10)], at: const Offset(0, 0));
       expect(c.layoutSets(10, 8).first, const Offset(0, 0));
       // 묶음 바로 옆에 놓으면 붙는다 (틈이 0.9칸 이내)
-      c.dropTiles([t(3, 10)], const Offset(3.6, 0));
+      c.dropTiles([t(3, 10)], const Offset(3.3, 0));
       expect(c.work.length, 1);
       expect(c.work.first.length, 4);
       // 멀리 놓으면 그 자리에 새 묶음
@@ -199,7 +201,7 @@ void main() {
       // 다른 묶음 바로 옆으로 끌면 합쳐진다
       final other = c.work.firstWhere((s) => s.contains(t(0, 5)));
       final anchor = c.anchorOf(other)!;
-      c.dropTiles(c.work.firstWhere((s) => s.contains(t(0, 10))), Offset(anchor.dx + 3.5, anchor.dy));
+      c.dropTiles(c.work.firstWhere((s) => s.contains(t(0, 10))), Offset(anchor.dx + 3.2, anchor.dy));
       expect(c.work.length, 1);
       expect(c.work.first.length, 6);
     });
@@ -374,11 +376,65 @@ void main() {
       expect(c.work.length, 2);
       expect(c.work.any((s) => s.length == 1 && s.first == t(3, 4)), isTrue);
       // 바싹 붙이면 합쳐진다
-      c.dropTiles([t(0, 1)], const Offset(3.5, 0));
+      c.dropTiles([t(0, 1)], const Offset(3.2, 0));
       expect(c.work.length, 2);
       expect(c.work.first.length + c.work.last.length, 5);
       // 한 장짜리 묶음이 있어도 끝내기는 막히고 이유가 나온다
       expect(c.endTurn(), isFalse);
+    });
+  });
+
+  group('Wi‑Fi: 상대 차례에도 손을 정리하고, 상대가 내려놓는 모습이 실시간으로 보인다', () {
+    test('상대 차례에도 내 손의 타일 순서를 바꿀 수 있다 (판은 못 만진다)', () {
+      final c = fixedController(mode: PlayMode.wifi, humanSeat: 1, rack: [t(0, 3), t(1, 9), t(2, 5), t(3, 1)]);
+      expect(c.myTurn, isFalse);
+      expect(c.canArrange, isTrue);
+      final before = c.rackTiles.toList();
+      c.moveInHand([before.last], beforeId: before.first);
+      expect(c.rackTiles, [before.last, ...before.take(3)]);
+      c.sortHand(byColor: false);
+      expect(c.rackTiles, [t(3, 1), t(0, 3), t(2, 5), t(1, 9)]);
+      c.moveTiles([t(0, 3)]); // 판은 못 만진다
+      expect(c.work, isEmpty);
+      expect(c.rackTiles.length, 4);
+    });
+
+    test('상대가 판에 한 장씩 올릴 때마다 내 화면에 바로 보이고, 끝내면 다시 옮기지 않고 그대로 반영된다', () {
+      final (a, b) = wiredPair(seed: 9);
+      for (final x in [a, b]) {
+        x.state.racks[0]
+          ..clear()
+          ..addAll([t(0, 10), t(1, 10), t(2, 10), t(3, 2), t(0, 1)]);
+      }
+      a.hand = [...a.state.racks[0]];
+      final lives = <Map<String, dynamic>>[];
+      a.onLocalLive = (m) {
+        lives.add(m);
+        b.receiveLive(m);
+      };
+      a.layoutSets(10, 8);
+      b.layoutSets(10, 8);
+      expect(a.myTurn, isTrue);
+      expect(b.myTurn, isFalse);
+      // 상대(a)가 한 장 올린다 → b의 화면(work)에 바로 나타난다
+      a.moveTiles([t(0, 10)], at: const Offset(0, 0));
+      expect(b.work.expand((x) => x), contains(t(0, 10)));
+      expect(b.state.table, isEmpty); // (판의 진짜 상태는 끝낼 때까지 그대로)
+      // 둘째·셋째 장을 같은 묶음에 올린다
+      a.moveTiles([t(1, 10)], to: a.work.first);
+      a.moveTiles([t(2, 10)], to: a.work.first);
+      expect(b.work.length, 1);
+      expect(b.work.first.toSet(), {t(0, 10), t(1, 10), t(2, 10)});
+      expect(lives.length, greaterThanOrEqualTo(3));
+      // b가 같은 자리에 보고 있다
+      expect(b.anchorOf(b.work.first), a.anchorOf(a.work.first));
+      // 끝내면 최종 수가 가서 진짜 판에 반영된다 (연출 없이 바로)
+      expect(a.endTurn(), isTrue);
+      expect(b.state.table.length, 1);
+      expect(b.animating, isFalse);
+      expect(b.myTurn, isTrue);
+      // 실시간 내용이 틀리면 (판에 있던 타일이 사라진 경우) 조용히 버린다
+      expect(b.receiveLive({'i': b.moveCount, 'sets': <List<int>>[]}), isFalse);
     });
   });
 
@@ -418,7 +474,7 @@ void main() {
         c.undoStep();
       }
       // 묶음 위에 놓으면 (겹치면) 붙는다
-      c.dropTiles([t(3, 4)], const Offset(3.3, 0));
+      c.dropTiles([t(3, 4)], const Offset(3.1, 0));
       expect(c.work.length, 1);
     });
 
@@ -846,6 +902,21 @@ void main() {
       expect(received.single['pick'], isA<int>()); // 고른 바닥 타일의 자리
       expect(c.turn, 1);
       expect(c.myTurn, isFalse); // 상대 차례
+
+      // 상대가 판에 올리는 중간 모습이 오면 바로 내 화면의 판에 나타난다 (끝내기 전이라 판의 진짜 상태는 그대로)
+      final theirTiles = mirror.state.racks[1].take(3).toList();
+      theirs.send({'t': 'live', 'i': 1, 'sets': [theirTiles], 'a': [[0.0, 0.0]]});
+      await settle(tester, rounds: 3);
+      expect(c.work.expand((x) => x).toSet(), theirTiles.toSet());
+      expect(c.state.table, isEmpty);
+      for (final id in theirTiles) {
+        expect(tileFinder(id), findsOneWidget);
+      }
+      expect(find.textContaining('내려놓았어요'), findsNothing); // (판을 좁히는 안내 글은 없다)
+      // 손 순서는 상대 차례에도 바꿀 수 있다
+      final mine0 = c.rackTiles.toList();
+      c.moveInHand([mine0.last], beforeId: mine0.first);
+      expect(c.rackTiles.first, mine0.last);
 
       // 상대(미러)가 뽑는다
       theirs.send({'t': 'move', 'i': 1, 'draw': 1});
