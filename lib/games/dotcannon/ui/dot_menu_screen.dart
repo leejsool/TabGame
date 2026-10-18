@@ -34,6 +34,10 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
   Map<String, DotStageStats> _stats = {};
   bool _loaded = false;
   bool _busy = false;
+  bool _showAllCustom = false;
+
+  /// 접어 둘 때 보여 주는 "내가 만든 그림" 장수.
+  static const _customPreview = 6;
 
   @override
   void initState() {
@@ -167,26 +171,6 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
                       const TutorialButton(tutorial: dotTutorial),
                       const SizedBox(height: 14),
                       _CreateCard(onTap: _pickFromGallery, busy: _busy),
-                      if (_custom.isNotEmpty) ...[
-                        const SizedBox(height: 22),
-                        Text('내가 만든 그림', style: heading),
-                        const SizedBox(height: 10),
-                        _grid([
-                          for (final l in _custom)
-                            DotLevelCard(
-                              key: ValueKey('dot-card-${l.id}'),
-                              level: l,
-                              stats: _stats[l.id],
-                              onTap: () => _start(l),
-                              onLongPress: () => _delete(l),
-                            ),
-                        ]),
-                        const SizedBox(height: 4),
-                        Text(
-                          '그림을 길게 누르면 지울 수 있어요.',
-                          style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
-                        ),
-                      ],
                       const SizedBox(height: 22),
                       Text('그림을 골라 시작해요', style: heading),
                       const SizedBox(height: 10),
@@ -199,6 +183,35 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
                             onTap: () => _start(l),
                           ),
                       ]),
+                      // 내가 만든 그림은 기본 그림 아래에 둔다 (많이 만들어도 기본 그림이 밀려나지 않게). 많으면 최근 것만 보이고 나머지는 펼쳐 본다.
+                      if (_custom.isNotEmpty) ...[
+                        const SizedBox(height: 22),
+                        Text('내가 만든 그림', style: heading),
+                        const SizedBox(height: 10),
+                        _grid([
+                          for (final l in _showAllCustom ? _custom : _custom.take(_customPreview))
+                            DotLevelCard(
+                              key: ValueKey('dot-card-${l.id}'),
+                              level: l,
+                              stats: _stats[l.id],
+                              onTap: () => _start(l),
+                              onLongPress: () => _delete(l),
+                            ),
+                        ]),
+                        if (_custom.length > _customPreview)
+                          Align(
+                            child: TextButton(
+                              key: const ValueKey('dot-custom-more'),
+                              onPressed: () => setState(() => _showAllCustom = !_showAllCustom),
+                              child: Text(_showAllCustom ? '접기' : '내가 만든 그림 모두 보기 (${_custom.length}장)'),
+                            ),
+                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '그림을 길게 누르면 지울 수 있어요.',
+                          style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+                        ),
+                      ],
                     ],
                   ),
                 ),
