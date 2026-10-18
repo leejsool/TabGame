@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
 import '../../../core/game_widgets.dart';
-import '../../../records/records_screen.dart';
+import '../../../core/solo_menu.dart';
 import '../core/solitaire_rules.dart';
 import '../data/solitaire_storage.dart';
 import '../solitaire_entry.dart';
@@ -78,126 +78,104 @@ class _SolitaireMenuScreenState extends State<SolitaireMenuScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final heading = Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('솔리테어', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: '게임 방법',
-            icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => solitaireTutorial().open(context),
+    return SoloMenuScaffold(
+      title: '솔리테어',
+      onHelp: () => solitaireTutorial().open(context),
+      recordsGame: 'solitaire',
+      onRecordsClosed: () {
+        if (mounted) _load();
+      },
+      loaded: _loaded,
+      children: [
+      if (_saved != null) ...[
+        _ResumeCard(
+          saved: _saved!,
+          onTap: () async {
+            await resumeSolitaire(context, _saved!);
+            if (mounted) _load();
+          },
+        ),
+        const SizedBox(height: 18),
+      ],
+      const TutorialButton(tutorial: solitaireTutorial),
+      const SizedBox(height: 18),
+      Text('뽑는 방식', style: heading),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(child: _DrawCard(draw: 1, selected: _draw == 1, onTap: () => _setDraw(1))),
+          const SizedBox(width: 12),
+          Expanded(child: _DrawCard(draw: 3, selected: _draw == 3, onTap: () => _setDraw(3))),
+        ],
+      ),
+      const SizedBox(height: 16),
+      Material(
+        color: scheme.primary,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: _newGame,
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Row(
+              children: [
+                const Icon(Icons.shuffle_rounded, color: Colors.white, size: 38),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '새 게임 · $_draw장 뽑기',
+                        style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        '무작위 판으로 시작해요',
+                        style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85)),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: scheme.onPrimary),
+              ],
+            ),
           ),
-          IconButton(
-            tooltip: '내 기록',
-            icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () async {
-              await openRecords(context, game: 'solitaire');
-              if (mounted) _load();
-            },
+        ),
+      ),
+      const SizedBox(height: 22),
+      Text('번호로 시작', style: heading),
+      const SizedBox(height: 4),
+      Text(
+        '같은 번호는 늘 같은 판이에요. 친구와 같은 번호로 겨뤄 보세요! (1~$kMaxSolitaireDeal)',
+        style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _number,
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => _startWithNumber(),
+              decoration: InputDecoration(
+                hintText: '예: 617',
+                errorText: _error,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                prefixText: '# ',
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: _startWithNumber,
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18)),
+            child: const Text('시작'),
           ),
         ],
       ),
-      body: SafeArea(top: false, child: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  children: [
-                    if (_saved != null) ...[
-                      _ResumeCard(
-                        saved: _saved!,
-                        onTap: () async {
-                          await resumeSolitaire(context, _saved!);
-                          if (mounted) _load();
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                    ],
-                    const TutorialButton(tutorial: solitaireTutorial),
-                    const SizedBox(height: 18),
-                    Text('뽑는 방식', style: heading),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(child: _DrawCard(draw: 1, selected: _draw == 1, onTap: () => _setDraw(1))),
-                        const SizedBox(width: 12),
-                        Expanded(child: _DrawCard(draw: 3, selected: _draw == 3, onTap: () => _setDraw(3))),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Material(
-                      color: scheme.primary,
-                      borderRadius: BorderRadius.circular(24),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(24),
-                        onTap: _newGame,
-                        child: Padding(
-                          padding: const EdgeInsets.all(22),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.shuffle_rounded, color: Colors.white, size: 38),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '새 게임 · $_draw장 뽑기',
-                                      style: TextStyle(color: scheme.onPrimary, fontSize: 22, fontWeight: FontWeight.w800),
-                                    ),
-                                    Text(
-                                      '무작위 판으로 시작해요',
-                                      style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(Icons.chevron_right_rounded, color: scheme.onPrimary),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Text('번호로 시작', style: heading),
-                    const SizedBox(height: 4),
-                    Text(
-                      '같은 번호는 늘 같은 판이에요. 친구와 같은 번호로 겨뤄 보세요! (1~$kMaxSolitaireDeal)',
-                      style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _number,
-                            keyboardType: TextInputType.number,
-                            onSubmitted: (_) => _startWithNumber(),
-                            decoration: InputDecoration(
-                              hintText: '예: 617',
-                              errorText: _error,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                              prefixText: '# ',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        FilledButton(
-                          onPressed: _startWithNumber,
-                          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18)),
-                          child: const Text('시작'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    _StatsRow(draw: _draw, stats: _stats[_draw] ?? const SolitaireStats()),
-                  ],
-                ),
-              ),
-            )),
+      const SizedBox(height: 24),
+      _StatsRow(draw: _draw, stats: _stats[_draw] ?? const SolitaireStats()),
+      ],
     );
   }
 }

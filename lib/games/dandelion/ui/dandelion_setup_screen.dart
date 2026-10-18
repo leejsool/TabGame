@@ -44,7 +44,7 @@ class _DandelionSetupScreenState extends State<DandelionSetupScreen> {
   Widget build(BuildContext context) {
     return VsSetupScaffold(
       gameId: 'dandelion',
-      title: 'CPU와 대결',
+      title: '민들레 · CPU와 대결',
       onStart: _start,
       resume: VsResume(gameName: '민들레', describe: dandelionSavedLabel, onResume: _resume),
       tutorial: dandelionTutorial,

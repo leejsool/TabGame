@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/rhythm_chart.dart';
 import '../data/rhythm_storage.dart';
 import '../tutorial/rhythm_tutorial.dart';
+import '../../../records/records_screen.dart' show openRecords;
 import 'calibration_screen.dart';
 import 'camp_painter.dart';
 import 'rhythm_screen.dart';
@@ -89,6 +90,19 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
                         color: Colors.white,
                         shape: const CircleBorder(side: BorderSide(color: _ink, width: 3.5)),
                         child: IconButton(
+                          tooltip: '기록',
+                          icon: const Icon(Icons.emoji_events_rounded, color: _ink),
+                          onPressed: () async {
+                            await openRecords(context, game: 'rhythm_swords');
+                            if (mounted) _load();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(side: BorderSide(color: _ink, width: 3.5)),
+                        child: IconButton(
                           tooltip: '게임 방법',
                           icon: const Icon(Icons.help_outline_rounded, color: _ink),
                           onPressed: () => rhythmTutorial().open(context),
@@ -108,6 +122,15 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton.icon(
+                          style: TextButton.styleFrom(foregroundColor: _ink, backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _ink, width: 3))),
+                          onPressed: () => rhythmTutorial().open(context),
+                          icon: const Icon(Icons.school_rounded),
+                          label: const Text('튜토리얼 보기'),
+                        )),
+                        const SizedBox(height: 10),
                         for (var i = 0; i < RhythmCourse.all.length; i++) ...[
                           if (_unlocked(i))
                             _CourseCard(course: RhythmCourse.all[i], best: _best[i], clears: _clears[i], onTap: () => _open(RhythmScreen(course: i)))
@@ -116,13 +139,6 @@ class _RhythmMenuScreenState extends State<RhythmMenuScreen> {
                           const SizedBox(height: 10),
                         ],
                         const _ComingSoonCard(),
-                        TextButton.icon(
-                          style: TextButton.styleFrom(foregroundColor: _ink, backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _ink, width: 3))),
-                          onPressed: () => rhythmTutorial().open(context),
-                          icon: const Icon(Icons.school_rounded),
-                          label: const Text('튜토리얼 보기'),
-                        ),
-                        const SizedBox(height: 8),
                         TextButton.icon(
                           style: TextButton.styleFrom(foregroundColor: _ink, backgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: _ink, width: 3))),
                           onPressed: () => _open(const CalibrationScreen()),

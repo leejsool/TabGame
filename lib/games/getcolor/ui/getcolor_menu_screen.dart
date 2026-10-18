@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
 import '../../../core/game_widgets.dart';
-import '../../../records/records_screen.dart';
+import '../../../core/solo_menu.dart';
 import '../core/getcolor_rules.dart';
 import '../data/getcolor_storage.dart';
 import '../game/getcolor_controller.dart';
@@ -65,53 +65,31 @@ class _GetColorMenuScreenState extends State<GetColorMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final heading = Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('겟 컬러', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: '게임 방법',
-            icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => getColorTutorial().open(context),
-          ),
-          IconButton(
-            tooltip: '내 기록',
-            icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () async {
-              await openRecords(context, game: 'get_color');
-              if (mounted) _load();
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(top: false, child: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: menuMaxWidth(context)),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  children: [
-                    if (_saved != null) ...[
-                      _ResumeCard(
-                        saved: _saved!,
-                        onTap: () async {
-                          await resumeGetColor(context, _saved!);
-                          if (mounted) _load();
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                    ],
-                    const TutorialButton(tutorial: getColorTutorial),
-                    const SizedBox(height: 18),
-                    Text('난이도를 골라 시작해요', style: heading),
-                    const SizedBox(height: 12),
-                    CardGrid(children: [for (final l in GcLevel.values) _LevelCard(level: l, stats: _stats[l] ?? const GetColorStats(), onTap: () => _start(l))]),
-                  ],
-                ),
-              ),
-            )),
+    return SoloMenuScaffold(
+      title: '겟 컬러',
+      onHelp: () => getColorTutorial().open(context),
+      recordsGame: 'get_color',
+      onRecordsClosed: () {
+        if (mounted) _load();
+      },
+      loaded: _loaded,
+      children: [
+      if (_saved != null) ...[
+        _ResumeCard(
+          saved: _saved!,
+          onTap: () async {
+            await resumeGetColor(context, _saved!);
+            if (mounted) _load();
+          },
+        ),
+        const SizedBox(height: 18),
+      ],
+      const TutorialButton(tutorial: getColorTutorial),
+      const SizedBox(height: 18),
+      Text('난이도를 골라 시작해요', style: heading),
+      const SizedBox(height: 12),
+      CardGrid(children: [for (final l in GcLevel.values) _LevelCard(level: l, stats: _stats[l] ?? const GetColorStats(), onTap: () => _start(l))]),
+      ],
     );
   }
 }

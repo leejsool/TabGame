@@ -6,7 +6,7 @@ import '../game/sudoku_game.dart';
 import '../sudoku_entry.dart';
 import '../../../core/format.dart';
 import '../../../core/game_widgets.dart';
-import '../../../records/records_screen.dart';
+import '../../../core/solo_menu.dart';
 import '../../../tutorial/tutorial_progress.dart';
 import '../tutorial/practice_menu_screen.dart';
 import '../tutorial/technique_info.dart';
@@ -65,99 +65,77 @@ class _SudokuMenuScreenState extends State<SudokuMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('스도쿠', style: TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: '게임 방법',
-            icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => sudokuTutorial().open(context),
-          ),
-          IconButton(
-            tooltip: '내 기록',
-            icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () async {
-              await openRecords(context, game: 'sudoku');
-              if (mounted) _load();
-            },
-          ),
-        ],
+    return SoloMenuScaffold(
+      title: '스도쿠',
+      onHelp: () => sudokuTutorial().open(context),
+      recordsGame: 'sudoku',
+      onRecordsClosed: () {
+        if (mounted) _load();
+      },
+      loaded: _loaded,
+      children: [
+      if (_saved != null) ...[
+        _ResumeCard(game: _saved!, onTap: _resume),
+        const SizedBox(height: 24),
+      ],
+      Text(
+        '새 게임',
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(fontWeight: FontWeight.w800),
       ),
-      body: SafeArea(top: false, child: !_loaded
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: menuMaxWidth(context)),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  children: [
-                    if (_saved != null) ...[
-                      _ResumeCard(game: _saved!, onTap: _resume),
-                      const SizedBox(height: 24),
-                    ],
-                    Text(
-                      '새 게임',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 12),
-                    CardGrid(children: [
-                      for (final d in Difficulty.values)
-                        _DifficultyCard(
-                          difficulty: d,
-                          stats: _stats[d] ?? const SudokuStats(),
-                          onTap: () => _start(d),
-                        ),
-                    ]),
-                    const SizedBox(height: 12),
-                    Text(
-                      '배우기',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 12),
-                    _LearnCard(
-                      icon: Icons.school_rounded,
-                      title: '기본 규칙 배우기',
-                      subtitle: '진짜 판 위에서 한 단계씩 직접 해 보며 배워요',
-                      done: _lessonsDone.contains('sudoku_basic'),
-                      onTap: () async {
-                        await sudokuTutorial().open(context);
-                        if (mounted) _load();
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _LearnCard(
-                      icon: Icons.psychology_alt_rounded,
-                      title: '심화 기술 연습',
-                      subtitle: '싱글·포인팅·페어·X-윙 …  어려운 판을 푸는 기술을 하나씩'
-                          ' (${kTechniqueInfos.where((i) => _lessonsDone.contains(i.id)).length}'
-                          ' / ${kTechniqueInfos.length} 완료)',
-                      onTap: () async {
-                        await Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(builder: (_) => const SudokuPracticeMenuScreen()),
-                        );
-                        if (mounted) _load();
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      '힌트는 정답이 아니라, 지금 논리로 찾을 수 있는 다음 단계를 알려줘요.',
-                      style: TextStyle(
-                        color: scheme.onSurface.withValues(alpha: 0.6),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )),
+      const SizedBox(height: 12),
+      CardGrid(children: [
+        for (final d in Difficulty.values)
+          _DifficultyCard(
+            difficulty: d,
+            stats: _stats[d] ?? const SudokuStats(),
+            onTap: () => _start(d),
+          ),
+      ]),
+      const SizedBox(height: 12),
+      Text(
+        '배우기',
+        style: Theme.of(context)
+            .textTheme
+            .titleMedium
+            ?.copyWith(fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 12),
+      _LearnCard(
+        icon: Icons.school_rounded,
+        title: '기본 규칙 배우기',
+        subtitle: '진짜 판 위에서 한 단계씩 직접 해 보며 배워요',
+        done: _lessonsDone.contains('sudoku_basic'),
+        onTap: () async {
+          await sudokuTutorial().open(context);
+          if (mounted) _load();
+        },
+      ),
+      const SizedBox(height: 12),
+      _LearnCard(
+        icon: Icons.psychology_alt_rounded,
+        title: '심화 기술 연습',
+        subtitle: '싱글·포인팅·페어·X-윙 …  어려운 판을 푸는 기술을 하나씩'
+            ' (${kTechniqueInfos.where((i) => _lessonsDone.contains(i.id)).length}'
+            ' / ${kTechniqueInfos.length} 완료)',
+        onTap: () async {
+          await Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(builder: (_) => const SudokuPracticeMenuScreen()),
+          );
+          if (mounted) _load();
+        },
+      ),
+      const SizedBox(height: 20),
+      Text(
+        '힌트는 정답이 아니라, 지금 논리로 찾을 수 있는 다음 단계를 알려줘요.',
+        style: TextStyle(
+          color: scheme.onSurface.withValues(alpha: 0.6),
+          fontSize: 13,
+        ),
+      ),
+      ],
     );
   }
 }

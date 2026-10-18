@@ -43,7 +43,7 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
   Widget build(BuildContext context) {
     return VsSetupScaffold(
       gameId: 'goblet_gobblers',
-      title: 'CPU와 대결',
+      title: '고블렛 고블러스 · CPU와 대결',
       onStart: _start,
       resume: VsResume(gameName: '고블렛 고블러스', describe: gobletSavedLabel, onResume: _resume),
       tutorial: gobletTutorial,

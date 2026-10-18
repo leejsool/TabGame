@@ -182,7 +182,7 @@ class _JigsawMenuScreenState extends State<JigsawMenuScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
+                constraints: BoxConstraints(maxWidth: menuMaxWidth(context)),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   children: [
@@ -352,7 +352,7 @@ class _SampleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 180,
+      width: _tileWidth(context),
       child: Material(
         color: scheme.surface,
         elevation: 1.5,
@@ -450,7 +450,7 @@ class _EntryTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final (placed, total) = entry.progress;
     return SizedBox(
-      width: 180,
+      width: _tileWidth(context),
       child: Material(
         color: scheme.surface,
         elevation: 1.5,
@@ -513,4 +513,11 @@ class _EntryTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 사진 칸 하나의 폭: 폰처럼 좁으면 두 장씩, 넓으면 180 안팎으로 여러 장씩 놓아 오른쪽이 비지 않게 한다 (칸 사이 14).
+double _tileWidth(BuildContext context) {
+  final avail = (MediaQuery.sizeOf(context).width.clamp(0.0, menuMaxWidth(context))) - 40;
+  final cols = avail >= 2 * 180 + 14 ? ((avail + 14) / (180 + 14)).floor() : 2;
+  return ((avail - 14 * (cols - 1)) / cols).floorToDouble();
 }

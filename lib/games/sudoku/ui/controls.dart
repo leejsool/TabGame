@@ -166,7 +166,7 @@ class ActionBar extends StatelessWidget {
         children: [
           _ActionButton(
             icon: Icons.undo_rounded,
-            label: '취소',
+            label: '되돌리기',
             spotlight: spotlight.contains('undo'),
             enabled: game.canUndo,
             onTap: game.undo,
