@@ -6,13 +6,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/sudoku/core/generator.dart';
 import 'package:tabgame/games/sudoku/core/techniques.dart';
 import 'package:tabgame/games/sudoku/game/sudoku_game.dart';
 import 'package:tabgame/games/sudoku/ui/board_widget.dart';
 import 'package:tabgame/games/sudoku/ui/controls.dart';
+
+import '../support/preview_kit.dart';
 
 /// 각 기술이 "처음 힌트로 나오는 순간"의 게임 상태를 찾는다.
 Map<Technique, SudokuGame> findScenarios(Set<Technique> wanted) {
@@ -47,11 +48,7 @@ void main() {
   final dir = Platform.environment['SUDOKU_PREVIEW_DIR'];
 
   testWidgets('힌트 화면 미리보기 이미지 만들기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
 
     final wanted = {
       Technique.hiddenSingle,

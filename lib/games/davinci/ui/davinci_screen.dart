@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
-import '../../../core/settings_scope.dart';
 import '../../../core/tablet_scale.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
@@ -272,6 +271,15 @@ class _DavinciScreenState extends State<DavinciScreen> {
   bool get _rematchAsked => _againSeats.contains(c.humanSeat);
   bool get _rematchOffered => _againSeats.any((s) => s != c.humanSeat);
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'draw': const Fx(haptic: Haptic.select),
+    'right': const Fx(haptic: Haptic.medium),
+    'wrong': const Fx(haptic: Haptic.vibrate),
+    'bad': const Fx(haptic: Haptic.vibrate),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -307,6 +315,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _leaving = true;
     for (final s in _linkSubs) {
@@ -430,21 +439,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'draw':
-        HapticFeedback.selectionClick();
-      case 'right':
-        HapticFeedback.mediumImpact();
-      case 'wrong':
-        HapticFeedback.vibrate();
-      case 'bad':
-        HapticFeedback.vibrate();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   Future<void> _record({required int winner, bool resigned = false}) {
     return DvHistory.add(DvRecord(

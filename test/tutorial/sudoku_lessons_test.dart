@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/games/sudoku/core/grid.dart';
@@ -15,15 +14,13 @@ import 'package:tabgame/games/sudoku/tutorial/technique_lesson_screen.dart';
 import 'package:tabgame/games/sudoku/ui/board_widget.dart';
 import 'package:tabgame/tutorial/tutorial_progress.dart';
 
+import '../support/preview_kit.dart';
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('기본 규칙 튜토리얼 판', () {

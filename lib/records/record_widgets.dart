@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'favorites.dart';
+
 /// 기록 화면에서 쓰는 요약 카드 (제목 / 큰 값 / 보조 설명).
 class StatCard extends StatelessWidget {
   const StatCard({
@@ -119,6 +121,92 @@ class RecordsList extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: children,
+        ),
+      ),
+    );
+  }
+}
+
+/// 다시 할 수 있는 완성 기록 한 줄: 왼쪽 그림, 제목(최고 기록이면 트로피), 설명, 즐겨찾기 별, 다시 하기 단추.
+/// 좁은 화면(폰)에서는 다시 하기 단추가 아이콘만 보인다.
+class ReplayRecordTile extends StatelessWidget {
+  const ReplayRecordTile({
+    super.key,
+    required this.leading,
+    required this.title,
+    required this.detail,
+    this.best = false,
+    this.favorite = false,
+    this.onToggleFavorite,
+    this.replayLabel = '다시 하기',
+    required this.onReplay,
+  });
+
+  /// 왼쪽 그림. 보통은 [ReplayRecordTile.badge] (색 동그라미 + 아이콘).
+  final Widget leading;
+  final String title;
+  final String detail;
+
+  /// 같은 갈래에서 가장 빠른 기록이면 제목 옆에 트로피.
+  final bool best;
+  final bool favorite;
+
+  /// 없으면 별을 보이지 않는다 (다시 할 수 없는 기록).
+  final VoidCallback? onToggleFavorite;
+  final String replayLabel;
+  final VoidCallback? onReplay;
+
+  /// 색 동그라미 안의 아이콘.
+  static Widget badge(Color color, IconData icon) => Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+        child: Icon(icon, color: color),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: scheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(title, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      ),
+                      if (best) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(detail, style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65))),
+                ],
+              ),
+            ),
+            if (onToggleFavorite != null) FavoriteStar(on: favorite, onTap: onToggleFavorite!),
+            if (MediaQuery.sizeOf(context).width < 460)
+              IconButton.filledTonal(tooltip: replayLabel, onPressed: onReplay, icon: const Icon(Icons.replay_rounded))
+            else
+              FilledButton.tonalIcon(onPressed: onReplay, icon: const Icon(Icons.replay_rounded, size: 18), label: Text(replayLabel)),
+          ],
         ),
       ),
     );

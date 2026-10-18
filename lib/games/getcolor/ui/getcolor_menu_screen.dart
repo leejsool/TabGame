@@ -2,6 +2,7 @@ import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_widgets.dart';
 import '../../../records/records_screen.dart';
 import '../core/getcolor_rules.dart';
 import '../data/getcolor_storage.dart';
@@ -227,40 +228,11 @@ class _ResumeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final c = GetColorController.fromJson(saved);
     final level = c.level;
     final done = c.doneCount;
     final elapsed = c.elapsed.value;
     c.dispose();
-    return Card(
-      color: scheme.primaryContainer,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_fill_rounded, size: 44, color: scheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('이어하기', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text('${level.label} · 완성한 병 $done/${level.colors} · ${formatTime(elapsed)}'),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+    return ResumeCard(detail: '${level.label} · 완성한 병 $done/${level.colors} · ${formatTime(elapsed)}', onTap: onTap);
   }
 }

@@ -3,12 +3,13 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/sprouts/ui/sprouts_lesson_screen.dart';
+
+import '../support/preview_kit.dart';
 
 Future<Widget> app(Widget home, {Key? key}) async {
   SharedPreferences.setMockInitialValues({});
@@ -27,11 +28,7 @@ void main() {
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   testWidgets('교과학습: 모든 단원이 오류 없이 열리고, 오일러 놀이터와 퀴즈가 동작한다', (tester) async {

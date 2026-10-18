@@ -35,6 +35,10 @@ class DotController extends ChangeNotifier {
 
   static const List<int> speeds = [1, 2, 4];
 
+  /// 기본 빠르기: 게임 시계가 실제 시간보다 이만큼 빨리 흐른다 (2026-10-18 사용자 요청: 예전 2배속을 1배속으로).
+  /// 벨트·탄·터짐이 모두 같이 빨라진다. 화면의 "N배속"은 이 위에 곱해진다.
+  static const double baseSpeed = 2;
+
   /// 프레임마다 바뀌는 값 (그림이 다시 그려지도록 한다).
   final ValueNotifier<int> frame = ValueNotifier<int>(0);
 
@@ -71,7 +75,11 @@ class DotController extends ChangeNotifier {
   bool get untouched => game.deploys == 0;
 
   /// 저장해 둘 만한 판인가.
-  bool get savable => !completed && !gaveUp && !untouched;
+  bool get savable => !completed && !game.won && !gaveUp && !untouched;
+
+  /// 마지막 도트를 맞혔을 때, 이 시간(실제 초)이 지나면 [completed]가 된다.
+  /// 마지막 탄이 날아가 도트가 터지는 모습까지 보여 준 뒤에 이겼다고 알린다.
+  double? _winDelay;
 
   void cycleSpeed() {
     speedIndex = (speedIndex + 1) % speeds.length;
@@ -86,7 +94,7 @@ class DotController extends ChangeNotifier {
 
   /// 열 [column]의 맨 앞 대포를 벨트에 올린다.
   bool deploy(int column) {
-    if (completed || gaveUp || paused || stalled) return false;
+    if (completed || game.won || gaveUp || paused || stalled) return false;
     if (!game.deploy(column)) {
       onFeedback?.call('full');
       return false;
@@ -99,8 +107,23 @@ class DotController extends ChangeNotifier {
   /// [dt]초만큼 시간을 흘려보낸다 (화면의 프레임마다).
   void advance(double dt) {
     if (paused || completed || gaveUp || stalled) return;
-    final scaled = dt * speed;
+    final scaled = dt * speed * baseSpeed;
     clock += scaled;
+    final winDelay = _winDelay;
+    if (winDelay != null) {
+      // 다 맞혔다: 벨트는 멈추고, 마지막 탄이 날아가 터지는 동안 기다렸다가 이겼다고 알린다
+      _winDelay = winDelay - dt;
+      if (_winDelay! <= 0) {
+        _winDelay = null;
+        completed = true;
+        onFeedback?.call('win');
+        onWon?.call();
+        notifyListeners();
+      }
+      fx.removeWhere((e) => clock - e.at > flightSeconds + popSeconds + 0.1);
+      frame.value++;
+      return;
+    }
     _acc += scaled;
     _secAcc += dt;
     while (_secAcc >= 1) {
@@ -108,7 +131,7 @@ class DotController extends ChangeNotifier {
       elapsed.value++;
     }
     var changed = false;
-    while (_acc >= stepSeconds && !completed && !stalled) {
+    while (_acc >= stepSeconds && !completed && !stalled && _winDelay == null) {
       _acc -= stepSeconds;
       final before = game.belt.toList();
       final shots = game.step();
@@ -121,9 +144,9 @@ class DotController extends ChangeNotifier {
       if (shots.isNotEmpty) onFeedback?.call('hit');
       changed = true;
       if (game.won) {
-        completed = true;
-        onFeedback?.call('win');
-        onWon?.call();
+        // 탄이 날아가 터지는 시간(게임 시계)을 실제 초로 바꾸고, 터진 뒤 잠깐 더 보여 준다
+        _winDelay = (flightSeconds + popSeconds) / (speed * baseSpeed) + 0.3;
+        _acc = 0;
       } else if (game.stuck) {
         stalled = true;
         onFeedback?.call('stuck');
@@ -148,6 +171,7 @@ class DotController extends ChangeNotifier {
     clock = 0;
     _acc = 0;
     _secAcc = 0;
+    _winDelay = null;
     elapsed.value = 0;
     notifyListeners();
   }

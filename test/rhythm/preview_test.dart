@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/rhythm/core/rhythm_chart.dart';
 import 'package:tabgame/games/rhythm/game/rhythm_controller.dart';
@@ -13,15 +12,13 @@ import 'package:tabgame/games/rhythm/ui/camp_painter.dart';
 import 'package:tabgame/games/rhythm/ui/rhythm_art.dart';
 import 'package:tabgame/games/rhythm/ui/stage_painter.dart';
 
+import '../support/preview_kit.dart';
+
 void main() {
   final dir = Platform.environment['RHYTHM_PREVIEW_DIR'];
 
   testWidgets('리듬 검사단 장면 미리보기 이미지 만들기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final art = (await tester.runAsync(RhythmArt.load))!;

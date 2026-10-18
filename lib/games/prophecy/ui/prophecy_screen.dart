@@ -1,13 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
-import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
 import '../core/prophecy_ai.dart';
@@ -68,6 +67,14 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
   bool _rematchAsked = false;
   bool _rematchOffered = false;
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'write': const Fx(haptic: Haptic.select),
+    'cross': const Fx(haptic: Haptic.light),
+    'bad': const Fx(haptic: Haptic.vibrate),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +95,7 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _leaving = true;
     _linkSub?.cancel();
@@ -223,19 +231,7 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'write':
-        HapticFeedback.selectionClick();
-      case 'cross':
-        HapticFeedback.lightImpact();
-      case 'bad':
-        HapticFeedback.vibrate();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   void _onChanged() {
     if (c.isOver && !_resultHandled) {

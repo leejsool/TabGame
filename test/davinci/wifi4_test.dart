@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
@@ -9,6 +8,8 @@ import 'package:tabgame/games/davinci/game/davinci_controller.dart';
 import 'package:tabgame/games/davinci/ui/davinci_screen.dart';
 import 'package:tabgame/games/davinci/ui/davinci_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
+
+import '../support/preview_kit.dart';
 
 Future<void> settle(WidgetTester tester, {int rounds = 6}) async {
   for (var i = 0; i < rounds; i++) {
@@ -29,11 +30,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     DavinciController.animateByDefault = false; // (상대 수 연출은 아래 시험에서만 켠다)
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   Future<void> pumpHost(WidgetTester tester, {required int players, required int port, required int discovery, int hostSide = 0}) async {

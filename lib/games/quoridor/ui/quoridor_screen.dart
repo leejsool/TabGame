@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
-import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
 import '../core/quoridor_ai.dart';
@@ -98,6 +97,14 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
   bool get _rematchAsked => _againSeats.contains(c.humanSeat);
   bool get _rematchOffered => _againSeats.any((s) => s != c.humanSeat);
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'move': const Fx(haptic: Haptic.select),
+    'wall': const Fx(haptic: Haptic.light),
+    'bad': const Fx(haptic: Haptic.vibrate),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +127,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _leaving = true;
     for (final s in _linkSubs) {
@@ -263,19 +271,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'move':
-        HapticFeedback.selectionClick();
-      case 'wall':
-        HapticFeedback.lightImpact();
-      case 'bad':
-        HapticFeedback.vibrate();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   Future<void> _record({required int winner, bool resigned = false}) {
     return QuoridorHistory.add(QuoridorRecord(
@@ -313,7 +309,6 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
       _saver.save();
     }
   }
-
 
   /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
   Future<void> _newGameNow() async {

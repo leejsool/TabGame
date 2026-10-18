@@ -5,6 +5,7 @@ import '../data/sudoku_storage.dart';
 import '../game/sudoku_game.dart';
 import '../sudoku_entry.dart';
 import '../../../core/format.dart';
+import '../../../core/game_widgets.dart';
 import '../../../records/records_screen.dart';
 import '../../../tutorial/tutorial_progress.dart';
 import '../tutorial/practice_menu_screen.dart';
@@ -230,40 +231,7 @@ class _ResumeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.primaryContainer,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_fill_rounded, size: 44, color: scheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('이어하기',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${game.puzzle.difficulty.label} · ${formatTime(game.elapsed.value)} · '
-                      '${(game.progress * 100).round()}% 완료',
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+    return ResumeCard(detail: '${game.puzzle.difficulty.label} · ${formatTime(game.elapsed.value)} · ' '${(game.progress * 100).round()}% 완료', onTap: onTap);
   }
 }
 

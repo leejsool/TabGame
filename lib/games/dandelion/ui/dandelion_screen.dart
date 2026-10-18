@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
@@ -66,6 +67,13 @@ class _DandelionScreenState extends State<DandelionScreen> {
   bool _rematchAsked = false;
   bool _rematchOffered = false;
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'plant': const Fx(haptic: Haptic.select),
+    'wind': const Fx(haptic: Haptic.light),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -86,6 +94,7 @@ class _DandelionScreenState extends State<DandelionScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _leaving = true;
     _linkSub?.cancel();
@@ -218,17 +227,7 @@ class _DandelionScreenState extends State<DandelionScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'plant':
-        HapticFeedback.selectionClick();
-      case 'wind':
-        HapticFeedback.lightImpact();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   void _onChanged() {
     if (c.isOver && !_resultHandled) {

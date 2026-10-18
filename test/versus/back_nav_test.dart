@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -16,15 +15,13 @@ import 'package:tabgame/games/sprouts/ui/sprouts_setup_screen.dart';
 import 'package:tabgame/games/uttt/ui/uttt_screen.dart';
 import 'package:tabgame/games/uttt/ui/uttt_setup_screen.dart';
 
+import '../support/preview_kit.dart';
+
 /// 게임 고르기 → 게임플레이 옵션 선택 → 인게임. 인게임에서 뒤로가면 옵션 선택 화면이어야 한다 (바로 게임 고르기가 아니라).
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   final cases = <String, (Widget Function(), Type setup, Type game)>{

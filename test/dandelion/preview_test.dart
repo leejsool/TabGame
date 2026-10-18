@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -20,12 +19,10 @@ import 'package:tabgame/games/dandelion/ui/dandelion_screen.dart';
 import 'package:tabgame/games/dandelion/ui/dandelion_lesson_screen.dart';
 import 'package:tabgame/hub/game_icons.dart';
 
+import '../support/preview_kit.dart';
+
 Future<void> _loadFonts() async {
-  final loader = FontLoader('NanumGothic');
-  for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-    loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-  }
-  await loader.load();
+  await loadAppFonts();
 }
 
 Future<void> _shot(WidgetTester tester, GlobalKey key, String path) async {

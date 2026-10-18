@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
-import '../../../core/sfx_pool.dart';
 import '../../../core/win_sound.dart';
-import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../tutorial/goblet_tutorial.dart';
 import '../../../records/records_screen.dart';
@@ -71,12 +69,18 @@ class _GobbletScreenState extends State<GobbletScreen> {
   bool _rematchOffered = false;
 
   /// 말을 놓을 때 나는 "탁" 소리 (assets/goblet/clack.wav).
-  final SfxPool _clack = SfxPool('goblet/clack.wav');
+
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  /// 소리: 말을 놓을 때 (내 수도, 상대·CPU의 수도) "탁".
+  final GameFx _fx = GameFx({
+    'pick': const Fx(haptic: Haptic.select),
+    'drop': const Fx(haptic: Haptic.light, sound: 'goblet/clack.wav'),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
 
   @override
   void initState() {
     super.initState();
-    _clack.load();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
     if (!c.online) {
@@ -94,8 +98,8 @@ class _GobbletScreenState extends State<GobbletScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
-    _clack.dispose();
     _leaving = true;
     _linkSub?.cancel();
     final link = _link;
@@ -109,7 +113,6 @@ class _GobbletScreenState extends State<GobbletScreen> {
     c.dispose();
     super.dispose();
   }
-
 
   /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
   Future<void> _newGameNow() async {
@@ -210,19 +213,7 @@ class _GobbletScreenState extends State<GobbletScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    final settings = SettingsScope.of(context);
-    if (kind == 'drop' && settings.sound) _clack.play(); // 말을 놓을 때 (내 수도, 상대·CPU의 수도) "탁"
-    if (!settings.haptics) return;
-    switch (kind) {
-      case 'pick':
-        HapticFeedback.selectionClick();
-      case 'drop':
-        HapticFeedback.lightImpact();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   void _onChanged() {
     final r = c.result;

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
@@ -16,6 +15,8 @@ import 'package:tabgame/games/sudoku/data/sudoku_history.dart';
 import 'package:tabgame/games/sudoku/ui/game_screen.dart';
 import 'package:tabgame/records/favorites.dart';
 import 'package:tabgame/records/records_screen.dart';
+
+import '../support/preview_kit.dart';
 
 Future<Widget> appWith(Widget home) async {
   final settings = await Settings.load();
@@ -40,11 +41,7 @@ SudokuRecord sudokuRecord({int seconds = 245, int at = 1760000000000, int seed =
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('즐겨찾기 저장소', () {

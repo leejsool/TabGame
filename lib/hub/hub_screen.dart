@@ -110,7 +110,12 @@ class _HubScreenState extends State<HubScreen> {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    Text('혼자서도, 함께도 즐거운 게임 놀이터', style: text.bodyLarge),
+                    // 폰에서 "놀이 / 터"처럼 끊기지 않게 한 줄로 두고, 모자라면 살짝 줄인다
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text('혼자서도, 함께도 즐거운 게임 놀이터', maxLines: 1, style: text.bodyLarge),
+                    ),
                   ],
                 ),
               ),

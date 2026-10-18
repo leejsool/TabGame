@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -15,14 +14,12 @@ import 'package:tabgame/games/sprouts/core/sprouts_planner.dart';
 import 'package:tabgame/games/sprouts/game/sprouts_controller.dart';
 import 'package:tabgame/games/sprouts/ui/sprouts_screen.dart';
 
+import '../support/preview_kit.dart';
+
 void main() {
   final dir = Platform.environment['SPROUTS_PREVIEW_DIR'];
   testWidgets('끝난 판 미리보기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     Directory(dir!).createSync(recursive: true);
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();

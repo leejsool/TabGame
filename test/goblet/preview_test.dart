@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -16,6 +15,8 @@ import 'package:tabgame/games/goblet/core/goblet_ai.dart';
 import 'package:tabgame/games/goblet/core/goblet_rules.dart';
 import 'package:tabgame/games/goblet/game/goblet_controller.dart';
 import 'package:tabgame/games/goblet/ui/goblet_screen.dart';
+
+import '../support/preview_kit.dart';
 
 /// AI가 고른 수로 [plies]수 진행한다.
 void playPlies(GobbletController c, int plies, int seed) {
@@ -32,11 +33,7 @@ void main() {
   final dir = Platform.environment['GOBLET_PREVIEW_DIR'];
 
   testWidgets('고블렛 화면 미리보기 이미지 만들기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();
     addTearDown(() => tester.binding.setSurfaceSize(null));

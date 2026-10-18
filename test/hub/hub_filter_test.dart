@@ -38,8 +38,9 @@ void main() {
         await tester.pumpWidget(MaterialApp(
           home: Scaffold(body: Center(child: SizedBox(width: size.width < 600 ? 165 : 300, height: 220, child: GameCard(game: g, compact: size.width < 600, onTap: () {})))),
         ));
-        final badge = find.descendant(of: find.byType(GameCard), matching: find.byTooltip('같은 Wi‑Fi로 함께 할 수 있어요'));
-        expect(badge, g.hasWifi ? findsOneWidget : findsNothing, reason: g.title);
+        // Wi‑Fi는 카드 아래 모드 칩으로 한 번만 보인다 (위쪽 동그라미 표시는 없앴다)
+        final chip = find.descendant(of: find.byType(GameCard), matching: find.text('Wi‑Fi'));
+        expect(chip, g.hasWifi ? findsOneWidget : findsNothing, reason: g.title);
         expect(tester.takeException(), isNull, reason: g.title);
       }
     });

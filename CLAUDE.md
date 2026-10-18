@@ -21,7 +21,10 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 | Save / resume a game | `lib/core/game_save.dart` (`GameSave`), `resume_gate.dart` |
 | "Leave? save?" / "new game?" confirms | `lib/core/leave_guard.dart` |
 | Give up confirm | `lib/core/give_up.dart` |
-| Win sound "짜잔" / click / game sfx | `win_sound.dart`, `click_sound.dart`, `sfx_pool.dart` (all in `lib/core/`) |
+| Win sound "짜잔" / click | `win_sound.dart`, `click_sound.dart` (in `lib/core/`) |
+| Game haptics + sounds per event | `lib/core/game_fx.dart`: each screen keeps `final GameFx _fx = GameFx({'drop': Fx(haptic: Haptic.light, sound: 'sfx/x.wav')})` and calls `_fx.play(context, kind)` from `onFeedback`. Adding a sound = one `sound:` entry. |
+| Bottom tool-bar button, "이어하기" card | `GameBarButton`, `ResumeCard` in `lib/core/game_widgets.dart` |
+| Finished-game row with ★ + "다시 하기" | `ReplayRecordTile` in `lib/records/record_widgets.dart` (also `StatCard`, `EmptyRecords`, `RecordsList`) |
 | History storage | `lib/core/json_history.dart` (`JsonHistoryStore`; record needs `toJson`/`fromJson`) |
 | Versus setup / CPU / records | `VsSetupScaffold`, `VsChoiceCard`, `VsLevelPicker`; `CpuTurnRunner`; `VsRecordsBoard` |
 | Playing cards | `lib/games/freecell/ui/playing_card.dart`, looks in `lib/core/card_look.dart` |
@@ -36,7 +39,8 @@ bump the version's middle number at release (see Release).
 ## Commands (Windows; user folder name is Korean, so temp must be an ASCII path)
 - Fast tests: `powershell -ExecutionPolicy Bypass -File tool/test.ps1` (~2 min). One game: `... tool/test.ps1 test/<game>`. All incl. slow: `-All`.
 - Direct `flutter test` needs `$env:TEMP=$env:TMP='F:\MyApp\tools\tmp'` first.
-- Screenshots: set `$env:<GAME>_PREVIEW_DIR='<scratchpad dir>'` (e.g. `RUMMIKUB_PREVIEW_DIR`, `DAVINCI_PREVIEW_DIR`), then run `tool/test.ps1 test/<game>/preview_test.dart`; read the PNGs.
+- Screenshots of every screen at 3 sizes (+ phone dark, + `<name>_all.png` side by side): `tool/preview_all.ps1 [-Name "game (sudoku|mines)$"] [-Out <dir>]` (~1 min; add new games to `test/preview_all_test.dart`). Per-game scenario shots: `$env:<GAME>_PREVIEW_DIR='<dir>'` + `tool/test.ps1 test/<game>/preview_test.dart`.
+- In tests call `loadAppFonts()` from `test/support/preview_kit.dart` (NanumGothic + Material icons); don't copy FontLoader code.
 - Check sizes: phone 400x860, tablet portrait 800x1280, tablet landscape 1280x800. Tablet = shortestSide >= 600.
 - Dev build to tablet: `tool/build_dev.ps1` (separate "개발" app). Release APK: `flutter build apk --release`.
 - All tools live in `F:\MyApp\tools` (flutter, jdk, sdk, pub-cache, tmp). Never install tools elsewhere.

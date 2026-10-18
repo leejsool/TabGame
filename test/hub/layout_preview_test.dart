@@ -18,15 +18,13 @@ import 'package:tabgame/hub/game_card.dart';
 import 'package:tabgame/hub/game_icons.dart';
 import 'package:tabgame/hub/hub_screen.dart';
 
+import '../support/preview_kit.dart';
+
 void main() {
   final dir = Platform.environment['HUB_PREVIEW_DIR'];
 
   testWidgets('허브·아이콘·예언 표 미리보기 이미지 만들기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     final lora = FontLoader('Lora')..addFont(rootBundle.load('assets/fonts/Lora-Variable.ttf'));
     await lora.load();
     SharedPreferences.setMockInitialValues({});

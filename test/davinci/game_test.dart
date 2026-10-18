@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -19,6 +18,8 @@ import 'package:tabgame/games/davinci/ui/davinci_screen.dart';
 import 'package:tabgame/games/davinci/ui/davinci_setup_screen.dart';
 import 'package:tabgame/games/davinci/ui/davinci_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
+
+import '../support/preview_kit.dart';
 
 int b(int n) => dvTile(0, n);
 int w(int n) => dvTile(1, n);
@@ -101,11 +102,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     DavinciController.animateByDefault = false; // (상대 수 연출은 아래 시험에서만 켠다)
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('컨트롤러', () {

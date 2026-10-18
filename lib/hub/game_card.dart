@@ -25,13 +25,34 @@ class _GameCardState extends State<GameCard> {
     if (_pressed != v) setState(() => _pressed = v);
   }
 
+  /// 흰 글씨가 잘 읽히도록 카드 아래쪽(글씨 자리)에 깔 어둠의 진하기 (0~0.6).
+  /// 어두운 카드는 0이라 그대로이고, 노랑·주황처럼 밝은 카드만 필요한 만큼 아래쪽이 어두워진다.
+  /// 설명 글씨 자리에서 대비 4.5:1, 큰 제목 자리에서 3:1 이상이 되는 가장 옅은 값.
+  static double _scrimFor(Color base, Color dark) {
+    double contrastAt(double t, double y, double a) {
+      final g = Color.lerp(base, dark, t)!;
+      final bg = Color.lerp(g, Colors.black, ((y - 0.35) / 0.65).clamp(0.0, 1.0) * a)!;
+      return 1.05 / (bg.computeLuminance() + 0.05);
+    }
+
+    for (var a = 0.0; a < 0.6; a += 0.05) {
+      if (contrastAt(0.41, 0.72, a) >= 4.5 && contrastAt(0.35, 0.6, a) >= 3) return a;
+    }
+    return 0.6;
+  }
+
+  static const List<Shadow> _textShadow = [Shadow(color: Color(0x40000000), blurRadius: 4, offset: Offset(0, 1))];
+
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
     final hsl = HSLColor.fromColor(game.color);
     final dark = hsl.withLightness((hsl.lightness - 0.12).clamp(0.0, 1.0)).toColor();
+    final scrim = _scrimFor(game.color, dark);
+    // 혼자 놀기 카드는 이미 "혼자 놀기" 묶음 안에 있으니 "혼자" 칩을 따로 달지 않는다
+    final soloOnly = game.modes.length == 1 && game.modes.first == PlayMode.solo;
 
-    return AnimatedScale(
+    final card = AnimatedScale(
       scale: _pressed ? 0.96 : 1.0,
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
@@ -52,90 +73,106 @@ class _GameCardState extends State<GameCard> {
             ),
           ],
         ),
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
+        // 글씨 자리(아래쪽)만 살짝 어둡게 깐다 (밝은 카드에서만, [_scrimFor])
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            onTap: widget.onTap,
-            onTapDown: (_) => _setPressed(true),
-            onTapUp: (_) => _setPressed(false),
-            onTapCancel: () => _setPressed(false),
-            child: Padding(
-              padding: EdgeInsets.all(widget.compact ? 12 : 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(widget.compact ? 6 : 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: GameIcon(game: game, size: widget.compact ? 40 : 50),
-                      ),
-                      if (!game.isReady)
-                        const _SoonBadge()
-                      else
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (game.hasWifi && !kIsWeb) _WifiBadge(compact: widget.compact),
-                            if (game.hasWifi && !kIsWeb && game.hasLesson) SizedBox(width: widget.compact ? 4 : 6),
-                            if (game.hasLesson) _LessonBadge(compact: widget.compact),
-                          ],
-                        ),
-                    ],
+            gradient: scrim == 0
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.35, 1],
+                    colors: [Colors.black.withValues(alpha: 0), Colors.black.withValues(alpha: scrim)],
                   ),
-                  const Spacer(),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      game.title,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: widget.compact ? 18 : 22,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: widget.compact ? 2 : 4),
-                  Text(
-                    game.tagline,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: widget.compact ? 12 : 14,
-                      height: widget.compact ? 1.25 : null,
-                    ),
-                  ),
-                  SizedBox(height: widget.compact ? 8 : 12),
-                  // 모드가 셋이어도 한 줄로 두고, 모자라면 칩을 조금 줄인다 (두 줄이 되어 카드 높이를 넘지 않게).
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: widget.onTap,
+              onTapDown: (_) => _setPressed(true),
+              onTapUp: (_) => _setPressed(false),
+              onTapCancel: () => _setPressed(false),
+              child: Padding(
+                padding: EdgeInsets.all(widget.compact ? 12 : 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (var i = 0; i < game.modes.length; i++) ...[
-                          if (i > 0) const SizedBox(width: 6),
-                          _ModeChip(mode: game.modes[i]),
-                        ],
+                        Container(
+                          padding: EdgeInsets.all(widget.compact ? 6 : 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: GameIcon(game: game, size: widget.compact ? 48 : 54),
+                        ),
+                        // (Wi‑Fi는 아래 모드 칩에 이미 있어서 위에는 교과학습 표시만 단다)
+                        if (!game.isReady)
+                          const _SoonBadge()
+                        else if (game.hasLesson)
+                          _LessonBadge(compact: widget.compact),
                       ],
                     ),
-                  ),
-                ],
+                    const Spacer(),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        game.title,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: widget.compact ? 18 : 22,
+                          fontWeight: FontWeight.w800,
+                          shadows: _textShadow,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: widget.compact ? 2 : 4),
+                    Text(
+                      game.tagline,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontSize: widget.compact ? 12.5 : 14,
+                        height: widget.compact ? 1.25 : null,
+                        shadows: _textShadow,
+                      ),
+                    ),
+                    if (!soloOnly) ...[
+                      SizedBox(height: widget.compact ? 8 : 12),
+                      // 모드가 셋이어도 한 줄로 두고, 모자라면 칩을 조금 줄인다 (두 줄이 되어 카드 높이를 넘지 않게).
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final mode in game.modes)
+                              if (!(mode == PlayMode.wifi && kIsWeb)) ...[
+                                if (mode != game.modes.first) const SizedBox(width: 6),
+                                _ModeChip(mode: mode),
+                              ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+    // 준비 중인 게임은 흐리게 보여서 아직 할 수 없다는 걸 알린다
+    return game.isReady ? card : Opacity(opacity: 0.55, child: card);
   }
 }
 
@@ -155,28 +192,6 @@ class _LessonBadge extends StatelessWidget {
           padding: EdgeInsets.all(compact ? 6 : 8),
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
           child: Icon(Icons.school_rounded, size: compact ? 18 : 22, color: Colors.black.withValues(alpha: 0.72)),
-        ),
-      ),
-    );
-  }
-}
-
-/// 같은 Wi‑Fi로 함께 할 수 있는 게임 카드의 Wi‑Fi 표시.
-class _WifiBadge extends StatelessWidget {
-  const _WifiBadge({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: '같은 Wi‑Fi로 함께 할 수 있어요',
-      child: Semantics(
-        label: '같은 Wi‑Fi로 함께 할 수 있어요',
-        child: Container(
-          padding: EdgeInsets.all(compact ? 6 : 8),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
-          child: Icon(Icons.wifi_rounded, size: compact ? 18 : 22, color: Colors.black.withValues(alpha: 0.72)),
         ),
       ),
     );

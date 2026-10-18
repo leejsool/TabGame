@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
-import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../records/records_screen.dart';
 import '../core/sprouts_ai.dart';
@@ -77,6 +76,13 @@ class _SproutsScreenState extends State<SproutsScreen> {
   bool _rematchAsked = false;
   bool _rematchOffered = false;
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'draw': const Fx(haptic: Haptic.select),
+    'bad': const Fx(haptic: Haptic.light),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +113,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _leaving = true;
     _linkSub?.cancel();
@@ -238,17 +245,7 @@ class _SproutsScreenState extends State<SproutsScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'draw':
-        HapticFeedback.selectionClick();
-      case 'bad':
-        HapticFeedback.lightImpact();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   void _onChanged() {
     if (c.isOver && !_resultHandled && !c.resigned) {
@@ -281,7 +278,6 @@ class _SproutsScreenState extends State<SproutsScreen> {
       _saver.save();
     }
   }
-
 
   /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
   Future<void> _newGameNow() async {

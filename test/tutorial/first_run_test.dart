@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/sudoku/tutorial/technique_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +7,8 @@ import 'package:tabgame/core/game_registry.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/tutorial/tutorial_progress.dart';
 import 'package:tabgame/tutorial/tutorial_screen.dart';
+
+import '../support/preview_kit.dart';
 
 Future<Settings> _start(WidgetTester tester, {Map<String, Object> prefs = const {}}) async {
   SharedPreferences.setMockInitialValues(prefs);
@@ -24,11 +25,7 @@ void main() {
   // 앱과 같은 글꼴로 그려야 글자 줄바꿈이 실제와 같다.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('준비된 모든 게임에는 게임 방법이 있다', () {

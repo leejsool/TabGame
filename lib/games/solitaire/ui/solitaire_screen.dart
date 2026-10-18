@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_fx.dart';
+import '../../../core/game_widgets.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
@@ -49,6 +50,12 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
     return SolitaireController(deal: widget.deal, draw: widget.draw, autoMoveEnabled: autoMove);
   }
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'drop': const Fx(haptic: Haptic.select),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +71,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
+    _fx.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _saveDebounce?.cancel();
@@ -89,15 +97,7 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
     _saveDebounce = Timer(const Duration(milliseconds: 500), _save);
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'drop':
-        HapticFeedback.selectionClick();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   // ── 끝났을 때 ──
 
@@ -338,27 +338,37 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
-            Flexible(
-              child: Text(
-                '솔리테어 #${c.deal}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            // 제목과 칩이 남는 폭을 모두 쓴다 (빈 칸과 나눠 갖지 않아 폰에서도 제목이 잘리지 않는다)
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text.rich(
+                      // 판 번호는 조금 작고 옅게 (폰에서도 한 줄에 다 들어가게)
+                      TextSpan(text: '솔리테어 ', children: [
+                        TextSpan(text: '#${c.deal}', style: TextStyle(fontSize: 16, color: scheme.onSurface.withValues(alpha: 0.6))),
+                      ]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${c.draw}장',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: scheme.primary),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '${c.draw}장',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: scheme.primary),
-              ),
-            ),
-            const Spacer(),
             Text(
               '${c.moveCount}수',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.primary),
@@ -468,9 +478,9 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
           child: Row(
             children: [
-              _BarButton(icon: Icons.undo_rounded, label: '되돌리기', onTap: c.canUndo ? c.undo : null),
-              _BarButton(icon: Icons.lightbulb_rounded, label: '힌트', onTap: c.canAct ? c.requestHint : null),
-              _BarButton(
+              GameBarButton(icon: Icons.undo_rounded, label: '되돌리기', onTap: c.canUndo ? c.undo : null),
+              GameBarButton(icon: Icons.lightbulb_rounded, label: '힌트', onTap: c.canAct ? c.requestHint : null),
+              GameBarButton(
                 icon: Icons.auto_awesome_rounded,
                 label: c.autoMoveEnabled ? '자동 올리기 켬' : '자동 올리기 끔',
                 highlight: c.autoMoveEnabled,
@@ -480,44 +490,11 @@ class _SolitaireScreenState extends State<SolitaireScreen> with WidgetsBindingOb
                   c.start();
                 },
               ),
-              _BarButton(icon: Icons.refresh_rounded, label: '처음부터', onTap: _confirmRestart),
+              GameBarButton(icon: Icons.refresh_rounded, label: '처음부터', onTap: _confirmRestart),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _BarButton extends StatelessWidget {
-  const _BarButton({required this.icon, required this.label, required this.onTap, this.highlight = false});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final base = highlight ? scheme.primary : scheme.onSurface.withValues(alpha: 0.78);
-    final color = onTap == null ? base.withValues(alpha: 0.3) : base;
-    return Expanded(
-      child: InkResponse(
-        onTap: onTap,
-        radius: 44,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 28, color: color),
-              const SizedBox(height: 3),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: color)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

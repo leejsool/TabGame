@@ -2,6 +2,7 @@ import '../../../tutorial/tutorial_button.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_widgets.dart';
 import '../../../records/records_screen.dart';
 import '../core/mines_rules.dart';
 import '../data/mines_storage.dart';
@@ -172,39 +173,10 @@ class _ResumeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final level = MinesLevel.values[saved['level'] as int];
     final marks = saved['marks'] as String;
     final opened = marks.split('').where((m) => m == '1').length;
     final total = level.rows * level.cols - level.mines;
-    return Card(
-      color: scheme.primaryContainer,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_fill_rounded, size: 44, color: scheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('이어하기', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text('${level.label} · ${(opened * 100 / total).round()}% 진행 · ${formatTime(saved['elapsed'] as int)}'),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+    return ResumeCard(detail: '${level.label} · ${(opened * 100 / total).round()}% 진행 · ${formatTime(saved['elapsed'] as int)}', onTap: onTap);
   }
 }

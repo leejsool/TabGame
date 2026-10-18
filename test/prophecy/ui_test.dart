@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -19,6 +18,8 @@ import 'package:tabgame/games/prophecy/ui/prophecy_records_tab.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_screen.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_setup_screen.dart';
 import 'package:tabgame/games/prophecy/ui/table_picker.dart';
+
+import '../support/preview_kit.dart';
 
 Future<Widget> app(Widget home) async {
   SharedPreferences.setMockInitialValues({});
@@ -46,11 +47,7 @@ Offset cellCenter(WidgetTester tester, ProphecyController c, int cell) {
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('예시 판과 교과학습 계산', () {

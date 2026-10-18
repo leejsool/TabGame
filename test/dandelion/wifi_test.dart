@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -20,6 +19,8 @@ import 'package:tabgame/games/dandelion/ui/dandelion_screen.dart';
 import 'package:tabgame/games/dandelion/ui/dandelion_setup_screen.dart';
 import 'package:tabgame/games/dandelion/ui/dandelion_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
+
+import '../support/preview_kit.dart';
 
 Future<Widget> app(Widget home) async {
   SharedPreferences.setMockInitialValues({});
@@ -61,11 +62,7 @@ bool play(DandelionController c, int m) => c.state.turn == Role.dandelion ? c.pl
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('Wi‑Fi 대결 판 진행', () {

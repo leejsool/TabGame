@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
@@ -14,15 +13,13 @@ import 'package:tabgame/games/freecell/core/freecell_rules.dart';
 import 'package:tabgame/games/freecell/game/freecell_controller.dart';
 import 'package:tabgame/games/freecell/ui/freecell_screen.dart';
 
+import '../support/preview_kit.dart';
+
 void main() {
   final dir = Platform.environment['FREECELL_PREVIEW_DIR'];
 
   testWidgets('프리셀 화면 미리보기 이미지 만들기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();
     addTearDown(tester.view.reset);

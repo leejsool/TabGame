@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/games/sudoku/tutorial/basic_lesson.dart';
@@ -18,13 +17,10 @@ import 'package:tabgame/tutorial/tutorial.dart';
 import 'package:tabgame/tutorial/tutorial_screen.dart';
 
 import 'preview_tutorials.dart';
+import '../support/preview_kit.dart';
 
 Future<void> _loadFonts() async {
-  final loader = FontLoader('NanumGothic');
-  for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-    loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-  }
-  await loader.load();
+  await loadAppFonts();
 }
 
 ThemeData _theme(Brightness b) => ThemeData(

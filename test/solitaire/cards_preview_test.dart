@@ -4,20 +4,17 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/core/card_look.dart';
 import 'package:tabgame/games/freecell/ui/playing_card.dart';
+
+import '../support/preview_kit.dart';
 
 void main() {
   final dir = Platform.environment['SOLITAIRE_PREVIEW_DIR'];
 
   testWidgets('카드 앞면 미리보기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     final big = Platform.environment['BIG_CARDS'] != null;
     CardLook.style = CardStyle.values.byName(Platform.environment['CARD_STYLE'] ?? 'bicycle');
     CardLook.palette = SuitPalette.values.byName(Platform.environment['SUIT_PALETTE'] ?? 'twoColor');

@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -21,6 +20,8 @@ import 'package:tabgame/games/rummikub/ui/rummikub_screen.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_setup_screen.dart';
 import 'package:tabgame/hub/hub_screen.dart';
 
+import '../support/preview_kit.dart';
+
 Future<void> _shot(WidgetTester tester, GlobalKey key, String path) async {
   await tester.runAsync(() async {
     final boundary = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
@@ -34,13 +35,7 @@ void main() {
   RummikubScreen.playSounds = false; // (시험에서는 소리를 내지 않는다)
   final dir = Platform.environment['RUMMIKUB_PREVIEW_DIR'];
   testWidgets('루미큐브 화면 미리보기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
-    final icons = FontLoader('MaterialIcons')..addFont(Future.value(File('F:/MyApp/tools/flutter/bin/cache/artifacts/material_fonts/materialicons-regular.otf').readAsBytesSync().buffer.asByteData()));
-    await icons.load();
+    await loadAppFonts();
     Directory(dir!).createSync(recursive: true);
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();

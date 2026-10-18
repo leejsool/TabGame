@@ -3,9 +3,10 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/freecell/ui/win_celebration.dart';
+
+import '../support/preview_kit.dart';
 
 WinCelebration make({Size view = const Size(820, 1300)}) => WinCelebration(
       view: view,
@@ -74,11 +75,7 @@ void main() {
   // 미리보기: SOLITAIRE_PREVIEW_DIR 가 있을 때 몇 장면을 PNG로 저장한다.
   final dir = Platform.environment['SOLITAIRE_PREVIEW_DIR'];
   testWidgets('연출 장면 미리보기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     const size = Size(820, 1300);
     await tester.binding.setSurfaceSize(size);
     addTearDown(() => tester.binding.setSurfaceSize(null));

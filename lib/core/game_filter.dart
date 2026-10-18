@@ -19,6 +19,9 @@ enum GameFilter {
   final IconData icon;
   final String label;
 
+  /// 분류 막대 알약에 쓰는 짧은 이름.
+  String get shortLabel => this == GameFilter.lesson ? '학습' : label;
+
   bool matches(GameInfo g) => switch (this) {
         GameFilter.all => true,
         GameFilter.solo => g.hasSolo,
@@ -31,7 +34,7 @@ enum GameFilter {
   static List<GameFilter> get available => [for (final f in values) if (!(kIsWeb && f == GameFilter.wifi)) f];
 }
 
-/// 칸 구분선 없이 알약 모양으로 고르는 분류 막대. 고른 항목만 아이콘+글자, 나머지는 아이콘만 보인다.
+/// 칸 구분선 없이 알약 모양으로 고르는 분류 막대. 모든 항목에 아이콘과 짧은 이름이 보이고, 고른 항목은 색으로 채워진다.
 /// 좁은 화면에서는 통째로 줄어들어 넘치지 않는다.
 class GameFilterBar extends StatelessWidget {
   const GameFilterBar({super.key, required this.selected, required this.onChanged, this.alignment = Alignment.centerLeft});
@@ -82,22 +85,14 @@ class _FilterPill extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(horizontal: selected ? 16 : 12, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(color: selected ? scheme.primary : Colors.transparent, borderRadius: BorderRadius.circular(28)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(filter.icon, size: 24, color: fg),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                child: selected
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(filter.label, softWrap: false, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: fg)),
-                      )
-                    : const SizedBox.shrink(),
-              ),
+              const SizedBox(width: 6),
+              Text(filter.shortLabel, softWrap: false, style: TextStyle(fontSize: 16, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: fg)),
             ],
           ),
         ),

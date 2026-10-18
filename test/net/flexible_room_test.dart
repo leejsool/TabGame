@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
@@ -12,6 +11,8 @@ import 'package:tabgame/games/rummikub/ui/rummikub_screen.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
 import 'package:tabgame/net/lan_screens.dart';
+
+import '../support/preview_kit.dart';
 
 Future<void> settle(WidgetTester tester, {int rounds = 6}) async {
   for (var i = 0; i < rounds; i++) {
@@ -46,11 +47,7 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     RummikubScreen.playSounds = false; // (시험에는 소리 플러그인이 없다)
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   test('시작 단추로 고를 수 있는 CPU 수: 허용된 전체 인원이 되는 만큼만', () {

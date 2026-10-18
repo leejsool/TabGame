@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_fx.dart';
 import '../../../core/leave_guard.dart';
-import '../../../core/settings_scope.dart';
 import '../../../core/tablet_scale.dart';
 import '../../../core/win_sound.dart';
 import '../core/dot_levels.dart';
@@ -38,6 +37,16 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
   Timer? _bannerTimer;
   final ValueNotifier<String?> _banner = ValueNotifier<String?>(null);
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    // 대포가 쏠 때의 레이저 (사용자가 고른 소리). 여럿이 잇달아 쏘면 난잡해지니 작게, 0.17초에 한 번까지만
+    'hit': const Fx(sound: 'sfx/laser.wav', volume: 0.45, minGap: Duration(milliseconds: 170)),
+    'deploy': const Fx(haptic: Haptic.select),
+    'full': const Fx(haptic: Haptic.light),
+    'stuck': const Fx(haptic: Haptic.vibrate),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +67,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
 
   @override
   void dispose() {
+    _fx.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _bannerTimer?.cancel();
@@ -94,18 +104,8 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
   }
 
   void _feedback(String kind) {
-    final haptics = SettingsScope.of(context).haptics;
-    switch (kind) {
-      case 'deploy':
-        if (haptics) HapticFeedback.selectionClick();
-      case 'full':
-        _showBanner('벨트가 가득 찼거나, 입구가 막혀 있어요');
-        if (haptics) HapticFeedback.lightImpact();
-      case 'stuck':
-        if (haptics) HapticFeedback.vibrate();
-      case 'win':
-        if (haptics) HapticFeedback.heavyImpact();
-    }
+    if (kind == 'full') _showBanner('벨트가 가득 찼거나, 입구가 막혀 있어요');
+    _fx.play(context, kind);
   }
 
   // ── 끝났을 때 ──

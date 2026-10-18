@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_fx.dart';
+import '../../../core/game_widgets.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
@@ -55,6 +56,12 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
     return FreecellController(deal: widget.deal, autoMoveEnabled: autoMove);
   }
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'drop': const Fx(haptic: Haptic.select),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -73,6 +80,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
 
   @override
   void dispose() {
+    _fx.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     _saveDebounce?.cancel();
@@ -98,15 +106,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
     _saveDebounce = Timer(const Duration(milliseconds: 500), _save);
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    switch (kind) {
-      case 'drop':
-        HapticFeedback.selectionClick();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   // ── 끝났을 때 ──
 
@@ -400,6 +400,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
     return PopupMenuButton<String>(
       tooltip: '메뉴',
       icon: const Icon(Icons.more_vert_rounded),
+      style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
       onSelected: (v) {
         if (v == 'restart') _confirmRestart();
         if (v == 'new') _startNewGame();
@@ -456,38 +457,48 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
-            Flexible(
-              child: Text(
-                '프리셀 #${c.deal}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+            // 제목과 난이도 칩이 남는 폭을 모두 쓴다 (빈 칸과 나눠 갖지 않아 폰에서도 제목이 잘리지 않는다)
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text.rich(
+                      // 판 번호는 조금 작고 옅게 (폰에서도 한 줄에 다 들어가게)
+                      TextSpan(text: '프리셀 ', children: [
+                        TextSpan(text: '#${c.deal}', style: TextStyle(fontSize: 16, color: scheme.onSurface.withValues(alpha: 0.6))),
+                      ]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  if (_level != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: levelColors[_level!]!.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _level!.label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: levelColors[_level!]!,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            if (_level != null) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: levelColors[_level!]!.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  _level!.label,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: levelColors[_level!]!,
-                  ),
-                ),
-              ),
-            ],
-            const Spacer(),
+            const SizedBox(width: 8),
             Text(
               '${c.moveCount}수',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: scheme.primary),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             ValueListenableBuilder<int>(
               valueListenable: c.elapsed,
               builder: (_, sec, _) => Text(
@@ -506,6 +517,7 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
                 size: 30,
               ),
               onPressed: c.completed ? null : () => c.setPaused(!c.paused),
+              visualDensity: VisualDensity.compact,
             ),
             _menuButton(),
           ],
@@ -587,17 +599,17 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
   /// 되돌리기·힌트·자동 올리기·처음부터 버튼 (아래 줄에서는 가로로, 가로 폰 화면에서는 세로로 놓인다).
   List<Widget> _barButtons(Settings settings) {
     return [
-      _BarButton(
+      GameBarButton(
         icon: Icons.undo_rounded,
         label: '되돌리기',
         onTap: c.canUndo ? c.undo : null,
       ),
-      _BarButton(
+      GameBarButton(
         icon: Icons.lightbulb_rounded,
         label: '힌트',
         onTap: c.canAct && !c.thinkingHint ? c.requestHint : null,
       ),
-      _BarButton(
+      GameBarButton(
         icon: Icons.auto_awesome_rounded,
         label: c.autoMoveEnabled ? '자동 올리기 켬' : '자동 올리기 끔',
         highlight: c.autoMoveEnabled,
@@ -607,51 +619,12 @@ class _FreecellScreenState extends State<FreecellScreen> with WidgetsBindingObse
           c.start(); // 켰을 때 바로 올릴 카드가 있으면 올린다
         },
       ),
-      _BarButton(
+      GameBarButton(
         icon: Icons.refresh_rounded,
         label: '처음부터',
         onTap: _confirmRestart,
       ),
     ];
-  }
-}
-
-class _BarButton extends StatelessWidget {
-  const _BarButton({required this.icon, required this.label, required this.onTap, this.highlight = false});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final base = highlight ? scheme.primary : scheme.onSurface.withValues(alpha: 0.78);
-    final color = onTap == null ? base.withValues(alpha: 0.3) : base;
-    return Expanded(
-      child: InkResponse(
-        onTap: onTap,
-        radius: 44,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 28, color: color),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12.5, color: color),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

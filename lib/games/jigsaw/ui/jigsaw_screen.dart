@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_widgets.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
@@ -355,61 +356,24 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
         padding: const EdgeInsets.fromLTRB(8, 2, 8, 8),
         child: Row(
           children: [
-            _BarButton(icon: Icons.image_outlined, label: '완성 그림', onTap: _showPreview),
-            _BarButton(
+            GameBarButton(icon: Icons.image_outlined, label: '완성 그림', onTap: _showPreview),
+            GameBarButton(
               icon: c.ghost ? Icons.visibility_rounded : Icons.visibility_off_rounded,
               label: '밑그림',
               highlight: c.ghost,
               onTap: c.toggleGhost,
             ),
-            _BarButton(
+            GameBarButton(
               icon: Icons.lightbulb_rounded,
               label: '힌트',
               onTap: () => c.giveHint(_rng),
             ),
-            _BarButton(
+            GameBarButton(
               icon: Icons.shuffle_rounded,
               label: '흩어 놓기',
               onTap: () => c.scatter(_rng),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BarButton extends StatelessWidget {
-  const _BarButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.highlight = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = highlight ? scheme.primary : scheme.onSurface.withValues(alpha: 0.75);
-    return Expanded(
-      child: InkResponse(
-        onTap: onTap,
-        radius: 44,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 28, color: color),
-              const SizedBox(height: 3),
-              Text(label, style: TextStyle(fontSize: 12.5, color: color)),
-            ],
-          ),
         ),
       ),
     );

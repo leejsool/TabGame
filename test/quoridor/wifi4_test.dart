@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -14,6 +13,8 @@ import 'package:tabgame/games/quoridor/data/quoridor_history.dart';
 import 'package:tabgame/games/quoridor/ui/quoridor_screen.dart';
 import 'package:tabgame/games/quoridor/ui/quoridor_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
+
+import '../support/preview_kit.dart';
 
 int cell(int r, int c) => r * kBoard + c;
 
@@ -36,11 +37,7 @@ void main() {
   hybridTests();
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   Future<void> pumpHost(WidgetTester tester, {required int hostSide, required int port, required int discovery}) async {

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
@@ -16,7 +17,6 @@ import '../core/rummikub_ai.dart';
 import '../core/rummikub_rules.dart';
 import '../data/rummikub_history.dart';
 import '../game/rummikub_controller.dart';
-import '../audio/rummikub_sfx.dart';
 import '../game/rummikub_layout.dart';
 import '../tutorial/rummikub_tutorial.dart';
 import 'rummikub_celebration.dart';
@@ -121,13 +121,23 @@ class _RummikubScreenState extends State<RummikubScreen> {
     }
   }
 
-  /// 타일 소리 (패를 뽑거나, 놓거나, 옮길 때의 "딸깍").
-  RkTileSound? _tileSound;
+  /// 타일 소리 (패를 뽑거나, 놓거나, 옮길 때의 "딸깍"). 시험에서는 끈다 ([RummikubScreen.playSounds]).
+  static String? get _tileSound => RummikubScreen.playSounds ? 'rummikub/tile.wav' : null;
+
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  /// 소리: 패를 뽑거나(draw) 놓거나 옮길 때(place), 상대가 패를 옮길 때(step) "딸깍".
+  final GameFx _fx = GameFx({
+    'turn': const Fx(haptic: Haptic.medium),
+    'place': Fx(haptic: Haptic.select, sound: _tileSound),
+    'draw': Fx(haptic: Haptic.light, sound: _tileSound),
+    'step': Fx(sound: _tileSound),
+    'bad': const Fx(haptic: Haptic.vibrate),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
 
   @override
   void initState() {
     super.initState();
-    if (RummikubScreen.playSounds) _tileSound = RkTileSound()..load();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
     if (!c.online) {
@@ -153,10 +163,10 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _turnTimer?.cancel();
     _hoverTarget.dispose();
-    _tileSound?.dispose();
     _leaving = true;
     for (final s in _linkSubs) {
       s.cancel();
@@ -292,24 +302,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    final settings = SettingsScope.of(context);
-    // 패를 뽑거나('draw'), 놓거나 옮길 때('place'), 상대가 패를 옮길 때('step') 딸깍 소리가 난다
-    if (settings.sound && (kind == 'place' || kind == 'draw' || kind == 'step')) _tileSound?.play();
-    if (!settings.haptics) return;
-    switch (kind) {
-      case 'turn':
-        HapticFeedback.mediumImpact();
-      case 'place':
-        HapticFeedback.selectionClick();
-      case 'draw':
-        HapticFeedback.lightImpact();
-      case 'bad':
-        HapticFeedback.vibrate();
-      case 'win':
-        HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   Future<void> _record({required int? winner, bool resigned = false}) {
     return RkHistory.add(RkRecord(

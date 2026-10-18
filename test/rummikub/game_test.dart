@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -21,6 +20,8 @@ import 'package:tabgame/games/rummikub/ui/rummikub_setup_screen.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_tiles.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_wifi_screen.dart';
 import 'package:tabgame/net/lan_connection.dart';
+
+import '../support/preview_kit.dart';
 
 int t(int color, int number) => tileId(color, number);
 
@@ -78,11 +79,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     RummikubScreen.showFirstHint = false; // (팝업은 아래 시험에서만 켠다)
     RummikubScreen.playSounds = false; // (시험에서는 소리를 내지 않는다)
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
   });
 
   group('컨트롤러', () {

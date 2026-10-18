@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
@@ -71,6 +72,12 @@ class _UtttScreenState extends State<UtttScreen> {
   bool _rematchAsked = false;
   bool _rematchOffered = false;
 
+  /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final GameFx _fx = GameFx({
+    'place': const Fx(haptic: Haptic.select),
+    'win': const Fx(haptic: Haptic.heavy),
+  });
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +98,7 @@ class _UtttScreenState extends State<UtttScreen> {
 
   @override
   void dispose() {
+    _fx.dispose();
     _saver.detach();
     _leaving = true;
     _linkSub?.cancel();
@@ -222,14 +230,7 @@ class _UtttScreenState extends State<UtttScreen> {
     if (ok == true && mounted) Navigator.of(context).pop();
   }
 
-  void _feedback(String kind) {
-    if (!SettingsScope.of(context).haptics) return;
-    if (kind == 'place') {
-      HapticFeedback.selectionClick();
-    } else if (kind == 'win') {
-      HapticFeedback.heavyImpact();
-    }
-  }
+  void _feedback(String kind) => _fx.play(context, kind);
 
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
@@ -263,7 +264,6 @@ class _UtttScreenState extends State<UtttScreen> {
       _saver.save();
     }
   }
-
 
   /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
   Future<void> _newGameNow() async {
@@ -458,7 +458,8 @@ class _UtttScreenState extends State<UtttScreen> {
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => Navigator.of(context).maybePop(),
           ),
-          Flexible(
+          // 제목이 남는 폭을 모두 쓴다 (빈 칸과 나눠 갖지 않아 폰에서도 잘리지 않는다)
+          Expanded(
             child: Text(
               '궁극 틱택토',
               maxLines: 1,
@@ -466,7 +467,6 @@ class _UtttScreenState extends State<UtttScreen> {
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
-          const Spacer(),
           IconButton(
             tooltip: '교과학습',
             icon: const Icon(Icons.menu_book_rounded),

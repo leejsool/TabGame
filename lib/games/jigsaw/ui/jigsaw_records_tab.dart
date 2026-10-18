@@ -77,11 +77,14 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
     if (mounted) setState(() {});
   }
 
-  Widget _tile(JigsawRecord r) => _RecordTile(
-        record: r,
-        isBest: r.seconds == _bestIn(r.target),
-        isFav: _favs.has(r),
-        onToggleFav: r.canReplay ? () => _toggleFav(r) : null,
+  Widget _tile(JigsawRecord r) => ReplayRecordTile(
+        leading: _Thumb(source: r.source),
+        title: '${r.pieces}조각 · ${formatTime(r.seconds)}',
+        detail: r.canReplay ? formatDate(r.at) : '${formatDate(r.at)} · 그림이 남아 있지 않아요',
+        best: r.seconds == _bestIn(r.target),
+        favorite: _favs.has(r),
+        // 그림을 다시 불러올 수 없는 기록은 별도 다시 하기도 없다
+        onToggleFavorite: r.canReplay ? () => _toggleFav(r) : null,
         onReplay: r.canReplay ? () => _replay(r) : null,
       );
 
@@ -180,90 +183,6 @@ class _JigsawRecordsTabState extends State<JigsawRecordsTab> {
         else
           for (final r in list) _tile(r),
       ],
-    );
-  }
-}
-
-class _RecordTile extends StatelessWidget {
-  const _RecordTile({
-    required this.record,
-    required this.isBest,
-    required this.isFav,
-    required this.onToggleFav,
-    required this.onReplay,
-  });
-
-  final JigsawRecord record;
-  final bool isBest;
-  final bool isFav;
-
-  /// 그림을 다시 불러올 수 없는 기록은 null (별이 없다).
-  final VoidCallback? onToggleFav;
-  final VoidCallback? onReplay;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        child: Row(
-          children: [
-            _Thumb(source: record.source),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          '${record.pieces}조각 · ${formatTime(record.seconds)}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      if (isBest) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    record.canReplay
-                        ? formatDate(record.at)
-                        : '${formatDate(record.at)} · 그림이 남아 있지 않아요',
-                    style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
-                  ),
-                ],
-              ),
-            ),
-            if (onToggleFav != null) FavoriteStar(on: isFav, onTap: onToggleFav!),
-            // 좁은 화면(폰)에서는 아이콘만 보여준다
-            if (MediaQuery.sizeOf(context).width < 460)
-              IconButton.filledTonal(
-                tooltip: '다시 하기',
-                onPressed: onReplay,
-                icon: const Icon(Icons.replay_rounded),
-              )
-            else
-              FilledButton.tonalIcon(
-                onPressed: onReplay,
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: const Text('다시 하기'),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }

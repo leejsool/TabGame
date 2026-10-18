@@ -74,11 +74,14 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
     if (mounted) setState(() {});
   }
 
-  Widget _tile(SudokuRecord r) => _RecordTile(
-        record: r,
-        isBest: r.seconds == _bestIn(r.difficulty),
-        isFav: _favs.has(r),
-        onToggleFav: () => _toggleFav(r),
+  Widget _tile(SudokuRecord r) => ReplayRecordTile(
+        leading: ReplayRecordTile.badge(_levelColors[r.difficulty]!, Icons.grid_on_rounded),
+        title: '${r.difficulty.label} · ${formatTime(r.seconds)}',
+        detail: '${formatDate(r.at)} · 실수 ${r.mistakes} · 힌트 ${r.hints}',
+        best: r.seconds == _bestIn(r.difficulty),
+        favorite: _favs.has(r),
+        onToggleFavorite: () => _toggleFav(r),
+        replayLabel: '다시 풀기',
         onReplay: () => _replay(r),
       );
 
@@ -177,92 +180,6 @@ class _SudokuRecordsTabState extends State<SudokuRecordsTab> {
         else
           for (final r in list) _tile(r),
       ],
-    );
-  }
-}
-
-class _RecordTile extends StatelessWidget {
-  const _RecordTile({
-    required this.record,
-    required this.isBest,
-    required this.isFav,
-    required this.onToggleFav,
-    required this.onReplay,
-  });
-
-  final SudokuRecord record;
-  final bool isBest;
-  final bool isFav;
-  final VoidCallback onToggleFav;
-  final VoidCallback onReplay;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _levelColors[record.difficulty]!;
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
-              child: Icon(Icons.grid_on_rounded, color: color),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          '${record.difficulty.label} · ${formatTime(record.seconds)}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      if (isBest) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${formatDate(record.at)} · 실수 ${record.mistakes} · 힌트 ${record.hints}',
-                    style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
-                  ),
-                ],
-              ),
-            ),
-            FavoriteStar(on: isFav, onTap: onToggleFav),
-            // 좁은 화면(폰)에서는 아이콘만 보여준다
-            if (MediaQuery.sizeOf(context).width < 460)
-              IconButton.filledTonal(
-                tooltip: '다시 풀기',
-                onPressed: onReplay,
-                icon: const Icon(Icons.replay_rounded),
-              )
-            else
-              FilledButton.tonalIcon(
-                onPressed: onReplay,
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: const Text('다시 풀기'),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }

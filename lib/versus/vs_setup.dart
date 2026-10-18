@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/game_save.dart';
+import '../core/game_widgets.dart';
 import '../records/record_widgets.dart' show confirmOverwrite;
 import '../records/records_screen.dart';
 import '../tutorial/tutorial_button.dart';
@@ -171,36 +172,7 @@ class _ResumeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.primaryContainer,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        key: const ValueKey('vs-resume'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_fill_rounded, size: 40, color: scheme.primary),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('이어하기', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 2),
-                    Text(describe, style: const TextStyle(fontSize: 13.5)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+    return ResumeCard(key: const ValueKey('vs-resume'), compact: true, detail: describe, onTap: onTap);
   }
 }
 

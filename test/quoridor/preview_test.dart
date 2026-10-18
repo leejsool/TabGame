@@ -6,7 +6,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
@@ -18,6 +17,8 @@ import 'package:tabgame/games/quoridor/tutorial/quoridor_tutorial.dart';
 import 'package:tabgame/games/quoridor/ui/quoridor_screen.dart';
 import 'package:tabgame/games/quoridor/ui/quoridor_setup_screen.dart';
 import 'package:tabgame/records/records_screen.dart';
+
+import '../support/preview_kit.dart';
 
 Future<void> _shot(WidgetTester tester, GlobalKey key, String path) async {
   await tester.runAsync(() async {
@@ -31,11 +32,7 @@ Future<void> _shot(WidgetTester tester, GlobalKey key, String path) async {
 void main() {
   final dir = Platform.environment['QUORIDOR_PREVIEW_DIR'];
   testWidgets('쿼리도 화면 미리보기', (tester) async {
-    final loader = FontLoader('NanumGothic');
-    for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-      loader.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
-    }
-    await loader.load();
+    await loadAppFonts();
     Directory(dir!).createSync(recursive: true);
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();

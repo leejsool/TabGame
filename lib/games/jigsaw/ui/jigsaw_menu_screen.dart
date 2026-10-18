@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/format.dart';
+import '../../../core/game_widgets.dart';
 import '../../../records/records_screen.dart';
 import '../data/jigsaw_storage.dart';
 import '../jigsaw_entry.dart';
@@ -391,40 +392,10 @@ class _ResumeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final placed = (save.state['placed'] as List).where((v) => v == 1).length;
     final total = (save.state['placed'] as List).length;
     final elapsed = save.state['elapsed'] as int;
-    return Card(
-      color: scheme.primaryContainer,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.play_circle_fill_rounded, size: 44, color: scheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('이어하기',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 4),
-                    Text('$total조각 · $placed/$total 맞춤 · ${formatTime(elapsed)}'),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
+    return ResumeCard(detail: '$total조각 · $placed/$total 맞춤 · ${formatTime(elapsed)}', onTap: onTap);
   }
 }
 

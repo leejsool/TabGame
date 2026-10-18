@@ -76,6 +76,36 @@ void main() {
     expect(find.text('다음 그림'), findsOneWidget);
   });
 
+  test('1배속은 예전 2배속 빠르기다 (벨트가 1초에 1/stepSeconds × 2 칸 돈다)', () {
+    final c = DotController(level: dotLevels.first)..deploy(0);
+    for (var i = 0; i < 14; i++) {
+      c.advance(0.05); // 실제 0.7초
+    }
+    expect(c.game.stepCount, (0.7 * DotController.baseSpeed / DotController.stepSeconds).floor());
+    c.dispose();
+  });
+
+  test('마지막 도트를 맞혀도 탄이 날아가 터지는 모습을 보여 준 뒤에 완성된다', () {
+    final c = DotController(level: dotLevels.first);
+    var won = 0;
+    c.onWon = () => won++;
+    for (var i = 0; i < 60000 && !c.game.won && !c.stalled; i++) {
+      final col = botPick(c.game);
+      if (col != null) c.deploy(col);
+      c.advance(0.016);
+    }
+    expect(c.game.won, isTrue);
+    expect(c.completed, isFalse, reason: '마지막 탄이 아직 날아가는 중');
+    expect(won, 0);
+    final hitAt = c.clock;
+    for (var i = 0; i < 1000 && !c.completed; i++) {
+      c.advance(0.016);
+    }
+    expect(won, 1);
+    expect(c.clock - hitAt, greaterThanOrEqualTo(DotController.flightSeconds + DotController.popSeconds));
+    c.dispose();
+  });
+
   test('모든 내장 단계는 끝까지 할 수 있다', () {
     for (final l in dotLevels) {
       final c = DotController(level: l);

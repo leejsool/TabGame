@@ -50,70 +50,15 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
   }
 
   /// 완성한 판 한 줄: 번호·시간, 날짜·수, 즐겨찾기 별, 다시 하기.
-  Widget _tile(SolitaireRecord r, ColorScheme scheme, int? bestSeconds) {
-    const green = Color(0xFF2E7D5B);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: green.withValues(alpha: 0.15), shape: BoxShape.circle),
-              child: const Icon(Icons.style_rounded, color: green),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          '#${r.deal} · ${formatTime(r.seconds)}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                      if (r.seconds == bestSeconds) ...[
-                        const SizedBox(width: 6),
-                        const Icon(Icons.emoji_events_rounded, size: 18, color: Color(0xFFF2A900)),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${formatDate(r.at)} · ${r.moves}수 · ${r.draw}장 뽑기',
-                    style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.65)),
-                  ),
-                ],
-              ),
-            ),
-            FavoriteStar(on: _favs.has(r), onTap: () => _toggleFav(r)),
-            if (MediaQuery.sizeOf(context).width < 460)
-              IconButton.filledTonal(
-                tooltip: '다시 하기',
-                onPressed: () => _replay(r),
-                icon: const Icon(Icons.replay_rounded),
-              )
-            else
-              FilledButton.tonalIcon(
-                onPressed: () => _replay(r),
-                icon: const Icon(Icons.replay_rounded, size: 18),
-                label: const Text('다시 하기'),
-              ),
-          ],
-        ),
-      ),
+  Widget _tile(SolitaireRecord r, int? bestSeconds) {
+    return ReplayRecordTile(
+      leading: ReplayRecordTile.badge(const Color(0xFF2E7D5B), Icons.style_rounded),
+      title: '#${r.deal} · ${formatTime(r.seconds)}',
+      detail: '${formatDate(r.at)} · ${r.moves}수 · ${r.draw}장 뽑기',
+      best: r.seconds == bestSeconds,
+      favorite: _favs.has(r),
+      onToggleFavorite: () => _toggleFav(r),
+      onReplay: () => _replay(r),
     );
   }
 
@@ -125,7 +70,6 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
-    final scheme = Theme.of(context).colorScheme;
     final gaveUps = [for (final r in _all) if (r.gaveUp) r];
     final cleared = [for (final r in _all) if (!r.gaveUp) r];
     final list = [
@@ -168,7 +112,7 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
         statRow(3, const Color(0xFF8E5BC4)),
         if (favs.isNotEmpty) ...[
           const SectionTitle('즐겨찾기한 판'),
-          for (final r in favs) _tile(r, scheme, bestSeconds),
+          for (final r in favs) _tile(r, bestSeconds),
         ],
         if (gaveUps.isNotEmpty) ...[
           const SectionTitle('포기한 판'),
@@ -210,7 +154,7 @@ class _SolitaireRecordsTabState extends State<SolitaireRecordsTab> {
                 : '이 방식으로 완성한 판이 아직 없어요.',
           )
         else
-          for (final r in list) _tile(r, scheme, bestSeconds),
+          for (final r in list) _tile(r, bestSeconds),
       ],
     );
   }
