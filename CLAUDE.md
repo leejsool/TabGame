@@ -56,7 +56,7 @@ bump the version's middle number at release (see Release).
 - Ask before big or ambiguous changes; offer 2-3 options with a recommendation.
 - Commit, push and release only when the user asks. Never `git add` `build/`, `.claude/`, `tool/art_src/_check_*.png`.
 - The user often plays on the tablet (adb id `R54X401635E`). Don't tap, install or screencap via adb without asking.
-- Keep new files under ~400 lines; split big screens by role (board, hand, bottom bar, dialogs). Big screens/controllers are split with `part` files (`rummikub_screen.dart` + `_net/_flow/_layout/_fly/_table/_hand/_extras.dart`, same for davinci/quoridor/rummikub_controller): methods live in `extension` blocks, call `_update(() {...})` instead of `setState` there, and `_notify()` instead of `notifyListeners()`. Don't read all parts; grep the method name.
+- Keep new files under ~400 lines; split big screens by role (board, hand, bottom bar, dialogs). Big screens/controllers are split with `part` files (`rummikub_screen.dart` + `_net/_flow/_layout/_fly/_table/_hand/_extras.dart`, same for davinci/quoridor/rummikub_controller): methods live in `extension` blocks, call `_update(() {...})` instead of `setState` there, and `_notify()` instead of `notifyListeners()`. Don't read all parts; grep the method name. (A `dynamic` receiver in a test can't see extension methods: cast it.)
 
 ## Release
 - Version in `pubspec.yaml` (`x.y.z+N`). New game → bump middle (1.7.6 → 1.8.0); fixes only → bump last. Always bump `+N`.

@@ -81,7 +81,7 @@ void main() {
     await settle(tester, rounds: 6);
     final seats = [for (final l in logs) l.firstWhere((m) => m['t'] == 'start')['side'] as int];
     final guestOfSeat = {for (var i = 0; i < 3; i++) seats[i]: i};
-    final c = (tester.state(find.byType(DavinciScreen)) as dynamic).c;
+    final c = (tester.state(find.byType(DavinciScreen)) as dynamic).c as DavinciController; // (분리한 조각의 메서드도 부르려고 형을 밝힌다)
     expect(c.turn, 0);
 
     // 방장(0번)의 수 → 모든 손님에게
@@ -135,7 +135,7 @@ void main() {
     await settle(tester, rounds: 6);
     final seats = [for (final l in logs) l.firstWhere((m) => m['t'] == 'start')['side'] as int];
     final guestOfSeat = {for (var i = 0; i < 3; i++) seats[i]: i};
-    final c = (tester.state(find.byType(DavinciScreen)) as dynamic).c;
+    final c = (tester.state(find.byType(DavinciScreen)) as dynamic).c as DavinciController; // (분리한 조각의 메서드도 부르려고 형을 밝힌다)
 
     // 방장(0번)이 뽑은 뒤 상대 타일을 고르면 모든 손님에게 간다
     expect(c.draw(0), isTrue);
