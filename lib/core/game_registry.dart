@@ -48,7 +48,7 @@ import '../games/solitaire/ui/solitaire_records_tab.dart';
 import '../games/sprouts/ui/sprouts_records_tab.dart';
 import '../games/sudoku/ui/sudoku_records_tab.dart';
 import '../games/uttt/ui/uttt_records_tab.dart';
-import '../hub/game_icons.dart';
+import '../games/pinball/pinball_icon.dart';
 import 'game_info.dart';
 
 /// 앱에 들어갈 모든 게임 목록.

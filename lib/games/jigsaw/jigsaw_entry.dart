@@ -13,6 +13,7 @@ import 'game/jigsaw_controller.dart';
 import 'ui/jigsaw_images.dart';
 import 'ui/jigsaw_menu_screen.dart';
 import 'ui/jigsaw_screen.dart';
+export 'ui/jigsaw_icon.dart';
 
 /// 허브(game_registry)에서 직소퍼즐을 열 때 쓰는 진입점.
 Widget buildJigsaw(BuildContext context, PlayMode mode) => const JigsawMenuScreen();

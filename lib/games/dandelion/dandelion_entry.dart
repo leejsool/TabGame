@@ -6,6 +6,7 @@ import 'game/dandelion_controller.dart';
 import 'ui/dandelion_screen.dart';
 import 'ui/dandelion_setup_screen.dart' show DandelionSetupScreen, dandelionSavedLabel;
 import 'ui/dandelion_wifi_screen.dart';
+export 'ui/dandelion_icon.dart';
 
 /// 허브(game_registry)에서 민들레를 열 때 쓰는 진입점.
 Widget buildDandelion(BuildContext context, PlayMode mode) {

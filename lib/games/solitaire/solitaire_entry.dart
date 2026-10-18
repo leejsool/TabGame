@@ -8,6 +8,7 @@ import 'core/solitaire_rules.dart';
 import 'data/solitaire_storage.dart';
 import 'ui/solitaire_menu_screen.dart';
 import 'ui/solitaire_screen.dart';
+export 'ui/solitaire_icon.dart';
 
 /// 허브(game_registry)에서 솔리테어를 열 때 쓰는 진입점.
 Widget buildSolitaire(BuildContext context, PlayMode mode) => const SolitaireMenuScreen();

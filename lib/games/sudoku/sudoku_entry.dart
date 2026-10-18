@@ -9,6 +9,7 @@ import 'data/sudoku_storage.dart';
 import 'game/sudoku_game.dart';
 import 'ui/game_screen.dart';
 import 'ui/menu_screen.dart';
+export 'ui/sudoku_icon.dart';
 
 /// 허브(game_registry)에서 스도쿠를 열 때 쓰는 진입점.
 Widget buildSudoku(BuildContext context, PlayMode mode) => const SudokuMenuScreen();

@@ -9,6 +9,7 @@ import 'core/freecell_rules.dart';
 import 'data/freecell_storage.dart';
 import 'ui/freecell_menu_screen.dart';
 import 'ui/freecell_screen.dart';
+export 'ui/freecell_icon.dart';
 
 /// 허브(game_registry)에서 프리셀을 열 때 쓰는 진입점.
 Widget buildFreecell(BuildContext context, PlayMode mode) => const FreecellMenuScreen();

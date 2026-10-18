@@ -6,7 +6,7 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 
 ## Folder map
 - `lib/core/game_registry.dart` — `allGames`: one `GameInfo` per game (hub card, modes, tutorial, icon, records). New games register here.
-- `lib/hub/` — hub screen, game cards, settings screen. `game_icons.dart` holds every drawn icon (`paint<Game>Icon`; grep, don't read it all).
+- `lib/hub/` — hub screen, game cards, settings screen. `game_icons.dart` is only the `GameIcon` widget; each game's drawn icon lives in `lib/games/<game>/ui/<game>_icon.dart` (`paint<Game>Icon`, exported by `<game>_entry.dart`; pinball: `lib/games/pinball/`). Shared drawing helpers: `lib/hub/icon_kit.dart`.
 - `lib/games/<game>/` — `core/` rules (pure Dart, tested without UI) → `game/` controller → `ui/` → `data/` history → `tutorial/`. Entry: `<game>_entry.dart`.
 - `lib/versus/` — versus-game shared parts: `cpu_turn.dart` (`CpuTurnRunner`, CPU in an isolate), `vs_setup.dart` (setup screen kit).
 - `lib/net/` — same-Wi-Fi play: `lan_screens.dart` (make/find room screens), `lan_connection.dart`, `keep_awake.dart`, `lan_stall_overlay.dart`.
@@ -54,7 +54,7 @@ bump the version's middle number at release (see Release).
 - Ask before big or ambiguous changes; offer 2-3 options with a recommendation.
 - Commit, push and release only when the user asks. Never `git add` `build/`, `.claude/`, `tool/art_src/_check_*.png`.
 - The user often plays on the tablet (adb id `R54X401635E`). Don't tap, install or screencap via adb without asking.
-- Keep new files under ~400 lines; split big screens by role (board, hand, bottom bar, dialogs).
+- Keep new files under ~400 lines; split big screens by role (board, hand, bottom bar, dialogs). Big screens/controllers are split with `part` files (`rummikub_screen.dart` + `_net/_flow/_layout/_fly/_table/_hand/_extras.dart`, same for davinci/quoridor/rummikub_controller): methods live in `extension` blocks, call `_update(() {...})` instead of `setState` there, and `_notify()` instead of `notifyListeners()`. Don't read all parts; grep the method name.
 
 ## Release
 - Version in `pubspec.yaml` (`x.y.z+N`). New game → bump middle (1.7.6 → 1.8.0); fixes only → bump last. Always bump `+N`.

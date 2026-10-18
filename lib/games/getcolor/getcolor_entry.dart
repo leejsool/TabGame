@@ -7,6 +7,7 @@ import 'data/getcolor_storage.dart';
 import 'game/getcolor_controller.dart';
 import 'ui/getcolor_menu_screen.dart';
 import 'ui/getcolor_screen.dart';
+export 'ui/getcolor_icon.dart';
 
 /// 허브(game_registry)에서 겟 컬러를 열 때 쓰는 진입점.
 Widget buildGetColor(BuildContext context, PlayMode mode) => const GetColorMenuScreen();

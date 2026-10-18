@@ -7,6 +7,7 @@ import 'core/dot_levels.dart';
 import 'game/dot_controller.dart';
 import 'ui/dot_menu_screen.dart';
 import 'ui/dot_screen.dart';
+export 'ui/dotcannon_icon.dart';
 
 /// 이어하던 판을 보관하는 이름표 ([GameSave]).
 const String dotGameId = 'dot_cannon';

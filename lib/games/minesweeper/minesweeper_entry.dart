@@ -7,6 +7,7 @@ import 'data/mines_storage.dart';
 import 'game/mines_controller.dart';
 import 'ui/mines_menu_screen.dart';
 import 'ui/mines_screen.dart';
+export 'ui/minesweeper_icon.dart';
 
 /// 허브(game_registry)에서 지뢰찾기를 열 때 쓰는 진입점.
 Widget buildMinesweeper(BuildContext context, PlayMode mode) => const MinesMenuScreen();

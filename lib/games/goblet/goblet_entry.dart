@@ -6,6 +6,7 @@ import 'game/goblet_controller.dart';
 import 'ui/goblet_screen.dart';
 import 'ui/goblet_setup_screen.dart' show GobbletSetupScreen, gobletSavedLabel;
 import 'ui/goblet_wifi_screen.dart';
+export 'ui/goblet_icon.dart';
 
 /// 허브(game_registry)에서 고블렛 고블러스를 열 때 쓰는 진입점.
 Widget buildGoblet(BuildContext context, PlayMode mode) {

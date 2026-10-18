@@ -6,6 +6,7 @@ import 'game/uttt_controller.dart';
 import 'ui/uttt_screen.dart';
 import 'ui/uttt_setup_screen.dart' show UtttSetupScreen, utttSavedLabel;
 import 'ui/uttt_wifi_screen.dart';
+export 'ui/uttt_icon.dart';
 
 /// 허브(game_registry)에서 궁극 틱택토를 열 때 쓰는 진입점.
 Widget buildUttt(BuildContext context, PlayMode mode) {
