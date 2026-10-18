@@ -9,9 +9,11 @@ import '../../../core/game_info.dart';
 import '../../../versus/cpu_turn.dart';
 import '../core/rummikub_ai.dart';
 import '../core/rummikub_rules.dart';
+import '../core/rummikub_split.dart';
 import 'rummikub_layout.dart';
 
 part 'rummikub_controller_board.dart';
+part 'rummikub_controller_fix.dart';
 part 'rummikub_controller_history.dart';
 part 'rummikub_controller_turn.dart';
 part 'rummikub_controller_cpu.dart';

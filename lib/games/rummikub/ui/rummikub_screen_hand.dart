@@ -124,6 +124,7 @@ extension _RkHand on _RummikubScreenState {
         children: [
           if (c.canAct && c.selected.isNotEmpty && c.selected.any(c.placed.contains))
             icon(Icons.south_west_rounded, '손으로', () => c.returnToHand(c.selected.toList())),
+          if (c.wrongTiles.isNotEmpty) icon(Icons.rule_rounded, '잘못 놓은 타일만 손으로 (맞게 만든 묶음은 그대로)', c.returnWrongToHand),
           icon(Icons.undo_rounded, '되돌리기', c.canUndoStep ? c.undoStep : null),
           icon(Icons.restart_alt_rounded, '처음으로', c.canAct && modified ? c.reset : null),
           icon(Icons.auto_fix_high_rounded, '정리 (묶음은 그대로, 자리만 가지런히)', c.canAct && c.work.isNotEmpty ? c.tidySets : null),

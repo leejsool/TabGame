@@ -3,10 +3,36 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/rummikub/core/rummikub_ai.dart';
 import 'package:tabgame/games/rummikub/core/rummikub_rules.dart';
+import 'package:tabgame/games/rummikub/core/rummikub_split.dart';
 
 int t(int color, int number, [int copy = 0]) => tileId(color, number, copy);
 
 void main() {
+  group('잘못 묶인 것 쪼개기', () {
+    test('1-2-3-5-6-7은 1-2-3 과 5-6-7로 쪼개진다', () {
+      final plan = splitIntoMelds([t(0, 1), t(0, 2), t(0, 3), t(0, 5), t(0, 6), t(0, 7)]);
+      expect(plan, isNotNull);
+      expect(plan!.leftover, isEmpty);
+      final sets = [for (final m in plan.melds) ([...m]..sort())];
+      expect(sets.length, 2);
+      expect(sets, containsAll([
+        [t(0, 1), t(0, 2), t(0, 3)],
+        [t(0, 5), t(0, 6), t(0, 7)],
+      ]));
+    });
+
+    test('쪼개도 안 되면 null, 낱개로 빼도 되는 타일은 빼고 나머지를 맞춘다', () {
+      expect(splitIntoMelds([t(0, 1), t(0, 2), t(0, 3), t(0, 9)]), isNull);
+      final plan = splitIntoMelds([t(0, 1), t(0, 2), t(0, 3), t(0, 9)], removable: {t(0, 9)});
+      expect(plan!.leftover, [t(0, 9)]);
+      expect(plan.melds.single.length, 3);
+    });
+
+    test('너무 많은 타일은 포기한다', () {
+      expect(splitIntoMelds([for (var i = 1; i <= 13; i++) t(0, i), t(1, 1)]), isNull);
+    });
+  });
+
   group('묶음 판정', () {
     test('런: 같은 색 연속 3장 이상', () {
       expect(analyzeMeld([t(0, 3), t(0, 4), t(0, 5)])?.value, 12);

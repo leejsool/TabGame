@@ -5,6 +5,7 @@ extension RummikubControllerTurn on RummikubController {
   /// 지금 판의 모습으로 차례를 마친다. 안 되면 이유를 [notice]에 두고 false.
   bool endTurn() {
     if (!canAct) return false;
+    if (error != null) _autoSplit(); // (잘못 묶인 것을 쪼개서 맞출 수 있으면 알아서 쪼갠다)
     final err = error;
     if (err != null) {
       notice = err.message;

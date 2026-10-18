@@ -120,6 +120,52 @@ void main() {
       expect(c.rackTiles.length, 4);
     });
 
+    test('끝내기를 누르면 잘못 묶인 것이 올바른 두 묶음으로 쪼개질 때 알아서 쪼갠다', () {
+      final c = fixedController(rack: [for (var n = 1; n <= 7; n++) t(0, n), t(1, 4), t(2, 4), t(3, 4)]);
+      c.state.melded[0] = true;
+      c.moveTiles([t(1, 4), t(2, 4), t(3, 4)]);
+      c.moveTiles([for (var n = 1; n <= 7; n++) if (n != 4) t(0, n)]);
+      c.moveTiles([t(0, 4)], to: c.work.last); // 1-2-3-5-6-7 에 4를 끼워 1-7 런
+      c.moveTiles([t(0, 4)], to: c.work.first); // 4를 그룹으로 가져가면 런이 1-2-3-5-6-7 로 끊긴다
+      expect(c.error, PlayError.badSet);
+      expect(c.endTurn(), isTrue);
+      expect(c.state.table.length, 3);
+      expect(c.state.racks[0], isEmpty);
+    });
+
+    test('쪼개도 안 되면 끝내기는 아무것도 바꾸지 않는다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(3, 4)]);
+      c.moveTiles([t(0, 10), t(1, 10), t(3, 4)]);
+      expect(c.endTurn(), isFalse);
+      expect(c.work.single.length, 3);
+    });
+
+    test('잘못 놓은 타일만 손으로: 맞게 만든 묶음은 그대로 둔다', () {
+      final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(0, 4), t(1, 7), t(3, 12)]);
+      c.moveTiles([t(0, 10), t(1, 10), t(2, 10)]); // 맞는 묶음
+      c.moveTiles([t(0, 4), t(1, 7)]); // 틀린 묶음
+      c.moveTiles([t(3, 12)]); // 틀린 낱개
+      expect(c.wrongTiles.toSet(), {t(0, 4), t(1, 7), t(3, 12)});
+      c.returnWrongToHand();
+      expect(c.work.length, 1);
+      expect(c.work.single.toSet(), {t(0, 10), t(1, 10), t(2, 10)});
+      expect(c.rackTiles.toSet(), {t(0, 4), t(1, 7), t(3, 12)});
+      expect(c.wrongTiles, isEmpty);
+      c.undoStep();
+      expect(c.work.length, 3);
+    });
+
+    test('잘못 놓은 타일만 손으로: 판 위 묶음에 잘못 붙인 타일만 빠지고 원래 묶음은 남는다', () {
+      final c = fixedController(rack: [t(3, 9)]);
+      c.state.table.add([t(0, 10), t(1, 10), t(2, 10)]);
+      c.work = [for (final s in c.state.table) [...s]];
+      c.moveTiles([t(3, 9)], to: c.work.first);
+      expect(c.wrongTiles, [t(3, 9)]);
+      c.returnWrongToHand();
+      expect(c.work.single.length, 3);
+      expect(c.rackTiles.contains(t(3, 9)), isTrue);
+    });
+
     test('같은 묶음에 타일을 더하고, 이번 차례에 올린 타일만 손으로 돌려받는다', () {
       final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(3, 10), t(0, 1)]);
       c.moveTiles([t(0, 10), t(1, 10), t(2, 10)]);

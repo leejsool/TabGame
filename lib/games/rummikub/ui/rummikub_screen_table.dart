@@ -201,15 +201,19 @@ extension _RkTable on _RummikubScreenState {
                         ),
                       ),
                     ),
+                    // 한 손으로도 누르기 쉽게 판의 오른쪽 아래에 두고, 타일을 가리지 않게 희미하게 보인다
                     if (c.canAct && c.selected.isNotEmpty)
                       Positioned(
-                        top: 6,
+                        bottom: 8,
                         right: 8,
-                        child: ActionChip(
-                          visualDensity: VisualDensity.compact,
-                          avatar: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('고른 타일로 새 묶음'),
-                          onPressed: () => c.moveTiles(c.selected.toList()),
+                        child: Opacity(
+                          opacity: 0.6,
+                          child: ActionChip(
+                            visualDensity: VisualDensity.compact,
+                            avatar: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('고른 타일로 새 묶음'),
+                            onPressed: () => c.moveTiles(c.selected.toList()),
+                          ),
                         ),
                       ),
                   ],
