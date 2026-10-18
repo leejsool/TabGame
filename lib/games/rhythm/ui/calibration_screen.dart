@@ -48,7 +48,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> with SingleTicker
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_sfx != null) return;
-    final sfx = SettingsScope.of(context).sound ? PoolSfx() : const SilentSfx();
+    final sfx = SettingsScope.of(context).sound ? PoolSfx.shared : const SilentSfx();
     _sfx = sfx;
     sfx.load();
   }

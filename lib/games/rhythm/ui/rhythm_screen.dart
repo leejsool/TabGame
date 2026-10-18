@@ -24,7 +24,7 @@ const _ink = Color(0xFF1A1523);
 
 /// 훈련소 튜토리얼 플레이 화면.
 class RhythmScreen extends StatefulWidget {
-  const RhythmScreen({super.key, this.controller, this.autoStart = false, this.art, this.course = 0});
+  const RhythmScreen({super.key, this.controller, this.autoStart = false, this.art, this.course = 0, this.sfx});
 
   /// 몇 번째 코스인지 (RhythmCourse.all의 번호).
   final int course;
@@ -34,6 +34,9 @@ class RhythmScreen extends StatefulWidget {
 
   /// (테스트용) 미리 만든 컨트롤러.
   final RhythmController? controller;
+
+  /// (테스트용) 소리 장치. 없으면 설정에 따라 앱 전체가 함께 쓰는 것을 쓴다.
+  final RhythmSfx? sfx;
 
   /// (테스트용) 시작 안내 없이 바로 시작.
   final bool autoStart;
@@ -80,7 +83,7 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
     super.didChangeDependencies();
     if (_c != null) return;
     final soundOn = SettingsScope.of(context).sound;
-    final sfx = widget.controller?.sfx ?? (soundOn ? PoolSfx() : const SilentSfx());
+    final sfx = widget.controller?.sfx ?? widget.sfx ?? (soundOn ? PoolSfx.shared : const SilentSfx());
     _sfx = sfx;
     _c = widget.controller ?? RhythmController(chart: RhythmChart.course(widget.course), sfx: sfx);
     c.onJudged = _onJudged;
@@ -104,7 +107,8 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
       final ms = await RhythmStorage.loadOffsetMs();
       if (!mounted) return;
       c.inputOffset = ms / 1000.0;
-      await sfx.load();
+      // 소리가 꼬여도 "준비 중…"에서 영영 멈추지 않도록 기다리는 시간을 둔다 (넘기면 일단 시작하고, 불러오기는 뒤에서 계속된다)
+      await sfx.load().timeout(const Duration(seconds: 12), onTimeout: () {});
     } finally {
       if (mounted) setState(() => _audioReady = true);
     }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +22,18 @@ class RecordingSfx implements RhythmSfx {
   Future<void> warmUp() async {}
   @override
   void play(Sfx sfx) => played.add(sfx);
+  @override
+  Future<void> dispose() async {}
+}
+
+/// 불러오기가 영영 끝나지 않는 가짜 소리 장치 (소리 엔진이 꼬인 상황).
+class HangingSfx implements RhythmSfx {
+  @override
+  Future<void> load() => Completer<void>().future;
+  @override
+  Future<void> warmUp() async {}
+  @override
+  void play(Sfx sfx) {}
   @override
   Future<void> dispose() async {}
 }
@@ -517,6 +531,17 @@ void main() {
       expect(c.hearts, 3);
       expect(c.gameOver, isFalse);
       expect(find.text('게임 오버'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('소리 불러오기가 끝나지 않아도 "준비 중…"이 영영 남지 않고 출발할 수 있다', (tester) async {
+      await pumpApp(tester, const Size(1000, 700), RhythmScreen(course: 0, art: RhythmArt.empty(), sfx: HangingSfx()));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('준비 중…'), findsOneWidget); // (처음에는 소리를 기다린다)
+      await tester.pump(const Duration(seconds: 13));
+      expect(find.text('준비 중…'), findsNothing);
+      expect(find.text('훈련 시작!'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
