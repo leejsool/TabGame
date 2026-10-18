@@ -186,6 +186,10 @@ void main() {
       });
       await tester.tap(find.byTooltip('설정'));
       await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(800, 2400); // 설정이 길어서, 한 화면에 다 보이게 키운다
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpAndSettle();
       expect(find.text('게임 방법 안내'), findsOneWidget);
       await tester.tap(find.text('게임 방법 안내'));
       await tester.pumpAndSettle();

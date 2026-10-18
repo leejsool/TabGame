@@ -89,7 +89,7 @@ class _SudokuMenuScreenState extends State<SudokuMenuScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
+                constraints: BoxConstraints(maxWidth: menuMaxWidth(context)),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   children: [
@@ -105,14 +105,14 @@ class _SudokuMenuScreenState extends State<SudokuMenuScreen> {
                           ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 12),
-                    for (final d in Difficulty.values) ...[
-                      _DifficultyCard(
-                        difficulty: d,
-                        stats: _stats[d] ?? const SudokuStats(),
-                        onTap: () => _start(d),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
+                    CardGrid(children: [
+                      for (final d in Difficulty.values)
+                        _DifficultyCard(
+                          difficulty: d,
+                          stats: _stats[d] ?? const SudokuStats(),
+                          onTap: () => _start(d),
+                        ),
+                    ]),
                     const SizedBox(height: 12),
                     Text(
                       '배우기',

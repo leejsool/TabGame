@@ -80,3 +80,26 @@ class ResumeCard extends StatelessWidget {
     return compact ? card : Padding(padding: const EdgeInsets.all(4), child: card);
   }
 }
+
+/// 혼자 하기 메뉴 칸의 최대 폭: 세로는 640, 가로로 넓은 태블릿은 960 (난이도 카드를 2열로 놓을 수 있게).
+double menuMaxWidth(BuildContext context) => MediaQuery.orientationOf(context) == Orientation.landscape ? 960 : 640;
+
+/// 난이도 카드 같은 것을 폭이 넉넉하면 2열, 좁으면 1열로 쌓는다 (카드 사이 간격 12).
+class CardGrid extends StatelessWidget {
+  const CardGrid({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, box) {
+      if (box.maxWidth < 700) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (final c in children) Padding(padding: const EdgeInsets.only(bottom: 12), child: c),
+        ]);
+      }
+      final w = (box.maxWidth - 12) / 2;
+      return Wrap(spacing: 12, runSpacing: 12, children: [for (final c in children) SizedBox(width: w, child: c)]);
+    });
+  }
+}

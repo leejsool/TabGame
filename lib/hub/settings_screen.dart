@@ -22,10 +22,16 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('설정')),
       body: SafeArea(top: false, child: ListenableBuilder(
         listenable: settings,
-        builder: (context, _) => ListView(
+        builder: (context, _) => Align(
+          alignment: Alignment.topCenter,
+          // 가로로 넓은 태블릿에서도 글자와 스위치가 너무 멀어지지 않게 폭을 제한한다
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
           // 맨 아래 항목이 태블릿의 아래 시스템 바(내비게이션 바)에 가리지 않게 그만큼 띄운다
           padding: EdgeInsets.only(top: 8, bottom: 8 + MediaQuery.viewPaddingOf(context).bottom),
           children: [
+            const _SectionTitle('내 정보'),
             ListTile(
               leading: const Icon(Icons.badge_rounded),
               title: const Text('내 별명'),
@@ -45,7 +51,7 @@ class SettingsScreen extends StatelessWidget {
                 MaterialPageRoute<void>(builder: (_) => GameVisibilityScreen(settings: settings)),
               ),
             ),
-            const Divider(height: 24),
+            const _SectionTitle('소리와 진동'),
             SwitchListTile(
               secondary: const Icon(Icons.volume_up_rounded),
               title: const Text('효과음'),
@@ -58,6 +64,26 @@ class SettingsScreen extends StatelessWidget {
               value: settings.haptics,
               onChanged: (v) => settings.haptics = v,
             ),
+            const _SectionTitle('화면'),
+            ListTile(
+              leading: const Icon(Icons.brightness_6_rounded),
+              title: const Text('화면 모드'),
+              trailing: SegmentedButton<ThemeMode>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: ThemeMode.system, label: Text('자동')),
+                  ButtonSegment(value: ThemeMode.light, label: Text('밝게')),
+                  ButtonSegment(value: ThemeMode.dark, label: Text('어둡게')),
+                ],
+                selected: {settings.themeMode},
+                onSelectionChanged: (s) => settings.themeMode = s.first,
+              ),
+            ),
+            _CardStylePicker(settings: settings),
+            _CardLayoutPicker(settings: settings),
+            _CardBackStylePicker(settings: settings),
+            _SuitColorPicker(settings: settings),
+            const _SectionTitle('게임별 도우미'),
             SwitchListTile(
               secondary: const Icon(Icons.auto_awesome_rounded),
               title: const Text('스도쿠 자동 완성'),
@@ -79,7 +105,7 @@ class SettingsScreen extends StatelessWidget {
               value: settings.solitaireAutoMove,
               onChanged: (v) => settings.solitaireAutoMove = v,
             ),
-            const Divider(height: 24),
+            const _SectionTitle('처음 안내'),
             SwitchListTile(
               secondary: const Icon(Icons.school_rounded),
               title: const Text('게임 방법 안내'),
@@ -101,28 +127,8 @@ class SettingsScreen extends StatelessWidget {
                   );
               },
             ),
-            const Divider(height: 24),
-            _CardStylePicker(settings: settings),
-            _CardLayoutPicker(settings: settings),
-            _CardBackStylePicker(settings: settings),
-            _SuitColorPicker(settings: settings),
-            const Divider(height: 24),
-            ListTile(
-              leading: const Icon(Icons.brightness_6_rounded),
-              title: const Text('화면 모드'),
-              trailing: SegmentedButton<ThemeMode>(
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(value: ThemeMode.system, label: Text('자동')),
-                  ButtonSegment(value: ThemeMode.light, label: Text('밝게')),
-                  ButtonSegment(value: ThemeMode.dark, label: Text('어둡게')),
-                ],
-                selected: {settings.themeMode},
-                onSelectionChanged: (s) => settings.themeMode = s.first,
-              ),
-            ),
             if (updatesSupported) ...[
-              const Divider(height: 24),
+              const _SectionTitle('앱 업데이트'),
               SwitchListTile(
                 secondary: const Icon(Icons.system_update_rounded),
                 title: const Text('시작할 때 업데이트 확인'),
@@ -133,8 +139,23 @@ class SettingsScreen extends StatelessWidget {
               _UpdateTile(settings: settings),
             ],
           ],
-        ),
+        ))),
       )),
+    );
+  }
+}
+
+/// 설정 묶음의 제목 줄.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      child: Text(text, style: TextStyle(fontFamily: 'NanumGothic', fontSize: 13, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
     );
   }
 }

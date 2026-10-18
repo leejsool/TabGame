@@ -78,7 +78,7 @@ class _MinesMenuScreenState extends State<MinesMenuScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
+                constraints: BoxConstraints(maxWidth: menuMaxWidth(context)),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   children: [
@@ -96,10 +96,7 @@ class _MinesMenuScreenState extends State<MinesMenuScreen> {
                     const SizedBox(height: 18),
                     Text('난이도를 골라 시작해요', style: heading),
                     const SizedBox(height: 12),
-                    for (final l in MinesLevel.values) ...[
-                      _LevelCard(level: l, stats: _stats[l] ?? const MinesStats(), onTap: () => _start(l)),
-                      const SizedBox(height: 12),
-                    ],
+                    CardGrid(children: [for (final l in MinesLevel.values) _LevelCard(level: l, stats: _stats[l] ?? const MinesStats(), onTap: () => _start(l))]),
                   ],
                 ),
               ),

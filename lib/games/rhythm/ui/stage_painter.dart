@@ -341,6 +341,7 @@ class StagePainter extends CustomPainter {
     final player = Offset(L.actorX(3), L.feetY - u * 0.45);
     var pos = home;
     var kind = 'idle';
+    var mirror = false;
     var grow = 1.0;
     var rotate = 0.0;
     var flash = 0.0;
@@ -391,6 +392,7 @@ class StagePainter extends CustomPainter {
           final s = hit.sinceImpact;
           final dir = hit.side == Side.right ? 1.0 : -1.0;
           kind = 'hit';
+          mirror = hit.side == Side.left; // 그림은 오른쪽에서 맞는 모습이라, 왼쪽에서 맞으면 뒤집는다
           rotate = dir * 0.1 * exp(-5 * s) * cos(22 * s);
           squashX = 1 - 0.08 * exp(-9 * s) * cos(30 * s);
           squashY = 1 + 0.1 * exp(-9 * s) * cos(30 * s);
@@ -416,7 +418,7 @@ class StagePainter extends CustomPainter {
         ..colorFilter = ColorFilter.mode(Colors.white.withValues(alpha: 0.85 * flash), BlendMode.srcATop);
     }
     drawSprite(canvas, art, RhythmArt.slimeSprite(kind, red: true), pos, scale * grow,
-        squashX: squashX, squashY: squashY, rotate: rotate, paint: paint);
+        mirror: mirror, squashX: squashX, squashY: squashY, rotate: rotate, paint: paint);
     if (st.phase == BossPhase.windup && p > 0.3) {
       // 머리 위의 경고 표시
       final pop = 1 + 0.15 * sin(idle * 16);
