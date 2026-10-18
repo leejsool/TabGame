@@ -219,7 +219,7 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
                   },
                 ),
                 const SizedBox(height: 14),
-                _label('색 수: $_colors가지'),
+                _label('색 수: 최대 $_colors가지 (비슷한 색은 하나로 합쳐요)'),
                 Slider(
                   value: _colors.toDouble(),
                   min: 2,

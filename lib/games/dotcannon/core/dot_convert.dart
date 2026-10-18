@@ -60,6 +60,34 @@ List<(double, double, double, double)> boxDownsample(Uint8List rgba, int sw, int
   return out;
 }
 
+/// 팔레트의 두 색이 이만큼(눈에 보이는 색 차이, CIE Lab 거리) 이상은 달라야 따로 센다. 그보다 비슷하면 한 색으로 합친다.
+/// (사진을 줄이면 같은 사물의 밝고 어두운 부분이 서로 다른 색 번호가 되어, 화면에서는 같은 색처럼 보이는데 다른 대포·다른 탄약으로
+/// 갈려 헷갈린다. 또렷하게 다른 색만 남기려고 둔다.)
+const double kDotMinColorGap = 26;
+
+/// 두 색의 눈에 보이는 차이 (CIE Lab 거리, 0이면 같은 색, 보통 20을 넘으면 한눈에 다른 색).
+double dotColorGap(Color a, Color b) =>
+    _labGap(_lab((a.r * 255, a.g * 255, a.b * 255)), _lab((b.r * 255, b.g * 255, b.b * 255)));
+
+(double, double, double) _lab((double, double, double) c) {
+  double lin(double v) {
+    final x = v / 255;
+    return x <= 0.04045 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4).toDouble();
+  }
+
+  final r = lin(c.$1), g = lin(c.$2), b = lin(c.$3);
+  final x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047;
+  final y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  final z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
+  double f(double t) => t > 0.008856 ? pow(t, 1 / 3).toDouble() : 7.787 * t + 16 / 116;
+  return (116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z)));
+}
+
+double _labGap((double, double, double) a, (double, double, double) b) {
+  final dl = a.$1 - b.$1, da = a.$2 - b.$2, db = a.$3 - b.$3;
+  return sqrt(dl * dl + da * da + db * db);
+}
+
 double _dist2((double, double, double) a, (double, double, double) b) {
   // 사람 눈에 맞춘 가중치를 살짝 준 거리
   final dr = a.$1 - b.$1, dg = a.$2 - b.$2, db = a.$3 - b.$3;
@@ -176,6 +204,40 @@ DotArt quantizeCells(
       }
       merged = true;
       break;
+    }
+  }
+
+  // 눈으로 구분이 안 될 만큼 비슷한 색은 한 색으로 합친다 (많이 쓰인 쪽으로, 색은 쓰인 칸 수대로 섞는다)
+  while (true) {
+    final use = List<int>.filled(centers.length, 0);
+    for (final i in opaque) {
+      use[assign[i]]++;
+    }
+    final labs = [for (final c in centers) _lab(c)];
+    var bestA = -1, bestB = -1;
+    var bestGap = kDotMinColorGap;
+    for (var a = 0; a < centers.length; a++) {
+      if (use[a] == 0) continue;
+      for (var b = a + 1; b < centers.length; b++) {
+        if (use[b] == 0) continue;
+        final g = _labGap(labs[a], labs[b]);
+        if (g < bestGap) {
+          bestGap = g;
+          bestA = a;
+          bestB = b;
+        }
+      }
+    }
+    if (bestA < 0) break;
+    final keep = use[bestA] >= use[bestB] ? bestA : bestB, drop = keep == bestA ? bestB : bestA;
+    final wk = use[keep].toDouble(), wd = use[drop].toDouble(), w = wk + wd;
+    centers[keep] = (
+      (centers[keep].$1 * wk + centers[drop].$1 * wd) / w,
+      (centers[keep].$2 * wk + centers[drop].$2 * wd) / w,
+      (centers[keep].$3 * wk + centers[drop].$3 * wd) / w,
+    );
+    for (final i in opaque) {
+      if (assign[i] == drop) assign[i] = keep;
     }
   }
 
