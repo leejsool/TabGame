@@ -67,7 +67,7 @@ class GobbletHostScreen extends StatelessWidget {
         final mine = hostTeam == kRandomSide ? Random().nextInt(2) : hostTeam;
         return LanStart(
           message: {'team': 1 - mine},
-          hostScreen: (conn) => GobbletScreen(mode: PlayMode.wifi, humanTeam: Team.values[mine], link: conn),
+          hostScreen: (conn, desk) => GobbletScreen(mode: PlayMode.wifi, humanTeam: Team.values[mine], link: conn, rejoinDesk: desk),
         );
       },
     );

@@ -57,4 +57,76 @@ void main() {
       await server.close();
     });
   });
+
+  testWidgets('방장 화면에서는 한참 기다린 뒤 "CPU가 대신하기"를 고를 수 있고, 맡기면 한 줄 안내만 남는다', (tester) async {
+    late LanConnection conn;
+    late Socket raw;
+    late ServerSocket server;
+    await tester.runAsync(() async {
+      server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final accepted = server.first;
+      raw = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+      conn = LanConnection(await accepted, heartbeat: const Duration(milliseconds: 30), timeout: const Duration(milliseconds: 300));
+      conn.peer = {'nick': '영희'};
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+    });
+    var taken = 0;
+    conn.onTakeOver = () {
+      taken++;
+      conn.cpuCovered = true;
+    };
+
+    await tester.pumpWidget(const MaterialApp(home: LanStallOverlay(decisionAfter: Duration.zero, child: Scaffold(body: Text('게임')))));
+    await tester.pump();
+    expect(find.text('CPU가 대신하기'), findsOneWidget);
+    expect(find.text('이 판 끝내기'), findsOneWidget);
+
+    await tester.tap(find.text('CPU가 대신하기'));
+    await tester.pump();
+    expect(taken, 1);
+    expect(find.textContaining('영희 자리는 CPU가 대신하고 있어요'), findsOneWidget);
+    expect(find.text('CPU가 대신하기'), findsNothing);
+    expect(find.text('이 판 끝내기'), findsNothing);
+
+    // 돌려주면 안내가 사라진다
+    conn.cpuCovered = false;
+    await tester.runAsync(() async {
+      raw.write('{"t":"x"}\n');
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    });
+    await tester.pump();
+    expect(find.textContaining('CPU가 대신하고 있어요'), findsNothing);
+    expect(find.textContaining('응답을 기다리는 중'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() async {
+      await conn.close();
+      raw.destroy();
+      await server.close();
+    });
+  });
+
+  testWidgets('CPU가 대신할 수 없는 연결(손님 쪽)에는 그 단추가 없다', (tester) async {
+    late LanConnection conn;
+    late Socket raw;
+    late ServerSocket server;
+    await tester.runAsync(() async {
+      server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final accepted = server.first;
+      raw = await Socket.connect(InternetAddress.loopbackIPv4, server.port);
+      conn = LanConnection(await accepted, heartbeat: const Duration(milliseconds: 30), timeout: const Duration(milliseconds: 300));
+      conn.peer = {'nick': '철수'};
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+    });
+    await tester.pumpWidget(const MaterialApp(home: LanStallOverlay(decisionAfter: Duration.zero, child: Scaffold(body: Text('게임')))));
+    await tester.pump();
+    expect(find.text('이 판 끝내기'), findsOneWidget);
+    expect(find.text('CPU가 대신하기'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.runAsync(() async {
+      await conn.close();
+      raw.destroy();
+      await server.close();
+    });
+  });
 }

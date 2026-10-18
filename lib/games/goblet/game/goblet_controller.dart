@@ -74,10 +74,14 @@ class GobbletController extends ChangeNotifier {
   }
 
   /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
-  static GobbletController? fromJson(Map<String, dynamic> j) {
+  static GobbletController? fromJson(Map<String, dynamic> j) => _restore(j, wifi: false);
+
+  /// [fromJson]과 [fromWifiSnapshot]이 함께 쓰는 복원. [wifi]면 같은 Wi‑Fi 판으로 되살린다.
+  static GobbletController? _restore(Map<String, dynamic> j, {required bool wifi}) {
     try {
-      final mode = PlayMode.values.byName(j['mode'] as String);
-      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final mode = wifi ? PlayMode.wifi : PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p && mode != PlayMode.wifi) return null;
+      if (!wifi && mode == PlayMode.wifi) return null;
       final humanIndex = j['humanTeam'] as int, startIndex = j['startingTeam'] as int, levelIndex = j['level'] as int;
       if (humanIndex < 0 || humanIndex >= Team.values.length || startIndex < 0 || startIndex >= Team.values.length) return null;
       if (levelIndex < 0 || levelIndex >= CpuLevel.values.length) return null;
@@ -381,9 +385,36 @@ class GobbletController extends ChangeNotifier {
   void start() => _maybeCpu();
 
   void _maybeCpu() {
-    if (_cpu.disposed || !vsCpu || isOver || turn != cpuTeam) return;
+    if (_cpu.disposed || !(vsCpu || cpuCover) || isOver || turn != cpuTeam) return;
     _cpuTurn();
   }
+
+  // ── 상대가 나갔을 때 (같은 Wi‑Fi 판) ──
+
+  /// 나간 상대의 자리를 CPU가 대신 두고 있는가 (방장 기기에서만 켠다).
+  bool cpuCover = false;
+
+  /// 나간 상대 자리를 CPU가 대신 맡는다. 지금이 상대 차례이면 CPU가 바로 둔다.
+  void coverOpponent() {
+    if (!online || cpuCover) return;
+    cpuCover = true;
+    notifyListeners();
+    _maybeCpu();
+  }
+
+  /// 돌아온 상대에게 자리를 돌려준다. CPU가 수를 고르는 중이었으면 버린다.
+  void uncoverOpponent() {
+    if (!cpuCover) return;
+    cpuCover = false;
+    _cpu.cancel();
+    notifyListeners();
+  }
+
+  /// 같은 Wi‑Fi 판의 지금 모습 (다시 들어오는 상대에게 보낸다). 말 위치와 지난 모습들을 통째로 담는다.
+  Map<String, dynamic> wifiSnapshot() => {...toJson(), 'humanTeam': cpuTeam.index}; // 돌아오는 상대가 맡은 팀
+
+  /// [wifiSnapshot]으로 판을 되살린다 (돌아온 상대 쪽 기기). 맞지 않는 내용이면 null.
+  static GobbletController? fromWifiSnapshot(Map<String, dynamic> j) => _restore(j, wifi: true);
 
   Future<void> _cpuTurn() async {
     final owners = List<int>.of(board.owners);

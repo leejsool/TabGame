@@ -71,7 +71,7 @@ class ProphecyHostScreen extends StatelessWidget {
         final mySide = hostSide == kRandomSide ? Random().nextInt(2) : hostSide;
         return LanStart(
           message: {'rows': rows, 'cols': cols, 'side': 1 - mySide},
-          hostScreen: (conn) => ProphecyScreen(mode: PlayMode.wifi, rows: rows, cols: cols, humanSide: mySide, link: conn),
+          hostScreen: (conn, desk) => ProphecyScreen(mode: PlayMode.wifi, rows: rows, cols: cols, humanSide: mySide, link: conn, rejoinDesk: desk),
         );
       },
     );

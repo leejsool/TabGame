@@ -5,14 +5,18 @@ import 'package:flutter/material.dart';
 import '../core/settings_scope.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
+import 'lan_rejoin.dart';
 import 'lan_screens.dart';
 
 /// 방이 다 찼을 때 게임이 정하는 것: 손님마다 보낼 시작 메시지(`t: 'start'`, 들어온 순서대로)와, 방을 연 쪽이 띄울 게임 화면.
+///
+/// 게임 화면은 손님 연결들과 함께 "다시 들어오기 접수처"([LanRejoinDesk])를 받는다. 판이 시작된 뒤에도 방 문을 열어 두고,
+/// 나갔던 손님이 돌아오면 이 접수처가 받아 준다. 화면이 닫힐 때 접수처도 닫아야 한다 (안 닫아도 방이 닫힐 때 같이 닫힌다).
 class LanLobbyPlan {
   const LanLobbyPlan({required this.messages, required this.hostScreen});
 
   final List<Map<String, dynamic>> messages;
-  final Widget Function(List<LanConnection> guests) hostScreen;
+  final Widget Function(List<LanConnection> guests, LanRejoinDesk desk) hostScreen;
 }
 
 /// 인원수를 정하지 않고 연 방의 규칙: 방장 말고 최대 [maxPlayers] - 1명까지 들어올 수 있고, 한 명이라도 들어오면
@@ -110,6 +114,9 @@ class _LanLobbyScreenState extends State<LanLobbyScreen> {
   bool _starting = false;
   final List<LanConnection> _guests = [];
 
+  /// 시작한 뒤의 "다시 들어오기 접수처" (방 문을 열어 둔다). 이 화면이 사라질 때 같이 닫는다.
+  LanRejoinDesk? _desk;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -183,18 +190,22 @@ class _LanLobbyScreenState extends State<LanLobbyScreen> {
     final guests = [..._guests];
     final flexible = widget.flexible;
     final plan = flexible != null ? flexible.onStart(guests, cpus) : widget.onFull!(guests);
-    for (var i = 0; i < guests.length; i++) {
-      guests[i].send({'t': 'start', 'nick': _roomName, ...plan.messages[i]});
-    }
-    await _host?.close();
+    final host = _host!;
     _host = null;
+    // 방 문은 닫지 않고 접수처에 넘긴다: 나갔던 손님이 (앱을 껐다 켜도) 표를 들고 다시 들어올 수 있게
+    final desk = _desk = LanRejoinDesk.open(host: host, guests: guests, info: _info);
+    for (var i = 0; i < guests.length; i++) {
+      guests[i].send({'t': 'start', 'nick': _roomName, 'rejoin': desk.ticketFor(i), ...plan.messages[i]});
+    }
     if (!mounted) {
       for (final g in guests) {
         g.close();
       }
+      await desk.close();
       return;
     }
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => plan.hostScreen(guests)));
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => plan.hostScreen(guests, desk)));
+    await desk.close();
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -202,6 +213,7 @@ class _LanLobbyScreenState extends State<LanLobbyScreen> {
   void dispose() {
     _sub?.cancel();
     _host?.close();
+    _desk?.close();
     if (!_starting) {
       for (final g in _guests) {
         g.close();

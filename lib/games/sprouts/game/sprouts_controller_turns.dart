@@ -71,7 +71,7 @@ extension ScTurns on SproutsController {
   void start() => _maybeCpu();
 
   void _maybeCpu() {
-    if (_cpu.disposed || !vsCpu || isOver || turn != cpuSide) return;
+    if (_cpu.disposed || !(vsCpu || cpuCover) || isOver || turn != cpuSide) return;
     _cpuTurn();
   }
 

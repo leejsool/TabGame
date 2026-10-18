@@ -30,7 +30,20 @@ extension _QdFlow on _QuoridorScreenState {
         if (_hub) _sendAll({'t': 'again', 'seat': seat}, except: from);
         _checkRematch();
       case 'bye':
+        // 방장은 나간 손님을 바로 내보내지 않고 기다린다 (CPU가 대신하거나, 돌아오면 이어 간다)
+        if (_hub && !c.isOver && !c.halted && _links[from].suspend()) return;
+        if (!_hub) _hostLeft = true; // 방장이 일부러 나갔다: 다시 들어갈 방이 없다
         _onLinkClosed();
+      case 'cpu':
+        final seat = m['seat'];
+        if (seat is! int) return;
+        c.coverSeat(seat);
+        lanToast(context, '${_name(seat)} 자리는 CPU가 대신해요');
+      case 'back':
+        final seat = m['seat'];
+        if (seat is! int) return;
+        c.uncoverSeat(seat);
+        lanToast(context, '${_name(seat)} 님이 돌아왔어요');
     }
   }
 
@@ -49,9 +62,16 @@ extension _QdFlow on _QuoridorScreenState {
     if (!mounted || _leaving || _opponentGone) return;
     _update(() => _opponentGone = true);
     if (c.isOver || c.halted) return;
-    _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 누군가 나갔어요. 이 판은 기록하지 않아요.').then((_) {
-      if (mounted) Navigator.of(context).pop();
-    });
+    Future<void> notice() => _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 누군가 나갔어요. 이 판은 기록하지 않아요.');
+    if (_hub || _hostLeft) {
+      if (_hostLeft) RejoinTickets.forget('quoridor');
+      notice().then((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+    } else {
+      // 손님: 방이 아직 열려 있으면 하던 판으로 다시 들어갈 수 있다
+      lanGuestDropped(context, game: 'quoridor', build: quoridorResume, fallbackNotice: notice);
+    }
   }
 
   Future<void> _notice(String title, String body) => showVsNotice(context, title, body);
@@ -105,7 +125,10 @@ extension _QdFlow on _QuoridorScreenState {
 
   /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
   Future<void> _confirmLeave() async {
-    if (await confirmVsLeave(context) && mounted) Navigator.of(context).pop();
+    if (await confirmVsLeave(context) && mounted) {
+      if (!_hub) RejoinTickets.forget('quoridor'); // 일부러 나간 것이니 "다시 들어가기"를 남기지 않는다
+      Navigator.of(context).pop();
+    }
   }
 
   void _feedback(String kind) => _fx.play(context, kind);
@@ -125,6 +148,13 @@ extension _QdFlow on _QuoridorScreenState {
   }
 
   void _onChanged() {
+    if (c.online && (c.isOver || c.halted)) {
+      _keeper?.settleIfEnded();
+      if (!_hub && !_ticketDropped) {
+        _ticketDropped = true;
+        RejoinTickets.forget('quoridor'); // 끝난 판에는 다시 들어갈 수 없다
+      }
+    }
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       if (!c.oneSeat || c.state.winner == c.humanSeat) {

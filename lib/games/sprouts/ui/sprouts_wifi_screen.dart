@@ -71,7 +71,7 @@ class SproutsHostScreen extends StatelessWidget {
         final board = roundedBoard(SproutsBoard.initial(dots, Random()));
         return LanStart(
           message: {'dots': dots, 'side': 1 - mySide, 'board': board.toData()},
-          hostScreen: (conn) => SproutsScreen(mode: PlayMode.wifi, dotCount: dots, humanSide: mySide, link: conn, isHost: true, initialBoard: board),
+          hostScreen: (conn, desk) => SproutsScreen(mode: PlayMode.wifi, dotCount: dots, humanSide: mySide, link: conn, isHost: true, initialBoard: board, rejoinDesk: desk),
         );
       },
     );

@@ -9,6 +9,7 @@ import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
+import '../../../net/lan_rejoin.dart';
 import '../core/dandelion_ai.dart';
 import '../core/dandelion_rules.dart';
 import '../data/dandelion_history.dart';
@@ -29,6 +30,7 @@ class DandelionScreen extends StatefulWidget {
     this.level = DandLevel.normal,
     this.controller,
     this.link,
+    this.rejoinDesk,
   });
 
   final PlayMode mode;
@@ -37,6 +39,9 @@ class DandelionScreen extends StatefulWidget {
 
   /// 같은 Wi‑Fi 대결([PlayMode.wifi])에서 상대 기기와의 연결. 이 화면이 닫을 때 같이 닫는다.
   final LanConnection? link;
+
+  /// 방장일 때: 판이 시작된 뒤에도 방 문을 열어 두고 나갔던 상대를 다시 받아 주는 접수처.
+  final LanRejoinDesk? rejoinDesk;
 
   /// (테스트용) 미리 만든 컨트롤러.
   final DandelionController? controller;
@@ -72,6 +77,19 @@ class _DandelionScreenState extends State<DandelionScreen> with VsTwoPlayer {
   bool get vsHalted => c.halted;
   @override
   int get vsMoveCount => c.moveCount;
+
+  @override
+  String? get vsLanGame => 'dandelion';
+  @override
+  LanRejoinDesk? get vsRejoinDesk => widget.rejoinDesk;
+  @override
+  void vsCoverOpponent() => c.coverOpponent();
+  @override
+  void vsUncoverOpponent() => c.uncoverOpponent();
+  @override
+  Map<String, dynamic>? vsSnapshot() => c.online ? c.wifiSnapshot() : null;
+  @override
+  Widget? Function(Map<String, dynamic> resume, LanConnection conn)? get vsResumeBuilder => dandelionResume;
 
   @override
   void vsRestartForRematch() {
@@ -374,3 +392,12 @@ Future<void> showDandelionRules(BuildContext context) => showVsRules(
       ],
       openTutorial: () => dandelionTutorial().open(context),
     );
+
+/// 방장이 보낸 `resume`(나갔다 다시 들어올 때 받는 판의 모습)으로 민들레 화면을 만든다. 맞지 않는 내용이면 null.
+Widget? dandelionResume(Map<String, dynamic> resume, LanConnection conn) {
+  final snap = resume['snap'];
+  if (snap is! Map<String, dynamic>) return null;
+  final c = DandelionController.fromWifiSnapshot(snap);
+  if (c == null) return null;
+  return DandelionScreen(mode: PlayMode.wifi, humanRole: c.humanRole, controller: c, link: conn);
+}

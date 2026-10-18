@@ -10,6 +10,8 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../net/lan_connection.dart';
+import '../../../net/lan_rejoin.dart';
+import '../../../net/lan_rejoin_flow.dart';
 import '../core/quoridor_ai.dart';
 import '../data/quoridor_history.dart';
 import '../game/quoridor_controller.dart';
@@ -36,6 +38,7 @@ class QuoridorScreen extends StatefulWidget {
     this.linkSeats,
     this.names,
     this.cpuSeats,
+    this.rejoinDesk,
   });
 
   final PlayMode mode;
@@ -60,6 +63,9 @@ class QuoridorScreen extends StatefulWidget {
 
   /// 같은 Wi‑Fi 방에서 CPU가 앉은 자리들 (사람 n명 + CPU m명으로 할 때). CPU의 수는 방장 기기가 정해서 알려 준다.
   final List<int>? cpuSeats;
+
+  /// 방장일 때: 판이 시작된 뒤에도 방 문을 열어 두고 나갔던 손님을 다시 받아 주는 접수처. 없으면 나간 손님을 기다리기만 한다.
+  final LanRejoinDesk? rejoinDesk;
 
   /// (테스트용) 미리 만든 컨트롤러.
   final QuoridorController? controller;
@@ -100,6 +106,13 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
   bool _opponentGone = false;
   bool _leaving = false;
 
+  /// 방장이 나간 손님의 자리를 돌본다 (CPU가 대신하기 · 돌아오면 되찾기). 방장 화면에서만 있다.
+  LanHubKeeper? _keeper;
+  bool _ticketDropped = false;
+
+  /// 손님: 방장이 일부러 나간다고 알려 왔는가 (그러면 다시 들어갈 방이 없다).
+  bool _hostLeft = false;
+
   /// "한 판 더"를 누른 자리들 (나 포함). 모두 누르면 새 판이 시작된다.
   final Set<int> _againSeats = {};
   bool get _rematchAsked => _againSeats.contains(c.humanSeat);
@@ -123,6 +136,18 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
       _saver.attach();
     }
     final links = _links;
+    final desk = widget.rejoinDesk;
+    if (_hub && desk != null) {
+      _keeper = LanHubKeeper(
+        desk: desk,
+        seatOfLink: _seatOfLink,
+        isActive: () => !c.isOver && !c.halted,
+        cover: c.coverSeat,
+        uncover: c.uncoverSeat,
+        snapshot: (_) => {...c.wifiSnapshot(), if (widget.names != null) 'names': widget.names},
+        sendAll: _sendAll,
+      );
+    }
     if (links.isNotEmpty) {
       c.onLocalMove = (move) => _sendAll({'t': 'move', 'i': c.moveCount - 1, 'm': move});
       for (var i = 0; i < links.length; i++) {
@@ -138,6 +163,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     _fx.dispose();
     _saver.detach();
     _leaving = true;
+    _keeper?.dispose();
     for (final s in _linkSubs) {
       s.cancel();
     }
@@ -178,4 +204,15 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     );
   }
 
+}
+
+/// 방장이 보낸 `resume`(나갔다 다시 들어올 때 받는 판의 모습)으로 쿼리도 화면을 만든다. 맞지 않는 내용이면 null.
+Widget? quoridorResume(Map<String, dynamic> resume, LanConnection conn) {
+  final seat = resume['seat'], snap = resume['snap'];
+  if (seat is! int || snap is! Map<String, dynamic>) return null;
+  final c = QuoridorControllerRejoin.fromWifiSnapshot(snap, humanSeat: seat);
+  if (c == null) return null;
+  final raw = snap['names'];
+  final names = raw is List && raw.length == c.players ? [for (final n in raw) '$n'] : null;
+  return QuoridorScreen(mode: PlayMode.wifi, players: c.players, humanSeat: seat, names: names, controller: c, links: [conn]);
 }

@@ -15,6 +15,7 @@ part 'rummikub_controller_board.dart';
 part 'rummikub_controller_history.dart';
 part 'rummikub_controller_turn.dart';
 part 'rummikub_controller_cpu.dart';
+part 'rummikub_controller_rejoin.dart';
 
 /// 루미큐브 한 판의 진행 (규칙 + 내 손/판 만지기 + CPU + 같은 Wi‑Fi 상대의 수 받기).
 ///
@@ -260,6 +261,9 @@ class RummikubController extends ChangeNotifier {
 
   /// 앞선 수를 보여 주는 동안 도착한 다른 기기의 수들 (보여 주기가 끝나면 차례로 적용한다).
   final List<({Map<String, dynamic> m, int? fromSeat})> _queuedMoves = [];
+
+  /// 지금 한 장씩 보여 주는 중인 상대의 수 (이미 확인했지만 판에는 아직 반영하지 않은 수). 다시 들어오는 손님에게 판의 모습을 보낼 때 함께 담는다.
+  Map<String, dynamic>? _inflight;
 
 
   // ── CPU ──

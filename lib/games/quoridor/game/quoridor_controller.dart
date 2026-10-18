@@ -9,6 +9,8 @@ import '../../../versus/cpu_turn.dart';
 import '../core/quoridor_ai.dart';
 import '../core/quoridor_rules.dart';
 
+part 'quoridor_controller_rejoin.dart';
+
 /// 쿼리도 한 판의 진행 (규칙 + 말·벽 고르기 + CPU + 되돌리기).
 ///
 /// 2명 또는 4명이 한다. 자리는 0번부터 차례대로 돈다 (4명이면 아래 → 왼쪽 → 위 → 오른쪽).
@@ -17,6 +19,9 @@ import '../core/quoridor_rules.dart';
 ///  - [PlayMode.wifi]: 같은 Wi‑Fi의 다른 기기들과 한다 (2명 또는 4명, 기기마다 한 자리). 내 수는 [onLocalMove]로 알리고,
 ///    다른 사람의 수는 [receiveMove]로 받는다.
 class QuoridorController extends ChangeNotifier {
+  /// 다른 파일(part)에 나눠 둔 조각에서 화면에 바뀐 것을 알릴 때 쓴다.
+  void _notify() => notifyListeners();
+
   QuoridorController({
     required this.mode,
     this.players = 2,

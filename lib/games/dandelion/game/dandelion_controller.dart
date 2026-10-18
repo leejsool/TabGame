@@ -186,8 +186,60 @@ class DandelionController extends ChangeNotifier {
   // ── CPU ──
 
   void _maybeCpu() {
-    if (_cpu.disposed || !vsCpu || isOver || state.turn != cpuRole) return;
+    if (_cpu.disposed || !(vsCpu || cpuCover) || isOver || state.turn != cpuRole) return;
     _cpuTurn();
+  }
+
+  // ── 상대가 나갔을 때 (같은 Wi‑Fi 판) ──
+
+  /// 나간 상대의 자리를 CPU가 대신 두고 있는가 (방장 기기에서만 켠다).
+  bool cpuCover = false;
+
+  /// 나간 상대 자리를 CPU가 대신 맡는다. 지금이 상대 차례이면 CPU가 바로 둔다.
+  void coverOpponent() {
+    if (!online || cpuCover) return;
+    cpuCover = true;
+    notifyListeners();
+    _maybeCpu();
+  }
+
+  /// 돌아온 상대에게 자리를 돌려준다. CPU가 수를 고르는 중이었으면 버린다.
+  void uncoverOpponent() {
+    if (!cpuCover) return;
+    cpuCover = false;
+    _cpu.cancel();
+    notifyListeners();
+  }
+
+  /// 같은 Wi‑Fi 판의 지금 모습 (다시 들어오는 상대에게 보낸다). 수들만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> wifiSnapshot() => {
+        'guestRole': cpuRole.index, // 돌아오는 상대가 맡은 쪽
+        'level': level.index,
+        'moves': [...moves],
+      };
+
+  /// [wifiSnapshot]으로 판을 되살린다 (돌아온 상대 쪽 기기). 맞지 않는 내용이면 null.
+  static DandelionController? fromWifiSnapshot(Map<String, dynamic> j) {
+    try {
+      final roleIndex = j['guestRole'] as int, levelIndex = j['level'] as int;
+      if (roleIndex < 0 || roleIndex >= Role.values.length || levelIndex < 0 || levelIndex >= DandLevel.values.length) return null;
+      final moves = [for (final m in j['moves'] as List) m as int];
+      final check = DandState.fromMoves(const []);
+      for (final m in moves) {
+        final ok = check.turn == Role.dandelion
+            ? m >= 0 && m < check.cells.length && check.canPlant(m)
+            : m >= 0 && m < WindDir.values.length && check.canBlow(WindDir.values[m]);
+        if (!ok) return null;
+        check.apply(m);
+      }
+      final c = DandelionController(mode: PlayMode.wifi, humanRole: Role.values[roleIndex], level: DandLevel.values[levelIndex]);
+      c.moves.addAll(moves);
+      c._rebuild();
+      c.moveSerial = moves.length;
+      return c;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _cpuTurn() async {

@@ -43,6 +43,7 @@ extension RummikubControllerCpu on RummikubController {
     }
     final epoch = ++_animEpoch;
     _animating = true;
+    _inflight = table != null ? {'i': moveCount, 'table': table} : {'i': moveCount, 'draw': 1, 'pick': ?pick};
     _notify();
     if (table != null) {
       layoutSets(layoutWidth, layoutPerRow); // 지금 판의 묶음들이 모두 자리를 갖게
@@ -74,6 +75,7 @@ extension RummikubControllerCpu on RummikubController {
   }
 
   void _finishOpponent(List<List<int>>? table, int? pick) {
+    _inflight = null;
     if (table != null) {
       _applyPlay(table);
     } else {
@@ -145,6 +147,7 @@ extension RummikubControllerCpu on RummikubController {
     if (!canResign) return false;
     _cpu.cancel();
     _queuedMoves.clear();
+    _inflight = null;
     _animEpoch++;
     _animating = false;
     flying.clear();
@@ -159,6 +162,7 @@ extension RummikubControllerCpu on RummikubController {
   void opponentResigned() {
     if (!online || isOver || halted) return;
     _queuedMoves.clear();
+    _inflight = null;
     _animEpoch++;
     _animating = false;
     flying.clear();

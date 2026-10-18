@@ -106,7 +106,7 @@ class RummikubHostScreen extends StatelessWidget {
     final s = seed ?? rng.nextInt(1 << 30);
     return LanLobbyPlan(
       messages: [for (var i = 0; i < guests.length; i++) {'side': seats[i], 'players': players, 'names': names, 'cpus': cpuSeats, 'seed': s}],
-      hostScreen: (conns) => RummikubScreen(
+      hostScreen: (conns, desk) => RummikubScreen(
         mode: PlayMode.wifi,
         players: players,
         humanSeat: hostSeat,
@@ -116,6 +116,7 @@ class RummikubHostScreen extends StatelessWidget {
         seed: s,
         links: conns,
         linkSeats: seats.sublist(0, conns.length),
+        rejoinDesk: desk,
       ),
     );
   }

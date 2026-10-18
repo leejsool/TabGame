@@ -44,7 +44,7 @@ void main() {
                 discoveryPort: discovery,
                 onFull: (guests) => LanLobbyPlan(
                   messages: [for (var i = 0; i < guests.length; i++) {'side': i + 1}],
-                  hostScreen: (g) => const Scaffold(body: Text('방장 게임 화면')),
+                  hostScreen: (g, desk) => const Scaffold(body: Text('방장 게임 화면')),
                 ),
               ),
             ),

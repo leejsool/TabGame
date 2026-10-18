@@ -8,6 +8,7 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../net/lan_connection.dart';
+import '../../../net/lan_rejoin.dart';
 import '../core/sprouts_ai.dart';
 import '../core/sprouts_board.dart';
 import '../data/sprouts_history.dart';
@@ -33,6 +34,7 @@ class SproutsScreen extends StatefulWidget {
     this.link,
     this.isHost = false,
     this.initialBoard,
+    this.rejoinDesk,
   });
 
   final PlayMode mode;
@@ -48,6 +50,9 @@ class SproutsScreen extends StatefulWidget {
 
   /// Wi‑Fi 대결의 처음 판 (방을 연 쪽이 만들어 두 기기가 같은 판으로 시작한다).
   final SproutsBoard? initialBoard;
+
+  /// 방장일 때: 판이 시작된 뒤에도 방 문을 열어 두고 나갔던 상대를 다시 받아 주는 접수처.
+  final LanRejoinDesk? rejoinDesk;
 
   /// (테스트용) 미리 만든 컨트롤러.
   final SproutsController? controller;
@@ -83,6 +88,19 @@ class _SproutsScreenState extends State<SproutsScreen> with VsTwoPlayer {
   bool get vsHalted => false;
   @override
   int get vsMoveCount => c.moveCount;
+
+  @override
+  String? get vsLanGame => 'sprouts';
+  @override
+  LanRejoinDesk? get vsRejoinDesk => widget.rejoinDesk;
+  @override
+  void vsCoverOpponent() => c.coverOpponent();
+  @override
+  void vsUncoverOpponent() => c.uncoverOpponent();
+  @override
+  Map<String, dynamic>? vsSnapshot() => c.online ? c.wifiSnapshot() : null;
+  @override
+  Widget? Function(Map<String, dynamic> resume, LanConnection conn)? get vsResumeBuilder => sproutsResume;
 
   /// 둘 다 "한 판 더"를 눌렀다: 방을 연 쪽이 새 처음 판을 만들어 보낸다 (손님은 그 판을 받아 시작한다).
   @override
@@ -462,3 +480,12 @@ Future<void> showSproutsRules(BuildContext context) => showVsRules(
       ],
       openTutorial: () => sproutsTutorial().open(context),
     );
+
+/// 방장이 보낸 `resume`(나갔다 다시 들어올 때 받는 판의 모습)으로 콩나물 화면을 만든다. 맞지 않는 내용이면 null.
+Widget? sproutsResume(Map<String, dynamic> resume, LanConnection conn) {
+  final snap = resume['snap'];
+  if (snap is! Map<String, dynamic>) return null;
+  final c = ScRejoin.fromWifiSnapshot(snap);
+  if (c == null) return null;
+  return SproutsScreen(mode: PlayMode.wifi, dotCount: c.dotCount, humanSide: c.humanSide, controller: c, link: conn);
+}

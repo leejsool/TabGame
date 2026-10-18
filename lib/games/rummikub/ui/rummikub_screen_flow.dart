@@ -49,6 +49,13 @@ extension _RkFlow on _RummikubScreenState {
   }
 
   void _onChanged() {
+    if (c.online && (c.isOver || c.halted)) {
+      _keeper?.settleIfEnded();
+      if (!_hub && !_ticketDropped) {
+        _ticketDropped = true;
+        RejoinTickets.forget('rummikub'); // 끝난 판에는 다시 들어갈 수 없다
+      }
+    }
     _maybeAnnounceTurn();
     _maybeFlyOpponentPick();
     if (c.isOver && !_resultHandled) {

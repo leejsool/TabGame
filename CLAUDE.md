@@ -10,6 +10,7 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 - `lib/games/<game>/` — `core/` rules (pure Dart, tested without UI) → `game/` controller → `ui/` → `data/` history → `tutorial/`. Entry: `<game>_entry.dart`.
 - `lib/versus/` — versus-game shared parts: `cpu_turn.dart` (`CpuTurnRunner`, CPU in an isolate), `vs_setup.dart` (setup screen kit).
 - `lib/net/` — same-Wi-Fi play: `lan_screens.dart` (make/find room screens), `lan_connection.dart`, `keep_awake.dart`, `lan_stall_overlay.dart`.
+  Rejoin (all Wi-Fi games; 2-player via `VsTwoPlayer`, 3+ via `LanHubKeeper`): `lan_rejoin.dart` (`LanRejoinDesk` keeps the room open after start, `LanHubKeeper` = host-side "CPU takes the seat / seat given back"), `lan_rejoin_flow.dart` (`RejoinTickets` saved on the guest, `lanRejoin`, drop dialog), `lib/hub/rejoin_cards.dart` (hub card). Each game controller has `coverSeat/uncoverSeat/wifiSnapshot/fromWifiSnapshot` in `*_controller_rejoin.dart`; `GameInfo.lanGame/lanResume` register it.
 - `lib/records/` — records screens; `vs_records.dart` (`VsRecordsBoard`) for versus games.
 - `lib/tutorial/` — tutorial framework (`tutorial.dart`, `tutorial_screen.dart`) and `lesson_kit.dart` (교과학습).
 - `test/<game>/` — tests; `preview_test.dart` renders PNG screenshots (see Commands).
@@ -37,7 +38,7 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 If two games need the same widget, move it to a shared folder instead of copying it.
 
 ## New game checklist
-Follow README "새 게임 추가 체크리스트". Also: add a drawn icon in `game_icons.dart`, add a `preview_test.dart`,
+Follow README "새 게임 추가 체크리스트". **Every Wi-Fi (multiplayer) game must support leave/rejoin + CPU cover** (README step 5; `test/net/rejoin_registry_test.dart` fails if `lanGame`/`lanResume` is missing). Also: add a drawn icon in `game_icons.dart`, add a `preview_test.dart`,
 bump the version's middle number at release (see Release).
 
 ## Commands (Windows; user folder name is Korean, so temp must be an ASCII path)

@@ -9,6 +9,7 @@ import '../core/davinci_ai.dart';
 import '../core/davinci_rules.dart';
 
 part 'davinci_controller_effects.dart';
+part 'davinci_controller_rejoin.dart';
 part 'davinci_controller_moves.dart';
 part 'davinci_controller_turns.dart';
 

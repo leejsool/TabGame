@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../net/lan_connection.dart';
 import '../tutorial/tutorial.dart';
 
 /// 게임을 즐기는 방법.
@@ -40,6 +41,8 @@ class GameInfo {
     this.recordsTab,
     this.recordsTitle,
     this.hasLesson = false,
+    this.lanGame,
+    this.lanResume,
   });
 
   final String id;
@@ -71,6 +74,12 @@ class GameInfo {
 
   /// 교과학습(단원별로 배우는 학습)이 있는 게임이면 true. 허브 카드에 학사모 표시가 붙는다.
   final bool hasLesson;
+
+  /// 같은 Wi‑Fi에서 이 게임이 쓰는 이름 (방 찾기·"다시 들어오기 표"에 적힌 게임 이름). 같은 Wi‑Fi 게임은 반드시 채운다.
+  final String? lanGame;
+
+  /// 앱을 껐다 켠 뒤 하던 방에 다시 들어갈 때: 방장이 보낸 판의 모습(`resume`)으로 이 기기의 게임 화면을 만든다. 같은 Wi‑Fi 게임은 반드시 채운다 (`test/net/rejoin_registry_test.dart`가 확인한다).
+  final Widget? Function(Map<String, dynamic> resume, LanConnection conn)? lanResume;
 
   bool get hasIconArt => iconPainter != null || iconImage != null;
   bool get hasRecords => recordsTab != null;

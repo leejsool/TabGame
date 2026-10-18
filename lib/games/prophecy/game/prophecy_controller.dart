@@ -194,8 +194,54 @@ class ProphecyController extends ChangeNotifier {
   // ── CPU ──
 
   void _maybeCpu() {
-    if (_cpu.disposed || !vsCpu || isOver || state.turn != cpuSide) return;
+    if (_cpu.disposed || !(vsCpu || cpuCover) || isOver || state.turn != cpuSide) return;
     _cpuTurn();
+  }
+
+  // ── 상대가 나갔을 때 (같은 Wi‑Fi 판) ──
+
+  /// 나간 상대의 자리를 CPU가 대신 두고 있는가 (방장 기기에서만 켠다).
+  bool cpuCover = false;
+
+  /// 나간 상대 자리를 CPU가 대신 맡는다. 지금이 상대 차례이면 CPU가 바로 둔다.
+  void coverOpponent() {
+    if (!online || cpuCover) return;
+    cpuCover = true;
+    notifyListeners();
+    _maybeCpu();
+  }
+
+  /// 돌아온 상대에게 자리를 돌려준다. CPU가 수를 고르는 중이었으면 버린다.
+  void uncoverOpponent() {
+    if (!cpuCover) return;
+    cpuCover = false;
+    _cancelCpu();
+    notifyListeners();
+  }
+
+  /// 같은 Wi‑Fi 판의 지금 모습 (다시 들어오는 상대에게 보낸다). 수들만 있으면 판이 그대로 되살아난다.
+  Map<String, dynamic> wifiSnapshot() => {
+        'rows': rows,
+        'cols': cols,
+        'guestSide': cpuSide, // 돌아오는 상대가 맡은 쪽
+        'level': level.index,
+        'moves': [...moves],
+      };
+
+  /// [wifiSnapshot]으로 판을 되살린다 (돌아온 상대 쪽 기기). 맞지 않는 내용이면 null.
+  static ProphecyController? fromWifiSnapshot(Map<String, dynamic> j) {
+    try {
+      final rows = j['rows'] as int, cols = j['cols'] as int, side = j['guestSide'] as int, levelIndex = j['level'] as int;
+      if (rows < 1 || cols < 1 || rows * cols > 100 || (side != 0 && side != 1)) return null;
+      if (levelIndex < 0 || levelIndex >= ProphLevel.values.length) return null;
+      final c = ProphecyController(mode: PlayMode.wifi, rows: rows, cols: cols, humanSide: side, level: ProphLevel.values[levelIndex]);
+      c.moves.addAll([for (final m in j['moves'] as List) m as int]);
+      c._rebuild();
+      c.moveSerial = c.moves.length;
+      return c;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _cpuTurn() async {

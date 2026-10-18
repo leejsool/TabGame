@@ -61,7 +61,7 @@ class UtttHostScreen extends StatelessWidget {
         final mySide = hostSide == kRandomSide ? Random().nextInt(2) : hostSide;
         return LanStart(
           message: {'side': 1 - mySide},
-          hostScreen: (conn) => UtttScreen(mode: PlayMode.wifi, humanSide: mySide, link: conn),
+          hostScreen: (conn, desk) => UtttScreen(mode: PlayMode.wifi, humanSide: mySide, link: conn, rejoinDesk: desk),
         );
       },
     );

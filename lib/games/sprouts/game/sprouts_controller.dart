@@ -15,6 +15,7 @@ import '../core/sprouts_tidy.dart';
 
 part 'sprouts_controller_strokes.dart';
 part 'sprouts_controller_turns.dart';
+part 'sprouts_controller_rejoin.dart';
 
 /// 같은 Wi‑Fi 대결에서 상대에게 보내는 (상대에게서 받는) 판 하나.
 ///
@@ -60,10 +61,14 @@ class SproutsController extends ChangeNotifier {
         board = board ?? SproutsBoard.initial(dotCount, rng ?? Random());
 
   /// 저장해 둔 판([toJson])을 되살린다 (한 기기·CPU 대결). 맞지 않는 내용이면 null.
-  static SproutsController? fromJson(Map<String, dynamic> j) {
+  static SproutsController? fromJson(Map<String, dynamic> j) => _restore(j, wifi: false);
+
+  /// [fromJson]과 [fromWifiSnapshot]이 함께 쓰는 복원. [wifi]면 같은 Wi‑Fi 판으로 되살린다.
+  static SproutsController? _restore(Map<String, dynamic> j, {required bool wifi}) {
     try {
-      final mode = PlayMode.values.byName(j['mode'] as String);
-      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p) return null;
+      final mode = wifi ? PlayMode.wifi : PlayMode.values.byName(j['mode'] as String);
+      if (mode != PlayMode.vsCpu && mode != PlayMode.local2p && mode != PlayMode.wifi) return null;
+      if (!wifi && mode == PlayMode.wifi) return null;
       final humanSide = j['humanSide'] as int;
       final levelIndex = j['level'] as int;
       if ((humanSide != 0 && humanSide != 1) || levelIndex < 0 || levelIndex >= SproutsLevel.values.length) return null;
@@ -183,6 +188,9 @@ class SproutsController extends ChangeNotifier {
 
   bool get vsCpu => mode == PlayMode.vsCpu;
   int get cpuSide => 1 - humanSide;
+
+  /// 나간 상대의 자리를 CPU가 대신 두고 있는가 (같은 Wi‑Fi 판의 방장 기기에서만 켠다).
+  bool cpuCover = false;
   bool get isOver => winner != null;
 
   /// 지금 사람이 그을 수 있는가.

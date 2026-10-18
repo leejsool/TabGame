@@ -8,6 +8,7 @@ import '../core/update/update_ui.dart';
 import '../records/records_screen.dart';
 import 'game_card.dart';
 import 'launch.dart';
+import 'rejoin_cards.dart';
 import 'settings_screen.dart';
 
 /// 첫 화면: 게임 목록.
@@ -46,6 +47,7 @@ class _HubScreenState extends State<HubScreen> {
             child: CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: _buildHeader(context)),
+                const SliverToBoxAdapter(child: RejoinCards()),
                 if (shown.isEmpty) SliverToBoxAdapter(child: _allHidden(context)),
                 if (_filter == GameFilter.all || _filter == GameFilter.solo)
                   ..._section(context, '혼자 놀기', Icons.person_rounded, solo),

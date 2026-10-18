@@ -61,7 +61,7 @@ class DandelionHostScreen extends StatelessWidget {
         final mine = hostRole == kRandomSide ? Random().nextInt(2) : hostRole;
         return LanStart(
           message: {'role': 1 - mine},
-          hostScreen: (conn) => DandelionScreen(mode: PlayMode.wifi, humanRole: Role.values[mine], link: conn),
+          hostScreen: (conn, desk) => DandelionScreen(mode: PlayMode.wifi, humanRole: Role.values[mine], link: conn, rejoinDesk: desk),
         );
       },
     );

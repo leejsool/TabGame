@@ -110,6 +110,10 @@ class LanHost {
   /// 방 정보를 바꾼다 (방 찾는 기기에게 보이는 값).
   void updateInfo(Map<String, dynamic> info) => _info = info;
 
+  /// 판이 시작된 뒤에 정해 두는 "다시 들어오기" 처리. 있으면 이 방은 새 손님은 받지 않고,
+  /// 첫 인사(`hello`)에 든 표를 이 함수가 받아 주면(true) 이어 주고 아니면 돌려보낸다. 방 찾기에는 계속 답한다.
+  bool Function(LanConnection conn, Map<String, dynamic> hello)? rejoinHandler;
+
   void _listen() {
     _server.listen((socket) {
       final conn = LanConnection(socket);
@@ -119,6 +123,15 @@ class LanHost {
         if (m['t'] != 'hello') return;
         timeout.cancel();
         sub.cancel();
+        final rejoin = rejoinHandler;
+        if (rejoin != null) {
+          // 이미 시작한 판: 처음 들어올 때 받은 표(ticket)를 가진 손님만 다시 받는다
+          if (_closed || m['game'] != game || !rejoin(conn, m)) {
+            conn.send(const {'t': 'gone'});
+            conn.close();
+          }
+          return;
+        }
         if (_closed || _full || m['game'] != game) {
           conn.send(const {'t': 'busy'});
           conn.close();
@@ -135,7 +148,7 @@ class LanHost {
     _udp?.listen((event) {
       if (event != RawSocketEvent.read) return;
       final d = _udp.receive();
-      if (d == null || _full) return;
+      if (d == null || (_full && rejoinHandler == null)) return;
       try {
         final m = jsonDecode(utf8.decode(d.data));
         if (m is Map && m['t'] == _find && m['game'] == game) {

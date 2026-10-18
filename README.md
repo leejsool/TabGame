@@ -68,7 +68,13 @@ CPU끼리 겨루는 AI 검사처럼 오래 걸리는 테스트에는 `tags: 'slo
    - 컨트롤러: `CpuTurnRunner`(`lib/versus/cpu_turn.dart`) — CPU 계산을 isolate에서 돌리고, 새 판·되돌리기·기권 때 낡은 결과를 버린다. `thinking`/`cancel()`/`dispose()` 사용법은 파일 맨 위 설명 참고.
    - 설정 화면: `VsSetupScaffold` + `VsChoiceCard` + `VsLevelPicker`(`lib/versus/vs_setup.dart`).
    - 기록 보드: `VsRecordsBoard`(`lib/records/vs_records.dart`) — 기록 한 개를 `VsTile`로 바꾸는 함수만 쓰면 된다.
-5. 테스트: 규칙은 화면 없이 `test/<게임>/`에. 오래 걸리면 `tags: 'slow'`. 등록이 빠짐없이 됐는지는 `test/game_icon_test.dart`, `test/records/registry_test.dart`가 확인한다.
+5. **같은 Wi‑Fi로 함께 하는 게임(`PlayMode.wifi`)은 반드시 "나갔다 다시 들어오기"를 지원한다.** 한 사람이 나가면 방장이 기다리다가 "CPU가 대신하기"를 고를 수 있고, 나갔던 사람은 앱을 껐다 켜도 하던 판의 자리로 바로 돌아온다. 하는 법:
+   - 방 만들기: 2명이면 `LanHostScreen`, 3명 이상이면 `LanLobbyScreen`을 쓴다. 둘 다 방 문을 열어 둔 채 게임 화면에 `rejoinDesk`를 넘겨 준다 (`lib/net/lan_rejoin.dart`).
+   - 컨트롤러: `cpuCover`(나간 사람 자리를 CPU가 둠), `coverOpponent()`/`uncoverOpponent()` (3명 이상은 `coverSeat`/`uncoverSeat`), 판의 모습을 통째로 만드는 `wifiSnapshot()`과 되살리는 `fromWifiSnapshot()`. 수 목록(+씨앗)만으로 되살릴 수 있으면 그것을 담는다. 연출 때문에 아직 판에 반영 안 한 수가 있으면 그것도 함께 담는다 (루미큐브의 `pending`, 다빈치의 줄 선 수).
+   - 게임 화면: 2명 대결은 `VsTwoPlayer`(`lib/versus/vs_link.dart`)의 `vsLanGame`·`vsRejoinDesk`·`vsCoverOpponent`·`vsUncoverOpponent`·`vsSnapshot`·`vsResumeBuilder`를 채운다. 3명 이상은 `LanHubKeeper`를 만든다 (쿼리도 화면을 본보기로).
+   - 등록: `GameInfo`의 `lanGame`(같은 Wi‑Fi에서 쓰는 게임 이름)과 `lanResume`(받은 판의 모습으로 화면을 만드는 함수)을 채운다. 앱을 껐다 켠 뒤 허브에 뜨는 "하던 방" 카드가 이것으로 이어진다.
+   - 확인: `test/net/rejoin_two_player_test.dart`·`rejoin_test.dart`와 `test/records/registry_test.dart` 옆의 등록 시험(`test/net/rejoin_registry_test.dart`)이 빠뜨린 게임을 잡아 준다.
+6. 테스트: 규칙은 화면 없이 `test/<게임>/`에. 오래 걸리면 `tags: 'slow'`. 등록이 빠짐없이 됐는지는 `test/game_icon_test.dart`, `test/records/registry_test.dart`가 확인한다.
 
 ## 업데이트 (안드로이드)
 

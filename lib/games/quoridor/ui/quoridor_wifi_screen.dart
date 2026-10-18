@@ -100,7 +100,7 @@ class QuoridorHostScreen extends StatelessWidget {
     }
     return LanLobbyPlan(
       messages: [for (var i = 0; i < guests.length; i++) {'side': seats[i], 'players': players, 'names': names, 'cpus': cpuSeats}],
-      hostScreen: (conns) => QuoridorScreen(
+      hostScreen: (conns, desk) => QuoridorScreen(
         mode: PlayMode.wifi,
         players: players,
         humanSeat: hostSeat,
@@ -109,6 +109,7 @@ class QuoridorHostScreen extends StatelessWidget {
         cpuSeats: cpuSeats,
         links: conns,
         linkSeats: seats.sublist(0, conns.length),
+        rejoinDesk: desk,
       ),
     );
   }

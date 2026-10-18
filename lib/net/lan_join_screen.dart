@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/settings_scope.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
+import 'lan_rejoin_flow.dart';
 import 'lan_screens.dart';
 
 /// 같은 Wi‑Fi에서 열린 방을 찾아 들어가는 화면. 주소를 직접 입력해서 들어갈 수도 있다.
@@ -70,7 +71,8 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
       }
       _finder = finder;
       _sub = finder.rooms.listen((r) {
-        if (mounted) setState(() => _rooms = r);
+        // 이미 시작한 판(다시 들어오기만 받는 방)은 새로 들어갈 방이 아니니 목록에 올리지 않는다
+        if (mounted) setState(() => _rooms = [for (final room in r) if (room.info['rejoin'] != true) room]);
       });
     } catch (_) {
       if (mounted) setState(() => _message = '방을 찾을 수 없어요. 이 기기가 Wi‑Fi에 연결되어 있는지 확인해 주세요.');
@@ -151,6 +153,7 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
         return;
       }
       started = true;
+      _saveTicket(m, host, port);
       _stopFinder();
       await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
       if (mounted) _startFinder();
@@ -164,6 +167,21 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
     } finally {
       if (mounted) setState(() => _connecting = false);
     }
+  }
+
+  /// 방이 준 "다시 들어오기 표"를 보관한다 (앱을 껐다 켜도 하던 방에 다시 들어갈 수 있게).
+  void _saveTicket(Map<String, dynamic> start, String host, int port) {
+    final t = start['rejoin'];
+    if (t is! Map || t['room'] is! String || t['token'] is! String) return;
+    RejoinTickets.save(RejoinTicket(
+      game: widget.game,
+      roomId: t['room'] as String,
+      token: t['token'] as String,
+      host: host,
+      port: port,
+      hostNick: start['nick'] is String ? start['nick'] as String : '',
+      savedAt: DateTime.now().millisecondsSinceEpoch,
+    )).catchError((Object _) {}); // (보관을 못 해도 판은 그대로 한다)
   }
 
   /// 모이는 중인 방에서 기다리다 나온다.

@@ -8,6 +8,7 @@ import '../core/settings_scope.dart';
 import '../records/records_screen.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
+import 'lan_rejoin.dart';
 
 export 'lan_join_screen.dart';
 export 'lan_lobby_screen.dart';
@@ -45,11 +46,14 @@ String? roomNumberOf(List<String> addresses) => addresses.isEmpty ? null : addre
 }
 
 /// 손님이 들어왔을 때 게임이 정하는 것: 손님에게 보낼 시작 메시지(`t: 'start'`)와, 방을 연 쪽이 띄울 게임 화면.
+///
+/// 게임 화면은 손님 연결과 함께 "다시 들어오기 접수처"([LanRejoinDesk])를 받는다. 판이 시작된 뒤에도 방 문을 열어 두고,
+/// 나갔던 손님이 돌아오면 이 접수처가 받아 준다 (게임 화면이 `VsTwoPlayer`로 처리한다).
 class LanStart {
   const LanStart({required this.message, required this.hostScreen});
 
   final Map<String, dynamic> message;
-  final Widget Function(LanConnection conn) hostScreen;
+  final Widget Function(LanConnection conn, LanRejoinDesk desk) hostScreen;
 }
 
 /// 같은 Wi‑Fi로 함께 하기 첫 화면.
@@ -201,6 +205,9 @@ class _LanHostScreenState extends State<LanHostScreen> {
   String? _error;
   bool _starting = false;
 
+  /// 시작한 뒤의 "다시 들어오기 접수처" (방 문을 열어 둔다). 이 화면이 사라질 때 같이 닫는다.
+  LanRejoinDesk? _desk;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -239,14 +246,18 @@ class _LanHostScreenState extends State<LanHostScreen> {
     }
     _starting = true;
     final start = widget.onGuest();
-    conn.send({'t': 'start', 'nick': _roomName, ...start.message});
-    await _host?.close(); // 방은 닫는다 (이미 이어진 연결은 그대로)
+    final host = _host!;
     _host = null;
+    // 방 문은 닫지 않고 접수처에 넘긴다: 나갔던 손님이 (앱을 껐다 켜도) 표를 들고 다시 들어올 수 있게
+    final desk = _desk = LanRejoinDesk.open(host: host, guests: [conn], info: {...widget.info, 'room': _roomName, 'nick': _roomName});
+    conn.send({'t': 'start', 'nick': _roomName, 'rejoin': desk.ticketFor(0), ...start.message});
     if (!mounted) {
       conn.close();
+      await desk.close();
       return;
     }
-    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => start.hostScreen(conn)));
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => start.hostScreen(conn, desk)));
+    await desk.close();
     // 게임에서 나오면 방도 끝난 것이니 방 설정 화면으로 돌아간다.
     if (mounted) Navigator.of(context).pop();
   }
@@ -255,6 +266,7 @@ class _LanHostScreenState extends State<LanHostScreen> {
   void dispose() {
     _sub?.cancel();
     _host?.close();
+    _desk?.close();
     super.dispose();
   }
 

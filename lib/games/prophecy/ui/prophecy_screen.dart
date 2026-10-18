@@ -7,6 +7,7 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../net/lan_connection.dart';
+import '../../../net/lan_rejoin.dart';
 import '../core/prophecy_ai.dart';
 import '../core/prophecy_rules.dart';
 import '../data/prophecy_history.dart';
@@ -30,6 +31,7 @@ class ProphecyScreen extends StatefulWidget {
     this.level = ProphLevel.normal,
     this.controller,
     this.link,
+    this.rejoinDesk,
   });
 
   final PlayMode mode;
@@ -39,6 +41,9 @@ class ProphecyScreen extends StatefulWidget {
 
   /// 같은 Wi‑Fi 대결([PlayMode.wifi])에서 상대 기기와의 연결. 이 화면이 닫을 때 같이 닫는다.
   final LanConnection? link;
+
+  /// 방장일 때: 판이 시작된 뒤에도 방 문을 열어 두고 나갔던 상대를 다시 받아 주는 접수처.
+  final LanRejoinDesk? rejoinDesk;
 
   /// (테스트용) 미리 만든 컨트롤러.
   final ProphecyController? controller;
@@ -75,6 +80,19 @@ class _ProphecyScreenState extends State<ProphecyScreen> with VsTwoPlayer {
   bool get vsHalted => c.halted;
   @override
   int get vsMoveCount => c.moveCount;
+
+  @override
+  String? get vsLanGame => 'prophecy';
+  @override
+  LanRejoinDesk? get vsRejoinDesk => widget.rejoinDesk;
+  @override
+  void vsCoverOpponent() => c.coverOpponent();
+  @override
+  void vsUncoverOpponent() => c.uncoverOpponent();
+  @override
+  Map<String, dynamic>? vsSnapshot() => c.online ? c.wifiSnapshot() : null;
+  @override
+  Widget? Function(Map<String, dynamic> resume, LanConnection conn)? get vsResumeBuilder => prophecyResume;
 
   @override
   void vsRestartForRematch() {
@@ -431,4 +449,13 @@ class _ProphecyScreenState extends State<ProphecyScreen> with VsTwoPlayer {
         ],
         VsButton(icon: Icons.flag_outlined, label: '기권', onPressed: c.canResign ? _resign : null),
       ]);
+}
+
+/// 방장이 보낸 `resume`(나갔다 다시 들어올 때 받는 판의 모습)으로 예언 화면을 만든다. 맞지 않는 내용이면 null.
+Widget? prophecyResume(Map<String, dynamic> resume, LanConnection conn) {
+  final snap = resume['snap'];
+  if (snap is! Map<String, dynamic>) return null;
+  final c = ProphecyController.fromWifiSnapshot(snap);
+  if (c == null) return null;
+  return ProphecyScreen(mode: PlayMode.wifi, rows: c.rows, cols: c.cols, humanSide: c.humanSide, controller: c, link: conn);
 }
