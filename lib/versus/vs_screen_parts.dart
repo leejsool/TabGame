@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/tablet_scale.dart';
+
 import '../records/records_screen.dart';
 
 // 대결 게임(CPU와 / 둘이서 / 같은 Wi‑Fi) 플레이 화면의 공통 부품.
@@ -129,6 +131,9 @@ class VsBottomBar extends StatelessWidget {
   }
 }
 
+/// 태블릿이면 아래 단추를 손가락으로 누르기 좋게 키운다 (높이 52, 글자 16).
+bool _isTabletWidth(BuildContext context) => MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
+
 /// 아래 줄의 테두리 단추 (되돌리기 · 새 판 · 기권 · 힌트 …).
 class VsButton extends StatelessWidget {
   const VsButton({super.key, required this.icon, required this.label, required this.onPressed});
@@ -139,13 +144,25 @@ class VsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tablet = _isTabletWidth(context);
     return OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), visualDensity: VisualDensity.compact),
+      style: vsOutlinedStyle(context),
       onPressed: onPressed,
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: tablet ? 24 : 20),
       label: Text(label),
     );
   }
+}
+
+/// 아래 줄 테두리 단추의 모양 (폰은 작고 촘촘하게, 태블릿은 크게). 단추를 직접 만드는 화면도 이것을 쓴다.
+ButtonStyle vsOutlinedStyle(BuildContext context) {
+  final tablet = _isTabletWidth(context);
+  return OutlinedButton.styleFrom(
+    padding: EdgeInsets.symmetric(horizontal: tablet ? 20 : 12),
+    visualDensity: tablet ? VisualDensity.standard : VisualDensity.compact,
+    minimumSize: tablet ? const Size(0, 52) : null,
+    textStyle: tablet ? const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w700) : null,
+  );
 }
 
 /// 같은 Wi‑Fi 대결이 끝난 뒤의 "한 판 더" 단추. 서로 눌러야 새 판이 시작된다.
@@ -160,8 +177,14 @@ class VsRematchButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tablet = _isTabletWidth(context);
     return FilledButton.icon(
-      style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), visualDensity: VisualDensity.compact),
+      style: FilledButton.styleFrom(
+        padding: EdgeInsets.symmetric(horizontal: tablet ? 20 : 12),
+        visualDensity: tablet ? VisualDensity.standard : VisualDensity.compact,
+        minimumSize: tablet ? const Size(0, 52) : null,
+        textStyle: tablet ? const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w700) : null,
+      ),
       onPressed: asked || opponentGone ? null : onPressed,
       icon: const Icon(Icons.refresh_rounded, size: 20),
       label: Text(opponentGone

@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/game_fx.dart';
@@ -138,7 +139,10 @@ class _ProphecyScreenState extends State<ProphecyScreen> with VsTwoPlayer {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       final winner = c.state.winner;
-      if (winner != null && (!c.oneSeat || winner == c.humanSide)) WinSound.play(context); // 이겼을 때 "짜잔"
+      if (winner != null && (!c.oneSeat || winner == c.humanSide)) {
+        WinSound.play(context);
+        showWinCelebration(context, title: '승리!');
+      } // 이겼을 때 "짜잔"
       final sc = c.state.scores();
       ProphHistory.add(ProphRecord(
         at: DateTime.now().millisecondsSinceEpoch,

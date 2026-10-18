@@ -47,7 +47,8 @@ extension RummikubControllerCpu on RummikubController {
     if (table != null) {
       layoutSets(layoutWidth, layoutPerRow); // 지금 판의 묶음들이 모두 자리를 갖게
       final steps = _stepsFor(table);
-      final ms = steps.length > 8 ? max(220, stepDelay.inMilliseconds * 8 ~/ steps.length) : stepDelay.inMilliseconds;
+      var ms = steps.length > 8 ? max(220, stepDelay.inMilliseconds * 8 ~/ steps.length) : stepDelay.inMilliseconds;
+      ms = (ms * GameSpeed.factor).round();
       await Future<void>.delayed(Duration(milliseconds: ms ~/ 2));
       for (final step in steps) {
         if (_cpu.disposed || epoch != _animEpoch) return;
@@ -61,7 +62,7 @@ extension RummikubControllerCpu on RummikubController {
       opponentPick = state.pool[pick];
       onFeedback?.call('step');
       _notify();
-      await Future<void>.delayed(stepDelay * 1.4);
+      await Future<void>.delayed(GameSpeed.scale(stepDelay) * 1.4);
     }
     if (_cpu.disposed || epoch != _animEpoch) return;
     _animating = false;

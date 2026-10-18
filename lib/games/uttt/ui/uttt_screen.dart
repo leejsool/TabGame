@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -137,7 +138,10 @@ class _UtttScreenState extends State<UtttScreen> with VsTwoPlayer {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
       final o = c.outcome;
-      if (o != Outcome.draw && (!c.oneSeat || (o == Outcome.xWins ? kX : kO) == c.humanSide)) WinSound.play(context); // 이겼을 때 "짜잔"
+      if (o != Outcome.draw && (!c.oneSeat || (o == Outcome.xWins ? kX : kO) == c.humanSide)) {
+        WinSound.play(context);
+        showWinCelebration(context, title: '승리!');
+      } // 이겼을 때 "짜잔"
       UtttHistory.add(UtttRecord(
         at: DateTime.now().millisecondsSinceEpoch,
         vsCpu: c.vsCpu,

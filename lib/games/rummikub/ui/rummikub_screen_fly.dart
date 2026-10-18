@@ -75,7 +75,7 @@ extension _RkFly on _RummikubScreenState {
       final from = _globalCenter(_floorKeys[pick]);
       final to = _globalCenter(_chipKeys[seat]);
       if (from == null || to == null) return;
-      _startFly(fromGlobal: from, toGlobal: to, width: 22, duration: c.stepDelay * 1.1);
+      _startFly(fromGlobal: from, toGlobal: to, width: 22, duration: GameSpeed.scale(c.stepDelay) * 1.1);
     });
   }
 }

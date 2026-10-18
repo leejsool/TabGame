@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'card_look.dart';
+import 'game_speed.dart';
 import 'nickname.dart';
 
 /// 앱 전체 설정. 바뀌면 화면이 자동으로 갱신되고, 기기에 저장된다.
@@ -21,7 +22,9 @@ class Settings extends ChangeNotifier {
         _suitPalette = _readSuitPalette(_prefs),
         _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true,
         _hiddenGames = {...?_prefs.getStringList(_kHiddenGames)},
-        _showTutorials = _prefs.getBool(_kShowTutorials) ?? true {
+        _showTutorials = _prefs.getBool(_kShowTutorials) ?? true,
+        _fastPace = _prefs.getBool(_kFastPace) ?? false {
+    GameSpeed.factor = _fastPace ? GameSpeed.fastFactor : 1;
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
     CardLook.layout = _cardLayout;
@@ -64,6 +67,7 @@ class Settings extends ChangeNotifier {
 
   static const _kSound = 'sound';
   static const _kHaptics = 'haptics';
+  static const _kFastPace = 'fastPace';
   static const _kTheme = 'themeMode';
   static const _kAutoComplete = 'autoComplete';
   static const _kFreecellAutoMove = 'freecellAutoMove';
@@ -82,6 +86,7 @@ class Settings extends ChangeNotifier {
   final SharedPreferences _prefs;
   bool _sound;
   bool _haptics;
+  bool _fastPace;
   bool _autoComplete;
   bool _freecellAutoMove;
   bool _solitaireAutoMove;
@@ -100,6 +105,9 @@ class Settings extends ChangeNotifier {
 
   bool get sound => _sound;
   bool get haptics => _haptics;
+
+  /// 빠른 진행: CPU 대기와 상대 수 보여 주기가 짧아진다.
+  bool get fastPace => _fastPace;
 
   /// 내 별명: 같은 Wi‑Fi로 함께 할 때 방 이름과 상대에게 보이는 이름. 처음에는 저절로 지어진다 (예: "빨간 토끼").
   String get nickname => _nickname;
@@ -238,6 +246,13 @@ class Settings extends ChangeNotifier {
   set sound(bool v) {
     _sound = v;
     _prefs.setBool(_kSound, v);
+    notifyListeners();
+  }
+
+  set fastPace(bool v) {
+    _fastPace = v;
+    GameSpeed.factor = v ? GameSpeed.fastFactor : 1;
+    _prefs.setBool(_kFastPace, v);
     notifyListeners();
   }
 

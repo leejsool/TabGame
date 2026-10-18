@@ -315,12 +315,12 @@ class _SwipeArt extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            SizedBox(height: 150, child: _sprite('c3_side_ready')),
+            Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.bottomCenter, child: SizedBox(height: 150, child: _sprite('c3_side_ready')))),
             const Padding(
               padding: EdgeInsets.only(bottom: 50),
               child: Icon(Icons.swipe_right_alt_rounded, size: 64, color: _rhythmColor),
             ),
-            SizedBox(height: 150, child: _sprite('c3_side_swing')),
+            Flexible(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.bottomCenter, child: SizedBox(height: 150, child: _sprite('c3_side_swing')))),
           ],
         ),
         const SizedBox(height: 14),

@@ -60,7 +60,7 @@ extension _QdFlow on _QuoridorScreenState {
     if (c.isOver || c.halted) return;
     c.opponentResigned();
     _resultHandled = true;
-    WinSound.play(context); // 이겼을 때 "짜잔"
+    WinSound.play(context); showWinCelebration(context, title: '승리!'); // 이겼을 때 "짜잔"
     await _record(winner: c.humanSeat, resigned: true);
     if (!mounted) return;
     final again = await showDialog<bool>(
@@ -127,7 +127,10 @@ extension _QdFlow on _QuoridorScreenState {
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
-      if (!c.oneSeat || c.state.winner == c.humanSeat) WinSound.play(context); // 이겼을 때 "짜잔"
+      if (!c.oneSeat || c.state.winner == c.humanSeat) {
+        WinSound.play(context);
+        showWinCelebration(context, title: '승리!');
+      } // 이겼을 때 "짜잔"
       _record(winner: c.state.winner!);
     } else if (!c.isOver && !c.halted) {
       if (_resultHandled) _saver.rearm(); // 한 판 더: 새 판은 다시 보관할 수 있다

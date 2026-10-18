@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -133,7 +134,10 @@ class _DandelionScreenState extends State<DandelionScreen> with VsTwoPlayer {
   void _onChanged() {
     if (c.isOver && !_resultHandled) {
       _resultHandled = true;
-      if (!c.oneSeat || c.winner == c.humanRole) WinSound.play(context); // 이겼을 때 "짜잔"
+      if (!c.oneSeat || c.winner == c.humanRole) {
+        WinSound.play(context);
+        showWinCelebration(context, title: '승리!');
+      } // 이겼을 때 "짜잔"
       DandelionHistory.add(DandelionRecord(
         at: DateTime.now().millisecondsSinceEpoch,
         vsCpu: c.vsCpu,

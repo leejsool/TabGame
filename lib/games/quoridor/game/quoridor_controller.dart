@@ -1,3 +1,4 @@
+import '../../../core/game_speed.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -178,7 +179,7 @@ class QuoridorController extends ChangeNotifier {
     final seen = <String>{};
     notifyListeners();
     while (true) {
-      await Future<void>.delayed(autoStepDelay);
+      await Future<void>.delayed(GameSpeed.scale(autoStepDelay));
       if (_disposed || epoch != _autoEpoch) return;
       if (isOver || halted) break;
       // 말들이 서로 길을 막아 같은 모양이 되풀이되면 자동 이동을 멈추고 직접 두게 한다 (끝없이 돌지 않도록)

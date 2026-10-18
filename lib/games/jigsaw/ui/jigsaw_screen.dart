@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -95,7 +96,7 @@ class _JigsawScreenState extends State<JigsawScreen> with WidgetsBindingObserver
   }
 
   Future<void> _onCompleted() async {
-    WinSound.play(context); // 이겼을 때 "짜잔"
+    WinSound.play(context); showWinCelebration(context, title: '완성!', subtitle: '퍼즐을 모두 맞췄어요'); // 이겼을 때 "짜잔"
     final seconds = s.controller.elapsed.value;
     await JigsawStorage.clear(s.controller, s.source);
     final isBest = await JigsawStorage.recordWin(s.pieceTarget, seconds);

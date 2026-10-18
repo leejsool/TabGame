@@ -31,7 +31,9 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 | Two-player Wi‑Fi / rematch / leave / autosave logic | `lib/versus/vs_link.dart` mixin `VsTwoPlayer` (UTTT, Dandelion, Prophecy, Sprouts, Goblet use it; copy `uttt_screen.dart` as the template for a new 2-player game) |
 | Playing cards | `lib/games/freecell/ui/playing_card.dart`, looks in `lib/core/card_look.dart` |
 | Phone layout looks small on a tablet | `lib/core/tablet_scale.dart` (`TabletScale` scales the whole screen; `kTabletMinSide`) |
-| Big win celebration | `lib/games/freecell/ui/win_celebration.dart` (cards), `lib/games/rummikub/ui/rummikub_celebration.dart` (general) |
+| Big win celebration | `showWinCelebration(context, title:)` in `lib/core/win_celebration.dart` — call next to `WinSound.play`; cards: `lib/games/freecell/ui/win_celebration.dart`; Rummikub/Sprouts/Mines keep their own |
+| Solo game first menu | `SoloMenuScaffold` (`lib/core/solo_menu.dart`), `CardGrid`, `menuMaxWidth` (`game_widgets.dart`) |
+| Waits / CPU think time | wrap in `GameSpeed.scale(...)` (`lib/core/game_speed.dart`; setting "빠른 진행") |
 If two games need the same widget, move it to a shared folder instead of copying it.
 
 ## New game checklist

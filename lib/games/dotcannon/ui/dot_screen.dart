@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -111,7 +112,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
   // ── 끝났을 때 ──
 
   Future<void> _onWon() async {
-    WinSound.play(context); // 이겼을 때 "짜잔"
+    WinSound.play(context); showWinCelebration(context, title: '완성!', subtitle: '도트를 모두 채웠어요'); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     final deploys = c.game.deploys;
     await _saver.finish();

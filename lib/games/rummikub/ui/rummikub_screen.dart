@@ -1,3 +1,4 @@
+import '../../../core/game_speed.dart';
 import 'dart:async';
 import 'dart:math';
 

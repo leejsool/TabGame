@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/game_fx.dart';
@@ -133,7 +134,10 @@ class _GobbletScreenState extends State<GobbletScreen> with VsTwoPlayer {
     final r = c.result;
     if (r != null && !_resultShown) {
       _resultShown = true;
-      if (!c.oneSeat || r.winner == c.humanTeam) WinSound.play(context); // 이겼을 때 "짜잔"
+      if (!c.oneSeat || r.winner == c.humanTeam) {
+        WinSound.play(context);
+        showWinCelebration(context, title: '승리!');
+      } // 이겼을 때 "짜잔"
       // 한 판이 끝날 때마다 한 번만 기록한다
       GobbletHistory.add(GobbletRecord(
         at: DateTime.now().millisecondsSinceEpoch,

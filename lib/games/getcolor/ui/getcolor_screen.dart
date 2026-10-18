@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -124,7 +125,7 @@ class _GetColorScreenState extends State<GetColorScreen> with WidgetsBindingObse
   // ── 끝났을 때 ──
 
   Future<void> _onWon() async {
-    WinSound.play(context); // 이겼을 때 "짜잔"
+    WinSound.play(context); showWinCelebration(context, title: '완성!', subtitle: '모든 병을 맞췄어요'); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     final moves = c.moveCount;
     await GetColorStorage.clearSave(c);

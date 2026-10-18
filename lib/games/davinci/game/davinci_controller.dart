@@ -1,3 +1,4 @@
+import '../../../core/game_speed.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -224,7 +225,7 @@ class DavinciController extends ChangeNotifier {
   /// 끝난 판의 결과를 보여 줘도 되는가 (마지막 추측의 ○ / ✕까지 다 보인 뒤).
   bool get showOver => isOver && !effectsPending;
 
-  Duration _ms(double factor) => cpuStepDelay * factor;
+  Duration _ms(double factor) => GameSpeed.scale(cpuStepDelay) * factor;
 
   void _enqueue(DvEffect e) {
     if (!animate || _disposed) return;
@@ -544,7 +545,7 @@ class DavinciController extends ChangeNotifier {
     _cpuRunning = true;
     notifyListeners();
     while (!_disposed && epoch == _epoch && !isOver && !halted && isCpuSeat(turn)) {
-      await Future<void>.delayed(cpuStepDelay);
+      await Future<void>.delayed(GameSpeed.scale(cpuStepDelay));
       await _effectsIdle(); // (직전에 다른 사람이 둔 수를 다 보여 준 뒤에 둔다)
       while (cpuHold && !_disposed && epoch == _epoch) {
         await Future<void>.delayed(const Duration(milliseconds: 100)); // (사람이 고르는 동안 기다린다)

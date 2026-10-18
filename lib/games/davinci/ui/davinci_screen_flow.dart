@@ -108,7 +108,7 @@ extension _DvFlow on _DavinciScreenState {
     final iWon = (c.showOver && c.state.winner == c.humanSeat) || (c.halted && c.resignWinner == c.humanSeat);
     if (iWon && !_winSounded) {
       _winSounded = true;
-      WinSound.play(context); // 이겼을 때 "짜잔"
+      WinSound.play(context); showWinCelebration(context, title: '승리!'); // 이겼을 때 "짜잔"
     } else if (!c.isOver && !c.halted) {
       _winSounded = false;
     }

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../core/game_speed.dart';
+
 import 'package:flutter/foundation.dart';
 
 /// CPU가 한 수를 "생각하는" 동안의 공통 관리: 계산은 다른 isolate에서 돌리고, 너무 빨리 끝나도
@@ -49,7 +51,7 @@ class CpuTurnRunner {
     final epoch = ++_epoch;
     _thinking = true;
     onStart?.call();
-    final results = await Future.wait<Object?>([task(), Future<void>.delayed(minTime)]);
+    final results = await Future.wait<Object?>([task(), Future<void>.delayed(GameSpeed.scale(minTime))]);
     if (_disposed || epoch != _epoch) return null;
     _thinking = false;
     return results[0] as T;

@@ -63,7 +63,7 @@ extension _DvFly on _DavinciScreenState {
     final e = c.effect;
     if (e == null || e.kind != 0 || identical(e, _flownEffect)) return;
     _flownEffect = e;
-    _flyDraw(tile: e.tile, seat: e.actor, from: _globalCenter(_pileKeys[e.number ?? 0]), duration: c.cpuStepDelay * 1.1);
+    _flyDraw(tile: e.tile, seat: e.actor, from: _globalCenter(_pileKeys[e.number ?? 0]), duration: GameSpeed.scale(c.cpuStepDelay) * 1.1);
   }
 
   Widget _flyOverlay() {

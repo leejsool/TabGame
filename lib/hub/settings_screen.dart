@@ -83,6 +83,13 @@ class SettingsScreen extends StatelessWidget {
             _CardLayoutPicker(settings: settings),
             _CardBackStylePicker(settings: settings),
             _SuitColorPicker(settings: settings),
+            SwitchListTile(
+              secondary: const Icon(Icons.fast_forward_rounded),
+              title: const Text('빠른 진행'),
+              subtitle: const Text('CPU가 덜 기다리고, 상대의 수가 더 빨리 움직여요'),
+              value: settings.fastPace,
+              onChanged: (v) => settings.fastPace = v,
+            ),
             const _SectionTitle('게임별 도우미'),
             SwitchListTile(
               secondary: const Icon(Icons.auto_awesome_rounded),

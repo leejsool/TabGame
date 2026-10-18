@@ -130,7 +130,7 @@ extension _DvActions on _DavinciScreenState {
   }
 
   Widget _bottomBar() {
-    final compact = OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), visualDensity: VisualDensity.compact);
+    final compact = vsOutlinedStyle(context);
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 10,

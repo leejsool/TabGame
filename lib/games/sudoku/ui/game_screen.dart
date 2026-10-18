@@ -1,3 +1,4 @@
+import '../../../core/win_celebration.dart';
 import 'dart:async';
 import 'dart:math';
 
@@ -134,7 +135,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen>
   // ── 완성 ──
 
   Future<void> _onCompleted() async {
-    WinSound.play(context); // 이겼을 때 "짜잔"
+    WinSound.play(context); showWinCelebration(context, title: '완성!', subtitle: '퍼즐을 모두 풀었어요'); // 이겼을 때 "짜잔"
     final seconds = game.elapsed.value;
     final diff = game.puzzle.difficulty;
     await SudokuStorage.clearSave(game);

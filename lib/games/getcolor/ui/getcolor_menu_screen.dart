@@ -152,8 +152,10 @@ class _LevelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = levelColors[level]!;
+    final base = levelColors[level]!;
     final scheme = Theme.of(context).colorScheme;
+    // 어두운 바탕에서는 진한 색 글자(진보라·파랑)가 흐려서 한 단계 밝게 쓴다
+    final color = Theme.of(context).brightness == Brightness.dark ? Color.lerp(base, Colors.white, 0.45)! : base;
     return Material(
       color: color.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(22),
