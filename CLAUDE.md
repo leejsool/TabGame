@@ -27,6 +27,8 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 | Finished-game row with ★ + "다시 하기" | `ReplayRecordTile` in `lib/records/record_widgets.dart` (also `StatCard`, `EmptyRecords`, `RecordsList`) |
 | History storage | `lib/core/json_history.dart` (`JsonHistoryStore`; record needs `toJson`/`fromJson`) |
 | Versus setup / CPU / records | `VsSetupScaffold`, `VsChoiceCard`, `VsLevelPicker`; `CpuTurnRunner`; `VsRecordsBoard` |
+| Versus play screen parts | `lib/versus/vs_screen_parts.dart`: `VsGameScaffold` (portrait/landscape side panel), `VsTopBar`, `VsPlayerChip(s)`, `VsStatusBanner`, `VsBottomBar` + `VsButton` + `VsRematchButton`, `VsResultDialog`, `showVsRules`, `showVsNotice`, `confirmVsLeave`, `showOpponentResigned` |
+| Two-player Wi‑Fi / rematch / leave / autosave logic | `lib/versus/vs_link.dart` mixin `VsTwoPlayer` (UTTT, Dandelion, Prophecy, Sprouts, Goblet use it; copy `uttt_screen.dart` as the template for a new 2-player game) |
 | Playing cards | `lib/games/freecell/ui/playing_card.dart`, looks in `lib/core/card_look.dart` |
 | Phone layout looks small on a tablet | `lib/core/tablet_scale.dart` (`TabletScale` scales the whole screen; `kTabletMinSide`) |
 | Big win celebration | `lib/games/freecell/ui/win_celebration.dart` (cards), `lib/games/rummikub/ui/rummikub_celebration.dart` (general) |

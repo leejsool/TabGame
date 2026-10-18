@@ -21,6 +21,7 @@ import '../game/rummikub_layout.dart';
 import '../tutorial/rummikub_tutorial.dart';
 import 'rummikub_celebration.dart';
 import 'rummikub_tiles.dart';
+import '../../../versus/vs_screen_parts.dart';
 
 /// 루미큐브 플레이 화면.
 ///
@@ -231,17 +232,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
     });
   }
 
-  Future<void> _notice(String title, String body) => showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.wifi_off_rounded, size: 32),
-          title: Text(title, textAlign: TextAlign.center),
-          content: Text(body, textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
-        ),
-      );
+  Future<void> _notice(String title, String body) => showVsNotice(context, title, body);
 
   Future<void> _onOpponentResigned() async {
     if (c.isOver || c.halted) return;
@@ -286,20 +277,9 @@ class _RummikubScreenState extends State<RummikubScreen> {
     c.restart();
   }
 
+  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
   Future<void> _confirmLeave() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('판에서 나갈까요?'),
-        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
-        ],
-      ),
-    );
-    if (ok == true && mounted) Navigator.of(context).pop();
+    if (await confirmVsLeave(context) && mounted) Navigator.of(context).pop();
   }
 
   void _feedback(String kind) => _fx.play(context, kind);

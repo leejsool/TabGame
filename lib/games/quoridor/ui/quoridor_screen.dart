@@ -9,13 +9,13 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../net/lan_connection.dart';
-import '../../../records/records_screen.dart';
 import '../core/quoridor_ai.dart';
 import '../data/quoridor_history.dart';
 import '../game/quoridor_controller.dart';
 import '../tutorial/quoridor_tutorial.dart';
 import 'quoridor_board.dart';
 import 'quoridor_wall_stock.dart';
+import '../../../versus/vs_screen_parts.dart';
 
 /// 쿼리도 플레이 화면.
 class QuoridorScreen extends StatefulWidget {
@@ -196,17 +196,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     });
   }
 
-  Future<void> _notice(String title, String body) => showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.wifi_off_rounded, size: 32),
-          title: Text(title, textAlign: TextAlign.center),
-          content: Text(body, textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
-        ),
-      );
+  Future<void> _notice(String title, String body) => showVsNotice(context, title, body);
 
   Future<void> _onOpponentResigned() async {
     if (c.isOver || c.halted) return;
@@ -255,20 +245,9 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
     c.restart(rotate: true);
   }
 
+  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
   Future<void> _confirmLeave() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('판에서 나갈까요?'),
-        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
-        ],
-      ),
-    );
-    if (ok == true && mounted) Navigator.of(context).pop();
+    if (await confirmVsLeave(context) && mounted) Navigator.of(context).pop();
   }
 
   void _feedback(String kind) => _fx.play(context, kind);
@@ -568,22 +547,7 @@ class _QuoridorScreenState extends State<QuoridorScreen> {
         ],
       );
 
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(tooltip: '뒤로', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.of(context).maybePop()),
-          Flexible(
-            child: Text('쿼리도', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          ),
-          const Spacer(),
-          IconButton(tooltip: '내 기록', icon: const Icon(Icons.emoji_events_rounded), onPressed: () => openRecords(context, game: 'quoridor')),
-          IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showQuoridorRules(context)),
-        ],
-      ),
-    );
-  }
+  Widget _topBar() => VsTopBar(title: '쿼리도', gameId: 'quoridor', onRules: () => showQuoridorRules(context));
 
   /// 사람마다 칩: 이름과 남은 벽 수. 지금 차례인 사람이 강조된다.
   Widget _playerChips() {

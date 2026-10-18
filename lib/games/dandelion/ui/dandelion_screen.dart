@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,7 +8,6 @@ import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
-import '../../../records/records_screen.dart';
 import '../core/dandelion_ai.dart';
 import '../core/dandelion_rules.dart';
 import '../data/dandelion_history.dart';
@@ -19,6 +16,8 @@ import '../tutorial/dandelion_tutorial.dart';
 import 'dandelion_art.dart';
 import 'dandelion_board.dart';
 import 'dandelion_lesson_screen.dart';
+import '../../../versus/vs_link.dart';
+import '../../../versus/vs_screen_parts.dart';
 
 /// 민들레 플레이 화면.
 class DandelionScreen extends StatefulWidget {
@@ -45,27 +44,11 @@ class DandelionScreen extends StatefulWidget {
   State<DandelionScreen> createState() => _DandelionScreenState();
 }
 
-class _DandelionScreenState extends State<DandelionScreen> {
+class _DandelionScreenState extends State<DandelionScreen> with VsTwoPlayer {
   // 화면이 직접 소유한다: 화면이 다시 빌드되어도 판이 사라지지 않는다.
   late final DandelionController c = widget.controller ??
       DandelionController(mode: widget.mode, humanRole: widget.humanRole, level: widget.level);
   bool _resultHandled = false;
-
-  /// 한 기기·CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
-  late final GameSaver _saver = GameSaver(gameId: 'dandelion', snapshot: () => c.savable ? c.toJson() : null);
-  int _savedAtMove = -1;
-
-  // ── 같은 Wi‑Fi 대결 ──
-  LanConnection? get _link => c.online ? widget.link : null;
-  StreamSubscription<Map<String, dynamic>>? _linkSub;
-
-  /// 상대 기기와의 연결이 끊겼다 / 이 화면에서 일부러 나가는 중이다.
-  bool _opponentGone = false;
-  bool _leaving = false;
-
-  /// 한 판 더: 내가 하자고 했다 / 상대가 하자고 했다 (둘 다 하면 맡은 쪽을 바꿔 새로 시작한다).
-  bool _rematchAsked = false;
-  bool _rematchOffered = false;
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   final GameFx _fx = GameFx({
@@ -74,35 +57,49 @@ class _DandelionScreenState extends State<DandelionScreen> {
     'win': const Fx(haptic: Haptic.heavy),
   });
 
+  // ── 공통 대결 동작([VsTwoPlayer])에 알려 주는 것 ──
+  /// 한 기기·CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
+  @override
+  late final GameSaver vsSaver = GameSaver(gameId: 'dandelion', snapshot: () => c.savable ? c.toJson() : null);
+  @override
+  LanConnection? get vsLink => c.online ? widget.link : null;
+  @override
+  bool get vsOnline => c.online;
+  @override
+  bool get vsOver => c.isOver;
+  @override
+  bool get vsHalted => c.halted;
+  @override
+  int get vsMoveCount => c.moveCount;
+
+  @override
+  void vsRestartForRematch() {
+    _resultHandled = false;
+    c.restart(swapRoles: true); // (민들레/바람이 바뀐다)
+  }
+
+  @override
+  bool vsOnMessage(Map<String, dynamic> m) {
+    if (m['t'] != 'move') return false;
+    if (m['i'] != c.moveCount || m['m'] is! int || !c.receiveMove(m['m'] as int)) vsDesync();
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
-    if (!c.online) {
-      _savedAtMove = c.moveCount;
-      _saver.attach();
-    }
-    final link = _link;
-    if (link != null) {
-      c.onLocalMove = (move) => link.send({'t': 'move', 'i': c.moveCount - 1, 'm': move});
-      _linkSub = link.messages.listen(_onNet);
-      link.closed.then((_) => _onLinkClosed());
-    }
+    vsAttach();
+    final link = vsLink;
+    if (link != null) c.onLocalMove = (move) => link.send({'t': 'move', 'i': c.moveCount - 1, 'm': move});
     WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
   }
 
   @override
   void dispose() {
     _fx.dispose();
-    _saver.detach();
-    _leaving = true;
-    _linkSub?.cancel();
-    final link = _link;
-    if (link != null) {
-      link.send(const {'t': 'bye'});
-      link.close();
-    }
+    vsDetach();
     c.removeListener(_onChanged);
     c.onFeedback = null;
     c.onLocalMove = null;
@@ -110,53 +107,8 @@ class _DandelionScreenState extends State<DandelionScreen> {
     super.dispose();
   }
 
-  void _onNet(Map<String, dynamic> m) {
-    if (!mounted) return;
-    switch (m['t']) {
-      case 'move':
-        if (m['i'] != c.moveCount || m['m'] is! int || !c.receiveMove(m['m'] as int)) _desync();
-      case 'resign':
-        _onOpponentResigned();
-      case 'again':
-        setState(() => _rematchOffered = true);
-        if (_rematchAsked) _startRematch();
-      case 'bye':
-        _onLinkClosed();
-    }
-  }
-
-  /// 판이 서로 어긋났다 (있을 수 없는 일이지만, 어긋난 채로 계속하지는 않는다).
-  Future<void> _desync() async {
-    if (_opponentGone || _leaving) return;
-    _opponentGone = true;
-    await _link?.close();
-    if (!mounted) return;
-    await _notice('판이 서로 어긋났어요', '두 기기의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  void _onLinkClosed() {
-    if (!mounted || _leaving || _opponentGone) return;
-    setState(() => _opponentGone = true);
-    if (c.isOver || c.halted) return; // 끝난 판이면 결과를 마저 볼 수 있게 두고, "한 판 더"만 막는다
-    _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 상대가 나갔어요. 이 판은 기록하지 않아요.').then((_) {
-      if (mounted) Navigator.of(context).pop();
-    });
-  }
-
-  Future<void> _notice(String title, String body) => showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.wifi_off_rounded, size: 32),
-          title: Text(title, textAlign: TextAlign.center),
-          content: Text(body, textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
-        ),
-      );
-
-  Future<void> _onOpponentResigned() async {
+  @override
+  Future<void> vsOnOpponentResigned() async {
     if (c.isOver || c.halted) return;
     c.opponentResigned();
     _resultHandled = true;
@@ -171,60 +123,9 @@ class _DandelionScreenState extends State<DandelionScreen> {
       resigned: true,
     ));
     if (!mounted) return;
-    final again = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.emoji_events_rounded, size: 32, color: Color(0xFFF2A900)),
-        title: const Text('상대가 기권했어요', textAlign: TextAlign.center),
-        content: const Text('이번 판은 내가 이긴 걸로 기록해 두었어요.', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('메뉴로')),
-          if (!_opponentGone) FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('한 판 더')),
-        ],
-      ),
-    );
+    final again = await showOpponentResigned(context, canAgain: !opponentGone);
     if (!mounted) return;
-    if (again == true) {
-      _requestRematch();
-    } else {
-      Navigator.of(context).pop();
-    }
-  }
-
-  /// "한 판 더": 상대도 하자고 했으면 바로 (민들레/바람을 바꿔) 시작하고, 아니면 상대를 기다린다.
-  void _requestRematch() {
-    if (_rematchAsked || _opponentGone) return;
-    setState(() => _rematchAsked = true);
-    _link?.send(const {'t': 'again'});
-    if (_rematchOffered) _startRematch();
-  }
-
-  void _startRematch() {
-    setState(() {
-      _rematchAsked = false;
-      _rematchOffered = false;
-    });
-    _resultHandled = false;
-    c.restart(swapRoles: true);
-  }
-
-  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
-  Future<void> _confirmLeave() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('판에서 나갈까요?'),
-        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
-        ],
-      ),
-    );
-    if (ok == true && mounted) Navigator.of(context).pop();
+    again ? requestRematch() : Navigator.of(context).pop();
   }
 
   void _feedback(String kind) => _fx.play(context, kind);
@@ -247,24 +148,12 @@ class _DandelionScreenState extends State<DandelionScreen> {
     } else if (!c.isOver) {
       _resultHandled = false;
     }
-    if (!c.online) _autosave();
-  }
-
-  /// 수를 둘 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
-  void _autosave() {
-    if (c.moveCount == 0 && !c.isOver) _saver.rearm(); // 새 판이 시작됐다
-    if (c.isOver || c.halted) {
-      _saver.finish();
-    } else if (c.moveCount != _savedAtMove) {
-      _savedAtMove = c.moveCount;
-      _saver.save();
-    }
+    vsAutosave();
   }
 
   /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
   Future<void> _newGameNow() async {
-    if (_saver.active && !await confirmNewGame(context)) return;
-    if (!mounted) return;
+    if (!await vsConfirmNewGame()) return;
     _resultHandled = false;
     c.restart();
   }
@@ -284,7 +173,7 @@ class _DandelionScreenState extends State<DandelionScreen> {
     );
     if (!ok || !mounted || !c.resign()) return;
     _resultHandled = true; // (끝난 판으로 한 번 더 기록되지 않게)
-    _link?.send(const {'t': 'resign'});
+    vsLink?.send(const {'t': 'resign'});
     await DandelionHistory.add(DandelionRecord(
       at: DateTime.now().millisecondsSinceEpoch,
       vsCpu: c.vsCpu,
@@ -301,13 +190,13 @@ class _DandelionScreenState extends State<DandelionScreen> {
       context,
       summary: c.vsCpu ? 'CPU ${c.level.label} · ${c.moveCount}수' : '${role.label} 기권 · ${c.moveCount}수',
       againLabel: c.online ? '한 판 더' : '새 판',
-      offerAgain: !_opponentGone,
+      offerAgain: !opponentGone,
       retry: false,
       verb: '기권',
     );
     if (!mounted) return;
     if (again && c.online) {
-      _requestRematch();
+      requestRematch();
     } else if (again) {
       _resultHandled = false;
       c.restart();
@@ -318,13 +207,31 @@ class _DandelionScreenState extends State<DandelionScreen> {
 
   Future<void> _showResult() async {
     if (!mounted || !c.isOver) return;
+    final w = c.winner!;
+    final left = c.state.emptyCount;
+    String title, body;
+    if (c.oneSeat) {
+      final me = w == c.humanRole;
+      title = me ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
+      body = w == Role.dandelion
+          ? (me ? '초원이 꽃과 씨앗으로 가득 찼어요!' : '초원이 꽃과 씨앗으로 가득 찼어요. 다음엔 바람을 잘 골라 봐요!')
+          : (me ? '빈칸이 $left칸 남았어요. 바람이 이겼어요!' : '빈칸이 $left칸 남았어요. 다음엔 꽃을 더 잘 심어 봐요!');
+    } else {
+      title = '${w.label} 승리! 🎉';
+      body = w == Role.dandelion ? '초원이 꽃과 씨앗으로 가득 찼어요!' : '빈칸이 $left칸 남았어요!';
+    }
     final again = await showDialog<bool>(
       context: context,
-      builder: (_) => _ResultDialog(controller: c, canAgain: !_opponentGone),
+      builder: (_) => VsResultDialog(
+        title: title,
+        body: '$body\n(${c.moveCount}수)',
+        art: SizedBox(width: 72, height: 72, child: CustomPaint(painter: _RoleIconPainter(w))),
+        canAgain: !opponentGone,
+      ),
     );
     if (!mounted) return;
     if (again == true) {
-      c.online ? _requestRematch() : c.restart();
+      c.online ? requestRematch() : c.restart();
     } else if (again == false) {
       Navigator.of(context).pop();
     }
@@ -339,8 +246,8 @@ class _DandelionScreenState extends State<DandelionScreen> {
       if (c.oneSeat) return w == c.humanRole ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
       return '${w.label} 승리!';
     }
-    if (_opponentGone) return '상대와 연결이 끊겼어요';
-    if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
+    if (opponentGone) return '상대와 연결이 끊겼어요';
+    if (c.halted) return rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
     if (c.thinking) return c.cpuRole == Role.dandelion ? 'CPU가 꽃을 심는 중…' : 'CPU가 바람을 고르는 중…';
     if (c.online && s.turn != c.humanRole) return '상대 차례 · ${s.turn == Role.dandelion ? '상대가 꽃을 심고 있어요…' : '상대가 바람을 고르고 있어요…'}';
     final who = c.oneSeat ? (s.turn == c.humanRole ? '내 차례' : 'CPU 차례') : '${s.turn.label} 차례';
@@ -350,285 +257,79 @@ class _DandelionScreenState extends State<DandelionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Wi‑Fi 대결 도중에 나가려 하면 먼저 물어본다 (연결이 끊기니까).
     return ListenableBuilder(
       listenable: c,
-      builder: (context, child) {
-        if (!c.online) {
-          // 한 기기·CPU 대결: 나가기 전에 저장할지 묻는다
-          return SaveLeaveGuard(active: () => _saver.active, onSave: _saver.save, onDiscard: _saver.discard, child: child!);
-        }
-        final askBeforeLeave = c.online && !c.isOver && !c.halted && !_opponentGone;
-        return PopScope(
-          canPop: !askBeforeLeave,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _confirmLeave();
-          },
-          child: child!,
-        );
-      },
-      child: _scaffold(),
-    );
-  }
-
-  Widget _scaffold() {
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? const [Color(0xFF1F2A24), Color(0xFF18201B)]
-                : const [Color(0xFFE9F5D6), Color(0xFFD3EBB2)],
-          ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, box) {
-              final landscape = box.maxWidth > box.maxHeight * 1.2;
-              return Column(
-                children: [
-                  _topBar(),
-                  Expanded(child: landscape ? _landscape() : _portrait()),
-                ],
-              );
-            },
-          ),
+      builder: (context, _) => vsLeaveGuard(
+        VsGameScaffold(
+          light: const [Color(0xFFE9F5D6), Color(0xFFD3EBB2)],
+          dark: const [Color(0xFF1F2A24), Color(0xFF18201B)],
+          topBar: VsTopBar(title: '민들레', gameId: 'dandelion', onRules: () => showDandelionRules(context), onLesson: () => openDandelionLesson(context)),
+          chips: VsPlayerChips(chips: [_chip(Role.dandelion), _chip(Role.wind)]),
+          banner: VsStatusBanner(text: _status, color: c.isOver ? Colors.grey : roleColor(c.state.turn)),
+          board: _board,
+          extras: [_compass()],
+          landscapeExtras: [_compass(size: 190), const SizedBox(height: 8)],
+          bottom: _bottomBar(),
         ),
       ),
     );
   }
 
-  Widget _board() => Padding(
-        padding: const EdgeInsets.all(10),
-        child: Center(
-          child: DandelionBoard(
-            controller: c,
-            onPlant: (cell) {
-              if (!c.plant(cell) && SettingsScope.of(context).haptics) HapticFeedback.lightImpact();
-            },
-          ),
-        ),
-      );
+  late final Widget _board = Padding(
+    padding: const EdgeInsets.all(10),
+    child: Center(
+      child: DandelionBoard(
+        controller: c,
+        onPlant: (cell) {
+          if (!c.plant(cell) && SettingsScope.of(context).haptics) HapticFeedback.lightImpact();
+        },
+      ),
+    ),
+  );
 
   Widget _compass({double size = 150}) {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final canBlow = c.humanCanAct && c.state.turn == Role.wind;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DandelionCompass(
-              size: size,
-              usedMask: c.state.usedWinds,
-              enabled: canBlow,
-              windsLeft: c.state.windsLeft,
-              onBlow: (d) {
-                if (!c.blow(d) && SettingsScope.of(context).haptics) HapticFeedback.lightImpact();
-              },
-            ),
-            const SizedBox(height: 2),
-            Text(
-              canBlow ? '화살표를 눌러 바람을 불어요' : '바람은 방향마다 한 번씩',
-              style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _portrait() => Column(
-        children: [
-          _playerChips(),
-          _statusBanner(),
-          Expanded(child: _board()),
-          _compass(),
-          _bottomBar(),
-        ],
-      );
-
-  Widget _landscape() => Row(
-        children: [
-          Expanded(child: _board()),
-          SizedBox(
-            width: 300,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _playerChips(),
-                  _statusBanner(),
-                  const SizedBox(height: 8),
-                  _compass(size: 190),
-                  const SizedBox(height: 8),
-                  _bottomBar(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: '뒤로',
-            icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          Flexible(
-            child: Text(
-              '민들레',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            tooltip: '교과학습',
-            icon: const Icon(Icons.menu_book_rounded),
-            onPressed: () => openDandelionLesson(context),
-          ),
-          IconButton(
-            tooltip: '내 기록',
-            icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () => openRecords(context, game: 'dandelion'),
-          ),
-          IconButton(
-            tooltip: '규칙',
-            icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => showDandelionRules(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 민들레 / 바람 두 칩: 지금 차례인 쪽이 강조된다.
-  Widget _playerChips() {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        Widget chip(Role role) {
-          final active = !c.isOver && c.state.turn == role;
-          final who = c.oneSeat ? (role == c.humanRole ? ' · 나' : (c.vsCpu ? ' · CPU' : ' · ${_link?.peerNick ?? '상대'}')) : '';
-          final color = roleColor(role);
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: active ? 0.22 : 0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: active ? 1 : 0.3), width: active ? 2.5 : 1.2),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(width: 24, height: 24, child: CustomPaint(painter: _RoleIconPainter(role))),
-                const SizedBox(width: 8),
-                Text('${role.label}$who', style: TextStyle(fontWeight: FontWeight.w800, color: color)),
-              ],
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            alignment: WrapAlignment.center,
-            children: [chip(Role.dandelion), chip(Role.wind)],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _statusBanner() {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final color = c.isOver ? Colors.grey : roleColor(c.state.turn);
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            _status,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _bottomBar() {
-    final compact = OutlinedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      visualDensity: VisualDensity.compact,
-    );
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-        // 좁은 화면(폰·옆 칸)에서는 단추가 다음 줄로 넘어간다
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 10,
-          runSpacing: 6,
-          children: [
-            if (!c.online) ...[
-              OutlinedButton.icon(
-                style: compact,
-                onPressed: c.canUndo ? c.undo : null,
-                icon: const Icon(Icons.undo_rounded, size: 20),
-                label: const Text('되돌리기'),
-              ),
-              OutlinedButton.icon(
-                style: compact,
-                onPressed: _newGameNow,
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                label: const Text('새 판'),
-              ),
-            ] else if (c.isOver || c.halted)
-              // Wi‑Fi 대결: 판이 끝나면 "한 판 더"를 서로 눌러야 새 판이 시작된다 (민들레/바람이 바뀐다)
-              FilledButton.icon(
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), visualDensity: VisualDensity.compact),
-                onPressed: _rematchAsked || _opponentGone ? null : _requestRematch,
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                label: Text(_opponentGone
-                    ? '상대가 나갔어요'
-                    : _rematchAsked
-                        ? '상대를 기다려요…'
-                        : _rematchOffered
-                            ? '한 판 더 (상대가 원해요)'
-                            : '한 판 더'),
-              ),
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: c.canResign ? _resign : null,
-              icon: const Icon(Icons.flag_outlined, size: 20),
-              label: const Text('기권'),
-            ),
-          ],
+    final canBlow = c.humanCanAct && c.state.turn == Role.wind;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DandelionCompass(
+          size: size,
+          usedMask: c.state.usedWinds,
+          enabled: canBlow,
+          windsLeft: c.state.windsLeft,
+          onBlow: (d) {
+            if (!c.blow(d) && SettingsScope.of(context).haptics) HapticFeedback.lightImpact();
+          },
         ),
-      ),
+        const SizedBox(height: 2),
+        Text(
+          canBlow ? '화살표를 눌러 바람을 불어요' : '바람은 방향마다 한 번씩',
+          style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+        ),
+      ],
     );
   }
+
+  /// 민들레 / 바람 칩: 지금 차례인 쪽이 강조된다.
+  Widget _chip(Role role) {
+    final who = c.oneSeat ? (role == c.humanRole ? ' · 나' : (c.vsCpu ? ' · CPU' : ' · ${vsLink?.peerNick ?? '상대'}')) : '';
+    return VsPlayerChip(
+      icon: SizedBox(width: 24, height: 24, child: CustomPaint(painter: _RoleIconPainter(role))),
+      label: '${role.label}$who',
+      color: roleColor(role),
+      active: !c.isOver && c.state.turn == role,
+    );
+  }
+
+  Widget _bottomBar() => VsBottomBar(children: [
+        if (!c.online) ...[
+          VsButton(icon: Icons.undo_rounded, label: '되돌리기', onPressed: c.canUndo ? c.undo : null),
+          VsButton(icon: Icons.refresh_rounded, label: '새 판', onPressed: _newGameNow),
+        ] else if (c.isOver || c.halted)
+          // Wi‑Fi 대결: 판이 끝나면 "한 판 더"를 서로 눌러야 새 판이 시작된다 (민들레/바람이 바뀐다)
+          VsRematchButton(asked: rematchAsked, offered: rematchOffered, opponentGone: opponentGone, onPressed: requestRematch),
+        VsButton(icon: Icons.flag_outlined, label: '기권', onPressed: c.canResign ? _resign : null),
+      ]);
 }
 
 /// 역할을 나타내는 작은 그림 (민들레 = 꽃, 바람 = 휘날리는 선).
@@ -653,91 +354,19 @@ void paintRoleIcon(Canvas canvas, Size size, Role role) {
   paintWindGust(canvas, Offset.zero & size, kWindColor, thickness: 0.1);
 }
 
-class _ResultDialog extends StatelessWidget {
-  const _ResultDialog({required this.controller, this.canAgain = true});
-
-  final DandelionController controller;
-
-  /// false면 "한 판 더"가 없다 (Wi‑Fi 대결에서 상대가 나갔을 때).
-  final bool canAgain;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = controller;
-    final w = c.winner!;
-    final left = c.state.emptyCount;
-    String title, body;
-    if (c.oneSeat) {
-      final me = w == c.humanRole;
-      title = me ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
-      body = w == Role.dandelion
-          ? (me ? '초원이 꽃과 씨앗으로 가득 찼어요!' : '초원이 꽃과 씨앗으로 가득 찼어요. 다음엔 바람을 잘 골라 봐요!')
-          : (me ? '빈칸이 $left칸 남았어요. 바람이 이겼어요!' : '빈칸이 $left칸 남았어요. 다음엔 꽃을 더 잘 심어 봐요!');
-    } else {
-      title = '${w.label} 승리! 🎉';
-      body = w == Role.dandelion ? '초원이 꽃과 씨앗으로 가득 찼어요!' : '빈칸이 $left칸 남았어요!';
-    }
-    return AlertDialog(
-      title: Text(title, textAlign: TextAlign.center),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(width: 72, height: 72, child: CustomPaint(painter: _RoleIconPainter(w))),
-          const SizedBox(height: 12),
-          Text('$body\n(${c.moveCount}수)', textAlign: TextAlign.center),
-        ],
-      ),
-      actionsAlignment: MainAxisAlignment.center,
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('메뉴로')),
-        if (canAgain) FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('한 판 더')),
-      ],
-    );
-  }
-}
-
 /// 규칙 설명.
-Future<void> showDandelionRules(BuildContext context) {
-  Widget line(String t) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('•  '),
-            Expanded(child: Text(t, style: const TextStyle(height: 1.4))),
-          ],
-        ),
-      );
-  return showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('민들레 규칙'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            line('민들레는 5×5 초원 전체를 꽃과 씨앗으로 덮는 게 목표예요.'),
-            line('바람은 한 칸이라도 덮이지 않게 하는 게 목표예요.'),
-            line('민들레가 먼저 아무 칸에나 꽃을 심어요.'),
-            line('그다음 바람이 방향을 하나 골라요. 그 방향으로 모든 꽃에서 씨앗이 날아가, 길에 있는 빈칸을 채워요.'),
-            line('바람은 8방향 가운데 7방향만 불 수 있고, 같은 방향은 한 번뿐이에요.'),
-            line('이어서 민들레가 또 꽃을 심어요. 빈칸이나 씨앗이 있는 칸에 심을 수 있어요.'),
-            line('씨앗은 꽃에서만 날아가고, 씨앗에서는 날아가지 않아요.'),
-            line('일곱 번째 바람이 지난 뒤 초원이 가득 차 있으면 민들레, 빈칸이 하나라도 있으면 바람의 승리예요.'),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(ctx);
-            dandelionTutorial().open(context);
-          },
-          child: const Text('게임 방법 자세히'),
-        ),
-        FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요')),
+Future<void> showDandelionRules(BuildContext context) => showVsRules(
+      context,
+      title: '민들레 규칙',
+      lines: const [
+        '민들레는 5×5 초원 전체를 꽃과 씨앗으로 덮는 게 목표예요.',
+        '바람은 한 칸이라도 덮이지 않게 하는 게 목표예요.',
+        '민들레가 먼저 아무 칸에나 꽃을 심어요.',
+        '그다음 바람이 방향을 하나 골라요. 그 방향으로 모든 꽃에서 씨앗이 날아가, 길에 있는 빈칸을 채워요.',
+        '바람은 8방향 가운데 7방향만 불 수 있고, 같은 방향은 한 번뿐이에요.',
+        '이어서 민들레가 또 꽃을 심어요. 빈칸이나 씨앗이 있는 칸에 심을 수 있어요.',
+        '씨앗은 꽃에서만 날아가고, 씨앗에서는 날아가지 않아요.',
+        '일곱 번째 바람이 지난 뒤 초원이 가득 차 있으면 민들레, 빈칸이 하나라도 있으면 바람의 승리예요.',
       ],
-    ),
-  );
-}
+      openTutorial: () => dandelionTutorial().open(context),
+    );

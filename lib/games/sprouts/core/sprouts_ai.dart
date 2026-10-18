@@ -3,7 +3,9 @@
 /// - 쉬움: 둘 수 있는 수 중 아무거나.
 /// - 보통: 한 수 앞을 본다. 내가 둔 뒤 상대가 움직일 곳이 하나도 없으면(= 내가 이기면) 그 수를 두고,
 ///   아니면 상대가 둘 수 있는 수가 가장 적어지는 수를 고른다 (가끔 일부러 아무거나).
-/// - 어려움: 두 수 앞을 본다. 상대가 어떻게 받아도 내가 곧바로 막히지 않는 수를 고른다. 시간이 모자라면 보통처럼 고른다.
+/// - 어려움: 두 수 앞을 본다. 상대가 어떻게 받아도 내가 곧바로 막히지 않는 수 가운데, 판 끝이 가까우면 끝까지 읽어 이기는 수를,
+///   이른 판이면 제자리 고리가 아닌 수를 골고루 고른다 (늘 같은 수를 두면 사람이 같은 방법으로 계속 이긴다).
+///   시간이 모자라면 보통처럼 고른다.
 ///
 /// 판이 끝나는 쪽이 이기는 게임이라, 남은 "목숨"이 적을수록 앞날을 읽는 게 잘 통한다.
 library;
@@ -73,8 +75,18 @@ SproutsMove? chooseMove(SproutsBoard b, SproutsLevel level, Random rng, {Duratio
         for (final e in lossRate.entries)
           if (e.value <= best + 1e-9) e.key,
       ];
-      safest.sort((a, c) => after[a]!.length.compareTo(after[c]!.length));
-      return safest.first;
+      // 판 끝이 가까우면 끝까지 읽어서 이기는 수를 찾는다 (시간 안에서)
+      if (b.totalLives <= 10) {
+        for (final m in safest) {
+          final nb = b.copy()..apply(m.s, m.e, m.result, 0);
+          if (_wins(nb, clock, budget) == false) return m; // 상대가 무엇을 해도 진다
+        }
+      }
+      // 아직 이른 판: "상대가 둘 곳이 가장 적은 수"만 고르면 늘 제자리 고리를 그어서, 상대가 고리 안을 막는 같은 수로
+      // 계속 받아 이길 수 있었다 (2026-10-18 사용자 제보). 고리가 아닌 수를 먼저 보고, 그중에서 골고루 고른다.
+      final open = [for (final m in safest) if (m.s != m.e) m];
+      final pool = open.isNotEmpty ? open : safest;
+      return pool[rng.nextInt(pool.length)];
     }
   }
 
@@ -88,6 +100,22 @@ SproutsMove? chooseMove(SproutsBoard b, SproutsLevel level, Random rng, {Duratio
       if (after[m]!.length <= bestCount + slack) m,
   ];
   return ties[rng.nextInt(ties.length)];
+}
+
+/// 차례인 쪽이 [b]에서 이기는가 (끝까지 읽는다). 시간이 모자라 다 읽지 못하면 null.
+bool? _wins(SproutsBoard b, Stopwatch clock, Duration budget) {
+  if (clock.elapsed > budget) return null;
+  final moves = findMoves(b, clock: clock, deadline: budget, allowRelax: false);
+  if (moves.isEmpty) return false; // 둘 곳이 없다: 진다
+  var unknown = false;
+  for (final m in moves) {
+    final nb = b.copy()..apply(m.s, m.e, m.result, 0);
+    final r = _wins(nb, clock, budget);
+    if (r == false) return true; // 이 수를 두면 상대가 진다
+    if (r == null) unknown = true;
+    if (clock.elapsed > budget) return null;
+  }
+  return unknown ? null : false;
 }
 
 /// isolate에서 쓰는 형태: [판 데이터, 난이도 번호, 시드] → 고른 수를 숫자 목록으로 ([encodeMove]). 없으면 빈 목록.

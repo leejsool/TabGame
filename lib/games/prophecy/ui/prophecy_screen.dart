@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../../core/game_fx.dart';
@@ -8,7 +6,6 @@ import '../../../core/give_up.dart';
 import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../net/lan_connection.dart';
-import '../../../records/records_screen.dart';
 import '../core/prophecy_ai.dart';
 import '../core/prophecy_rules.dart';
 import '../data/prophecy_history.dart';
@@ -16,6 +13,8 @@ import '../game/prophecy_controller.dart';
 import '../tutorial/prophecy_tutorial.dart';
 import 'prophecy_board.dart';
 import 'prophecy_lesson_screen.dart';
+import '../../../versus/vs_link.dart';
+import '../../../versus/vs_screen_parts.dart';
 
 /// 예언 플레이 화면.
 class ProphecyScreen extends StatefulWidget {
@@ -45,27 +44,11 @@ class ProphecyScreen extends StatefulWidget {
   State<ProphecyScreen> createState() => _ProphecyScreenState();
 }
 
-class _ProphecyScreenState extends State<ProphecyScreen> {
+class _ProphecyScreenState extends State<ProphecyScreen> with VsTwoPlayer {
   // 화면이 직접 소유한다: 화면이 다시 빌드되어도 판이 사라지지 않는다.
   late final ProphecyController c = widget.controller ??
       ProphecyController(mode: widget.mode, rows: widget.rows, cols: widget.cols, humanSide: widget.humanSide, level: widget.level);
   bool _resultHandled = false;
-
-  /// 한 기기·CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
-  late final GameSaver _saver = GameSaver(gameId: 'prophecy', snapshot: () => c.savable ? c.toJson() : null);
-  int _savedAtMove = -1;
-
-  // ── 같은 Wi‑Fi 대결 ──
-  LanConnection? get _link => c.online ? widget.link : null;
-  StreamSubscription<Map<String, dynamic>>? _linkSub;
-
-  /// 상대 기기와의 연결이 끊겼다 / 이 화면에서 일부러 나가는 중이다.
-  bool _opponentGone = false;
-  bool _leaving = false;
-
-  /// 한 판 더: 내가 하자고 했다 / 상대가 하자고 했다 (둘 다 하면 쪽을 바꿔 새로 시작한다).
-  bool _rematchAsked = false;
-  bool _rematchOffered = false;
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   final GameFx _fx = GameFx({
@@ -75,35 +58,49 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     'win': const Fx(haptic: Haptic.heavy),
   });
 
+  // ── 공통 대결 동작([VsTwoPlayer])에 알려 주는 것 ──
+  /// 한 기기·CPU 대결을 이어하기용으로 보관하는 도우미 (같은 Wi‑Fi 대결은 보관하지 않는다).
+  @override
+  late final GameSaver vsSaver = GameSaver(gameId: 'prophecy', snapshot: () => c.savable ? c.toJson() : null);
+  @override
+  LanConnection? get vsLink => c.online ? widget.link : null;
+  @override
+  bool get vsOnline => c.online;
+  @override
+  bool get vsOver => c.isOver;
+  @override
+  bool get vsHalted => c.halted;
+  @override
+  int get vsMoveCount => c.moveCount;
+
+  @override
+  void vsRestartForRematch() {
+    _resultHandled = false;
+    c.restart(swapSides: true); // (먼저/나중이 바뀐다)
+  }
+
+  @override
+  bool vsOnMessage(Map<String, dynamic> m) {
+    if (m['t'] != 'move') return false;
+    if (m['i'] != c.moveCount || m['m'] is! int || !c.receiveMove(m['m'] as int)) vsDesync();
+    return true;
+  }
+
   @override
   void initState() {
     super.initState();
     c.onFeedback = _feedback;
     c.addListener(_onChanged);
-    if (!c.online) {
-      _savedAtMove = c.moveCount;
-      _saver.attach();
-    }
-    final link = _link;
-    if (link != null) {
-      c.onLocalMove = (move) => link.send({'t': 'move', 'i': c.moveCount - 1, 'm': move});
-      _linkSub = link.messages.listen(_onNet);
-      link.closed.then((_) => _onLinkClosed());
-    }
+    vsAttach();
+    final link = vsLink;
+    if (link != null) c.onLocalMove = (move) => link.send({'t': 'move', 'i': c.moveCount - 1, 'm': move});
     WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
   }
 
   @override
   void dispose() {
     _fx.dispose();
-    _saver.detach();
-    _leaving = true;
-    _linkSub?.cancel();
-    final link = _link;
-    if (link != null) {
-      link.send(const {'t': 'bye'});
-      link.close();
-    }
+    vsDetach();
     c.removeListener(_onChanged);
     c.onFeedback = null;
     c.onLocalMove = null;
@@ -111,53 +108,8 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     super.dispose();
   }
 
-  void _onNet(Map<String, dynamic> m) {
-    if (!mounted) return;
-    switch (m['t']) {
-      case 'move':
-        if (m['i'] != c.moveCount || m['m'] is! int || !c.receiveMove(m['m'] as int)) _desync();
-      case 'resign':
-        _onOpponentResigned();
-      case 'again':
-        setState(() => _rematchOffered = true);
-        if (_rematchAsked) _startRematch();
-      case 'bye':
-        _onLinkClosed();
-    }
-  }
-
-  /// 판이 서로 어긋났다 (있을 수 없는 일이지만, 어긋난 채로 계속하지는 않는다).
-  Future<void> _desync() async {
-    if (_opponentGone || _leaving) return;
-    _opponentGone = true;
-    await _link?.close();
-    if (!mounted) return;
-    await _notice('판이 서로 어긋났어요', '두 기기의 판이 달라져서 여기서 끝낼게요. 다시 방을 만들어 시작해 주세요.');
-    if (mounted) Navigator.of(context).pop();
-  }
-
-  void _onLinkClosed() {
-    if (!mounted || _leaving || _opponentGone) return;
-    setState(() => _opponentGone = true);
-    if (c.isOver || c.halted) return; // 끝난 판이면 결과를 마저 볼 수 있게 두고, "한 판 더"만 막는다
-    _notice('상대와 연결이 끊겼어요', 'Wi‑Fi가 끊겼거나 상대가 나갔어요. 이 판은 기록하지 않아요.').then((_) {
-      if (mounted) Navigator.of(context).pop();
-    });
-  }
-
-  Future<void> _notice(String title, String body) => showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.wifi_off_rounded, size: 32),
-          title: Text(title, textAlign: TextAlign.center),
-          content: Text(body, textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
-        ),
-      );
-
-  Future<void> _onOpponentResigned() async {
+  @override
+  Future<void> vsOnOpponentResigned() async {
     if (c.isOver || c.halted) return;
     c.opponentResigned();
     _resultHandled = true;
@@ -175,60 +127,9 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
       resigned: true,
     ));
     if (!mounted) return;
-    final again = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.emoji_events_rounded, size: 32, color: Color(0xFFF2A900)),
-        title: const Text('상대가 기권했어요', textAlign: TextAlign.center),
-        content: const Text('이번 판은 내가 이긴 걸로 기록해 두었어요.', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('메뉴로')),
-          if (!_opponentGone) FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('한 판 더')),
-        ],
-      ),
-    );
+    final again = await showOpponentResigned(context, canAgain: !opponentGone);
     if (!mounted) return;
-    if (again == true) {
-      _requestRematch();
-    } else {
-      Navigator.of(context).pop();
-    }
-  }
-
-  /// "한 판 더": 상대도 하자고 했으면 바로 (먼저/나중을 바꿔) 시작하고, 아니면 상대를 기다린다.
-  void _requestRematch() {
-    if (_rematchAsked || _opponentGone) return;
-    setState(() => _rematchAsked = true);
-    _link?.send(const {'t': 'again'});
-    if (_rematchOffered) _startRematch();
-  }
-
-  void _startRematch() {
-    setState(() {
-      _rematchAsked = false;
-      _rematchOffered = false;
-    });
-    _resultHandled = false;
-    c.restart(swapSides: true);
-  }
-
-  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
-  Future<void> _confirmLeave() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('판에서 나갈까요?'),
-        content: const Text('나가면 상대와의 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
-        ],
-      ),
-    );
-    if (ok == true && mounted) Navigator.of(context).pop();
+    again ? requestRematch() : Navigator.of(context).pop();
   }
 
   void _feedback(String kind) => _fx.play(context, kind);
@@ -255,30 +156,18 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     } else if (!c.isOver) {
       _resultHandled = false;
     }
-    if (!c.online) _autosave();
-  }
-
-  /// 수를 둘 때마다 이어하기용으로 보관한다 (끝난 판이면 보관된 것을 지운다).
-  void _autosave() {
-    if (c.moveCount == 0 && !c.isOver) _saver.rearm(); // 새 판이 시작됐다
-    if (c.isOver || c.halted) {
-      _saver.finish();
-    } else if (c.moveCount != _savedAtMove) {
-      _savedAtMove = c.moveCount;
-      _saver.save();
-    }
+    vsAutosave();
   }
 
   /// 하던 판 도중에 "새 판" 단추를 눌렀다: 하던 판이 사라지니 먼저 묻는다.
   Future<void> _newGameNow() async {
-    if (_saver.active && !await confirmNewGame(context)) return;
-    if (!mounted) return;
+    if (!await vsConfirmNewGame()) return;
     _resultHandled = false;
     c.restart();
   }
 
   /// 플레이어 이름: 둘이서는 "플레이어 1/2", CPU 대결은 "나/CPU".
-  String _name(int side) => c.oneSeat ? (side == c.humanSide ? '나' : (c.vsCpu ? 'CPU' : (_link?.peerNick ?? '상대'))) : '플레이어 ${side + 1}';
+  String _name(int side) => c.oneSeat ? (side == c.humanSide ? '나' : (c.vsCpu ? 'CPU' : (vsLink?.peerNick ?? '상대'))) : '플레이어 ${side + 1}';
 
   Future<void> _resign() async {
     if (!c.canResign) return;
@@ -295,7 +184,7 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     );
     if (!ok || !mounted || !c.resign()) return;
     _resultHandled = true; // (끝난 판으로 한 번 더 기록되지 않게)
-    _link?.send(const {'t': 'resign'});
+    vsLink?.send(const {'t': 'resign'});
     await ProphHistory.add(ProphRecord(
       at: DateTime.now().millisecondsSinceEpoch,
       vsCpu: c.vsCpu,
@@ -315,13 +204,13 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
       context,
       summary: c.vsCpu ? 'CPU ${c.level.label} · ${c.moveCount}수' : '${_name(side)} 기권 · ${c.moveCount}수',
       againLabel: c.online ? '한 판 더' : '새 판',
-      offerAgain: !_opponentGone,
+      offerAgain: !opponentGone,
       retry: false,
       verb: '기권',
     );
     if (!mounted) return;
     if (again && c.online) {
-      _requestRematch();
+      requestRematch();
     } else if (again) {
       _resultHandled = false;
       c.restart();
@@ -340,8 +229,8 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
       if (c.oneSeat) return w == c.humanSide ? '이겼어요! 🎉' : (c.vsCpu ? 'CPU가 이겼어요' : '상대가 이겼어요');
       return '${_name(w)} 승리! 🎉';
     }
-    if (_opponentGone) return '상대와 연결이 끊겼어요';
-    if (c.halted) return _rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
+    if (opponentGone) return '상대와 연결이 끊겼어요';
+    if (c.halted) return rematchAsked ? '상대가 한 판 더를 받아 주기를 기다리는 중이에요…' : '기권으로 끝난 판이에요';
     if (c.cpuCell >= 0) {
       final where = '${s.rowOf(c.cpuCell) + 1}행 ${s.colOf(c.cpuCell) + 1}열';
       return c.cpuValue == null ? 'CPU가 $where 칸을 골랐어요…' : 'CPU가 $where에 ${c.cpuValue == kCross ? 'X' : '${c.cpuValue}'}을(를) 써요';
@@ -362,213 +251,58 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Wi‑Fi 대결 도중에 나가려 하면 먼저 물어본다 (연결이 끊기니까).
     return ListenableBuilder(
       listenable: c,
-      builder: (context, child) {
-        if (!c.online) {
-          // 한 기기·CPU 대결: 나가기 전에 저장할지 묻는다
-          return SaveLeaveGuard(active: () => _saver.active, onSave: _saver.save, onDiscard: _saver.discard, child: child!);
-        }
-        final askBeforeLeave = c.online && !c.isOver && !c.halted && !_opponentGone;
-        return PopScope(
-          canPop: !askBeforeLeave,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _confirmLeave();
-          },
-          child: child!,
-        );
-      },
-      child: _scaffold(),
-    );
-  }
-
-  Widget _scaffold() {
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? const [Color(0xFF20223A), Color(0xFF191B2E)]
-                : const [Color(0xFFEAEDFB), Color(0xFFD6DCF5)],
-          ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, box) {
-              final landscape = box.maxWidth > box.maxHeight * 1.2;
-              return Column(
-                children: [
-                  _topBar(),
-                  Expanded(child: landscape ? _landscape() : _portrait()),
-                ],
-              );
-            },
-          ),
+      builder: (context, _) => vsLeaveGuard(
+        VsGameScaffold(
+          light: const [Color(0xFFEAEDFB), Color(0xFFD6DCF5)],
+          dark: const [Color(0xFF20223A), Color(0xFF191B2E)],
+          topBar: VsTopBar(title: '예언', gameId: 'prophecy', onRules: () => showProphecyRules(context), onLesson: () => openProphecyLesson(context)),
+          chips: VsPlayerChips(chips: [_chip(0), _chip(1)]),
+          banner: VsStatusBanner(text: _status, color: c.isOver ? Colors.grey : penColor(c.state.turn)),
+          board: _board,
+          extras: [_panel()],
+          sideWidth: 340,
+          bottom: _bottomBar(),
         ),
       ),
     );
   }
 
-  Widget _board() => Padding(
-        padding: const EdgeInsets.all(10),
-        child: Center(child: ProphBoard(controller: c)),
-      );
-
-  Widget _portrait() => Column(
-        children: [
-          _playerChips(),
-          _statusBanner(),
-          Expanded(child: _board()),
-          _panel(),
-          _bottomBar(),
-        ],
-      );
-
-  Widget _landscape() => Row(
-        children: [
-          Expanded(child: _board()),
-          SizedBox(
-            width: 340,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _playerChips(),
-                  _statusBanner(),
-                  const SizedBox(height: 8),
-                  _panel(),
-                  _bottomBar(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: '뒤로',
-            icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          Flexible(
-            child: Text(
-              '예언',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            tooltip: '교과학습',
-            icon: const Icon(Icons.menu_book_rounded),
-            onPressed: () => openProphecyLesson(context),
-          ),
-          IconButton(
-            tooltip: '내 기록',
-            icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () => openRecords(context, game: 'prophecy'),
-          ),
-          IconButton(
-            tooltip: '규칙',
-            icon: const Icon(Icons.help_outline_rounded),
-            onPressed: () => showProphecyRules(context),
-          ),
-        ],
-      ),
-    );
-  }
+  late final Widget _board = Padding(
+    padding: const EdgeInsets.all(10),
+    child: Center(child: ProphBoard(controller: c)),
+  );
 
   /// 두 사람 칩: 지금 차례인 쪽이 강조되고, 끝나면 점수가 붙는다.
-  Widget _playerChips() {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final sc = c.isOver ? c.state.scores() : null;
-        Widget chip(int side) {
-          final active = !c.isOver && c.state.turn == side;
-          final color = penColor(side);
-          final win = c.isOver && c.state.winner == side;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: active || win ? 0.2 : 0.07),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: active || win ? 1 : 0.3), width: active || win ? 2.5 : 1.2),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.edit_rounded, size: 18, color: color),
-                const SizedBox(width: 6),
-                Text(_name(side), style: TextStyle(fontWeight: FontWeight.w800, color: color)),
-                if (sc != null) ...[
-                  const SizedBox(width: 8),
-                  Text('${sc[side]}점', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: color)),
-                ],
-              ],
-            ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Wrap(spacing: 12, runSpacing: 6, alignment: WrapAlignment.center, children: [chip(0), chip(1)]),
-        );
-      },
-    );
-  }
-
-  Widget _statusBanner() {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) {
-        final color = c.isOver ? Colors.grey : penColor(c.state.turn);
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: color.withValues(alpha: 0.5)),
-          ),
-          child: Text(_status, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
-        );
-      },
+  Widget _chip(int side) {
+    final color = penColor(side);
+    return VsPlayerChip(
+      icon: Icon(Icons.edit_rounded, size: 18, color: color),
+      label: _name(side),
+      color: color,
+      active: c.isOver ? c.state.winner == side : c.state.turn == side,
+      trailing: c.isOver ? Text('${c.state.scores()[side]}점', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: color)) : null,
     );
   }
 
   /// 아래 칸: 진행 중에는 숫자판, 끝나면 점수 풀이.
   Widget _panel() {
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => c.isOver
-          ? _ScorePanel(
-              controller: c,
-              name: _name,
-              onAgain: c.online ? (_rematchAsked || _opponentGone ? null : _requestRematch) : c.restart,
-              againLabel: !c.online
-                  ? '한 판 더'
-                  : _opponentGone
-                      ? '상대가 나갔어요'
-                      : _rematchAsked
-                          ? '상대를 기다려요…'
-                          : _rematchOffered
-                              ? '한 판 더 (상대가 원해요)'
-                              : '한 판 더',
-              onMenu: () => Navigator.of(context).pop(),
-            )
-          : _numberPad(),
+    if (!c.isOver) return _numberPad();
+    return _ScorePanel(
+      controller: c,
+      name: _name,
+      onAgain: c.online ? (rematchAsked || opponentGone ? null : requestRematch) : c.restart,
+      againLabel: !c.online
+          ? '한 판 더'
+          : opponentGone
+              ? '상대가 나갔어요'
+              : rematchAsked
+                  ? '상대를 기다려요…'
+                  : rematchOffered
+                      ? '한 판 더 (상대가 원해요)'
+                      : '한 판 더',
+      onMenu: () => Navigator.of(context).pop(),
     );
   }
 
@@ -684,45 +418,13 @@ class _ProphecyScreenState extends State<ProphecyScreen> {
     );
   }
 
-  Widget _bottomBar() {
-    final compact = OutlinedButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      visualDensity: VisualDensity.compact,
-    );
-    return ListenableBuilder(
-      listenable: c,
-      builder: (context, _) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-        child: Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 10,
-          runSpacing: 6,
-          children: [
-            if (!c.online) ...[
-              OutlinedButton.icon(
-                style: compact,
-                onPressed: c.canUndo ? c.undo : null,
-                icon: const Icon(Icons.undo_rounded, size: 20),
-                label: const Text('되돌리기'),
-              ),
-              OutlinedButton.icon(
-                style: compact,
-                onPressed: _newGameNow,
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                label: const Text('새 판'),
-              ),
-            ],
-            OutlinedButton.icon(
-              style: compact,
-              onPressed: c.canResign ? _resign : null,
-              icon: const Icon(Icons.flag_outlined, size: 20),
-              label: const Text('기권'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _bottomBar() => VsBottomBar(children: [
+        if (!c.online) ...[
+          VsButton(icon: Icons.undo_rounded, label: '되돌리기', onPressed: c.canUndo ? c.undo : null),
+          VsButton(icon: Icons.refresh_rounded, label: '새 판', onPressed: _newGameNow),
+        ],
+        VsButton(icon: Icons.flag_outlined, label: '기권', onPressed: c.canResign ? _resign : null),
+      ]);
 }
 
 /// 판이 끝난 뒤 점수 풀이: 누가 어떤 예언을 맞혀 몇 점을 얻었는지.

@@ -10,13 +10,13 @@ import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/tablet_scale.dart';
 import '../../../net/lan_connection.dart';
-import '../../../records/records_screen.dart';
 import '../core/davinci_ai.dart';
 import '../core/davinci_rules.dart';
 import '../data/davinci_history.dart';
 import '../game/davinci_controller.dart';
 import '../tutorial/davinci_tutorial.dart';
 import 'davinci_tiles.dart';
+import '../../../versus/vs_screen_parts.dart';
 
 /// 다빈치 코드 플레이 화면.
 ///
@@ -393,17 +393,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
     });
   }
 
-  Future<void> _notice(String title, String body) => showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.wifi_off_rounded, size: 32),
-          title: Text(title, textAlign: TextAlign.center),
-          content: Text(body, textAlign: TextAlign.center),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('나가기'))],
-        ),
-      );
+  Future<void> _notice(String title, String body) => showVsNotice(context, title, body);
 
   void _requestRematch() {
     if (_rematchAsked || _opponentGone) return;
@@ -423,20 +413,9 @@ class _DavinciScreenState extends State<DavinciScreen> {
     }
   }
 
+  /// 나갈 때: 진행 중인 Wi‑Fi 판이면 먼저 물어본다.
   Future<void> _confirmLeave() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('판에서 나갈까요?'),
-        content: const Text('나가면 연결이 끊기고, 이 판은 기록되지 않아요.\n(이기고 지는 걸 기록하려면 "기권"을 눌러 주세요)', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('계속하기')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('나가기')),
-        ],
-      ),
-    );
-    if (ok == true && mounted) Navigator.of(context).pop();
+    if (await confirmVsLeave(context) && mounted) Navigator.of(context).pop();
   }
 
   void _feedback(String kind) => _fx.play(context, kind);
@@ -744,21 +723,7 @@ class _DavinciScreenState extends State<DavinciScreen> {
     );
   }
 
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-      child: Row(
-        children: [
-          IconButton(tooltip: '뒤로', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.of(context).maybePop()),
-          Expanded(
-            child: Text('다빈치 코드', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-          ),
-          IconButton(tooltip: '내 기록', icon: const Icon(Icons.emoji_events_rounded), onPressed: () => openRecords(context, game: 'davinci_code')),
-          IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showDavinciRules(context)),
-        ],
-      ),
-    );
-  }
+  Widget _topBar() => VsTopBar(title: '다빈치 코드', gameId: 'davinci_code', onRules: () => showDavinciRules(context));
 
   /// 위쪽 안내 띠. 글이 한 줄이든 두 줄이든 높이가 늘 같다 (높이가 바뀌면 아래 화면 전체가 출렁여서 어지럽다).
   Widget _statusBanner() {
