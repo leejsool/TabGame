@@ -307,7 +307,8 @@ class DotLevelCard extends StatelessWidget {
                     ),
                   ),
                 Text(
-                  cleared ? '최단 ${formatTime(stats!.bestSeconds!)}' : '아직 못 깼어요',
+                  // (기록을 저장하는 중간에 읽어 최단 시간이 아직 없을 수 있다: 그때는 시간 없이 보여 준다)
+                  !cleared ? '아직 못 깼어요' : (stats?.bestSeconds == null ? '깼어요' : '최단 ${formatTime(stats!.bestSeconds!)}'),
                   style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.6)),
                 ),
               ],

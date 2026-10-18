@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/dotcannon/core/dot_assess.dart';
 import 'package:tabgame/games/dotcannon/core/dot_convert.dart';
+import 'package:tabgame/games/dotcannon/core/dot_enhance.dart';
 import 'package:tabgame/games/dotcannon/core/dot_rules.dart';
 
 DotGame tiny({int capacity = 5}) {
@@ -146,20 +147,58 @@ void main() {
       expect(art.pixels.where((c) => c != kDotEmpty).length, 64);
     });
 
-    test('사진처럼 부드럽게 이어지는 색을 12가지로 줄여도, 남은 색끼리는 모두 눈에 띄게 다르다', () {
+    test('색이 넓게 퍼진 그림은 12가지로 줄여도 12가지가 남고, 남은 색끼리는 눈에 띄게 다르다', () {
       final cells = <(double, double, double, double)>[
         for (var y = 0; y < 24; y++)
           for (var x = 0; x < 24; x++) (x * 10.0, y * 10.0, (x + y) * 5.0, 1.0),
       ];
       final art = quantizeCells(cells, 24, 24, colors: 12);
-      expect(art.colors.length, greaterThan(2));
+      expect(art.colors.length, greaterThanOrEqualTo(10));
       for (var a = 0; a < art.colors.length; a++) {
         for (var b = a + 1; b < art.colors.length; b++) {
-          expect(dotColorGap(art.colors[a], art.colors[b]), greaterThanOrEqualTo(kDotMinColorGap), reason: '색 $a와 $b가 너무 비슷해요');
+          expect(dotColorGap(art.colors[a], art.colors[b]), greaterThanOrEqualTo(kDotFloorColorGap), reason: '색 $a와 $b가 너무 비슷해요');
         }
       }
       // 합치고도 칸마다 색 번호는 팔레트 안에 있다
       expect(art.pixels.every((c) => c >= 0 && c < art.colors.length), isTrue);
+    });
+
+    test('색이 좁은 범위에서 부드럽게 이어지는 사진 같은 그림도 달라고 한 색 수 가까이 남는다 (서너 가지로 줄지 않는다)', () {
+      // 피부색·머리색·배경이 부드럽게 이어지는 24×24
+      final cells = <(double, double, double, double)>[
+        for (var y = 0; y < 24; y++)
+          for (var x = 0; x < 24; x++)
+            () {
+              final dx = (x - 12) / 12, dy = (y - 11) / 12;
+              final face = (1 - (dx * dx + dy * dy) * 2.2).clamp(0.0, 1.0);
+              final hair = (1 - ((x - 12) / 9) * ((x - 12) / 9) - ((y - 4) / 5) * ((y - 4) / 5)).clamp(0.0, 1.0);
+              final r = 150 + (225 - 150) * face - 80 * hair - y * 1.5;
+              final g = 160 + (180 - 160) * face - 110 * hair - y * 1.2;
+              final b = 170 + (150 - 170) * face - 130 * hair - y * 0.8;
+              return (r, g, b, 1.0);
+            }(),
+      ];
+      final art = quantizeCells(cells, 24, 24, colors: 12);
+      expect(art.colors.length, greaterThanOrEqualTo(6));
+    });
+
+    test('모양 또렷하게: 흐릿한 그림은 밝기가 끝까지 벌어지고, 윤곽이 살아나고, 투명한 칸은 그대로다', () {
+      // 가운데 한 칸만 아주 조금 밝은 칙칙한 회색 5×5, 한 칸은 투명
+      final cells = <(double, double, double, double)>[
+        for (var i = 0; i < 25; i++) i == 12 ? (130.0, 130.0, 130.0, 1.0) : (120.0, 120.0, 120.0, 1.0),
+      ];
+      cells[0] = (0, 0, 0, 0);
+      final out = enhanceCells(cells, 5, 5);
+      expect(out[0], (0.0, 0.0, 0.0, 0.0));
+      expect(out[12].$1 - out[13].$1, greaterThan(130 - 120)); // 가운데와 둘레의 차이가 더 커졌다
+      for (final c in out) {
+        expect(c.$1, inInclusiveRange(0, 255));
+        expect(c.$2, inInclusiveRange(0, 255));
+        expect(c.$3, inInclusiveRange(0, 255));
+      }
+      // 칸이 너무 적으면 손대지 않는다
+      final one = [(100.0, 50.0, 20.0, 1.0)];
+      expect(enhanceCells(one, 1, 1), one);
     });
 
     test('투명한 칸은 빈 칸이 된다', () {

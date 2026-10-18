@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../core/dot_assess.dart';
 import '../core/dot_convert.dart';
+import '../core/dot_enhance.dart';
 import '../core/dot_levels.dart';
 import '../data/dot_custom_store.dart';
 import '../dotcannon_entry.dart';
@@ -31,6 +32,7 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
   int _sizeIndex = 1; // 24칸 (긴 쪽)
   int _colors = 6;
   bool _removeBg = false;
+  bool _enhance = true;
   int _capIndex = 1;
   late final TextEditingController _name;
 
@@ -91,7 +93,8 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
         _raw[long] = raw;
       }
       if (!mounted || req != _request) return;
-      final cells = boxDownsample(raw.$1, raw.$2, raw.$3, dw, dh);
+      final plain = boxDownsample(raw.$1, raw.$2, raw.$3, dw, dh);
+      final cells = _enhance ? enhanceCells(plain, dw, dh) : plain;
       final art = quantizeCells(cells, dw, dh, colors: _colors, removeBackground: _removeBg);
       if (art.colors.isEmpty || art.pixelCount < 6) {
         setState(() {
@@ -228,6 +231,17 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
                   label: '$_colors',
                   onChanged: (v) => setState(() => _colors = v.round()),
                   onChangeEnd: (_) => _rebuild(),
+                ),
+                SwitchListTile(
+                  key: const ValueKey('dot-enhance'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('모양 또렷하게'),
+                  subtitle: const Text('대비와 색을 키우고 윤곽을 살려요 (색이 조금 달라져요)'),
+                  value: _enhance,
+                  onChanged: (v) {
+                    setState(() => _enhance = v);
+                    _rebuild();
+                  },
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

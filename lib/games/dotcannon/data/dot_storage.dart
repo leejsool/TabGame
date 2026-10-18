@@ -48,7 +48,6 @@ class DotStorage {
   /// 클리어를 기록하고, 어떤 최고 기록을 깼는지 돌려준다.
   static Future<DotBest> recordWin(String level, {required int seconds, required int deploys}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_k('wins', level), (prefs.getInt(_k('wins', level)) ?? 0) + 1);
     var time = false, dep = false;
     final bt = prefs.getInt(_k('best', level));
     if (bt == null || seconds < bt) {
@@ -60,6 +59,8 @@ class DotStorage {
       await prefs.setInt(_k('bestDeploys', level), deploys);
       dep = true;
     }
+    // 클리어 횟수는 맨 마지막에 올린다: 그 사이에 메뉴가 기록을 읽어도 "클리어했는데 최단 시간이 없는" 모습이 보이지 않도록
+    await prefs.setInt(_k('wins', level), (prefs.getInt(_k('wins', level)) ?? 0) + 1);
     return DotBest(time: time, deploys: dep);
   }
 }

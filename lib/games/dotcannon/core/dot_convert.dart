@@ -65,6 +65,9 @@ List<(double, double, double, double)> boxDownsample(Uint8List rgba, int sw, int
 /// 갈려 헷갈린다. 또렷하게 다른 색만 남기려고 둔다.)
 const double kDotMinColorGap = 26;
 
+/// 합치는 기준을 낮추어 갈 때의 바닥. 이보다 가까운 색은 어떻게 해도 한 색으로 본다.
+const double kDotFloorColorGap = 8;
+
 /// 두 색의 눈에 보이는 차이 (CIE Lab 거리, 0이면 같은 색, 보통 20을 넘으면 한눈에 다른 색).
 double dotColorGap(Color a, Color b) =>
     _labGap(_lab((a.r * 255, a.g * 255, a.b * 255)), _lab((b.r * 255, b.g * 255, b.b * 255)));
@@ -92,6 +95,50 @@ double _dist2((double, double, double) a, (double, double, double) b) {
   // 사람 눈에 맞춘 가중치를 살짝 준 거리
   final dr = a.$1 - b.$1, dg = a.$2 - b.$2, db = a.$3 - b.$3;
   return 0.3 * dr * dr + 0.55 * dg * dg + 0.15 * db * db;
+}
+
+/// [centers]·[assign]의 복사본에서 서로 [minGap]보다 가까운 색을 한 색으로 합친다 (많이 쓰인 쪽으로, 색은 쓰인 칸 수대로 섞는다).
+/// 합친 중심들, 칸별 색 번호, 남은 색 수를 돌려준다. 받은 목록은 건드리지 않는다.
+(List<(double, double, double)>, List<int>, int) _mergeClose(
+  List<(double, double, double)> centersIn,
+  List<int> assignIn,
+  List<int> opaque,
+  double minGap,
+) {
+  final centers = [...centersIn];
+  final assign = [...assignIn];
+  while (true) {
+    final use = List<int>.filled(centers.length, 0);
+    for (final i in opaque) {
+      use[assign[i]]++;
+    }
+    final labs = [for (final c in centers) _lab(c)];
+    var bestA = -1, bestB = -1;
+    var bestGap = minGap;
+    for (var a = 0; a < centers.length; a++) {
+      if (use[a] == 0) continue;
+      for (var b = a + 1; b < centers.length; b++) {
+        if (use[b] == 0) continue;
+        final g = _labGap(labs[a], labs[b]);
+        if (g < bestGap) {
+          bestGap = g;
+          bestA = a;
+          bestB = b;
+        }
+      }
+    }
+    if (bestA < 0) return (centers, assign, use.where((u) => u > 0).length);
+    final keep = use[bestA] >= use[bestB] ? bestA : bestB, drop = keep == bestA ? bestB : bestA;
+    final wk = use[keep].toDouble(), wd = use[drop].toDouble(), w = wk + wd;
+    centers[keep] = (
+      (centers[keep].$1 * wk + centers[drop].$1 * wd) / w,
+      (centers[keep].$2 * wk + centers[drop].$2 * wd) / w,
+      (centers[keep].$3 * wk + centers[drop].$3 * wd) / w,
+    );
+    for (final i in opaque) {
+      if (assign[i] == drop) assign[i] = keep;
+    }
+  }
 }
 
 /// 칸별 색([cells])을 [colors]가지로 줄여 도트 그림을 만든다.
@@ -207,39 +254,18 @@ DotArt quantizeCells(
     }
   }
 
-  // 눈으로 구분이 안 될 만큼 비슷한 색은 한 색으로 합친다 (많이 쓰인 쪽으로, 색은 쓰인 칸 수대로 섞는다)
-  while (true) {
-    final use = List<int>.filled(centers.length, 0);
-    for (final i in opaque) {
-      use[assign[i]]++;
-    }
-    final labs = [for (final c in centers) _lab(c)];
-    var bestA = -1, bestB = -1;
-    var bestGap = kDotMinColorGap;
-    for (var a = 0; a < centers.length; a++) {
-      if (use[a] == 0) continue;
-      for (var b = a + 1; b < centers.length; b++) {
-        if (use[b] == 0) continue;
-        final g = _labGap(labs[a], labs[b]);
-        if (g < bestGap) {
-          bestGap = g;
-          bestA = a;
-          bestB = b;
-        }
-      }
-    }
-    if (bestA < 0) break;
-    final keep = use[bestA] >= use[bestB] ? bestA : bestB, drop = keep == bestA ? bestB : bestA;
-    final wk = use[keep].toDouble(), wd = use[drop].toDouble(), w = wk + wd;
-    centers[keep] = (
-      (centers[keep].$1 * wk + centers[drop].$1 * wd) / w,
-      (centers[keep].$2 * wk + centers[drop].$2 * wd) / w,
-      (centers[keep].$3 * wk + centers[drop].$3 * wd) / w,
-    );
-    for (final i in opaque) {
-      if (assign[i] == drop) assign[i] = keep;
-    }
+  // 눈으로 구분이 안 될 만큼 비슷한 색은 한 색으로 합친다. 기준을 너무 세게 잡으면 사진처럼 색이 부드럽게 이어지는 그림은 색이 서너 가지만
+  // 남으니, 가장 센 기준([kDotMinColorGap])부터 조금씩 낮추면서 "달라고 한 색 수(또는 눈으로 구분되는 만큼)"가 남는 가장 센 기준을 고른다.
+  final floorCount = _mergeClose(centers, assign, opaque, kDotFloorColorGap).$3;
+  final wanted = min(k, floorCount);
+  var merged2 = _mergeClose(centers, assign, opaque, kDotMinColorGap);
+  for (var gap = kDotMinColorGap - 2; merged2.$3 < wanted && gap >= kDotFloorColorGap; gap -= 2) {
+    merged2 = _mergeClose(centers, assign, opaque, gap);
   }
+  centers
+    ..clear()
+    ..addAll(merged2.$1);
+  assign.setAll(0, merged2.$2);
 
   final grid = List<int>.filled(cells.length, kDotEmpty);
   for (final i in opaque) {

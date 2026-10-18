@@ -186,6 +186,19 @@ void main() {
     expect(find.textContaining('하트'), findsWidgets);
   });
 
+  testWidgets('기록을 저장하는 중간에 읽어 클리어는 있는데 최단 시간이 없어도 그림 카드가 깨지지 않는다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 860));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final level = dotLevels.first;
+    for (final stats in [null, const DotStageStats(), const DotStageStats(wins: 1), const DotStageStats(wins: 1, bestSeconds: 75, bestDeploys: 9)]) {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: SingleChildScrollView(child: Wrap(children: [SizedBox(width: 170, child: DotLevelCard(level: level, stats: stats, onTap: () {}))]))),
+      ));
+      expect(tester.takeException(), isNull, reason: '기록 ${stats?.wins}/${stats?.bestSeconds}');
+      expect(find.byType(ErrorWidget), findsNothing);
+    }
+  });
+
   testWidgets('사진으로 만들기: 도트로 바꾸고 난이도를 매긴 뒤 저장해서 시작한다', (tester) async {
     await tester.binding.setSurfaceSize(const Size(800, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));

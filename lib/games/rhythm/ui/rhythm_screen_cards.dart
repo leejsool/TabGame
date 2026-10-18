@@ -318,28 +318,29 @@ class _ResultCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text('점수 ${j.score}', style: const TextStyle(fontWeight: FontWeight.w800, color: _ink)),
           const SizedBox(height: 16),
+          // 폰처럼 좁은 화면에서도 글자가 줄바꿈되지 않도록: 버튼 안쪽 여백을 줄이고 글자는 한 줄로 (모자라면 살짝 작아진다)
           Row(
             children: [
-              Expanded(child: OutlinedButton(onPressed: onExit, child: const Padding(padding: EdgeInsets.all(10), child: Text('나가기')))),
-              const SizedBox(width: 10),
+              Expanded(flex: 2, child: OutlinedButton(onPressed: onExit, style: _resultButtonPad, child: _resultLabel('나가기'))),
+              const SizedBox(width: 8),
               if (passed && hasNext) ...[
-                Expanded(child: OutlinedButton(onPressed: onAgain, child: const Padding(padding: EdgeInsets.all(10), child: Text('다시 하기')))),
-                const SizedBox(width: 10),
+                Expanded(flex: 2, child: OutlinedButton(onPressed: onAgain, style: _resultButtonPad, child: _resultLabel('다시 하기'))),
+                const SizedBox(width: 8),
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: FilledButton(
                     onPressed: onNext,
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF7A2F)),
-                    child: const Padding(padding: EdgeInsets.all(10), child: Text('다음 코스 ▶', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+                    style: _resultButtonPad.copyWith(backgroundColor: const WidgetStatePropertyAll(Color(0xFFFF7A2F))),
+                    child: _resultLabel('다음 코스 ▶', bold: true),
                   ),
                 ),
               ] else
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: FilledButton(
                     onPressed: onAgain,
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF7A2F)),
-                    child: Padding(padding: const EdgeInsets.all(10), child: Text(passed ? '다시 하기' : '다시 도전!', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17))),
+                    style: _resultButtonPad.copyWith(backgroundColor: const WidgetStatePropertyAll(Color(0xFFFF7A2F))),
+                    child: _resultLabel(passed ? '다시 하기' : '다시 도전!', bold: true),
                   ),
                 ),
             ],
@@ -368,3 +369,15 @@ class _Stat extends StatelessWidget {
     );
   }
 }
+
+/// 결과창 아래 버튼들의 안쪽 여백 (기본 여백이 커서 좁은 화면에서 글자가 줄바꿈되던 것을 막는다).
+final ButtonStyle _resultButtonPad = ButtonStyle(
+  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6, vertical: 14)),
+  minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+);
+
+/// 버튼 글자: 한 줄로 두고, 자리가 모자라면 살짝 줄여서 맞춘다.
+Widget _resultLabel(String text, {bool bold = false}) => FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(text, maxLines: 1, softWrap: false, style: TextStyle(fontWeight: bold ? FontWeight.w900 : null, fontSize: bold ? 17 : null)),
+    );

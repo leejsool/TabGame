@@ -79,7 +79,7 @@ class _DotRecordsTabState extends State<DotRecordsTab> {
           height: 44,
           child: CustomPaint(painter: DotArtPainter(l.pixels, l.width, l.height, l.colors)),
         ),
-        title: Text('${l.name} · ${formatTime(s.bestSeconds!)}', style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(s.bestSeconds == null ? l.name : '${l.name} · ${formatTime(s.bestSeconds!)}', style: const TextStyle(fontWeight: FontWeight.w800)),
         subtitle: Text(
           '대포 최소 ${s.bestDeploys}대 · 클리어 ${s.wins}번${l.custom ? ' · 내가 만든 그림' : ''}',
           style: const TextStyle(fontSize: 12.5),
