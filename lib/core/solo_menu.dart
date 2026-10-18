@@ -14,6 +14,7 @@ class SoloMenuScaffold extends StatelessWidget {
     required this.onRecordsClosed,
     required this.loaded,
     required this.children,
+    this.sideChildren,
   });
 
   final String title;
@@ -26,6 +27,9 @@ class SoloMenuScaffold extends StatelessWidget {
   final VoidCallback onRecordsClosed;
   final bool loaded;
   final List<Widget> children;
+
+  /// 가로로 넓은 화면에서 오른쪽 칸에 놓을 것들 (번호로 시작 · 기록 요약 …). 좁으면 [children] 아래에 이어 붙는다.
+  final List<Widget>? sideChildren;
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +56,29 @@ class SoloMenuScaffold extends StatelessWidget {
             : Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: menuMaxWidth(context)),
-                  child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: children),
+                  child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: _body(context)),
                 ),
               ),
       ),
     );
+  }
+
+  List<Widget> _body(BuildContext context) {
+    final side = sideChildren;
+    if (side == null) return children;
+    // 가로로 넓으면 두 칸으로 나눠 놓는다 (menuMaxWidth가 넓어지는 때와 같다)
+    if (menuMaxWidth(context) > 640) {
+      return [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)),
+            const SizedBox(width: 24),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: side)),
+          ],
+        ),
+      ];
+    }
+    return [...children, const SizedBox(height: 22), ...side];
   }
 }

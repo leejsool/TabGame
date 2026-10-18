@@ -7,6 +7,10 @@ import '../core/grid.dart';
 import '../core/techniques.dart';
 import 'hint.dart';
 
+part 'sudoku_game_input.dart';
+part 'sudoku_game_auto.dart';
+part 'sudoku_game_hints.dart';
+
 class _Snapshot {
   _Snapshot(SudokuGame g)
       : values = List.of(g.values),
@@ -20,6 +24,9 @@ class _Snapshot {
 
 /// 스도쿠 한 판의 상태와 규칙. 화면은 이 객체를 보고 그려진다.
 class SudokuGame extends ChangeNotifier {
+  /// 다른 파일(part)에 나눠 둔 조각에서 화면에 바뀐 것을 알릴 때 쓴다.
+  void _notify() => notifyListeners();
+
   SudokuGame({
     required this.puzzle,
     List<int>? values,
@@ -168,214 +175,9 @@ class SudokuGame extends ChangeNotifier {
 
   // ── 선택/입력 ──
 
-  void select(int cell) {
-    selected = cell;
-    _changed(keepHint: true);
-  }
-
-  /// 보드를 누르기 시작 (손가락/마우스 down).
-  void strokeDown(int cell) {
-    _strokeOpen = true;
-    _strokeSnapped = false;
-    _visited
-      ..clear()
-      ..add(cell);
-    _cellAction(cell, isDown: true);
-  }
-
-  /// 누른 채 다른 칸으로 이동.
-  void strokeMove(int cell) {
-    if (!_strokeOpen || !_visited.add(cell)) return;
-    _cellAction(cell, isDown: false);
-  }
-
-  void strokeEnd() {
-    _strokeOpen = false;
-    _visited.clear();
-  }
-
-  void _cellAction(int cell, {required bool isDown}) {
-    if (paused || completed || autoCompleting) return;
-    selected = cell;
-    if (quickMode && quickDigit != 0 && !isLocked(cell)) {
-      final d = quickDigit;
-      // 쓸어서 칠할 때는 이미 같은 숫자/메모가 있는 칸을 건드리지 않는다.
-      if (!isDown) {
-        if (notesMode) {
-          if (values[cell] != 0 || notes[cell] & bit(d) != 0) return;
-        } else if (values[cell] == d) {
-          return;
-        }
-      }
-      _applyDigit(cell, d);
-    } else {
-      _changed(keepHint: true);
-    }
-  }
-
-  /// 숫자 패드의 숫자를 눌렀을 때.
-  void padDigit(int d) {
-    if (paused || completed || autoCompleting) return;
-    if (quickMode) {
-      quickDigit = quickDigit == d ? 0 : d;
-      // 빠른 입력에서 숫자를 고르면, 먼저 눌러 둔 칸의 선택과 행·열·박스 강조는 풀린다
-      selected = -1;
-      _changed(keepHint: true);
-      return;
-    }
-    if (selected < 0) return;
-    _applyDigit(selected, d);
-  }
-
-  void _applyDigit(int cell, int d) {
-    if (isLocked(cell) || completed) return;
-    if (notesMode) {
-      if (values[cell] != 0) return;
-      _pushUndo();
-      notes[cell] ^= bit(d);
-      _changed();
-      return;
-    }
-    if (values[cell] == d) {
-      _pushUndo();
-      values[cell] = 0;
-      _changed();
-      return;
-    }
-    _pushUndo();
-    values[cell] = d;
-    notes[cell] = 0;
-    lastPlaced = cell;
-    placeSerial++;
-    final correct = d == puzzle.solution[cell];
-    if (correct) {
-      // 같은 줄/열/박스의 메모에서 이 숫자를 지운다.
-      final m = ~bit(d);
-      for (final p in peers[cell]) {
-        notes[p] &= m;
-      }
-    } else {
-      mistakes++;
-      if (mistakes == maxMistakes && !ignoreLimit) {
-        timerHold = true;
-        _pendingLimit = true;
-      }
-    }
-    onPlaced?.call(correct);
-    if (_isSolved()) {
-      completed = true;
-      paused = false;
-      _pendingComplete = true;
-    }
-    _changed();
-    if (correct && !completed) _maybeAutoComplete();
-  }
 
   // ── 자동 완성 ──
 
-  /// 지금 상태에서 자동 완성을 할 수 있는가:
-  /// 틀린 숫자가 없고, 빈 칸이 [autoCompleteMaxEmpty]개 이하이며, 나머지가 싱글만으로 끝까지 풀린다.
-  bool get canAutoComplete {
-    if (completed || autoCompleting) return false;
-    var empties = 0;
-    for (var i = 0; i < 81; i++) {
-      if (values[i] == 0) {
-        empties++;
-      } else if (isWrong(i)) {
-        return false;
-      }
-    }
-    if (empties == 0 || empties > autoCompleteMaxEmpty) return false;
-    return HumanSolver.grade(values, maxLevel: 1).solved;
-  }
-
-  void _maybeAutoComplete() {
-    if (!autoCompleteEnabled || paused || !canAutoComplete) return;
-    // 채울 순서를 미리 계산해 둔다 (네이키드/히든 싱글만 사용)
-    final g = CandidateGrid.fromValues(values);
-    _autoQueue.clear();
-    while (!g.isSolved) {
-      final step = StepFinder.next(g, maxLevel: 1);
-      if (step == null || !step.isPlacement) {
-        _autoQueue.clear();
-        return;
-      }
-      _autoQueue.add((step.placeCell, step.placeDigit));
-      g.apply(step);
-    }
-    autoCompleting = true;
-    timerHold = true; // 자동으로 채우는 동안에는 시간이 흐르지 않는다
-    selected = -1;
-    hint = null;
-    quickDigit = 0;
-    notifyListeners();
-    _autoTimer?.cancel();
-    _autoTimer = Timer.periodic(autoStep, (_) => _autoStepOnce());
-  }
-
-  void _autoStepOnce() {
-    if (_autoQueue.isEmpty) {
-      _finishAuto();
-      return;
-    }
-    final (cell, d) = _autoQueue.removeAt(0);
-    values[cell] = d;
-    notes[cell] = 0;
-    final m = ~bit(d);
-    for (final p in peers[cell]) {
-      notes[p] &= m;
-    }
-    selected = cell;
-    lastPlaced = cell;
-    placeSerial++;
-    onPlaced?.call(true);
-    if (_autoQueue.isEmpty) {
-      _finishAuto();
-    } else {
-      notifyListeners();
-    }
-  }
-
-  /// 자동 완성이 진행 중일 때 화면을 떠나는 경우: 남은 칸을 바로 채워서 끝낸다(기록이 남도록).
-  void finishAutoNow() {
-    if (!autoCompleting) return;
-    while (_autoQueue.isNotEmpty) {
-      final (cell, d) = _autoQueue.removeAt(0);
-      values[cell] = d;
-      notes[cell] = 0;
-    }
-    _finishAuto();
-  }
-
-  void _finishAuto() {
-    _autoTimer?.cancel();
-    _autoTimer = null;
-    autoCompleting = false;
-    timerHold = false;
-    if (_isSolved()) {
-      completed = true;
-      _pendingComplete = true;
-    }
-    selected = -1;
-    _changed();
-  }
-
-  bool _isSolved() {
-    for (var i = 0; i < 81; i++) {
-      if (values[i] != puzzle.solution[i]) return false;
-    }
-    return true;
-  }
-
-  void erase() {
-    final s = selected;
-    if (s < 0 || isLocked(s) || completed || paused || autoCompleting) return;
-    if (values[s] == 0 && notes[s] == 0) return;
-    _pushUndo();
-    values[s] = 0;
-    notes[s] = 0;
-    _changed();
-  }
 
   void toggleNotes() {
     notesMode = !notesMode;
@@ -463,118 +265,6 @@ class SudokuGame extends ChangeNotifier {
   }
 
   // ── 힌트 ──
-
-  void requestHint() {
-    if (completed || paused || autoCompleting) return;
-    final wrong = [
-      for (var i = 0; i < 81; i++)
-        if (isWrong(i)) i,
-    ];
-    if (wrong.isNotEmpty) {
-      hint = ActiveHint.wrong(wrong);
-      notifyListeners();
-      return;
-    }
-    // 힌트로 지운 후보뿐 아니라, 내가 메모에서 이미 지운 후보도 "지운 것"으로 친다.
-    // (그러지 않으면 이미 지운 후보를 또 지우라고 알려준다)
-    final elims = List<int>.of(hintElims);
-    var g = CandidateGrid.fromValues(values, eliminated: elims);
-    var step = StepFinder.next(g, maxLevel: 7);
-    for (var guard = 0; guard < 200 && step != null && !step.isPlacement; guard++) {
-      final left = <int, int>{};
-      step.eliminations.forEach((cell, mask) {
-        // 메모가 비어 있는 칸은 아직 후보를 안 적은 칸이니, 지울 후보가 그대로 남아 있다고 본다.
-        final remain = notes[cell] == 0 ? mask : mask & notes[cell];
-        if (remain != 0) left[cell] = remain;
-      });
-      if (left.isNotEmpty) {
-        step = SolveStep(
-          technique: step.technique,
-          cells: step.cells,
-          digits: step.digits,
-          unit: step.unit,
-          units: step.units,
-          coverUnits: step.coverUnits,
-          eliminations: left,
-          note: step.note,
-        );
-        break;
-      }
-      // 이 단계는 내가 이미 해 둔 것: 반영하고 다음 단계를 찾는다.
-      step.eliminations.forEach((cell, mask) => elims[cell] |= mask);
-      g = CandidateGrid.fromValues(values, eliminated: elims);
-      step = StepFinder.next(g, maxLevel: 7);
-    }
-    if (step != null) {
-      hint = ActiveHint.fromStep(step, g);
-    } else {
-      // 논리 기술로 풀리는 단계가 없을 때: 후보가 가장 적은 빈 칸의 정답을 알려준다.
-      var best = -1;
-      var bestCount = 10;
-      for (var i = 0; i < 81; i++) {
-        if (values[i] != 0) continue;
-        final c = popCount(g.cand[i]);
-        if (c < bestCount) {
-          bestCount = c;
-          best = i;
-        }
-      }
-      if (best < 0) return;
-      hint = ActiveHint.reveal(best, puzzle.solution[best]);
-    }
-    hintsUsed++;
-    final h = hint!;
-    if (h.placeCell >= 0) selected = h.placeCell;
-    notifyListeners();
-  }
-
-  /// 튜토리얼에서 판 위에 칠할 표시를 바꾼다. (설명 카드가 없는 [ActiveHint.visualOnly]용)
-  void setVisual(ActiveHint? visual) {
-    hint = visual;
-    notifyListeners();
-  }
-
-  void dismissHint() {
-    if (hint == null) return;
-    hint = null;
-    notifyListeners();
-  }
-
-  /// 힌트가 안내한 대로 실행한다 (숫자 입력 / 후보 지우기 / 틀린 칸 지우기).
-  void applyHint() {
-    final h = hint;
-    if (h == null || completed) return;
-    _pushUndo();
-    if (h.isWrongCells) {
-      for (final c in h.wrongCells) {
-        values[c] = 0;
-        notes[c] = 0;
-      }
-    } else if (h.isPlacement) {
-      final cell = h.placeCell, d = h.placeDigit;
-      values[cell] = d;
-      notes[cell] = 0;
-      final m = ~bit(d);
-      for (final p in peers[cell]) {
-        notes[p] &= m;
-      }
-      selected = cell;
-      lastPlaced = cell;
-      placeSerial++;
-      onPlaced?.call(true);
-      if (_isSolved()) {
-        completed = true;
-        _pendingComplete = true;
-      }
-    } else {
-      h.removeMask.forEach((cell, mask) {
-        hintElims[cell] |= mask;
-        notes[cell] &= ~mask;
-      });
-    }
-    _changed();
-    if (h.isPlacement && !completed) _maybeAutoComplete();
-  }
 
   // ── 저장 ──
 

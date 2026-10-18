@@ -17,6 +17,7 @@ import 'rhythm_art.dart';
 import 'stage_painter.dart';
 
 part 'rhythm_screen_panels.dart';
+part 'rhythm_screen_cards.dart';
 
 const _gold = Color(0xFFFFD21F);
 const _ink = Color(0xFF1A1523);

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/games/sudoku/game/sudoku_game.dart';
 import 'package:tabgame/games/sudoku/tutorial/basic_lesson.dart';
 import 'package:tabgame/games/sudoku/tutorial/basic_lesson_screen.dart';
 import 'package:tabgame/games/sudoku/tutorial/practice_menu_screen.dart';

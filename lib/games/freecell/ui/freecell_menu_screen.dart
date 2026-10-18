@@ -114,6 +114,44 @@ class _FreecellMenuScreenState extends State<FreecellMenuScreen> {
         if (mounted) _load();
       },
       loaded: _loaded,
+      sideChildren: [
+      Text('번호로 시작',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 4),
+      Text(
+        '같은 번호는 늘 같은 판이에요. 친구와 같은 번호로 겨뤄 보세요! (1~$kMaxDeal)',
+        style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
+      ),
+      const SizedBox(height: 10),
+      Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _number,
+              keyboardType: TextInputType.number,
+              onSubmitted: (_) => _startWithNumber(),
+              decoration: InputDecoration(
+                hintText: '예: 617',
+                errorText: _error,
+                helperText: _numberHint,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                prefixText: '# ',
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          FilledButton(
+            onPressed: _startWithNumber,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            ),
+            child: const Text('시작'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 24),
+      _StatsRow(stats: _stats),
+      ],
       children: [
       if (_saved != null) ...[
         _ResumeCard(
@@ -169,43 +207,6 @@ class _FreecellMenuScreenState extends State<FreecellMenuScreen> {
           ),
         ),
       ),
-      const SizedBox(height: 22),
-      Text('번호로 시작',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-      const SizedBox(height: 4),
-      Text(
-        '같은 번호는 늘 같은 판이에요. 친구와 같은 번호로 겨뤄 보세요! (1~$kMaxDeal)',
-        style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
-      ),
-      const SizedBox(height: 10),
-      Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _number,
-              keyboardType: TextInputType.number,
-              onSubmitted: (_) => _startWithNumber(),
-              decoration: InputDecoration(
-                hintText: '예: 617',
-                errorText: _error,
-                helperText: _numberHint,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                prefixText: '# ',
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          FilledButton(
-            onPressed: _startWithNumber,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-            ),
-            child: const Text('시작'),
-          ),
-        ],
-      ),
-      const SizedBox(height: 24),
-      _StatsRow(stats: _stats),
       ],
     );
   }
