@@ -57,8 +57,8 @@ extension _SpActors on StagePainter {
   // ── 슬라임: 숨 쉬듯 말랑거리다가, 칼이 올라오면 깜짝 놀라고, 맞으면 찌그러지며 튕겨 난다 ──
   void _drawSlime(Canvas canvas, CampLayout L, int i, SwingState? sw, double t, double idle, {bool red = false}) {
     final base = Offset(L.actorX(i), L.dummyBaseY);
-    final scale = L.slimeScale;
-    final centerY = base.dy - 346 * scale * 0.5;
+    final scale = L.foeScale(foe);
+    final centerY = base.dy - L.foeBodyHeight(foe) * 0.5;
     var kind = 'idle';
     var mirror = false;
     var offset = Offset.zero;
@@ -106,13 +106,19 @@ extension _SpActors on StagePainter {
         ..filterQuality = FilterQuality.high
         ..colorFilter = ColorFilter.mode(Colors.white.withValues(alpha: 0.85 * flash), BlendMode.srcATop);
     }
-    drawSprite(canvas, art, RhythmArt.slimeSprite(kind, red: red), base + offset, scale,
+    drawSprite(canvas, art, RhythmArt.foeSprite(foe, kind, red: red), base + offset, scale,
         mirror: mirror, squashX: squashX, squashY: squashY, rotate: rotate, paint: paint);
 
     if (kind != 'hit' || sw == null || sw.sinceImpact > 0.5) return;
     _drawSlash(canvas, L, base, dir, centerY, L.unit * 0.18, sw.sinceImpact);
     _drawDebris(canvas, L, i, sw, Offset(base.dx + dir * L.unit * 0.18, centerY),
-        colors: red ? const [Color(0xFFE5484D), Color(0xFFFFC2C4)] : const [Color(0xFF63B6FA), Color(0xFFBFE3FF)], count: 6, round: true);
+        colors: foe == Foe.goblin
+            ? const [Color(0xFF6DBE45), Color(0xFFCDEFA6)]
+            : red
+                ? const [Color(0xFFE5484D), Color(0xFFFFC2C4)]
+                : const [Color(0xFF63B6FA), Color(0xFFBFE3FF)],
+        count: 6,
+        round: true);
   }
 
   /// 칼바람: 검사 쪽에서 맞는 자리로 날아가는 흰 줄.

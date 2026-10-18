@@ -6,8 +6,8 @@ extension _SpBoss on StagePainter {
   void _drawBoss(Canvas canvas, CampLayout L, double t, double idle) {
     final st = t < 0 ? const BossState(BossPhase.idle, 0) : c.bossState(t);
     final u = L.unit;
-    final scale = L.slimeScale * 1.9;
-    final bodyH = 346 * scale;
+    final scale = L.foeScale(foe);
+    final bodyH = L.foeBodyHeight(foe);
     final home = Offset(L.size.width * 0.5, L.dummyBaseY + u * 0.1);
     final player = Offset(L.actorX(3), L.feetY - u * 0.45);
     var pos = home;
@@ -88,7 +88,7 @@ extension _SpBoss on StagePainter {
         ..filterQuality = FilterQuality.high
         ..colorFilter = ColorFilter.mode(Colors.white.withValues(alpha: 0.85 * flash), BlendMode.srcATop);
     }
-    drawSprite(canvas, art, RhythmArt.slimeSprite(kind, red: true), pos, scale * grow,
+    drawSprite(canvas, art, RhythmArt.foeSprite(foe, kind, red: true), pos, scale * grow,
         mirror: mirror, squashX: squashX, squashY: squashY, rotate: rotate, paint: paint);
     if (st.phase == BossPhase.windup && p > 0.3) {
       // 머리 위의 경고 표시

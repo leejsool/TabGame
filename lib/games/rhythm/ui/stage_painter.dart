@@ -60,11 +60,11 @@ class StagePainter extends CustomPainter {
     }
 
     // ── 허수아비 / 슬라임 / 보스 ──
-    if (foe == Foe.bossSlime) {
+    if (foe.isBoss) {
       _drawBoss(canvas, L, t, idle);
     } else {
       for (var i = 0; i < 4; i++) {
-        if (foe == Foe.slime) {
+        if (foe.isSwarm) {
           _drawSlime(canvas, L, i, c.swing(i, t), t, idle);
         } else {
           _drawDummy(canvas, L, i, c.swing(i, t));
@@ -163,7 +163,7 @@ class StagePainter extends CustomPainter {
       );
     }
 
-    if (foe == Foe.bossSlime) _drawGuardEffect(canvas, L, t);
+    if (foe.isBoss) _drawGuardEffect(canvas, L, t);
     if (cue != null) {
       if (cue.isGuard) {
         _drawGuardGuide(canvas, L, cue);
@@ -179,7 +179,7 @@ class StagePainter extends CustomPainter {
     canvas.restore();
 
     if (cue != null && !cue.isSwipe && !cue.isGuard) _drawEdgeGlow(canvas, size, cue.remain, cue.side);
-    if (foe == Foe.bossSlime && t >= 0) _drawBossWarning(canvas, size, t, idle);
+    if (foe.isBoss && t >= 0) _drawBossWarning(canvas, size, t, idle);
     if (impact > 0) {
       canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white.withValues(alpha: 0.14 * impact));
     }

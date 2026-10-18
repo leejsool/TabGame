@@ -1,7 +1,23 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tabgame/games/rhythm/core/rhythm_chart.dart';
 import 'package:tabgame/games/rhythm/ui/rhythm_art.dart';
 
 void main() {
+  testWidgets('그림 모음: 고블린·오크 네 자세와 해 질 녘 전초기지 배경이 불러와진다', (tester) async {
+    final art = (await tester.runAsync(RhythmArt.load))!;
+    for (final foe in [Foe.goblin, Foe.bossOrc]) {
+      for (final kind in ['idle', 'ready', 'attack', 'hit']) {
+        final name = RhythmArt.foeSprite(foe, kind);
+        expect(art.image(name), isNotNull, reason: name);
+        expect(art.info(name)!.footY, greaterThan(0), reason: '$name 바닥 위치');
+      }
+    }
+    expect(art.image('bg_outpost_twilight'), isNotNull);
+    for (final course in RhythmCourse.all) {
+      expect(art.image(course.background), isNotNull, reason: '${course.title} 배경');
+    }
+  });
+
   testWidgets('그림 모음: 슬라임(파랑·빨강) 네 자세와 옆으로 휘두르는 검사 그림이 모두 불러와진다', (tester) async {
     final art = (await tester.runAsync(RhythmArt.load))!;
     for (final red in [false, true]) {

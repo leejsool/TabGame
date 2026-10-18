@@ -3,10 +3,15 @@ enum Side { left, right }
 
 /// 한 박(beat) 안에서 치는 한 번의 동작.
 class Motif {
-  const Motif(this.hits, {this.holdBeats = 0, this.swipe = false, this.guard = false});
+  const Motif(this.hits, {this.holdBeats = 0, this.swipe = false, this.guard = false, this.span = 1});
 
-  /// (박 안에서의 위치 0 ≤ t < 1, 방향).
+  /// (자기 차례가 시작한 뒤의 위치(박) 0 ≤ t < [span], 방향). 쉬는 박은 그냥 비워 둔다.
   final List<(double, Side)> hits;
+
+  /// 한 사람이 이 동작을 이어 치는 데 걸리는 박 수. 1이면 한 박 안의 동작(탭 · 2연속),
+  /// 2 이상이면 여러 박에 걸친 긴 패턴(예: 좌 · 우 · 쉼 · 좌)이다. 교관 → 선배 → 선배 → 나 순서로
+  /// 한 명씩 같은 패턴을 차례로 이어 치므로, 물결 하나는 4 × [span]박이 된다.
+  final int span;
 
   /// 0보다 크면 "꾹 누르기": 첫 동작에서 누르기 시작해 이만큼(박) 뒤에 손을 떼며 내려친다.
   final double holdBeats;
@@ -22,7 +27,7 @@ class Motif {
   bool get isHold => holdBeats > 0;
 
   /// 이 동작이 끝난 뒤 다음 물결까지 필요한 박 수 (꾹 누르기는 한 박 더 쉰다).
-  double get waveBeats => isHold ? 5 : 4;
+  double get waveBeats => isHold ? 5 : 4.0 * span;
 
   static const left = Motif([(0.0, Side.left)]);
   static const right = Motif([(0.0, Side.right)]);
@@ -65,7 +70,19 @@ class TutorialStage {
 }
 
 /// 검사들 앞에 서 있는 상대.
-enum Foe { dummy, slime, bossSlime }
+enum Foe {
+  dummy,
+  slime,
+  bossSlime,
+  goblin,
+  bossOrc;
+
+  /// 크게 한 마리가 덮쳐 오는 보스인가 (막기 필요).
+  bool get isBoss => this == bossSlime || this == bossOrc;
+
+  /// 네 칸에 한 마리씩 서서 하나씩 맞는 작은 적인가.
+  bool get isSwarm => this == slime || this == goblin;
+}
 
 /// 코스 하나 (여러 단계로 이루어짐).
 class RhythmCourse {
@@ -95,7 +112,7 @@ class RhythmCourse {
   /// 검사들이 목검 대신 철검을 든다 (1·2코스는 훈련용 목검, 그 뒤부터 철검).
   final bool ironSword;
 
-  /// 배경 그림 이름 (assets/rhythm/art/ 의 파일 이름, 확장자 제외). 'bg' = 훈련장, 'bg_forest' = 숲길.
+  /// 배경 그림 이름 (assets/rhythm/art/ 의 파일 이름, 확장자 제외). 'bg' = 훈련장, 'bg_forest' = 숲길, 'bg_outpost_twilight' = 해 질 녘 전초기지.
   final String background;
 
   /// 하트 수. 0이면 하트가 없는 코스, 아니면 막기에 실패할 때마다 하나씩 깎이고 다 잃으면 게임 오버.
@@ -134,6 +151,27 @@ class RhythmCourse {
       welcome: '저건… 엄청 큰 슬라임이다! 조심해라!',
       hearts: 3,
       background: 'bg_forest',
+      ironSword: true,
+    ),
+    RhythmCourse(
+      title: '고블린 출현',
+      subtitle: '여러 동작을 이어 치기! 고블린 네 마리',
+      stages: RhythmChart.goblinStages,
+      bpm: 104,
+      foe: Foe.goblin,
+      welcome: '숲 속에 고블린이 나타났다! 이번엔 여러 번 이어서 친다!',
+      background: 'bg_forest',
+      ironSword: true,
+    ),
+    RhythmCourse(
+      title: '오크 대장',
+      subtitle: '막기로 오크 대장을 쓰러뜨려요',
+      stages: RhythmChart.bossStages,
+      bpm: 104,
+      foe: Foe.bossOrc,
+      welcome: '저건… 오크 대장이다! 정신 바짝 차려라!',
+      hearts: 3,
+      background: 'bg_outpost_twilight',
       ironSword: true,
     ),
   ];
@@ -327,6 +365,53 @@ class RhythmChart {
     ),
   ];
 
+  /// 5코스: 고블린 네 마리. 새 규칙은 "여러 동작을 이어 치기" — 한 사람이 좌·우·쉼표로 된 패턴을 치고,
+  /// 다음 사람이 같은 패턴을 이어 치는 식으로 교관 → 선배 → 선배 → 나까지 돌아간다. 조작은 탭(좌·우)과 쉼표뿐이다.
+  /// 두 박짜리 패턴 → 쉼표 섞기 → 네 박짜리 긴 패턴 → 안내 없이 총정리 순서로 점점 길어진다.
+  static const goblinStages = <TutorialStage>[
+    TutorialStage(
+      title: '두 번 이어 치기',
+      hint: '고블린이다! 이번엔 한 번이 아니다.\n앞사람이 친 두 번을 그대로 따라 해라!',
+      waves: [
+        Motif([(0.0, Side.left), (1.0, Side.left)], span: 2),
+        Motif([(0.0, Side.right), (1.0, Side.right)], span: 2),
+        Motif([(0.0, Side.left), (1.0, Side.right)], span: 2),
+        Motif([(0.0, Side.right), (1.0, Side.left)], span: 2),
+      ],
+    ),
+    TutorialStage(
+      title: '쉬는 박자도 따라 하기',
+      hint: '쉬는 박자도 박자의 일부다!\n치지 않고 기다렸다가 따라 해라!',
+      waves: [
+        Motif([(0.0, Side.left), (2.0, Side.left)], span: 3),
+        Motif([(0.0, Side.right), (1.0, Side.left)], span: 3),
+        Motif([(0.0, Side.left), (1.0, Side.right), (2.0, Side.right)], span: 3),
+      ],
+    ),
+    TutorialStage(
+      title: '네 박자 길게',
+      hint: '더 길어진다! 좌, 우, 쉼, 좌…\n끝까지 외워서 따라 해라!',
+      waves: [
+        Motif([(0.0, Side.left), (1.0, Side.right), (3.0, Side.left)], span: 4),
+        Motif([(0.0, Side.right), (1.0, Side.right), (2.0, Side.left), (3.0, Side.left)], span: 4),
+        Motif([(0.0, Side.left), (2.0, Side.right), (3.0, Side.right)], span: 4),
+      ],
+    ),
+    TutorialStage(
+      title: '고블린 소탕',
+      hint: '마지막이다! 안내 없이 귀와 눈으로 외워라!',
+      cue: false,
+      waves: [
+        Motif.left,
+        Motif([(0.0, Side.right), (1.0, Side.left)], span: 2),
+        Motif([(0.0, Side.left), (1.0, Side.left), (3.0, Side.right)], span: 4),
+        Motif.rightDouble,
+        Motif([(0.0, Side.right), (2.0, Side.left)], span: 3),
+        Motif([(0.0, Side.left), (1.0, Side.right), (2.0, Side.left), (3.0, Side.right)], span: 4),
+      ],
+    ),
+  ];
+
   /// 4코스: 큰 빨간 슬라임(보스) 한 마리. 앞 코스의 기술에 "막기"(위로 쓱 밀기)가 더해진다.
   /// 보스는 세 번 공격하고(단계 2·3·4에 한 번씩), 막기에 실패하면 하트가 하나씩 깎인다.
   /// 세 번 모두 막지 못해 하트를 다 잃으면 점수·별과 상관없이 게임 오버.
@@ -386,7 +471,7 @@ class RhythmChart {
           continue;
         }
         for (var actor = 0; actor < 4; actor++) {
-          final base = waveStart + actor;
+          final base = waveStart + actor * motif.span;
           for (final (off, side) in motif.hits) {
             events.add(ChartEvent(
               time: (base + off + motif.holdBeats) * beat,

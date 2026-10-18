@@ -1,0 +1,26 @@
+{
+  "goblin_idle.png": {
+    "w": 444,
+    "h": 569,
+    "baseX": 222.0,
+    "baseY": 550
+  },
+  "goblin_ready.png": {
+    "w": 536,
+    "h": 526,
+    "baseX": 268.0,
+    "baseY": 507
+  },
+  "goblin_attack.png": {
+    "w": 513,
+    "h": 520,
+    "baseX": 256.5,
+    "baseY": 501
+  },
+  "goblin_hit.png": {
+    "w": 536,
+    "h": 541,
+    "baseX": 268.0,
+    "baseY": 522
+  }
+}

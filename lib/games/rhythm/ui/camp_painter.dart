@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../core/rhythm_chart.dart' show Foe;
 import 'rhythm_art.dart';
 
 /// 훈련소 장면의 배치.
@@ -29,6 +30,21 @@ class CampLayout {
 
   /// 슬라임 그림 배율 (기본 자세 그림 가로 402px 기준 — 한 칸에 몸이 넉넉히 들어가도록).
   double get slimeScale => unit * 0.6 / 402;
+
+  /// 적 그림 배율. 슬라임은 가로 402px 기준, 고블린·오크는 서 있는 키를 기준으로 맞춘다.
+  double foeScale(Foe foe) => switch (foe) {
+        Foe.goblin => unit * 0.78 / 569,
+        Foe.bossOrc => unit * 1.3 / 560,
+        Foe.bossSlime => slimeScale * 1.9,
+        _ => slimeScale,
+      };
+
+  /// 적의 기본 자세 그림 높이(px, 화면 속) — 몸 가운데 높이를 잡을 때 쓴다.
+  double foeBodyHeight(Foe foe) => switch (foe) {
+        Foe.goblin => 569 * foeScale(foe),
+        Foe.bossOrc => 560 * foeScale(foe),
+        _ => 346 * foeScale(foe),
+      };
 
   /// 허수아비 받침대 바닥 y.
   double get dummyBaseY => feetY - unit * 1.1;

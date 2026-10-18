@@ -1,3 +1,4 @@
+import '../core/rhythm_chart.dart' show Foe;
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -51,6 +52,14 @@ class RhythmArt {
   /// [red]면 보스용 빨간 슬라임.
   static String slimeSprite(String kind, {bool red = false}) => red ? 'slime_red_$kind' : 'slime_$kind';
 
+  /// 적의 자세 그림 이름. kind: idle / ready / attack / hit. [red]는 슬라임 보스용.
+  static String foeSprite(Foe foe, String kind, {bool red = false}) => switch (foe) {
+        Foe.goblin => 'goblin_$kind',
+        Foe.bossOrc => 'orc_$kind',
+        Foe.bossSlime => slimeSprite(kind, red: true),
+        _ => slimeSprite(kind, red: red),
+      };
+
   static Future<RhythmArt>? _loading;
 
   /// 한 번만 불러와서 계속 쓴다.
@@ -61,11 +70,15 @@ class RhythmArt {
     // 옆으로 휘두르는 자세 (tool/prepare_rhythm_side_art.py)
     meta.addAll(jsonDecode(await rootBundle.loadString('assets/rhythm/art/art_side.json')) as Map<String, dynamic>);
     final slimeMeta = jsonDecode(await rootBundle.loadString('assets/rhythm/art/art_slime.json')) as Map<String, dynamic>;
+    // 고블린·오크도 슬라임처럼 바닥에 닿는 점을 발 위치로 쓴다
+    slimeMeta.addAll(jsonDecode(await rootBundle.loadString('assets/rhythm/art/art_goblin.json')) as Map<String, dynamic>);
+    slimeMeta.addAll(jsonDecode(await rootBundle.loadString('assets/rhythm/art/art_orc.json')) as Map<String, dynamic>);
     final names = <String>[
       'bg',
       'bg_forest',
+      'bg_outpost_twilight',
       'dummy',
-      for (final k in ['idle', 'ready', 'attack', 'hit']) ...[slimeSprite(k), slimeSprite(k, red: true)],
+      for (final k in ['idle', 'ready', 'attack', 'hit']) ...[slimeSprite(k), slimeSprite(k, red: true), 'goblin_$k', 'orc_$k'],
     ];
     for (var i = 0; i < 4; i++) {
       for (final k in ['idle', 'windup', 'strike', 'side_ready', 'side_swing']) {

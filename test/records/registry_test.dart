@@ -65,8 +65,8 @@ void main() {
       expect(find.text('거대 슬라임'), findsOneWidget);
       expect(find.textContaining('최고 4321점 · 정확도 87% · 1회 수료'), findsOneWidget);
       expect(find.textContaining('최고 5000점 · 정확도 95% · 1회 수료'), findsOneWidget);
-      expect(find.text('아직 수료하지 않았어요'), findsNWidgets(2));
-      expect(find.text('별 5 / 12개'), findsOneWidget);
+      expect(find.text('아직 수료하지 않았어요'), findsNWidgets(4));
+      expect(find.text('별 5 / 18개'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -77,7 +77,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       await tester.pumpWidget(await appWith(const RecordsScreen(initialGame: 'rhythm_swords')));
       await settle(tester, rounds: 6);
-      expect(find.text('아직 수료하지 않았어요'), findsNWidgets(4));
+      expect(find.text('아직 수료하지 않았어요'), findsNWidgets(6));
       expect(tester.takeException(), isNull);
     });
   });

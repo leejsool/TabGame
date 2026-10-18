@@ -54,6 +54,33 @@ void main() {
       expect(RhythmChart.course(1).playerEvents.any((e) => e.isHold), isTrue);
     });
 
+    test('5코스(고블린): 여러 박에 걸친 패턴을 교관 → 선배 → 선배 → 나 순서로 한 명씩 이어 친다', () {
+      final course = RhythmCourse.all[4];
+      expect(course.foe, Foe.goblin);
+      expect(course.stages.map((s) => s.cue), [true, true, true, false]);
+      // 쉼표가 낀 두 박 이상 패턴이 실제로 들어 있고, 탭 말고 다른 조작은 없다
+      final motifs = [for (final st in course.stages) ...st.waves];
+      expect(motifs.any((m) => m.span >= 4 && m.hits.length < m.span), isTrue);
+      expect(motifs.every((m) => !m.swipe && !m.isHold && !m.guard), isTrue);
+      final chart = RhythmChart.course(4);
+      final b = chart.beat;
+      // 첫 물결(2박짜리 좌+좌): 사람마다 2박씩 뒤에 같은 패턴을 친다
+      final first = chart.events.where((e) => e.wave == 0).toList();
+      expect(first.length, 8);
+      for (var actor = 0; actor < 4; actor++) {
+        final mine = first.where((e) => e.actor == actor).map((e) => e.time).toList();
+        expect(mine.length, 2);
+        expect(mine[0], closeTo((chart.countInBeats + actor * 2) * b, 1e-9));
+        expect(mine[1], closeTo((chart.countInBeats + actor * 2 + 1) * b, 1e-9));
+      }
+      // 물결은 겹치지 않는다: 다음 물결은 앞 물결의 마지막 동작 뒤에 시작한다
+      for (var w = 1; w < motifs.length; w++) {
+        final prevLast = chart.events.where((e) => e.wave == w - 1).map((e) => e.time).reduce((a, c) => a > c ? a : c);
+        final nextFirst = chart.events.where((e) => e.wave == w).map((e) => e.pressTime).reduce((a, c) => a < c ? a : c);
+        expect(nextFirst, greaterThan(prevLast), reason: '물결 $w');
+      }
+    });
+
     test('3코스(마을 밖으로): 슬라임 4단계, 옆으로 긋기를 처음 배우고 앞 기술과 섞는다', () {
       final course = RhythmCourse.all[2];
       expect(course.foe, Foe.slime);
@@ -79,13 +106,13 @@ void main() {
       final w0 = c.events.where((e) => e.wave == 0).toList();
       expect(w0.every((e) => e.isSwipe), isTrue);
       expect(RhythmCourse.all.map((c) => c.title).take(3), ['훈련소 입소', '꾹 눌러 모으기', '마을 밖으로']);
-      expect(RhythmCourse.all.length, 4);
+      expect(RhythmCourse.all.length, 6);
     });
 
-    test('코스별 배경과 검: 1·2코스는 훈련장 + 목검, 3·4코스는 숲길 + 철검', () {
+    test('코스별 배경과 검: 1·2코스는 훈련장 + 목검, 3~5코스는 숲길 + 철검, 6코스는 전초기지 + 철검', () {
       final all = RhythmCourse.all;
-      expect(all.map((c) => c.background), ['bg', 'bg', 'bg_forest', 'bg_forest']);
-      expect(all.map((c) => c.ironSword), [false, false, true, true]);
+      expect(all.map((c) => c.background), ['bg', 'bg', 'bg_forest', 'bg_forest', 'bg_forest', 'bg_outpost_twilight']);
+      expect(all.map((c) => c.ironSword), [false, false, true, true, true, true]);
     });
 
     test('튜토리얼에는 왼쪽·오른쪽·2연속이 모두 들어 있다', () {

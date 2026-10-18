@@ -312,6 +312,30 @@ void main() {
       await tester.pump();
     }
 
+    testWidgets('고블린 코스: 패턴을 전부 정확히 치면 별 셋으로 끝난다', (tester) async {
+      final c = RhythmController(chart: RhythmChart.course(4));
+      var finished = false;
+      c.onFinished = () => finished = true;
+      c.start();
+      final mine = c.chart.playerEvents.toList();
+      expect(mine.length, greaterThan(20), reason: '패턴마다 내 동작이 여러 번 나온다');
+      var t = 0.0;
+      for (final e in mine) {
+        while (t < e.time) {
+          t += 0.016;
+          c.update(t);
+        }
+        c.tap(e.side, e.time);
+      }
+      while (t < c.chart.endTime + 0.5) {
+        t += 0.05;
+        c.update(t);
+      }
+      expect(c.judge.perfect, mine.length);
+      expect(c.judge.stars, 3);
+      expect(finished, isTrue);
+    });
+
     testWidgets('시작 안내 → 훈련 시작 → 카운트다운, 탭해도 안전', (tester) async {
       final c = RhythmController(sfx: RecordingSfx());
       await pumpApp(tester, const Size(1000, 700), RhythmScreen(controller: c, art: RhythmArt.empty()));
