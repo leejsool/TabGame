@@ -204,6 +204,8 @@ class _GetColorBoardState extends State<GetColorBoard> with TickerProviderStateM
       _win.value = 0;
     }
     _wasCompleted = c.completed;
+    // 병 더하기·되돌리기로 병 수가 바뀌면 자리를 다시 나눈다 (안 그러면 새 병이 그려지지도, 눌리지도 않는다)
+    if (c.state.count != _layout.rects.length && mounted) setState(() {});
   }
 
   // ── 터치: 누르는 순간 반응하고(탭 인식기를 거치지 않아 손가락이 조금 움직여도 씹히지 않는다),

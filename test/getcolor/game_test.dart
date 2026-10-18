@@ -658,6 +658,44 @@ void main() {
       c.dispose();
     });
 
+    testWidgets('병 더하기를 누르면 빈 병이 실제로 화면에 하나 늘고, 그 병으로 부을 수 있다 (되돌리면 다시 사라진다)', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final c = make(tiny());
+      final before = c.state.count;
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: GetColorBoard(controller: c))));
+      await tester.pump();
+      final origin = tester.getTopLeft(find.byType(GetColorBoard));
+      final area = tester.getSize(find.byType(GetColorBoard));
+
+      c.addBottle();
+      await tester.pump();
+      expect(c.state.count, before + 1);
+      // 늘어난 병 수에 맞춰 자리가 다시 나뉘어, 새 병 자리를 누르면 그 병이 눌린다
+      final layout = GcLayout.compute(area, before + 1);
+      expect(layout.rects.length, before + 1);
+      final from = [for (var i = 0; i < before; i++) if (!c.state.isEmpty(i) && !c.state.isDone(i)) i].first;
+      await tester.tapAt(origin + layout.rects[from].center);
+      await tester.pump();
+      expect(c.selected, from);
+      await tester.tapAt(origin + layout.rects[before].center); // 새로 생긴 빈 병
+      await tester.pump();
+      expect(c.moveCount, 1, reason: '새로 생긴 병을 눌러도 아무 일도 안 생겨요');
+      expect(c.state.isEmpty(before), isFalse);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 80));
+      }
+
+      c.undo();
+      c.undo();
+      await tester.pump();
+      expect(c.state.count, before);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      c.dispose();
+    });
+
     const sizes = {
       '폰 세로': Size(360, 740),
       '태블릿 세로': Size(800, 1280),
