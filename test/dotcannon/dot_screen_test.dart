@@ -187,6 +187,11 @@ void main() {
     await tester.tap(find.byKey(ValueKey('dot-card-${dotLevels[1].id}')));
     await tester.pump();
     expect(find.textContaining('먼저 깨야 열려요'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(SnackBar), matching: find.textContaining(dotLevels.first.name)),
+      findsNothing,
+      reason: '앞 그림 이름은 알려 주지 않는다',
+    );
     // 첫 그림을 깬 기록이 있으면 둘째 그림이 열린다
     await tester.runAsync(() => DotStorage.recordWin(dotLevels.first.id, seconds: 60, deploys: 8));
     await tester.pumpWidget(const SizedBox());

@@ -223,7 +223,7 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
                         stats: _stats,
                         unlockAll: _unlockAll,
                         onPlay: _start,
-                        onLocked: (prev) => _toast('앞 그림 "${dotLevels[prev].name}"을(를) 먼저 깨야 열려요.'),
+                        onLocked: (_) => _toast('앞 그림을 먼저 깨야 열려요.'), // (앞 그림 이름은 알려 주지 않는다: 아직 못 본 그림이라 스포일러가 된다)
                       ),
                       // 내가 만든 그림은 기본 그림 아래에 둔다 (많이 만들어도 기본 그림이 밀려나지 않게). 많으면 최근 것만 보이고 나머지는 펼쳐 본다.
                       if (_custom.isNotEmpty) ...[
