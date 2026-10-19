@@ -23,7 +23,23 @@ SPRITES = [
     ('dragon.png', 'dragon', 3.0, 90, []),
     ('charmander.png', 'charmander', 25.5, 90, [[0, 0, 70, 50], [0, 440, 70, 511], [480, 470, 555, 511]]),
     ('pikachu.png', 'pikachu', 10.7, 70, [[0, 490, 40, 540]]),
+    ('bear_hat.png', 'bear_hat', 9.4, 70, []),
+    ('blue_crown.png', 'blue_crown', 6.3, 95, []),
+    ('bunny.png', 'bunny', 6.6, 70, []),
 ]
+
+# 그림마다 더 다듬는 방법 (없으면 아무것도 안 한다)
+#   erase: 원본 점 좌표로 적은 상자 [왼쪽, 위, 오른쪽, 아래] 안의 칸을 지운다 (손·바닥 같은 배경 조각)
+#   halo_white: 지운 배경에 이어진 흰 테두리(스티커 둘레)도 지운다
+#   min_island: 이 칸 수보다 작은 외딴 조각은 지운다 (사진 속 먼지·무늬)
+OPTS = {
+    'bear_hat': {'erase': [[345, 0, 386, 140], [0, 85, 18, 165], [0, 250, 26, 372]], 'min_island': 25},
+    'blue_crown': {'min_island': 40},
+    'bunny': {'halo_white': True, 'min_island': 6},
+}
+
+# 칸 크기를 찾는 범위(추정값 ±비율). 기본은 10%.
+SPREADS = {'pikachu': 0.04, 'bear_hat': 0.2, 'blue_crown': 0.2, 'bunny': 0.2}
 
 
 def diff(p, q):
@@ -72,7 +88,7 @@ def main():
             for y in range(t, min(b, im.height)):
                 for x in range(l, min(r, im.width)):
                     im.putpixel((x, y), edge)
-        spread = 0.04 if name == 'pikachu' else 0.1
+        spread = SPREADS.get(name, 0.1)
         cw, ox, w = fit_grid(im, guess, 0, spread)
         ch, oy, h = fit_grid(im, guess, 1, spread)
         cols = round((w - ox) / cw)
@@ -109,6 +125,41 @@ def main():
                 if 0 <= nj < rows and 0 <= ni < cols and not clear[nj][ni] and diff(cells[nj][ni], bg) <= tol:
                     clear[nj][ni] = True
                     q.append((nj, ni))
+        opts = OPTS.get(name, {})
+        for l, t, r, b in opts.get('erase', []):
+            for j in range(rows):
+                for i in range(cols):
+                    cx, cy = ox + (i + 0.5) * cw, oy + (j + 0.5) * ch
+                    if l <= cx < r and t <= cy < b:
+                        clear[j][i] = True
+        if opts.get('halo_white'):
+            q = deque((j, i) for j in range(rows) for i in range(cols) if clear[j][i])
+            while q:
+                j, i = q.popleft()
+                for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nj, ni = j + dj, i + di
+                    if 0 <= nj < rows and 0 <= ni < cols and not clear[nj][ni] and diff(cells[nj][ni], (248, 248, 248)) <= 60:
+                        clear[nj][ni] = True
+                        q.append((nj, ni))
+        if opts.get('min_island'):
+            seen = [[False] * cols for _ in range(rows)]
+            for j0 in range(rows):
+                for i0 in range(cols):
+                    if clear[j0][i0] or seen[j0][i0]:
+                        continue
+                    comp, stack = [], [(j0, i0)]
+                    seen[j0][i0] = True
+                    while stack:
+                        j, i = stack.pop()
+                        comp.append((j, i))
+                        for dj, di in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                            nj, ni = j + dj, i + di
+                            if 0 <= nj < rows and 0 <= ni < cols and not clear[nj][ni] and not seen[nj][ni]:
+                                seen[nj][ni] = True
+                                stack.append((nj, ni))
+                    if len(comp) < opts['min_island']:
+                        for j, i in comp:
+                            clear[j][i] = True
         if name == 'pikachu':
             # 꼬리 사이처럼 막힌 곳에 남은 풀색도 지운다
             for j in range(rows):
