@@ -144,7 +144,7 @@ DotAssessment assessShape({
 
 /// 그림 [pixels]([width]×[height], 색 [colors]가지)에 벨트 자리 [capacity]로 대포 구성을 정하고 난이도를 매긴다.
 ///
-/// 풀리는 배치를 찾을 때까지 벨트 자리를 하나씩 늘려 가며 본다.
+/// 풀리는 배치를 찾을 때까지 벨트 자리를 하나씩 늘려 가며 본다. (한 색이 도트 대부분을 차지하는 그림은 벨트가 꽤 넓어야 풀린다)
 DotAssessment assessArt({
   required List<int> pixels,
   required int width,
@@ -156,9 +156,10 @@ DotAssessment assessArt({
   final count = pixels.where((c) => c != kDotEmpty).length;
   final shape = defaultQueueShape(count, colors);
   // 도트가 많으면 한 판 돌리는 데 오래 걸려서 시험 횟수를 줄인다
-  final n = count > 700 ? min(trials, 24) : trials;
+  final n = count > 3000 ? min(trials, 4) : (count > 1500 ? min(trials, 10) : (count > 700 ? min(trials, 24) : trials));
   DotAssessment? last;
-  for (var cap = capacity; cap <= capacity + 3; cap++) {
+  // 도트가 아주 많으면 한 번 보는 데 오래 걸려서 덜 늘려 본다
+  for (var cap = capacity; cap <= capacity + (count > 3000 ? 4 : 7); cap++) {
     final a = assessShape(
       pixels: pixels,
       width: width,

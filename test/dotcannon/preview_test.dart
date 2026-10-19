@@ -75,7 +75,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     });
 
-    final c2 = DotController(level: dotLevels.firstWhere((l) => l.name == '펭귄'));
+    final c2 = DotController(level: dotLevels.firstWhere((l) => l.name == '유령'));
     await shoot('game_landscape', const Size(1000, 560), DotScreen(controller: c2), before: () async {
       for (var i = 0; i < 400; i++) {
         final ex = c2.game.exposedColors();

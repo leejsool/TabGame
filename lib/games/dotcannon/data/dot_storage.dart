@@ -40,6 +40,11 @@ class DotStorage {
     );
   }
 
+  /// 개발자용: 모든 그림의 잠금을 푼 상태인가 (그림 고르는 제목의 '시작'을 10번 누르면 바뀐다).
+  static Future<bool> unlockedAll() async => (await SharedPreferences.getInstance()).getBool('dotcannon.unlockAll') ?? false;
+
+  static Future<void> setUnlockedAll(bool value) async => (await SharedPreferences.getInstance()).setBool('dotcannon.unlockAll', value);
+
   /// 단계 이름표 → 기록.
   static Future<Map<String, DotStageStats>> statsFor(Iterable<DotLevel> levels) async => {
         for (final l in levels) l.id: await stats(l.id),

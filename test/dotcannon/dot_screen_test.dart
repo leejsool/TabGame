@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_save.dart';
@@ -27,10 +28,11 @@ Future<Widget> app(Widget home) async {
 
 /// 간단한 규칙([botPick])으로 대포를 올리며 끝까지 한다.
 void playToEnd(DotController c) {
-  for (var i = 0; i < 60000 && !c.completed && !c.stalled; i++) {
-    final col = botPick(c.game);
-    if (col != null) c.deploy(col);
-    c.advance(DotController.stepSeconds);
+  for (var i = 0; i < 400000 && !c.completed && !c.stalled; i++) {
+    // 올릴 수 있는 만큼 올린 뒤 벨트를 한 칸 돌린다 (botSolves와 같은 순서라서, 풀리는 판으로 정해 둔 그림이 그대로 풀린다)
+    for (var col = botPick(c.game); col != null && c.deploy(col); col = botPick(c.game)) {}
+    // (한 번에 한 칸만 돌아가게 짧게 흘려보낸다: 그래야 칸마다 올릴 대포를 살필 수 있다)
+    c.advance(DotController.stepSeconds / 4);
   }
 }
 
@@ -169,8 +171,76 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('dot-create')), findsOneWidget);
     expect(find.byKey(ValueKey('dot-card-${dotLevels.first.id}')), findsOneWidget);
-    expect(find.text('하트'), findsOneWidget);
+    expect(find.text('1. 하트'), findsOneWidget);
     expect(find.byKey(const ValueKey('dot-resume')), findsNothing);
+  });
+
+  testWidgets('첫 그림만 열려 있고, 앞 그림을 깨면 다음 그림이 열린다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final menu = await app(const DotMenuScreen());
+    await tester.pumpWidget(menu);
+    await tester.pump(const Duration(milliseconds: 300));
+    // 첫 그림은 열려 있고, 둘째 그림부터는 잠겨 있다
+    expect(find.text('2. ???'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsWidgets);
+    await tester.tap(find.byKey(ValueKey('dot-card-${dotLevels[1].id}')));
+    await tester.pump();
+    expect(find.textContaining('먼저 깨야 열려요'), findsOneWidget);
+    // 첫 그림을 깬 기록이 있으면 둘째 그림이 열린다
+    await tester.runAsync(() => DotStorage.recordWin(dotLevels.first.id, seconds: 60, deploys: 8));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(menu);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('2. ${dotLevels[1].name}'), findsOneWidget);
+  });
+
+  testWidgets("제목의 '시작'을 10번 누르면 모든 그림이 열리고, 다시 10번 누르면 잠긴다", (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(await app(const DotMenuScreen()));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byIcon(Icons.lock_rounded), findsWidgets);
+    final para = tester.renderObject<RenderParagraph>(find.byKey(const ValueKey('dot-stage-title')));
+    final box = para.getBoxesForSelection(const TextSelection(baseOffset: 7, extentOffset: 9)).first; // "그림을 골라 " 다음의 '시작'
+    final spot = para.localToGlobal(box.toRect().center);
+    for (var i = 0; i < 9; i++) {
+      await tester.tapAt(spot);
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byIcon(Icons.lock_rounded), findsWidgets, reason: '9번으로는 안 열린다');
+    await tester.tapAt(spot);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byIcon(Icons.lock_rounded), findsNothing);
+    expect(find.textContaining('모든 그림을 열었어요'), findsOneWidget);
+    expect(find.text('2. ${dotLevels[1].name}'), findsOneWidget);
+  });
+
+  testWidgets('처음에는 아직 못 깬 가장 앞 그림이 보이고, 왼쪽으로 밀면 깬 그림을 다시 고를 수 있다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final menu = await app(const DotMenuScreen());
+    // 앞의 세 그림을 깬 상태: 도전할 그림은 넷째
+    await tester.runAsync(() async {
+      for (var i = 0; i < 3; i++) {
+        await DotStorage.recordWin(dotLevels[i].id, seconds: 60, deploys: 8);
+      }
+    });
+    await tester.pumpWidget(menu);
+    await tester.pump(const Duration(milliseconds: 300));
+    final target = find.byKey(ValueKey('dot-card-${dotLevels[3].id}'));
+    expect(target, findsOneWidget);
+    expect(find.text('4. ${dotLevels[3].name}'), findsOneWidget);
+    // 첫 그림은 화면 밖 왼쪽에 있다
+    final first = find.byKey(ValueKey('dot-card-${dotLevels.first.id}'));
+    final list = find.byKey(const ValueKey('dot-stage-list'));
+    expect(first, findsNothing);
+    // 왼쪽으로 밀면(= 손가락을 오른쪽으로 끌면) 앞 그림이 보인다
+    await tester.drag(list, const Offset(700, 0));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(first, findsOneWidget);
+    expect(tester.getTopLeft(first).dx, greaterThanOrEqualTo(0));
   });
 
   testWidgets('이어하던 판이 있으면 첫 화면에 이어하기가 뜬다', (tester) async {

@@ -24,8 +24,8 @@ class DotCreateScreen extends StatefulWidget {
 }
 
 class _DotCreateScreenState extends State<DotCreateScreen> {
-  static const List<int> _sizes = [16, 24, 32];
-  static const List<String> _sizeNames = ['작게', '보통', '크게'];
+  static const List<int> _sizes = [16, 24, 32, 48, 64];
+  static const List<String> _sizeNames = ['작게', '보통', '크게', '더 크게', '최대'];
   static const List<int> _capacities = [5, 4, 3];
   static const List<String> _capacityNames = ['쉽게', '보통', '어렵게'];
 
@@ -210,10 +210,21 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
                   decoration: const InputDecoration(labelText: '그림 이름', border: OutlineInputBorder(), counterText: ''),
                 ),
                 const SizedBox(height: 14),
-                _label('도트 크기'),
+                _label('도트 크기 (긴 쪽 칸 수)'),
                 SegmentedButton<int>(
+                  showSelectedIcon: false,
                   segments: [
-                    for (var i = 0; i < _sizes.length; i++) ButtonSegment(value: i, label: Text('${_sizeNames[i]} ${_sizes[i]}')),
+                    for (var i = 0; i < _sizes.length; i++)
+                      ButtonSegment(
+                        value: i,
+                        label: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('${_sizes[i]}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                            Text(_sizeNames[i], style: const TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                      ),
                   ],
                   selected: {_sizeIndex},
                   onSelectionChanged: (s) {
@@ -221,6 +232,14 @@ class _DotCreateScreenState extends State<DotCreateScreen> {
                     _rebuild();
                   },
                 ),
+                if (_sizes[_sizeIndex] >= 48)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '큰 그림은 풀리는 배치를 찾느라 몇 초에서 몇십 초 걸려요. 도트가 많아서 한 판도 오래 걸려요.',
+                      style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.6)),
+                    ),
+                  ),
                 const SizedBox(height: 14),
                 _label('색 수: 최대 $_colors가지 (비슷한 색은 하나로 합쳐요)'),
                 Slider(

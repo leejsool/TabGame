@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -14,6 +15,7 @@ import '../game/dot_controller.dart';
 import '../tutorial/dot_tutorial.dart';
 import 'dot_create_screen.dart';
 import 'dot_painter.dart';
+import 'dot_stage_carousel.dart';
 
 const Color dotAccent = Color(0xFF2F8FDB);
 
@@ -35,6 +37,13 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
   bool _loaded = false;
   bool _busy = false;
   bool _showAllCustom = false;
+  bool _unlockAll = false;
+
+  /// 개발자용 숨은 단추: 제목의 '시작'을 짧은 사이에 10번 누르면 모든 그림의 잠금이 풀리고(다시 10번이면 잠기고) 한다.
+  static const _secretTaps = 10;
+  int _taps = 0;
+  DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
+  late final TapGestureRecognizer _secret = TapGestureRecognizer()..onTap = _secretTap;
 
   /// 접어 둘 때 보여 주는 "내가 만든 그림" 장수.
   static const _customPreview = 6;
@@ -48,6 +57,7 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
 
   @override
   void dispose() {
+    _secret.dispose();
     GameSave.changes.removeListener(_load);
     super.dispose();
   }
@@ -56,8 +66,10 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
     final saved = await GameSave.load(dotGameId);
     final custom = await DotCustomStore.loadAll();
     final stats = await DotStorage.statsFor([...dotLevels, ...custom]);
+    final unlockAll = await DotStorage.unlockedAll();
     if (!mounted) return;
     setState(() {
+      _unlockAll = unlockAll;
       _saved = saved;
       _custom = custom;
       _stats = stats;
@@ -69,6 +81,19 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _secretTap() async {
+    final now = DateTime.now();
+    _taps = now.difference(_lastTap) > const Duration(seconds: 2) ? 1 : _taps + 1;
+    _lastTap = now;
+    if (_taps < _secretTaps) return;
+    _taps = 0;
+    final next = !_unlockAll;
+    await DotStorage.setUnlockedAll(next);
+    if (!mounted) return;
+    setState(() => _unlockAll = next);
+    _toast(next ? '개발자 모드: 모든 그림을 열었어요.' : '모든 그림 열기를 껐어요.');
   }
 
   Future<void> _start(DotLevel level) async {
@@ -172,17 +197,30 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
                       const SizedBox(height: 14),
                       _CreateCard(onTap: _pickFromGallery, busy: _busy),
                       const SizedBox(height: 22),
-                      Text('그림을 골라 시작해요', style: heading),
+                      Text.rich(
+                        key: const ValueKey('dot-stage-title'),
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: '그림을 골라 '),
+                            TextSpan(text: '시작', recognizer: _secret),
+                            const TextSpan(text: '해요'),
+                          ],
+                        ),
+                        style: heading,
+                      ),
                       const SizedBox(height: 10),
-                      _grid([
-                        for (final l in dotLevels)
-                          DotLevelCard(
-                            key: ValueKey('dot-card-${l.id}'),
-                            level: l,
-                            stats: _stats[l.id],
-                            onTap: () => _start(l),
-                          ),
-                      ]),
+                      Text(
+                        '앞 그림을 깨면 다음 그림이 열려요. 왼쪽으로 밀면 깬 그림을 다시 고를 수 있어요.',
+                        style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+                      ),
+                      const SizedBox(height: 10),
+                      DotStageCarousel(
+                        levels: dotLevels,
+                        stats: _stats,
+                        unlockAll: _unlockAll,
+                        onPlay: _start,
+                        onLocked: (prev) => _toast('앞 그림 "${dotLevels[prev].name}"을(를) 먼저 깨야 열려요.'),
+                      ),
                       // 내가 만든 그림은 기본 그림 아래에 둔다 (많이 만들어도 기본 그림이 밀려나지 않게). 많으면 최근 것만 보이고 나머지는 펼쳐 본다.
                       if (_custom.isNotEmpty) ...[
                         const SizedBox(height: 22),
@@ -237,20 +275,41 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
 
 /// 그림 한 장 카드: 도트 그림, 이름, 기록.
 class DotLevelCard extends StatelessWidget {
-  const DotLevelCard({super.key, required this.level, required this.stats, required this.onTap, this.onLongPress});
+  const DotLevelCard({
+    super.key,
+    required this.level,
+    required this.stats,
+    required this.onTap,
+    this.onLongPress,
+    this.number,
+    this.locked = false,
+    this.highlight = false,
+  });
 
   final DotLevel level;
   final DotStageStats? stats;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
+  /// 기본 그림의 차례 번호 (내가 만든 그림은 없다).
+  final int? number;
+
+  /// 앞 그림을 아직 못 깨서 잠겨 있다.
+  final bool locked;
+
+  /// 지금 도전할 그림이라서 눈에 띄게 한다.
+  final bool highlight;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final cleared = stats?.cleared ?? false;
     return Material(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
+        color: highlight ? dotAccent.withValues(alpha: 0.14) : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: highlight ? const BorderSide(color: dotAccent, width: 2) : BorderSide.none,
+        ),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: onTap,
@@ -265,8 +324,23 @@ class DotLevelCard extends StatelessWidget {
                     decoration: BoxDecoration(color: const Color(0xFFF7F1E3), borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(8),
-                      child: CustomPaint(
-                        painter: DotArtPainter(level.pixels, level.width, level.height, level.colors, fog: !cleared && !level.custom),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CustomPaint(
+                            painter: DotArtPainter(level.pixels, level.width, level.height, level.colors, fog: !cleared && !level.custom),
+                          ),
+                          if (locked)
+                            Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(10),
+                                  child: Icon(Icons.lock_rounded, size: 28, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -277,7 +351,7 @@ class DotLevelCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        level.name,
+                        number == null ? level.name : '$number. ${locked ? '???' : level.name}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
@@ -308,7 +382,7 @@ class DotLevelCard extends StatelessWidget {
                   ),
                 Text(
                   // (기록을 저장하는 중간에 읽어 최단 시간이 아직 없을 수 있다: 그때는 시간 없이 보여 준다)
-                  !cleared ? '아직 못 깼어요' : (stats?.bestSeconds == null ? '깼어요' : '최단 ${formatTime(stats!.bestSeconds!)}'),
+                  locked ? '잠겨 있어요' : !cleared ? '아직 못 깼어요' : (stats?.bestSeconds == null ? '깼어요' : '최단 ${formatTime(stats!.bestSeconds!)}'),
                   style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.6)),
                 ),
               ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'dot_rules.dart';
+import 'dot_stage_data.dart';
 
 /// 도트 캐논의 한 단계: 액자 속 도트 그림과 대포 구성.
 ///
@@ -166,17 +167,19 @@ const Color _orange = Color(0xFFF08A24);
 const Color _green = Color(0xFF3FA34D);
 const Color _brown = Color(0xFF8A5A36);
 const Color _pink = Color(0xFFF58FB0);
-const Color _blue = Color(0xFF3D7BE0);
 const Color _navy = Color(0xFF26324D);
-const Color _cream = Color(0xFFF1DDB0);
 const Color _mint = Color(0xFF7FD6B4);
 const Color _violet = Color(0xFFA48BE8);
-const Color _cyan = Color(0xFF4CC9E0);
-const Color _lime = Color(0xFFB7E27A);
 
-/// 모든 단계. 앞쪽은 색이 적고 벨트 자리가 넉넉해서 쉽고, 뒤로 갈수록 색이 많고 위에 덮인 색이 많고 벨트 자리가 좁아져요.
-/// (글자 그림 한 칸이 3x3 도트가 되어 도트가 360개에서 1100개쯤 돼요.)
+/// 모든 기본 단계. 손으로 만든 그림이 앞에 오고, 그 뒤에 사진에서 뽑은 그림([dotStageData])이 쉬운 것부터 이어져요.
+/// 메뉴에서는 앞 단계를 깨야 다음 단계가 열려요.
 final List<DotLevel> dotLevels = [
+  ..._handmade,
+  for (final d in dotStageData) d.toLevel(),
+];
+
+/// 손으로 만든 첫 단계들. (글자 그림 한 칸이 3x3 도트가 되어 도트가 360개에서 1100개쯤 돼요.)
+final List<DotLevel> _handmade = [
   DotLevel.rows(
     name: '하트',
     palette: {'R': _red, 'W': _white},
@@ -194,47 +197,6 @@ final List<DotLevel> dotLevels = [
     ammoHi: 36,
     seed: 1,
     capacity: 5,
-  ),
-  DotLevel.rows(
-    name: '별',
-    palette: {'Y': _yellow, 'O': _orange},
-    rows: [
-      '....YY....',
-      '....YY....',
-      '...YYYY...',
-      'YYYYYYYYYY',
-      '.YYYOOYYY.',
-      '..YYOOYY..',
-      '..YYYYYY..',
-      '.YYYYYYYY.',
-      '.YYY..YYY.',
-      '.YY....YY.',
-    ],
-    columns: 5,
-    ammoLo: 21,
-    ammoHi: 50,
-    seed: 1,
-    capacity: 5,
-  ),
-  DotLevel.rows(
-    name: '보석',
-    palette: {'C': _cyan, 'W': _white, 'B': _blue},
-    rows: [
-      '..CCCCCCCC..',
-      '.CCWWCCBBCC.',
-      'CCWWCCCCBBCC',
-      'CCCCCCCCCCCC',
-      '.CCCCBBCCCC.',
-      '..CCCBBCCC..',
-      '...CCBBCC...',
-      '....CBBC....',
-      '.....BB.....',
-    ],
-    columns: 5,
-    ammoLo: 11,
-    ammoHi: 26,
-    seed: 1,
-    capacity: 4,
   ),
   DotLevel.rows(
     name: '아이스크림',
@@ -262,74 +224,6 @@ final List<DotLevel> dotLevels = [
     capacity: 3,
   ),
   DotLevel.rows(
-    name: '펭귄',
-    palette: {'K': _navy, 'W': _white, 'O': _orange},
-    rows: [
-      '....KKKK....',
-      '...KKKKKK...',
-      '..KKWKKWKK..',
-      '..KKKOOKKK..',
-      '..KKKKKKKK..',
-      '.KKKWWWWKKK.',
-      'KKKWWWWWWKKK',
-      'KKKWWWWWWKKK',
-      'KKKWWWWWWKKK',
-      '.KKWWWWWWKK.',
-      '..KKWWWWKK..',
-      '...KWWWWK...',
-      '..OOO..OOO..',
-      '.OOOO..OOOO.',
-    ],
-    columns: 5,
-    ammoLo: 30,
-    ammoHi: 71,
-    seed: 1,
-    capacity: 3,
-  ),
-  DotLevel.rows(
-    name: '수박',
-    palette: {'G': _green, 'L': _lime, 'R': _red, 'K': _navy},
-    rows: [
-      'GGGGGGGGGGGGGG',
-      'GLLLLLLLLLLLLG',
-      '.GLRRRRRRRRLG.',
-      '.GLRKRRRRKRLG.',
-      '..GLRRRKRRRLG.',
-      '...GLRRRRRLG..',
-      '.....GLRLG....',
-      '.......GG.....',
-    ],
-    columns: 5,
-    ammoLo: 9,
-    ammoHi: 22,
-    seed: 1,
-    capacity: 3,
-  ),
-  DotLevel.rows(
-    name: '해바라기',
-    palette: {'Y': _yellow, 'B': _brown, 'G': _green},
-    rows: [
-      '....YYYY....',
-      '..YYYYYYYY..',
-      '.YYYBBBBYYY.',
-      '.YYBBBBBBYY.',
-      'YYYBBBBBBYYY',
-      'YYYBBBBBBYYY',
-      '.YYBBBBBBYY.',
-      '.YYYBBBBYYY.',
-      '..YYYYYYYY..',
-      '....YYYY....',
-      '.....GG.....',
-      '...GGGG.....',
-      '.....GG.....',
-    ],
-    columns: 5,
-    ammoLo: 24,
-    ammoHi: 58,
-    seed: 1,
-    capacity: 4,
-  ),
-  DotLevel.rows(
     name: '고양이',
     palette: {'O': _orange, 'P': _pink, 'G': _green, 'K': _navy, 'W': _white},
     rows: [
@@ -350,27 +244,6 @@ final List<DotLevel> dotLevels = [
     ammoHi: 40,
     seed: 1,
     capacity: 3,
-  ),
-  DotLevel.rows(
-    name: '버섯',
-    palette: {'R': _red, 'W': _white, 'C': _cream, 'K': _brown},
-    rows: [
-      '...RRRR...',
-      '..RRWWRR..',
-      '.RWWRRRRR.',
-      'RRWWRRWWRR',
-      'RRRRRRWWRR',
-      'RRRRRRRRRR',
-      '..CCCCCC..',
-      '..CKCCKC..',
-      '..CCCCCC..',
-      '...CCCC...',
-    ],
-    columns: 5,
-    ammoLo: 13,
-    ammoHi: 32,
-    seed: 1,
-    capacity: 4,
   ),
   DotLevel.rows(
     name: '유령',

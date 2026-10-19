@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/dotcannon/core/dot_levels.dart';
 import 'package:tabgame/games/dotcannon/core/dot_rules.dart';
+import 'package:tabgame/games/dotcannon/core/dot_stages.dart';
 
 void main() {
   test('모든 단계의 그림은 줄 길이가 같고 모든 색이 그림에 쓰인다', () {
@@ -42,5 +43,18 @@ void main() {
       final back = DotLevel.fromJson(l.toJson());
       expect(back.newGame().toJson(), l.newGame().toJson(), reason: l.name);
     }
+  });
+
+  test('그림 칸을 길이 부호화했다가 풀어도 같다', () {
+    final px = [kDotEmpty, kDotEmpty, 0, 0, 0, 1, kDotEmpty, 25, 25, 12];
+    expect(encodeDotRuns(px), '.2a3b1.1z2m1');
+    expect(decodeDotRuns(encodeDotRuns(px)), px);
+    for (final l in dotLevels) {
+      expect(decodeDotRuns(encodeDotRuns(l.pixels)), l.pixels, reason: l.name);
+    }
+  });
+
+  test('기본 단계는 손으로 만든 4개 이상이다', () {
+    expect(dotLevels.length, greaterThanOrEqualTo(4));
   });
 }
