@@ -82,8 +82,8 @@ Map<String, int> charTally(String s, Iterable<String> keys) {
   return {for (final k in keys) k: RegExp(RegExp.escape(k)).allMatches(lower).length};
 }
 
-/// 베리의 역설에 나오는 설명 (스무 글자 이하로는 표현할 수 없는 가장 작은 수).
-const String kBerryPhrase = '스무 글자 이하로 표현할 수 없는 가장 작은 수';
+/// 베리의 역설에 나오는 설명. 공백을 빼면 24글자라서, 스스로 "스물다섯 글자 미만"이다.
+const String kBerryPhrase = '스물다섯 글자 미만으로 정의할 수 없는 가장 작은 양의 정수';
 
 /// 행 또는 열 한 줄의 "끝날 때 숫자 개수" 시험: 줄 칸이 [cells]개이고 이미 숫자가 [numbers]개 있을 때 다음 빈칸에
 /// 숫자를 쓰면 몇 개가 되는가? (맛보기 노트: 4, X, 빈칸, 3인 줄에 무엇을 쓰면 어떻게 되는지 보려고 쓴다.)

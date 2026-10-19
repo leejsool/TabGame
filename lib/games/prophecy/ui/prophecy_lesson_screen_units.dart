@@ -14,54 +14,14 @@ List<Widget> _unitSelfDescribing(BuildContext context) => [
       lessonP('칸이 1개, 2개, 3개인 표는 가능한 모든 경우를 따져 봐도 답이 없어요. 답이 생기는 가장 작은 표는 4칸짜리예요. 4칸에는 아래 줄이 2·3·2·1인 답 말고도 3·1·3·1이라는 다른 답이 하나 더 있어요.'),
       lessonH(context, '자기 자신의 글자 수를 세는 문장'),
       lessonP('문장도 자기 자신을 설명할 수 있어요. 영국의 리 샐로스는 자기 안에 알파벳이 몇 개씩 들어 있는지를 A부터 Z까지 모두 정확히 말하는 영어 문장을 만들었어요. 호프스태터가 이 문장을 소개해 유명해졌어요.'),
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: _accent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
-        child: const Text('"$kSallowsPangram"', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.5)),
-      ),
-      lessonP('정말인지 알파벳을 직접 세어 본 결과예요. 문장이 말한 숫자와 하나도 어긋나지 않아요!'),
-      Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 8,
-        runSpacing: 6,
-        children: [
-          for (final e in letterTally(kSallowsPangram).entries)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-              child: Text('${e.key} ${e.value}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-            ),
-        ],
-      ),
+      lessonP('아래 글상자에 그 문장이 들어 있어요. 글자를 지우거나 새로 써 보세요. 알파벳이 몇 개씩 들어 있는지가 바로 아래에 나타나요. 처음 문장은 말한 숫자와 실제 개수가 하나도 어긋나지 않아요!'),
+      EditableSentenceTally(initial: kSallowsPangram, keys: _pangramKeys),
+      lessonP('예를 들어 "four As"의 four를 five로 바꿔 보세요. A의 개수는 그대로인데, five에는 f·i·v·e가 들어 있어서 다른 알파벳 개수가 바뀌어요. 그래서 문장이 말한 숫자들이 틀려져요.'),
       lessonP('이렇게 자기 안의 글자 개수를 스스로 말하는 문장을 "오토그램(autogram)"이라고 불러요. 이 문장은 알파벳이 모두 들어 있는 오토그램이에요. 숫자를 하나라도 바꾸면, 그 숫자를 쓴 낱말 때문에 다른 글자의 개수가 달라져서 맞지 않게 돼요. 이런 문장을 찾으려면 컴퓨터로 수없이 고쳐 가며 맞춰 봐야 해요.'),
       lessonP('샐로스는 한술 더 떠서, 알파벳뿐 아니라 쉼표와 어포스트로피(’)와 하이픈과 느낌표의 개수까지 말하는 문장도 만들었어요. 문장의 뜻은 "이걸 일일이 확인하는 건 바보나 하는 짓"이래요. 그런데 우리는 바보가 되어 볼까요?'),
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: _accent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
-        child: const Text('"$kSallowsFoolSentence"', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.5)),
-      ),
-      Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 8,
-        runSpacing: 6,
-        children: [
-          for (final e in _foolTally().entries)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(color: _accent.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-              child: Text('${e.key} ${e.value}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-            ),
-        ],
-      ),
+      EditableSentenceTally(initial: kSallowsFoolSentence, keys: _foolKeys(), labelOf: _foolLabel, fontSize: 14),
       lessonP('쉼표 27개, 어포스트로피 23개, 하이픈 7개, 느낌표 1개까지 한 개도 틀리지 않아요. 한국어로는 훨씬 짧은 문장이 가능해요.'),
-      Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: _accent.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14)),
-        child: Text('"$kSelfCountingSentence"', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, height: 1.4)),
-      ),
+      const EditableSentenceTally(initial: kSelfCountingSentence, claimedCount: 18, fontSize: 17),
       lessonP('세어 볼까요? 이(1) 문장은(3) 공백을(3) 빼면(2) 모두(2) 열여덟(3) 글자예요(4) → 모두 ${letterCount(kSelfCountingSentence)}글자! 문장이 말한 숫자와 정확히 같아요. "열여덟"을 다른 수로 바꾸면 대부분 틀려져요.'),
       lessonKey(context, '자기 자신을 가리키는 말이나 그림이나 표를 "자기 참조"라고 해요. 재미있는 퍼즐이 되기도 하지만, 잘못 쓰면 모순이 되기도 해요. 다음 단원에서 만나요.', icon: Icons.loop_rounded),
     ];
@@ -158,20 +118,33 @@ List<Widget> _unitMoreParadoxes(BuildContext context) => [
         ),
       ),
       LessonReveal(
-        title: '② 베리의 역설\n\n"$kBerryPhrase"이라는 말은 어떤 수를 가리킬까요? 스무 글자로 표현할 수 있는 수는 한정되어 있으니, 표현할 수 없는 수가 있고 그중 가장 작은 수가 있을 거예요. 그런데…',
+        title: '② 베리의 역설\n\n한 문장으로 정의할 수 있는 수는 글자 수가 짧을수록 한정되어 있어요. 글자 수는 공백을 빼고 센다고 해요. 한국어 글자 종류는 많아야 몇천 가지니까, "스물다섯 글자 미만"(24글자 이하)으로 쓸 수 있는 문장은 아무리 많아도 유한 개예요. 그러니 그런 문장으로 정의할 수 있는 양의 정수도 유한 개이고, 정의할 수 없는 양의 정수가 반드시 있어요. 그중 가장 작은 수를 이렇게 불러 볼게요.\n\n"$kBerryPhrase"\n\n그런데…',
         child: Text(
-          '방금 그 수를 설명한 이 말은 공백을 빼면 ${letterCount(kBerryPhrase)}글자예요! "스무 글자 이하로 표현할 수 없다"던 수를 ${letterCount(kBerryPhrase)}글자로 표현해 버렸어요. "표현한다"는 말을 수의 이야기 안에서 마음대로 쓸 때 생기는 모순이에요.',
-          style: const TextStyle(fontSize: 15, height: 1.55),
-        ),
-      ),
-      const LessonReveal(
-        title: '③ 커리의 역설 (조금 어려워요)\n\n문장 S: "이 문장이 참이라면, 달은 치즈로 되어 있다."\nS가 참이라고 가정해 보세요.',
-        child: Text(
-          'S가 참이라고 가정하면, S가 말한 대로 달은 치즈예요. 그런데 "S가 참이면 달은 치즈다"가 바로 S 자신이에요. 가정에서 달이 치즈라는 결론이 나왔으니 S가 참이라는 것을 증명한 셈이에요. 그러면 정말로 달은 치즈가 돼 버려요! 자기를 가리키는 문장 하나로 아무 말이나 증명할 수 있다는, 무서운 이야기예요.',
+          '방금 그 수를 정의한 이 말을 세어 보세요. 공백을 빼면 ${letterCount(kBerryPhrase)}글자예요! 스물다섯 글자 미만이에요. "스물다섯 글자 미만으로는 정의할 수 없다"던 수를 ${letterCount(kBerryPhrase)}글자로 정의해 버렸으니 모순이에요.\n\n'
+          '어디가 문제일까요? "정의한다"는 말을 아무 제한 없이 쓴 데 있어요. "정의할 수 없는"이라는 말은 정의하는 일 자체를 이야기하는데, 그 말이 다시 정의의 재료로 들어가 자기 자신을 가리키게 돼요. 그래서 수학에서는 "정의할 수 있다"를 마음대로 쓰지 않고, 정해진 규칙 체계 안에서만 말해요.',
           style: TextStyle(fontSize: 15, height: 1.55),
         ),
       ),
-      lessonKey(context, '이 역설들의 공통 레시피: ① 자기 자신을 가리키고(자기 참조) ② "아니다·거짓이다·표현할 수 없다" 같은 부정이 끼어들어요. 수학자들은 이런 문장을 규칙으로 막거나 층을 나누어 피해 가는 법을 만들었어요.', icon: Icons.menu_book_rounded),
+      lessonH(context, '③ 커리의 역설'),
+      lessonP('1942년 논리학자 해스켈 커리가 찾아낸 역설이에요. 거짓말쟁이 역설과 달리 "아니다·거짓이다" 같은 부정이 하나도 없는데도 문제가 생겨서 더 놀라워요. 먼저 "A이면 B이다"라는 말이 언제 참인지부터 살펴봐요.'),
+      const ConditionalTruthTable(),
+      lessonP('이제 이런 문장 S를 생각해 봐요. "이 문장이 참이라면, 달은 치즈로 되어 있다." 겉모습은 "A이면 B" 꼴이에요. 다만 A 자리에 "이 문장(S 자신)이 참이다"가 들어 있어요. 아래에서 결론으로 쓸 말을 고르고 한 단계씩 따라가 보세요.'),
+      const CurryParadoxStepper(),
+      lessonH(context, '어디가 이상한 걸까요?'),
+      lessonBullets(context, [
+        '계산은 모두 맞아 보여요. 각 단계는 "가정을 세우고, 그 가정 아래에서 결론을 이끌고, 가정을 접는다"는 평범한 증명 방법이에요.',
+        '이상한 곳은 문장 S 자체예요. S는 자기가 참이라는 것을 재료로 삼아 자기 내용을 만들어요. 이런 문장이 허용되면, 결론 C가 무엇이든 "S가 참이면 C"라는 문장을 만들 수 있어요.',
+        '그래서 이 역설은 "달이 치즈라니 말도 안 돼"로 끝나지 않아요. C에 "1 = 2"를 넣든 "이 규칙 체계는 모순투성이다"를 넣든 똑같이 증명돼요.',
+      ]),
+      lessonP('일상의 이야기로 옮기면 이런 쪽지예요. "이 쪽지의 말이 맞다면, 너는 나에게 백만 원을 줘야 한다." 쪽지가 맞다고 가정하고 따라가면 결국 정말로 백만 원을 줘야 하는 것처럼 보여요. 그런데 이 쪽지에는 아무 근거도 없어요. 근거 없는 말이 자기 자신을 근거로 삼아서 스스로를 증명하는 것, 이것이 문제예요.'),
+      lessonH(context, '수학자들은 어떻게 했을까요?'),
+      lessonBullets(context, [
+        '자기를 가리키는 문장을 아예 만들지 못하게 규칙으로 막아요. (러셀의 층 나누기와 같은 생각이에요.)',
+        '"참이다"라는 말을 보통 문장과 같은 층에서 쓰지 못하게 해요. 어떤 층의 문장의 참거짓은 한 층 위에서만 말할 수 있어요. (타르스키)',
+        '가정을 함부로 겹쳐 쓰지 못하게, 증명 규칙 자체를 조금 약하게 만들어요.',
+      ]),
+      lessonKey(context, '거짓말쟁이는 "아니다"가 끼어든 자기 참조, 커리는 "참이라면 무엇이든"이 끼어든 자기 참조예요. 어느 쪽이든 문장이 자기 자신의 참을 재료로 삼는 순간 규칙이 흔들려요.', icon: Icons.loop_rounded),
+      lessonKey(context, '이 역설들의 공통 레시피: ① 자기 자신을 가리키고(자기 참조) ② "아니다·거짓이다·정의할 수 없다" 같은 부정이 끼어들어요. (커리의 역설은 부정 없이 "참이라면 무엇이든"이라는 말이 그 구실을 해요.) 수학자들은 이런 문장을 규칙으로 막거나 층을 나누어 피해 가는 법을 만들었어요.', icon: Icons.menu_book_rounded),
     ];
 
 List<Widget> _unitGodel(BuildContext context) => [

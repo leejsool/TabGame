@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/dandelion/core/dandelion_rules.dart';
+import 'package:tabgame/games/dandelion/ui/dandelion_art.dart';
 import 'package:tabgame/games/dandelion/ui/dandelion_lesson_screen.dart';
 
 int cell(int r, int c) => r * kSize + c;
@@ -19,6 +20,17 @@ void main() {
     test('꽃 한 송이뿐이면 보장된 칸이 없다', () {
       final cells = DandState.sow([cell(2, 2)], const []);
       expect(DandState.guaranteed(cells, 0), isEmpty);
+    });
+
+    test('문제 세 개 모두 찾을 보장된 칸이 있다', () {
+      for (final sc in kGuaranteeScenarios) {
+        final cells = DandState.sow(sc.flowers, sc.used);
+        var used = 0;
+        for (final d in sc.used) {
+          used |= 1 << d.index;
+        }
+        expect(DandState.guaranteed(cells, used), isNotEmpty, reason: sc.title);
+      }
     });
 
     test('보장된 칸은 바람이 어떤 방향을 빼도 실제로 채워진다', () {
@@ -108,21 +120,58 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('보장된 칸 찾기: 빈칸을 누르면 이유가 나오고 정답 보기가 된다', (tester) async {
+    testWidgets('보장된 칸 찾기: 틀린 칸은 이유가 나오고, 세 문제를 다 찾으면 축하해 준다', (tester) async {
       await pumpLesson(tester);
+      tester.view.physicalSize = const Size(430, 2400); // 문제 그림이 한 화면에 다 들어오게
       await tester.tap(find.textContaining('3. 보장된 칸 찾기'));
       await tester.pumpAndSettle();
-      expect(find.text('비어 있는 칸을 눌러 보세요.'), findsWidgets);
-      final board = find.byType(CustomPaint).evaluate().map((e) => e.widget).length; // 그림이 있다
-      expect(board, greaterThan(0));
-      await tester.tap(find.text('보장된 칸 모두 보기'));
-      await tester.pump();
-      expect(find.textContaining('초록 체크'), findsOneWidget);
-      await tester.tap(find.text('문제 2'));
-      await tester.pump();
-      await tester.tap(find.text('보장된 칸 모두 보기'));
-      await tester.pump();
-      expect(find.text('이 문제에는 보장된 칸이 하나도 없어요.'), findsOneWidget);
+      expect(find.text('보장된 칸을 눌러 보세요.'), findsWidgets);
+      expect(find.byKey(const ValueKey('guarantee-done')), findsNothing);
+
+      Future<void> tapCell(int cell) async {
+        final meadow = find.byType(CustomPaint).evaluate().map((e) => e.renderObject).whereType<RenderBox>().firstWhere((r) => r.size.width == 280);
+        final layout = DandLayout(meadow.size.width);
+        await tester.tapAt(meadow.localToGlobal(layout.center(cell)));
+        await tester.pump();
+      }
+
+      for (var i = 0; i < kGuaranteeScenarios.length; i++) {
+        final sc = kGuaranteeScenarios[i];
+        await tester.tap(find.text(sc.title));
+        await tester.pump();
+        var used = 0;
+        for (final d in sc.used) {
+          used |= 1 << d.index;
+        }
+        final cells = DandState.sow(sc.flowers, sc.used);
+        final sure = DandState.guaranteed(cells, used).toList()..sort();
+        expect(find.text('찾은 보장된 칸  0 / ${sure.length}'), findsOneWidget, reason: sc.title);
+        // 보장되지 않은 빈칸을 누르면 이유가 나오고, 찾은 칸으로 세지 않는다
+        final wrong = [for (var c = 0; c < cells.length; c++) if (cells[c] == kEmpty && !sure.contains(c)) c].first;
+        await tapCell(wrong);
+        expect(find.textContaining('보장되지 않아요'), findsOneWidget, reason: sc.title);
+        expect(find.text('찾은 보장된 칸  0 / ${sure.length}'), findsOneWidget);
+        // '정답 보기'는 찾은 칸으로 세지 않는다
+        await tester.tap(find.text('보장된 칸 모두 보기'));
+        await tester.pump();
+        expect(find.text('찾은 보장된 칸  0 / ${sure.length}'), findsOneWidget);
+        await tester.tap(find.text('정답 숨기기'));
+        await tester.pump();
+        for (var k = 0; k < sure.length; k++) {
+          await tapCell(sure[k]);
+          expect(find.text('찾은 보장된 칸  ${k + 1} / ${sure.length}'), findsOneWidget, reason: '${sc.title} ${k + 1}번째');
+        }
+        expect(find.textContaining('${sc.title} 완성!'), findsOneWidget);
+        if (i < kGuaranteeScenarios.length - 1) {
+          expect(find.byKey(const ValueKey('guarantee-done')), findsNothing, reason: '아직 다 못 풀었어요');
+          expect(find.byKey(const ValueKey('win-celebration')), findsNothing);
+        }
+      }
+      // 세 문제를 모두 찾았다: 축하 연출과 축하 글
+      expect(find.byKey(const ValueKey('guarantee-done')), findsOneWidget);
+      expect(find.textContaining('축하해요'), findsWidgets);
+      expect(find.byKey(const ValueKey('win-celebration')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 6));
       expect(tester.takeException(), isNull);
     });
   });

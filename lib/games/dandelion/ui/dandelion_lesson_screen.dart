@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/game_info.dart';
+import '../../../core/win_celebration.dart';
+import '../../../core/win_sound.dart';
 import '../../../tutorial/lesson_kit.dart';
 import '../core/dandelion_rules.dart';
 import 'dandelion_art.dart';
@@ -24,7 +26,7 @@ class GuaranteeScenario {
 
 const List<GuaranteeScenario> kGuaranteeScenarios = [
   GuaranteeScenario('문제 1', [3, 11], [], '꽃이 두 송이 있고, 바람은 아직 한 번도 불지 않았어요.'),
-  GuaranteeScenario('문제 2', [12], [], '꽃이 한 송이뿐이에요. 바람은 아직 한 번도 불지 않았어요.'),
+  GuaranteeScenario('문제 2', [2, 10], [WindDir.up], '꽃이 두 송이 있고, 위쪽으로는 이미 불었어요.'),
   GuaranteeScenario('문제 3', [4, 12, 20], [WindDir.down, WindDir.left], '꽃이 세 송이 있고, 아래쪽과 왼쪽으로는 이미 불었어요.'),
 ];
 
@@ -129,7 +131,7 @@ List<Widget> _unitGuaranteed(BuildContext context) => [
     ];
 
 List<Widget> _unitPuzzle(BuildContext context) => [
-      lessonP('빈칸을 눌러서 "반드시 채워지는 칸"인지 알아맞혀 보세요. 누르면 바로 이유를 알려 줘요.'),
+      lessonP('앞으로 씨앗이 반드시 앉는 빈칸(보장된 칸)을 모두 찾아서 눌러 보세요. 누르면 바로 맞는지, 이유와 함께 알려 줘요. 세 문제에서 보장된 칸을 모두 찾으면 축하해 줄게요!'),
       const _GuaranteePuzzle(),
       lessonKey(context, '꽃이 한 송이뿐이면 보장된 칸이 하나도 없어요. 길이 하나뿐인 칸은 바람이 그 방향만 빼면 끝이니까요. 꽃이 여러 송이일수록 두 길이 겹치는 칸이 생겨요.'),
     ];

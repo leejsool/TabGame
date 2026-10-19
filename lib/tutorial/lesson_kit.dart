@@ -239,7 +239,8 @@ Widget lessonKey(BuildContext context, String text, {IconData icon = Icons.light
   );
 }
 
-Widget lessonArt(Widget child, {double height = 240, String? caption}) {
+/// [height]를 null로 주면 그림 높이에 맞춰 늘어난다 (그림이 스스로 높이를 정할 때).
+Widget lessonArt(Widget child, {double? height = 240, String? caption}) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: Column(

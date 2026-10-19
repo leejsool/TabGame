@@ -133,48 +133,81 @@ class _GuaranteePuzzle extends StatefulWidget {
 
 class _GuaranteePuzzleState extends State<_GuaranteePuzzle> {
   int _index = 0;
-  final Map<int, bool> _tried = {};
-  String _message = '비어 있는 칸을 눌러 보세요.';
+
+  /// 문제마다 찾아낸 보장된 칸, 잘못 누른 칸.
+  final List<Set<int>> _found = [for (final _ in kGuaranteeScenarios) <int>{}];
+  final List<Set<int>> _wrong = [for (final _ in kGuaranteeScenarios) <int>{}];
+  String _message = '보장된 칸을 눌러 보세요.';
   bool _reveal = false;
+  bool _celebrated = false;
 
   GuaranteeScenario get _s => kGuaranteeScenarios[_index];
 
-  int get _usedMask {
+  int _maskOf(GuaranteeScenario s) {
     var m = 0;
-    for (final d in _s.used) {
+    for (final d in s.used) {
       m |= 1 << d.index;
     }
     return m;
   }
 
+  int get _usedMask => _maskOf(_s);
+
   List<int> get _cells => DandState.sow(_s.flowers, _s.used);
+
+  /// 문제 [i]의 보장된 칸을 모두 찾았는가.
+  bool _solved(int i) {
+    final s = kGuaranteeScenarios[i];
+    final sure = DandState.guaranteed(DandState.sow(s.flowers, s.used), _maskOf(s));
+    return sure.isNotEmpty && _found[i].containsAll(sure);
+  }
+
+  bool get _allSolved => [for (var i = 0; i < kGuaranteeScenarios.length; i++) _solved(i)].every((e) => e);
 
   void _pick(int i) {
     final cells = _cells;
+    if (cells[i] != kEmpty) {
+      setState(() => _message = cells[i] == kFlower ? '꽃이 있는 칸이에요. 빈칸을 눌러 보세요.' : '이미 씨앗이 앉은 칸이에요. (과거에 채워짐) 비어 있는 칸을 눌러 보세요.');
+      return;
+    }
+    final masks = DandState.reachMasks(cells, _usedMask);
+    final sure = DandState.guaranteed(cells, _usedMask);
+    final dirs = [for (final d in WindDir.values) if (masks[i] & (1 << d.index) != 0) d.label];
+    var celebrate = false;
     setState(() {
-      if (cells[i] != kEmpty) {
-        _message = cells[i] == kFlower ? '꽃이 있는 칸이에요. 빈칸을 눌러 보세요.' : '이미 씨앗이 앉은 칸이에요. (과거에 채워짐) 비어 있는 칸을 눌러 보세요.';
-        return;
-      }
-      final masks = DandState.reachMasks(cells, _usedMask);
-      final dirs = [for (final d in WindDir.values) if (masks[i] & (1 << d.index) != 0) d.label];
-      final ok = dirs.length >= 2;
-      _tried[i] = ok;
-      if (ok) {
-        _message = '${_cellName(i)}: 보장돼요! ${dirs.join('·')} 방향 ${dirs.length}가지 길이 있어서, 바람이 한 방향을 빼도 나머지로 씨앗이 닿아요.';
-      } else if (dirs.length == 1) {
-        _message = '${_cellName(i)}: 보장되지 않아요. 닿는 길이 ${dirs.first} 방향 하나뿐이라, 바람이 그 방향을 빼면 비어 있어요.';
+      if (sure.contains(i)) {
+        final fresh = _found[_index].add(i);
+        _wrong[_index].remove(i);
+        final left = sure.length - _found[_index].length;
+        final head = '${_cellName(i)}: ${fresh ? '찾았어요!' : '이미 찾은 칸이에요.'} ${dirs.join('·')} 방향 ${dirs.length}가지 길이 있어서, 바람이 한 방향을 빼도 나머지로 씨앗이 닿아요.';
+        if (left > 0) {
+          _message = '$head (남은 보장된 칸 $left개)';
+        } else {
+          _message = '$head\n${_s.title} 완성! 보장된 칸 ${sure.length}개를 모두 찾았어요.';
+          if (_allSolved && !_celebrated) {
+            _celebrated = true;
+            celebrate = true;
+          }
+        }
       } else {
-        _message = '${_cellName(i)}: 보장되지 않아요. 지금은 씨앗이 닿는 길이 없어요. 꽃을 더 심어야 해요.';
+        _wrong[_index].add(i);
+        if (dirs.length == 1) {
+          _message = '${_cellName(i)}: 보장되지 않아요. 닿는 길이 ${dirs.first} 방향 하나뿐이라, 바람이 그 방향을 빼면 비어 있어요.';
+        } else {
+          _message = '${_cellName(i)}: 보장되지 않아요. 지금은 씨앗이 닿는 길이 없어요. 꽃을 더 심어야 해요.';
+        }
       }
     });
+    if (celebrate) {
+      WinSound.play(context);
+      showWinCelebration(context, title: '축하해요!', subtitle: '보장된 칸을 모두 찾았어요');
+    }
   }
 
   void _select(int i) => setState(() {
         _index = i;
-        _tried.clear();
         _reveal = false;
-        _message = '비어 있는 칸을 눌러 보세요.';
+        _message = _solved(i) ? '이 문제는 이미 모두 찾았어요.' : '보장된 칸을 눌러 보세요.';
       });
 
   @override
@@ -182,7 +215,9 @@ class _GuaranteePuzzleState extends State<_GuaranteePuzzle> {
     final cells = _cells;
     final sure = DandState.guaranteed(cells, _usedMask);
     final marks = <int, bool>{
-      for (final e in _tried.entries) e.key: e.value,
+      for (final c in _wrong[_index]) c: false,
+      for (final c in _found[_index]) c: true,
+      // (정답 보기로 본 칸은 "찾은 칸"으로 치지 않는다)
       if (_reveal) for (final c in sure) c: true,
     };
     return _panel(
@@ -193,6 +228,7 @@ class _GuaranteePuzzleState extends State<_GuaranteePuzzle> {
             children: [
               for (var i = 0; i < kGuaranteeScenarios.length; i++)
                 ChoiceChip(
+                  avatar: _solved(i) ? const Icon(Icons.check_circle_rounded, size: 18, color: _good) : null,
                   label: Text(kGuaranteeScenarios[i].title),
                   selected: _index == i,
                   onSelected: (_) => _select(i),
@@ -201,6 +237,12 @@ class _GuaranteePuzzleState extends State<_GuaranteePuzzle> {
           ),
           const SizedBox(height: 6),
           Text(_s.note, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14.5, height: 1.4)),
+          const SizedBox(height: 2),
+          Text(
+            '찾은 보장된 칸  ${_found[_index].length} / ${sure.length}',
+            key: const ValueKey('guarantee-progress'),
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: _solved(_index) ? _good : _ink),
+          ),
           const SizedBox(height: 6),
           _Meadow(
             cells: cells,
@@ -220,12 +262,26 @@ class _GuaranteePuzzleState extends State<_GuaranteePuzzle> {
             decoration: BoxDecoration(color: const Color(0xFFF4F1E8), borderRadius: BorderRadius.circular(12)),
             child: Text(_message, style: const TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w700)),
           ),
+          if (_allSolved) ...[
+            const SizedBox(height: 8),
+            Container(
+              key: const ValueKey('guarantee-done'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: _good.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12), border: Border.all(color: _good.withValues(alpha: 0.5))),
+              child: const Text(
+                '🎉 축하해요! 세 문제의 보장된 칸을 모두 찾았어요.\n두 방향 이상에서 씨앗이 오는 칸은 바람이 어떻게 불어도 채워진다는 걸 알아냈네요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, height: 1.45, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           TextButton.icon(
             onPressed: () => setState(() {
               _reveal = !_reveal;
               if (_reveal) {
-                _message = sure.isEmpty ? '이 문제에는 보장된 칸이 하나도 없어요.' : '초록 체크 표시가 반드시 채워지는 칸이에요. (${sure.length}칸)';
+                _message = '초록 체크 표시가 반드시 채워지는 칸이에요. (${sure.length}칸)';
               }
             }),
             icon: Icon(_reveal ? Icons.visibility_off_rounded : Icons.visibility_rounded),

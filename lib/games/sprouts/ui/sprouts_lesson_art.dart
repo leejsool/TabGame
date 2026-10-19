@@ -103,27 +103,35 @@ class SproutsBugPainter extends CustomPainter {
         dot(50, 50);
         dot(50, 94);
       case SproutsBug.beetle:
-        curve(_green, 18, 38, 50, 4, 82, 38);
-        seg(_green, 18, 38, 50, 94);
-        seg(_green, 82, 38, 50, 94);
-        seg(_green, 50, 21, 50, 94);
-        seg(_green, 18, 38, 82, 38);
-        dot(18, 38);
-        dot(82, 38);
-        dot(50, 21);
-        dot(50, 62);
-        dot(50, 94);
+        // 맨 위 점 하나와 아래 세 점이 만드는 고리 + 맨 아래 점에서 갈라져 올라오는 두 바깥 선과 가운뎃줄
+        curve(_green, 50, 5, 33, 10, 26, 31);
+        curve(_green, 50, 5, 72, 9, 74, 28);
+        curve(_green, 26, 31, 36, 48, 53, 48);
+        curve(_green, 74, 28, 68, 44, 53, 48);
+        seg(_green, 53, 48, 55, 95);
+        curve(_green, 26, 31, 22, 66, 55, 95);
+        curve(_green, 74, 28, 86, 76, 55, 95);
+        dot(50, 5);
+        dot(26, 31);
+        dot(74, 28);
+        dot(53, 48);
+        dot(55, 95);
       case SproutsBug.cockroach:
-        curve(_pink, 26, 18, 50, 2, 74, 18);
-        curve(_pink, 26, 82, 50, 98, 74, 82);
-        curve(_pink, 26, 18, 6, 50, 26, 82);
-        curve(_pink, 74, 18, 94, 50, 74, 82);
-        dot(26, 18);
-        dot(74, 18);
-        dot(26, 82);
-        dot(74, 82);
-        dot(50, 10);
-        dot(50, 90);
+        // 위아래 두 개의 작은 고리(점 하나가 아랫변 가운데에 걸려 있다)를 양옆의 긴 선 두 개가 이어 준다
+        curve(_pink, 26, 8, 50, 0, 74, 9.5);
+        curve(_pink, 26, 8, 36, 19, 50.7, 21.4);
+        curve(_pink, 50.7, 21.4, 65, 19, 74, 9.5);
+        curve(_pink, 26, 8, 12, 44, 29.7, 79.7);
+        curve(_pink, 74, 9.5, 85, 41, 73, 74);
+        curve(_pink, 29.7, 79.7, 51, 64, 73, 74);
+        curve(_pink, 29.7, 79.7, 36, 90, 52.5, 92);
+        curve(_pink, 52.5, 92, 68, 92, 73, 74);
+        dot(26, 8);
+        dot(74, 9.5);
+        dot(50.7, 21.4);
+        dot(29.7, 79.7);
+        dot(73, 74);
+        dot(52.5, 92);
       case SproutsBug.earwig:
         canvas.drawCircle(const Offset(50, 28), 24, line(_green));
         seg(_green, 26, 28, 74, 28);

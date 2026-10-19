@@ -7,6 +7,8 @@ import 'prophecy_board.dart';
 
 part 'prophecy_lesson_widgets_more.dart';
 
+part 'prophecy_lesson_widgets_text.dart';
+
 const Color _good = Color(0xFF2E9E4F);
 const Color _bad = Color(0xFFD64545);
 
@@ -243,6 +245,8 @@ class SelfTableLab extends StatefulWidget {
 }
 
 class _SelfTableLabState extends State<SelfTableLab> {
+  static const Color _ink = Color(0xFF222222);
+
   int _k = 4;
   late List<int> _counts = List<int>.filled(_k, 1);
 
@@ -251,19 +255,55 @@ class _SelfTableLabState extends State<SelfTableLab> {
         _counts = List<int>.filled(k, 1);
       });
 
+  /// 위·아래 화살표 단추 (스핀 단추). [enabled]가 아니면 흐리게.
+  Widget _arrow({required bool up, required bool enabled, required VoidCallback onTap, required Key key}) => InkWell(
+        key: key,
+        onTap: enabled ? onTap : null,
+        child: SizedBox(
+          height: 29,
+          child: Center(child: Icon(up ? Icons.arrow_drop_up : Icons.arrow_drop_down, size: 38, color: enabled ? _ink : Colors.black26)),
+        ),
+      );
+
+  /// 표 아래 줄의 한 칸: 왼쪽에 숫자, 오른쪽에 위·아래 화살표.
+  Widget _spinCell(int i, {required bool ok}) => Container(
+        height: 60,
+        color: ok ? _good.withValues(alpha: 0.16) : _bad.withValues(alpha: 0.10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Center(
+                child: Text('${_counts[i]}', key: ValueKey('self-count-$i'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: kPenPink)),
+              ),
+            ),
+            Container(
+              width: 30,
+              decoration: const BoxDecoration(border: Border(left: BorderSide(color: _ink, width: 1.2))),
+              child: Column(
+                children: [
+                  _arrow(up: true, key: ValueKey('self-up-$i'), enabled: _counts[i] < 2 * _k, onTap: () => setState(() => _counts[i]++)),
+                  const Divider(height: 1, thickness: 1.2, color: _ink),
+                  _arrow(up: false, key: ValueKey('self-down-$i'), enabled: _counts[i] > 1, onTap: () => setState(() => _counts[i]--)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _label(String t) => Container(
+        height: 60,
+        alignment: Alignment.center,
+        child: Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, height: 1.35, color: _ink)),
+      );
+
   @override
   Widget build(BuildContext context) {
     final accent = LessonAccent.of(context);
     final numbers = [for (var i = 1; i <= _k; i++) i];
     final occ = occurrences(numbers, _counts);
     final solved = selfDescribing(numbers, _counts);
-    Widget cellText(String t, {Color? color, bool bold = false, Color? bg}) => Container(
-          width: 50,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: bg, border: Border.all(color: const Color(0xFF4A3B3B), width: 1.6)),
-          child: Text(t, style: TextStyle(fontSize: 22, fontWeight: bold ? FontWeight.w900 : FontWeight.w600, color: color)),
-        );
+    final widths = <int, TableColumnWidth>{0: const FixedColumnWidth(78), for (var i = 1; i <= _k; i++) i: const FlexColumnWidth()};
     return _box(context, children: [
       Wrap(
         alignment: WrapAlignment.center,
@@ -276,59 +316,89 @@ class _SelfTableLabState extends State<SelfTableLab> {
         ],
       ),
       const SizedBox(height: 10),
-      const Text('위 줄: 숫자', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700)),
-      Row(mainAxisAlignment: MainAxisAlignment.center, children: [for (final n in numbers) cellText('$n', color: kPenTeal, bold: true)]),
-      const SizedBox(height: 8),
-      const Text('아래 줄: 그 숫자가 이 표에 나타나는 횟수 (위·아래 줄을 모두 센다)', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w700)),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      Table(
+        key: const ValueKey('self-table'),
+        border: TableBorder.all(color: _ink, width: 1.2),
+        columnWidths: widths,
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
         children: [
-          for (var i = 0; i < _k; i++)
-            Column(
-              children: [
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _counts[i] < 2 * _k ? () => setState(() => _counts[i]++) : null,
-                  icon: const Icon(Icons.keyboard_arrow_up_rounded),
-                ),
-                cellText('${_counts[i]}', color: kPenPink, bold: true, bg: occ[i] == _counts[i] ? _good.withValues(alpha: 0.18) : _bad.withValues(alpha: 0.12)),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: _counts[i] > 1 ? () => setState(() => _counts[i]--) : null,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                ),
-                Text('실제 ${occ[i]}번', style: TextStyle(fontSize: 12, color: occ[i] == _counts[i] ? _good : _bad, fontWeight: FontWeight.w700)),
-              ],
-            ),
+          TableRow(children: [
+            _label('숫자'),
+            for (final n in numbers)
+              Container(
+                height: 40,
+                alignment: Alignment.center,
+                // (아래 줄의 화살표 단추 폭만큼 오른쪽을 비워서, 아래 줄의 숫자와 같은 세로줄에 놓는다)
+                padding: const EdgeInsets.only(right: 30),
+                child: Text('$n', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: kPenTeal)),
+              ),
+          ]),
+          TableRow(children: [
+            _label('나타나는\n횟수'),
+            for (var i = 0; i < _k; i++) _spinCell(i, ok: occ[i] == _counts[i]),
+          ]),
         ],
+      ),
+      const SizedBox(height: 6),
+      // 표 아래: 칸마다 "실제로는 몇 번 나오는지" (위·아래 줄을 모두 센 값)
+      Table(
+        columnWidths: widths,
+        children: [
+          TableRow(children: [
+            const SizedBox(),
+            for (var i = 0; i < _k; i++)
+              Padding(
+                padding: const EdgeInsets.only(right: 30),
+                child: Text('실제 ${occ[i]}번',
+                    key: ValueKey('self-actual-$i'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: occ[i] == _counts[i] ? _good : _bad, fontWeight: FontWeight.w800)),
+              ),
+          ]),
+        ],
+      ),
+      const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: Text('아래 줄의 숫자도 표의 일부라서 함께 세어야 해요. 초록 칸은 맞고, 빨강 칸은 틀려요.', style: TextStyle(fontSize: 12.5, color: Color(0xFF666666))),
       ),
       if (solved)
         _verdict('성공! 이 표는 자기 자신을 정확히 설명해요. 아래 줄의 숫자를 바꾸면 "나타나는 횟수"도 바뀌어서 다른 칸이 틀려지는데, 이 조합만 모든 칸이 서로 맞물려요.', good: true)
       else
-        _verdict('초록 칸은 맞고 빨강 칸은 틀려요. 한 칸을 고치면 다른 칸의 "실제 횟수"가 바뀌어요!', good: false),
+        _verdict('한 칸을 고치면 다른 칸의 "실제 횟수"가 바뀌어요! 모든 칸이 초록이 되도록 맞춰 보세요.', good: false),
       const SizedBox(height: 6),
       Align(
         alignment: Alignment.centerRight,
-        child: TextButton.icon(
-          style: TextButton.styleFrom(foregroundColor: accent),
-          icon: const Icon(Icons.lightbulb_outline_rounded),
-          label: const Text('정답 보기'),
-          onPressed: () {
-            final sols = selfDescribingTables(_k);
-            if (sols.isEmpty) {
-              showDialog<void>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: Text('칸이 $_k개일 때는 답이 없어요'),
-                  content: Text('아래 줄에 쓸 수 있는 모든 경우를 하나하나 따져 보면, 칸이 $_k개인 표에는 자기 자신을 정확히 설명하는 짝이 하나도 없어요.\n'
-                      '답이 생기는 가장 작은 표는 칸이 4개인 표예요.'),
-                  actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
-                ),
-              );
-            } else {
-              setState(() => _counts = List<int>.of(sols.first));
-            }
-          },
+        child: Wrap(
+          spacing: 4,
+          children: [
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: accent),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('처음으로'),
+              onPressed: () => setState(() => _counts = List<int>.filled(_k, 1)),
+            ),
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: accent),
+              icon: const Icon(Icons.lightbulb_outline_rounded),
+              label: const Text('정답 보기'),
+              onPressed: () {
+                final sols = selfDescribingTables(_k);
+                if (sols.isEmpty) {
+                  showDialog<void>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text('칸이 $_k개일 때는 답이 없어요'),
+                      content: Text('아래 줄에 쓸 수 있는 모든 경우를 하나하나 따져 보면, 칸이 $_k개인 표에는 자기 자신을 정확히 설명하는 짝이 하나도 없어요.\n'
+                          '답이 생기는 가장 작은 표는 칸이 4개인 표예요.'),
+                      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
+                    ),
+                  );
+                } else {
+                  setState(() => _counts = List<int>.of(sols.first));
+                }
+              },
+            ),
+          ],
         ),
       ),
     ]);

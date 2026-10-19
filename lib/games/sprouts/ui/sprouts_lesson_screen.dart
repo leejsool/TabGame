@@ -9,6 +9,7 @@ import '../core/sprouts_geometry.dart';
 import '../core/sprouts_planner.dart';
 import '../core/sprouts_topology.dart';
 import 'sprouts_lesson_art.dart';
+import 'sprouts_lesson_shapes.dart';
 import 'sprouts_painter.dart';
 import 'sprouts_screen.dart';
 
@@ -103,31 +104,31 @@ List<Widget> _unitRules(BuildContext context) => [
     ];
 
 List<Widget> _unitShape(BuildContext context) {
-  final dots = [const P(60, 150), const P(340, 150)];
-  final boards = [
-    demoBoard(dots, [(0, 1, demoCurve(dots[0], dots[1]))]),
-    demoBoard(dots, [(0, 1, demoCurve(dots[0], dots[1], bend: 90))]),
-    demoBoard(dots, [(0, 1, demoCurve(dots[0], dots[1], bend: -90))]),
-    demoBoard(dots, [(0, 1, demoCurve(dots[0], dots[1], bend: 60, shape: 'wave'))]),
-  ];
+  final dots = [const P(60, 230), const P(340, 230)];
+  ShapeTile two(String caption, {double bend = 0, String shape = 'arc'}) =>
+      ShapeTile(demoBoard(dots, [(0, 1, demoCurve(dots[0], dots[1], bend: bend, shape: shape))]), caption, same: true);
   return [
     lessonP('콩나물에서 곡선이 곧은지, 휘었는지, 구불구불한지는 아무 상관이 없어요. 중요한 것은 "어느 점이 어느 점과 이어졌나"뿐이에요.'),
+    lessonH(context, '두 점을 잇는 선'),
     lessonArt(
-      GridView.count(
-        crossAxisCount: 2,
-        physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(8),
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1.0,
-        children: [
-          for (final b in boards)
-            CustomPaint(painter: SproutsPainter(board: b, showGrid: false)),
-        ],
-      ),
-      height: 400,
+      ShapeGallery(tiles: [
+        two('곧게'),
+        two('아래로 불룩하게', bend: 90),
+        two('위로 불룩하게', bend: -90),
+        two('구불구불하게', bend: 60, shape: 'wave'),
+      ]),
+      height: null,
       caption: '모양은 모두 다르지만, 두 점을 잇고 새 점을 찍은 같은 수예요 (위상수학적으로 같아요)',
     ),
+    lessonH(context, '자기 자신에게 돌아오는 고리'),
+    lessonP('한 점에서 나갔다가 그 점으로 돌아오는 고리도 동그랗든, 길쭉하든, 삼각형이든, 울퉁불퉁하든 모두 같은 수예요. "이 점에서 나가서 이 점으로 돌아왔다"는 사실만 남아요.'),
+    lessonArt(ShapeGallery(tiles: loopTiles()), height: null),
+    lessonH(context, '조금 복잡한 판'),
+    lessonP('수가 쌓여 판이 복잡해져도 마찬가지예요. 아래는 모서리 점 4개를 고리로 잇고, 가운데로 선을 가로질러 그은 판이에요. 초록 테두리 네 장은 이 한 판을 고무판처럼 늘이고, 비틀고, 휘어서 다시 그린 거예요. 겉모습은 많이 달라도 "어느 점이 어느 점과 이어졌나"는 하나도 변하지 않았어요.'),
+    lessonArt(ShapeGallery(tiles: complexTiles().sublist(0, 4)), height: null),
+    lessonP('붉은 테두리 두 장은 선을 이은 곳이 달라요. 가운데를 가로지르는 선이 없고, 이웃한 변끼리 모서리를 가로지르는 선이 있어요. 아무리 늘이고 돌려도(오른쪽 그림) 위의 판이 되지 않아요.'),
+    lessonArt(ShapeGallery(tiles: complexTiles().sublist(4)), height: null),
+    lessonKey(context, '같은 판인지 알아보려면 모양을 보지 말고, 점마다 "선이 몇 개 나가고, 어느 점과 이어졌나"를 비교해 보세요.'),
     lessonH(context, '위상수학'),
     lessonP('이렇게 "늘이고 구부려도 변하지 않는 성질"을 연구하는 수학이 위상수학이에요. 고무줄로 만든 도형이라고 생각하면 쉬워요. 당겨서 모양이 바뀌어도, 찢거나 붙이지 않는 한 같은 도형으로 봐요.'),
     lessonP('변해도 그대로 남는 성질을 위상 불변량이라고 불러요. 위상수학자들은 늘어나는 풍선, 녹는 아이스크림처럼 계속 모양이 변하는 세계에서 "끝까지 변하지 않는 것"을 찾아내요.'),

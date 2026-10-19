@@ -14,6 +14,7 @@ import 'package:tabgame/games/prophecy/data/prophecy_history.dart';
 import 'package:tabgame/games/prophecy/game/prophecy_controller.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_board.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_lesson_screen.dart';
+import 'package:tabgame/games/prophecy/ui/prophecy_lesson_widgets.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_records_tab.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_screen.dart';
 import 'package:tabgame/games/prophecy/ui/prophecy_setup_screen.dart';
@@ -94,10 +95,12 @@ void main() {
       expect(selfDescribingTables(5), isNotEmpty);
     });
 
-    test('자기 글자 수를 세는 문장은 정말 열여덟 글자, 베리의 문장은 스무 글자보다 짧다', () {
+    test('자기 글자 수를 세는 문장은 정말 열여덟 글자, 베리의 문장은 스물다섯 글자 미만이다', () {
       expect(letterCount(kSelfCountingSentence), 18);
       expect(kSelfCountingSentence, contains('열여덟'));
-      expect(letterCount(kBerryPhrase), lessThan(20));
+      expect(letterCount(kBerryPhrase), 24); // "스물다섯 글자 미만"으로 정의했다 (모순의 핵심)
+      expect(letterCount(kBerryPhrase), lessThan(25));
+      expect(kBerryPhrase, '스물다섯 글자 미만으로 정의할 수 없는 가장 작은 양의 정수');
     });
 
     test('샐로스의 팬그램은 문장이 말한 알파벳 개수가 실제와 모두 같다', () {
@@ -519,6 +522,110 @@ void main() {
       await openUnit(tester, '10. 괴델과 튜링');
       await tapVisible(tester, find.text('"멈춘다"'));
       expect(find.textContaining('H의 예언이 틀렸어요'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('자기 설명 표(화살표 표): 처음에는 실제 5·1·1·1번, 화살표로 고치고 처음으로 되돌릴 수 있다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '4. 자기 자신을 설명하는 표');
+      await tester.scrollUntilVisible(find.byKey(const ValueKey('self-table')), 300, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(find.text('실제 5번'), findsOneWidget);
+      expect(find.text('실제 1번'), findsNWidgets(3));
+      expect(tester.widget<Text>(find.byKey(const ValueKey('self-count-0'))).data, '1');
+      // 첫 칸의 위 화살표를 누르면 1 → 2
+      await tester.tap(find.byKey(const ValueKey('self-up-0')));
+      await tester.pump();
+      expect(tester.widget<Text>(find.byKey(const ValueKey('self-count-0'))).data, '2');
+      expect(find.text('실제 4번'), findsOneWidget); // 1은 위 줄 하나 + 아래 줄 셋
+      // 아래 화살표로 다시 1
+      await tester.tap(find.byKey(const ValueKey('self-down-0')));
+      await tester.pump();
+      expect(tester.widget<Text>(find.byKey(const ValueKey('self-count-0'))).data, '1');
+      // 1보다 작게는 안 내려간다
+      await tester.tap(find.byKey(const ValueKey('self-down-0')));
+      await tester.pump();
+      expect(tester.widget<Text>(find.byKey(const ValueKey('self-count-0'))).data, '1');
+      // 정답을 보여 준 뒤 '처음으로'
+      await tapVisible(tester, find.text('정답 보기'));
+      expect(find.textContaining('성공!'), findsOneWidget);
+      await tapVisible(tester, find.text('처음으로'));
+      expect(find.textContaining('성공!'), findsNothing);
+      expect(find.text('실제 5번'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('글상자: 문장을 고치면 알파벳 개수가 바로 바뀌고, 처음 문장으로 되돌릴 수 있다', (tester) async {
+      await pumpLesson(tester);
+      tester.view.physicalSize = const Size(430, 3200); // 글상자와 개수 칩이 한 화면에 다 들어오게
+      await openUnit(tester, '4. 자기 자신을 설명하는 표');
+      final field = find.byKey(const ValueKey('editable-sentence'));
+      expect(find.text('A 4').first, findsOneWidget); // 샐로스의 팬그램: A 네 개
+      await tester.enterText(field.first, 'aaa banana');
+      await tester.pump();
+      expect(find.text('A 6 (원래 4)').first, findsOneWidget);
+      expect(find.text('B 1'), findsWidgets);
+      expect(find.textContaining('달라진 글자가'), findsWidgets);
+      // 글자를 새로 더해도 바로 바뀐다
+      await tester.enterText(field.first, 'aaa banana a');
+      await tester.pump();
+      expect(find.text('A 7 (원래 4)').first, findsOneWidget);
+      // 지우면 모두 0이 된다
+      await tester.tap(find.byKey(const ValueKey('editable-clear')).first);
+      await tester.pump();
+      expect(find.text('A 0 (원래 4)').first, findsOneWidget);
+      // 처음 문장으로
+      await tester.tap(find.byKey(const ValueKey('editable-reset')).first);
+      await tester.pump();
+      expect(find.text('A 4').first, findsOneWidget);
+      expect(find.textContaining('처음 문장 그대로예요').first, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('한국어 자기 설명 문장도 고칠 수 있고 글자 수가 달라지면 틀렸다고 알려 준다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '4. 자기 자신을 설명하는 표');
+      final count = find.byKey(const ValueKey('editable-count'));
+      await tester.scrollUntilVisible(count, 300, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(find.text('공백을 빼고 센 글자 수: 18'), findsOneWidget);
+      expect(find.textContaining('같아요!'), findsWidgets);
+      final field = find.byKey(const ValueKey('editable-sentence')).last;
+      await tester.enterText(field, '이 문장은 공백을 빼면 모두 열여덟 글자예요 정말로');
+      await tester.pump();
+      expect(find.textContaining('공백을 빼고 센 글자 수: 21'), findsOneWidget);
+      expect(find.textContaining('맞지 않아요'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('더 많은 역설들: 베리의 역설은 스물다섯 글자 미만, 커리의 역설은 한 단계씩 따라갈 수 있다', (tester) async {
+      await pumpLesson(tester);
+      await openUnit(tester, '9. 더 많은 역설들');
+      final berryTitle = find.textContaining('스물다섯 글자 미만으로 정의할 수 없는 가장 작은 양의 정수');
+      await tester.scrollUntilVisible(berryTitle, 300, scrollable: find.byType(Scrollable).first);
+      expect(berryTitle, findsOneWidget);
+      final berryBox = find.ancestor(of: berryTitle, matching: find.byType(LessonReveal));
+      await tapVisible(tester, find.descendant(of: berryBox, matching: find.text('답 보기'))); // 베리
+      expect(find.textContaining('공백을 빼면 24글자예요'), findsOneWidget);
+      // 커리
+      final next = find.byKey(const ValueKey('curry-next'));
+      await tester.scrollUntilVisible(next, 300, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('curry-step-0')), findsNothing);
+      for (var i = 0; i < 6; i++) {
+        await tester.ensureVisible(next);
+        await tester.tap(next);
+        await tester.pumpAndSettle();
+        expect(find.byKey(ValueKey('curry-step-$i')), findsOneWidget, reason: '${i + 1}단계');
+      }
+      expect(find.textContaining('증명해 버렸어요'), findsOneWidget);
+      // 결론 문장을 바꾸면 처음부터 다시
+      await tester.ensureVisible(find.byKey(const ValueKey('curry-claim-1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('curry-claim-1')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('curry-step-0')), findsNothing);
+      expect(find.textContaining('1 + 1 = 3이다'), findsWidgets);
       expect(tester.takeException(), isNull);
     });
   });

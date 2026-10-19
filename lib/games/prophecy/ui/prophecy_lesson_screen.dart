@@ -149,15 +149,27 @@ List<Widget> _unitTaste(BuildContext context) => [
       lessonP('예언 게임에서는 이런 줄이 자주 나와요. 내 숫자가 맞게 만들려면 이 줄이 몇 개로 끝날지를 미리 생각하고, 상대의 선택까지 읽어야 해요.'),
     ];
 
-/// "바보" 문장이 말하는 글자들의 실제 개수 (문장에 나오는 알파벳과 부호만, 칩에 보일 이름으로).
-Map<String, int> _foolTally() {
-  final letters = charTally(kSallowsFoolSentence, [for (var c = 0x61; c <= 0x7A; c++) String.fromCharCode(c)])..removeWhere((_, v) => v == 0);
-  final marks = charTally(kSallowsFoolSentence, [',', '’', '-', '!']);
-  return {
-    ...letters,
-    '쉼표 ,': marks[',']!,
-    '어포스트로피 ’': marks['’']!,
-    '하이픈 -': marks['-']!,
-    '느낌표 !': marks['!']!,
-  };
+/// "바보" 문장이 말하는 글자들 (문장에 나오는 알파벳과 부호). 알파벳은 소문자로, 부호는 그대로.
+List<String> _foolKeys() {
+  final letters = charTally(kSallowsFoolSentence, [for (var c = 0x61; c <= 0x7A; c++) String.fromCharCode(c)]);
+  return [
+    for (final e in letters.entries)
+      if (e.value > 0) e.key,
+    ',',
+    '’',
+    '-',
+    '!',
+  ];
 }
+
+/// 칩에 보일 이름.
+String _foolLabel(String k) => switch (k) {
+      ',' => '쉼표 ,',
+      '’' => '어포스트로피 ’',
+      '-' => '하이픈 -',
+      '!' => '느낌표 !',
+      _ => k,
+    };
+
+/// 샐로스의 팬그램이 세는 알파벳 A~Z (소문자로).
+final List<String> _pangramKeys = [for (var c = 0x61; c <= 0x7A; c++) String.fromCharCode(c)];
