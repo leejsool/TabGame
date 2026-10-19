@@ -34,62 +34,88 @@ extension _RkHand on _RummikubScreenState {
         child: TurnGlow(
           active: c.canAct && !c.isOver, // 내 차례에는 금빛 테두리가 돌면서 은은하게 빛난다
           child: Container(
-        key: _rackAreaKey,
-        padding: const EdgeInsets.fromLTRB(pad, 3, pad, 3),
-        decoration: BoxDecoration(
-          color: (candidate.isNotEmpty ? const Color(0xFFCFA668) : const Color(0xFFC79A5B)).withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: kRkWood.withValues(alpha: 0.7), width: border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Text('내 타일 ${tiles.length}장', style: const TextStyle(fontWeight: FontWeight.w800)),
-                const Spacer(),
-                _sortButton('색 정렬', () => c.sortHand(byColor: true)),
-                const SizedBox(width: 6),
-                _sortButton('숫자 정렬', () => c.sortHand(byColor: false)),
-              ],
-            ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: c.canArrange && c.selected.isNotEmpty ? () => c.moveInHand(c.selected.toList()) : null,
-              child: SizedBox(
-                height: bodyH,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (var i = 0; i < tiles.length; i++)
-                      Positioned(
-                        key: ValueKey('slot${tiles[i]}'),
-                        left: (i % plan.perRow) * plan.step,
-                        top: lift + (i ~/ plan.perRow) * rowH,
-                        child: DragTarget<List<int>>(
-                          onWillAcceptWithDetails: (d) => c.canArrange && !d.data.contains(tiles[i]),
-                          onAcceptWithDetails: (d) => c.moveInHand(d.data, beforeId: tiles[i]),
-                          builder: (context, cand, _) => Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              // 방금 뽑은 타일은 바닥에서 날아오는 동안 숨겨 둔다
-                              Opacity(
-                                key: ValueKey('hand${tiles[i]}'),
-                                opacity: tiles[i] == _hiddenTile ? 0 : 1,
-                                child: KeyedSubtree(key: _tileKey(tiles[i]), child: _tile(tiles[i], tileWidth)),
-                              ),
-                              if (cand.isNotEmpty) Positioned(left: -2, top: 0, bottom: 0, width: 3, child: ColoredBox(color: kRkWood.withValues(alpha: 0.9))),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+            key: _rackAreaKey,
+            padding: const EdgeInsets.fromLTRB(pad, 3, pad, 3),
+            decoration: BoxDecoration(
+              color:
+                  (candidate.isNotEmpty
+                          ? const Color(0xFFCFA668)
+                          : const Color(0xFFC79A5B))
+                      .withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: kRkWood.withValues(alpha: 0.7),
+                width: border,
               ),
             ),
-          ],
-        ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      '내 타일 ${tiles.length}장',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    _sortButton('색 정렬', () => c.sortHand(byColor: true)),
+                    const SizedBox(width: 6),
+                    _sortButton('숫자 정렬', () => c.sortHand(byColor: false)),
+                  ],
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: c.canArrange && c.selected.isNotEmpty
+                      ? () => c.moveInHand(c.selected.toList())
+                      : null,
+                  child: SizedBox(
+                    height: bodyH,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        for (var i = 0; i < tiles.length; i++)
+                          Positioned(
+                            key: ValueKey('slot${tiles[i]}'),
+                            left: (i % plan.perRow) * plan.step,
+                            top: lift + (i ~/ plan.perRow) * rowH,
+                            child: DragTarget<List<int>>(
+                              onWillAcceptWithDetails: (d) =>
+                                  c.canArrange && !d.data.contains(tiles[i]),
+                              onAcceptWithDetails: (d) =>
+                                  c.moveInHand(d.data, beforeId: tiles[i]),
+                              builder: (context, cand, _) => Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  // 방금 뽑은 타일은 바닥에서 날아오는 동안 숨겨 둔다
+                                  Opacity(
+                                    key: ValueKey('hand${tiles[i]}'),
+                                    opacity: tiles[i] == _hiddenTile ? 0 : 1,
+                                    child: KeyedSubtree(
+                                      key: _tileKey(tiles[i]),
+                                      child: _tile(tiles[i], tileWidth),
+                                    ),
+                                  ),
+                                  if (cand.isNotEmpty)
+                                    Positioned(
+                                      left: -2,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: 3,
+                                      child: ColoredBox(
+                                        color: kRkWood.withValues(alpha: 0.9),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -105,7 +131,14 @@ extension _RkHand on _RummikubScreenState {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: kRkWood.withValues(alpha: 0.6)),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: kRkWood)),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: kRkWood,
+          ),
+        ),
       ),
     );
   }
@@ -118,31 +151,75 @@ extension _RkHand on _RummikubScreenState {
       side: BorderSide(color: Theme.of(context).colorScheme.outline),
       minimumSize: const Size(44, 38),
     );
-    Widget icon(IconData data, String tip, VoidCallback? onTap) => IconButton.outlined(style: style, tooltip: tip, onPressed: onTap, icon: Icon(data, size: 22));
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(_edge, 0, _edge, 3),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (c.canAct && c.selected.isNotEmpty && c.selected.any(c.placed.contains))
-            icon(Icons.south_west_rounded, '손으로', () => c.returnToHand(c.selected.toList())),
-          if (c.wrongTiles.isNotEmpty) icon(Icons.rule_rounded, '잘못 놓은 타일만 손으로 (맞게 만든 묶음은 그대로)', c.returnWrongToHand),
-          icon(Icons.undo_rounded, '되돌리기', c.canUndoStep ? c.undoStep : null),
-          icon(Icons.restart_alt_rounded, '처음으로', c.canAct && modified ? c.reset : null),
-          icon(Icons.auto_fix_high_rounded, '정리 (묶음은 그대로, 자리만 가지런히)', c.canAct && c.work.isNotEmpty ? c.tidySets : null),
-          // 바닥이 비면 뽑을 타일이 없으니 넘기기만 한다 (바닥에 타일이 있으면 그중 한 장을 직접 골라 뽑는다)
-          if (c.state.poolCount == 0) icon(Icons.skip_next_rounded, '넘기기', c.canAct ? c.draw : null),
-          IconButton.filled(
-            tooltip: '끝내기',
-            onPressed: c.canAct ? _endTurn : null,
-            icon: const Icon(Icons.check_rounded, size: 24),
-            style: IconButton.styleFrom(backgroundColor: kRkWood, visualDensity: VisualDensity.compact, minimumSize: const Size(52, 38)),
-          ),
-          icon(Icons.flag_outlined, '기권', c.canResign ? _resign : null),
-        ],
+    Widget icon(IconData data, String tip, VoidCallback? onTap) =>
+        IconButton.outlined(
+          style: style,
+          tooltip: tip,
+          onPressed: onTap,
+          icon: Icon(data, size: 22),
+        );
+    // 설명은 단추 위에 띄운다 (아래로 띄우면 안드로이드 내비게이션 바에 가려진다)
+    return TooltipTheme(
+      data: const TooltipThemeData(preferBelow: false, verticalOffset: 26),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(_edge, 0, _edge, 3),
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (c.canAct &&
+                c.selected.isNotEmpty &&
+                c.selected.any(c.placed.contains))
+              icon(
+                Icons.south_west_rounded,
+                '손으로',
+                () => c.returnToHand(c.selected.toList()),
+              ),
+            // 늘 보이되, 묶음을 못 이룬 타일이 없으면 흐리게 눌리지 않는다. 아이콘만으로는 뜻을 몰라 글자를 함께 적는다
+            OutlinedButton.icon(
+              onPressed: c.wrongTiles.isNotEmpty ? c.returnWrongToHand : null,
+              icon: const Icon(Icons.rule_rounded, size: 20),
+              label: const Text('미완성만 손으로'),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size(44, 38),
+                side: BorderSide(color: Theme.of(context).colorScheme.outline),
+                textStyle: const TextStyle(
+                  fontFamily: 'NanumGothic',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            icon(Icons.undo_rounded, '되돌리기', c.canUndoStep ? c.undoStep : null),
+            icon(
+              Icons.restart_alt_rounded,
+              '처음으로',
+              c.canAct && modified ? c.reset : null,
+            ),
+            icon(
+              Icons.auto_fix_high_rounded,
+              '정리 (묶음은 그대로, 자리만 가지런히)',
+              c.canAct && c.work.isNotEmpty ? c.tidySets : null,
+            ),
+            // 바닥이 비면 뽑을 타일이 없으니 넘기기만 한다 (바닥에 타일이 있으면 그중 한 장을 직접 골라 뽑는다)
+            if (c.state.poolCount == 0)
+              icon(Icons.skip_next_rounded, '넘기기', c.canAct ? c.draw : null),
+            IconButton.filled(
+              tooltip: '끝내기',
+              onPressed: c.canAct ? _endTurn : null,
+              icon: const Icon(Icons.check_rounded, size: 24),
+              style: IconButton.styleFrom(
+                backgroundColor: kRkWood,
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size(52, 38),
+              ),
+            ),
+            icon(Icons.flag_outlined, '기권', c.canResign ? _resign : null),
+          ],
+        ),
       ),
     );
   }
@@ -174,10 +251,26 @@ extension _RkHand on _RummikubScreenState {
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
                 children: [
-                  Icon(s.winner == p ? Icons.emoji_events_rounded : Icons.person_rounded, size: 18, color: s.winner == p ? const Color(0xFFF2A900) : null),
+                  Icon(
+                    s.winner == p
+                        ? Icons.emoji_events_rounded
+                        : Icons.person_rounded,
+                    size: 18,
+                    color: s.winner == p ? const Color(0xFFF2A900) : null,
+                  ),
                   const SizedBox(width: 6),
-                  Expanded(child: Text(_name(p), style: const TextStyle(fontWeight: FontWeight.w800))),
-                  Text(s.racks[p].isEmpty ? '손이 비었어요' : '남은 타일 ${s.racks[p].length}장 · 벌점 ${s.rackPoints(p)}점', style: const TextStyle(fontSize: 13)),
+                  Expanded(
+                    child: Text(
+                      _name(p),
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  Text(
+                    s.racks[p].isEmpty
+                        ? '손이 비었어요'
+                        : '남은 타일 ${s.racks[p].length}장 · 벌점 ${s.rackPoints(p)}점',
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -185,22 +278,29 @@ extension _RkHand on _RummikubScreenState {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('메뉴로')),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('메뉴로'),
+              ),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: c.online ? (_rematchAsked || _opponentGone ? null : _requestRematch) : () {
-                  _resultHandled = false;
-                  c.restart();
-                },
-                child: Text(!c.online
-                    ? '한 판 더'
-                    : _opponentGone
-                        ? '상대가 나갔어요'
-                        : _rematchAsked
-                            ? '상대를 기다려요…'
-                            : _rematchOffered
-                                ? '한 판 더 (상대가 원해요)'
-                                : '한 판 더'),
+                onPressed: c.online
+                    ? (_rematchAsked || _opponentGone ? null : _requestRematch)
+                    : () {
+                        _resultHandled = false;
+                        c.restart();
+                      },
+                child: Text(
+                  !c.online
+                      ? '한 판 더'
+                      : _opponentGone
+                      ? '상대가 나갔어요'
+                      : _rematchAsked
+                      ? '상대를 기다려요…'
+                      : _rematchOffered
+                      ? '한 판 더 (상대가 원해요)'
+                      : '한 판 더',
+                ),
               ),
             ],
           ),

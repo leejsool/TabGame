@@ -54,15 +54,8 @@ class DvTile extends StatelessWidget {
     final bg = black ? _blackTile : _whiteTile;
     final fg = black ? Colors.white : const Color(0xFF2A2D32);
     final joker = dvIsJoker(id);
-    var border = black ? const Color(0xFF5A5F68) : const Color(0xFFBDB29A);
-    var borderWidth = 1.2;
-    if (selected) {
-      border = const Color(0xFF5B8DEF);
-      borderWidth = 2.6;
-    } else if (lifted) {
-      border = const Color(0xFFE0A100);
-      borderWidth = 2.4;
-    }
+    final border = black ? const Color(0xFF5A5F68) : const Color(0xFFBDB29A);
+    const borderWidth = 1.2;
     final label = joker ? '‑' : '${dvNumber(id)}';
     final shown = faceUp || lying;
     final dy = selected ? -width * 0.14 : (lifted ? -width * 0.32 : 0.0);
@@ -125,8 +118,17 @@ class DvTile extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: (selected || lifted) ? 0.3 : 0.18), blurRadius: (selected || lifted) ? 6 : 2, offset: Offset(0, (selected || lifted) ? 4 : 1.5)),
         ],
       ),
-      // 고른 타일(내가 고른 것, 상대가 고르며 고민하는 것)은 테두리를 따라 은은한 빛이 돈다
-      child: TurnGlow(active: selected || lifted, radius: width * 0.14, color: const Color(0xFFFFB300), child: SizedBox.expand(child: face)),
+      // 고른 타일(내가 고른 것, 상대가 고르며 고민하는 것)은 테두리를 따라 은은한 빛이 돈다.
+      // 빛이 타일의 맨 바깥 가장자리에서 빛나도록, 테두리 안쪽으로 줄어든 자리를 OverflowBox로 타일 전체 크기로 되돌린다.
+      child: LayoutBuilder(
+        builder: (context, c) => OverflowBox(
+          minWidth: c.maxWidth + borderWidth * 2,
+          maxWidth: c.maxWidth + borderWidth * 2,
+          minHeight: c.maxHeight + borderWidth * 2,
+          maxHeight: c.maxHeight + borderWidth * 2,
+          child: TurnGlow(active: selected || lifted, radius: width * (lying ? 0.16 : 0.14), color: const Color(0xFFFFB300), child: SizedBox.expand(child: face)),
+        ),
+      ),
     );
     return Semantics(
       label: '${black ? '검정' : '흰색'} ${shown ? (joker ? '조커' : '${dvNumber(id)}') : '숨은 타일'}${lying ? ' (공개됨)' : ''}',

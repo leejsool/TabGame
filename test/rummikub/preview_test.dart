@@ -86,6 +86,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 900));
     await tester.pump(const Duration(milliseconds: 900));
     await _shot(tester, key, '$dir/game_phone_tidy.png');
+    // 아무것도 내지 않은 처음 모습: "미완성만 손으로"가 흐리게 보인다
+    final idle = midgame(3);
+    idle.reset();
+    await pumpHome(RummikubScreen(controller: idle));
+    await _shot(tester, key, '$dir/game_phone_idle.png');
     // 승리 축하 (연출 중간 모습)
     await pumpHome(Stack(children: [RummikubScreen(controller: midgame(3)), const Positioned.fill(child: RkCelebration(subtitle: '타일을 모두 내려놓았어요'))]));
     await tester.pump(const Duration(milliseconds: 1500));
