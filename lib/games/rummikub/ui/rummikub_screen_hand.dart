@@ -29,9 +29,12 @@ extension _RkHand on _RummikubScreenState {
     return DragTarget<List<int>>(
       onWillAcceptWithDetails: (d) => c.canArrange,
       onAcceptWithDetails: (d) => c.moveInHand(d.data),
-      builder: (context, candidate, _) => Container(
+      builder: (context, candidate, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(_edge, 3, _edge, 3),
+        child: RkTurnGlow(
+          active: c.canAct && !c.isOver, // 내 차례에는 금빛 테두리가 돌면서 은은하게 빛난다
+          child: Container(
         key: _rackAreaKey,
-        margin: const EdgeInsets.fromLTRB(_edge, 3, _edge, 3),
         padding: const EdgeInsets.fromLTRB(pad, 3, pad, 3),
         decoration: BoxDecoration(
           color: (candidate.isNotEmpty ? const Color(0xFFCFA668) : const Color(0xFFC79A5B)).withValues(alpha: 0.5),
@@ -86,6 +89,8 @@ extension _RkHand on _RummikubScreenState {
               ),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );

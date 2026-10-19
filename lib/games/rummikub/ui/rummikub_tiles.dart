@@ -14,9 +14,15 @@ const List<String> kRkMarks = ['●', '■', '▲', '◆'];
 
 const Color kRkJokerColor = Color(0xFF7B3FA0);
 
+/// 이번 차례에 새로 내려놓은 타일의 테두리 색.
+const Color kRkPlacedBlue = Color(0xFF2F7DF0);
+
+/// 올바르지 않은(아직 덜 만든) 묶음의 테두리 색.
+const Color kRkBadSetRed = Color(0xFFE53935);
+
 /// 타일 한 장. 가로 [width], 세로는 그 1.35배.
 ///
-/// [selected]면 위로 살짝 들리고 테두리가 차분한 갈색으로 진해지고, [glow]이면 (방금 뽑았거나 방금 놓은 타일) 옅은 금색 테두리가 보인다.
+/// [selected]면 위로 살짝 들리고 테두리가 차분한 갈색으로 진해지고, [glow]이면 (방금 뽑은 타일) 옅은 금색 테두리, [placed]이면 (이번 차례에 판에 새로 놓은 타일) 굵은 파란 테두리가 보인다.
 /// (눈이 부시지 않게 밝은 노랑이나 번쩍이는 그림자는 쓰지 않는다.)
 class RkTile extends StatelessWidget {
   const RkTile({
@@ -25,6 +31,7 @@ class RkTile extends StatelessWidget {
     this.width = 40,
     this.selected = false,
     this.glow = false,
+    this.placed = false,
     this.dim = false,
     this.onTap,
   });
@@ -33,6 +40,9 @@ class RkTile extends StatelessWidget {
   final double width;
   final bool selected;
   final bool glow;
+
+  /// 이번 차례에 내가 새로 판에 내려놓은 타일: 눈에 잘 띄는 파란 테두리.
+  final bool placed;
   final bool dim;
   final VoidCallback? onTap;
 
@@ -52,8 +62,8 @@ class RkTile extends StatelessWidget {
         color: dim ? const Color(0xFFD9D2C0) : const Color(0xFFFFF8E6),
         borderRadius: BorderRadius.circular(width * 0.16),
         border: Border.all(
-          color: selected ? const Color(0xFF8D5A2B) : (glow ? const Color(0xFFCDA85A) : const Color(0xFFB9AD92)),
-          width: selected ? 2 : (glow ? 1.8 : 1),
+          color: selected ? const Color(0xFF8D5A2B) : (placed ? kRkPlacedBlue : (glow ? const Color(0xFFCDA85A) : const Color(0xFFB9AD92))),
+          width: selected ? 2 : (placed ? 3 : (glow ? 1.8 : 1)),
         ),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: selected ? 0.28 : 0.22), blurRadius: selected ? 4 : 2, offset: Offset(0, selected ? 3 : 1.5)),

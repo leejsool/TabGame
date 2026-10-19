@@ -41,7 +41,8 @@ extension _RkTable on _RummikubScreenState {
       id: id,
       width: width,
       selected: selected,
-      glow: (fromTable && (placed ?? c.placed).contains(id)) || (!fromTable && id == c.lastDrawn),
+      glow: !fromTable && id == c.lastDrawn,
+      placed: fromTable && (placed ?? c.placed).contains(id),
       onTap: (fromTable ? c.canAct : c.canArrange) ? () => c.toggleSelect(id) : null,
     );
     final single = _draggable(data: _dragged(id), width: width, child: tile, fromTable: fromTable);
@@ -116,7 +117,7 @@ extension _RkTable on _RummikubScreenState {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: c.canAct && c.selected.isNotEmpty ? () => c.moveTiles(c.selected.toList(), to: set) : null,
-                    // 색이 순간적으로 바뀌면 눈이 아프니, 테두리 색은 부드럽게 바뀌게 하고 올바르지 않은 묶음도 옅은 주황으로만 알려 준다
+                    // 색이 순간적으로 바뀌면 눈이 아프니, 테두리 색은 부드럽게 바뀌게 한다. 올바르지 않은(미완성) 묶음은 빨간 테두리로 알려 준다
                     child: ValueListenableBuilder<List<int>?>(
                       valueListenable: _hoverTarget,
                       builder: (context, target, _) {
@@ -128,8 +129,8 @@ extension _RkTable on _RummikubScreenState {
                             // 평소에는 묶음 틀을 그리지 않는다 (타일만 보인다). 붙을 묶음(끌 때)과 올바르지 않은 묶음만 테두리로 알려 준다.
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: hover ? const Color(0xFFFFE08A) : (bad ? const Color(0xFFE9B08A) : Colors.transparent),
-                              width: hover ? 3 : 2,
+                              color: hover ? const Color(0xFFFFE08A) : (bad ? kRkBadSetRed : Colors.transparent),
+                              width: hover ? 3 : 2.5,
                             ),
                           ),
                         );
@@ -235,9 +236,12 @@ extension _RkTable on _RummikubScreenState {
         final canPick = c.canAct && !c.isOver;
         final tileH = tileW * 1.35;
         final rowH = tileH + 8;
-        return Container(
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(_edge, 2, _edge, 2),
+          child: RkTurnGlow(
+            active: c.canAct && !c.isOver, // 내 차례에는 금빛 테두리가 돌면서 은은하게 빛난다
+            child: Container(
           height: rowH + 10,
-          margin: const EdgeInsets.fromLTRB(_edge, 2, _edge, 2),
           padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
           decoration: BoxDecoration(
             color: const Color(0xFF6B4A2E).withValues(alpha: 0.55),
@@ -294,6 +298,8 @@ extension _RkTable on _RummikubScreenState {
                 ),
               ),
             ],
+          ),
+            ),
           ),
         );
       },

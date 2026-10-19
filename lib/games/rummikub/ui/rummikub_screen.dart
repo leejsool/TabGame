@@ -24,6 +24,7 @@ import '../game/rummikub_layout.dart';
 import '../tutorial/rummikub_tutorial.dart';
 import 'rummikub_celebration.dart';
 import 'rummikub_tiles.dart';
+import 'rummikub_turn_glow.dart';
 import '../../../versus/vs_screen_parts.dart';
 
 part 'rummikub_screen_net.dart';
