@@ -7,7 +7,7 @@ extension _DvActions on _DavinciScreenState {
     if (c.isOver || c.halted || !c.humanCanAct) return const SizedBox.shrink();
     final scheme = Theme.of(context).colorScheme;
     Widget box(Widget child) => Container(
-          padding: const EdgeInsets.all(10),
+          padding: EdgeInsets.all(_dense ? 6 : 10),
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(16), border: Border.all(color: scheme.outlineVariant)),
           child: child,
         );
@@ -25,12 +25,12 @@ extension _DvActions on _DavinciScreenState {
           children: [
             if (picking) _numberPicker() else Text(s.phase == DvPhase.decide ? '계속 맞히려면 상대 타일을 고르고, 아니면 멈춰요' : '위에서 맞힐 상대 타일을 눌러요', style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.75))),
             if (s.phase == DvPhase.decide) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: _dense ? 4 : 8),
               FilledButton.icon(
                 onPressed: c.stop,
                 icon: const Icon(Icons.pan_tool_alt_rounded, size: 18),
                 label: const Text('멈추기 (내 타일은 그대로 숨겨요)'),
-                style: FilledButton.styleFrom(backgroundColor: kDavinciColor),
+                style: FilledButton.styleFrom(backgroundColor: kDavinciColor, visualDensity: _dense ? VisualDensity.compact : null),
               ),
             ],
           ],
@@ -43,7 +43,7 @@ extension _DvActions on _DavinciScreenState {
     final canDraw = c.humanCanAct && c.state.phase == DvPhase.draw;
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+      padding: EdgeInsets.symmetric(vertical: _dense ? 3 : 6, horizontal: 10),
       decoration: BoxDecoration(
         color: (canDraw ? kDavinciColor : Colors.white).withValues(alpha: canDraw ? 0.12 : 0.4),
         borderRadius: BorderRadius.circular(16),
@@ -95,19 +95,19 @@ extension _DvActions on _DavinciScreenState {
     return Column(
       children: [
         Text('${_name(c.selSeat)}의 ${c.selIndex + 1}번째 ${black ? '검정' : '흰색'} 타일은?', style: const TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
+        SizedBox(height: _dense ? 4 : 8),
         Wrap(
           alignment: WrapAlignment.center,
-          spacing: 6,
-          runSpacing: 6,
+          spacing: _dense ? 4 : 6,
+          runSpacing: _dense ? 4 : 6,
           children: [
             for (var n = 0; n <= kJokerGuess; n++)
               Builder(builder: (context) {
                 final known = n == kJokerGuess ? seen.contains(24 + color) : seen.contains(dvTile(color, n));
                 return SizedBox(
                   key: ValueKey('num$n'),
-                  width: 44,
-                  height: 44,
+                  width: _dense ? 36 : 44,
+                  height: _dense ? 36 : 44,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       padding: EdgeInsets.zero,
@@ -119,7 +119,7 @@ extension _DvActions on _DavinciScreenState {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: known ? null : () => c.guess(n),
-                    child: Text(n == kJokerGuess ? '‑' : '$n', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    child: Text(n == kJokerGuess ? '‑' : '$n', style: TextStyle(fontSize: _dense ? 17 : 20, fontWeight: FontWeight.w900)),
                   ),
                 );
               }),

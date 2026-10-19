@@ -35,32 +35,39 @@ extension _DvBoard on _DavinciScreenState {
       children: [
         _topBar(),
         Expanded(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: ListenableBuilder(
-                listenable: c,
-                builder: (context, _) => SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _statusBanner(),
-                      const SizedBox(height: 8),
-                      for (var seat = 0; seat < c.players; seat++)
-                        if (seat != c.humanSeat) ...[_playerRow(seat), const SizedBox(height: 8)],
-                      if (!c.showOver && !c.halted) ...[_pilesStrip(), const SizedBox(height: 8)],
-                      _actionPanel(),
-                      const SizedBox(height: 8),
-                      _playerRow(c.humanSeat),
-                      const SizedBox(height: 8),
-                      if (c.showOver) _resultPanel() else _bottomBar(),
-                    ],
+          child: LayoutBuilder(
+            builder: (context, box) {
+              // 4명이 폰으로 할 때 위아래로 밀지 않고 한눈에 보이도록, 높이가 모자라면 간격과 타일을 줄인다
+              _dense = (c.players >= 4 && box.maxHeight < 900) || (c.players == 3 && box.maxHeight < 760);
+              final gap = _dense ? 4.0 : 8.0;
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: ListenableBuilder(
+                    listenable: c,
+                    builder: (context, _) => SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(12, 4, 12, _dense ? 6 : 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _statusBanner(),
+                          SizedBox(height: gap),
+                          for (var seat = 0; seat < c.players; seat++)
+                            if (seat != c.humanSeat) ...[_playerRow(seat), SizedBox(height: gap)],
+                          if (!c.showOver && !c.halted) ...[_pilesStrip(), SizedBox(height: gap)],
+                          _actionPanel(),
+                          SizedBox(height: gap),
+                          _playerRow(c.humanSeat),
+                          SizedBox(height: gap),
+                          if (c.showOver) _resultPanel() else _bottomBar(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ],
@@ -75,7 +82,7 @@ extension _DvBoard on _DavinciScreenState {
     final event = _lastEvent;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      height: 58,
+      height: _dense ? 46 : 58,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -123,7 +130,7 @@ extension _DvBoard on _DavinciScreenState {
     return LayoutBuilder(
       builder: (context, box) {
         final n = row.length + (placing ? 1 : 0);
-        final tw = (me ? 44.0 : 38.0).clamp(20.0, (box.maxWidth - 34) / max(1, n) - 4);
+        final tw = (_dense ? (me ? 38.0 : 28.0) : (me ? 44.0 : 38.0)).clamp(20.0, (box.maxWidth - 34) / max(1, n) - 4);
         Widget slot(int pos) => GestureDetector(
               key: ValueKey('slot$pos'),
               behavior: HitTestBehavior.opaque,
@@ -172,7 +179,7 @@ extension _DvBoard on _DavinciScreenState {
 
         return Container(
           key: _rowKey(seat),
-          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          padding: _dense ? const EdgeInsets.fromLTRB(10, 4, 10, 6) : const EdgeInsets.fromLTRB(10, 8, 10, 10),
           decoration: BoxDecoration(
             color: (active ? kDavinciColor : Colors.white).withValues(alpha: active ? 0.1 : 0.45),
             borderRadius: BorderRadius.circular(16),
@@ -182,7 +189,7 @@ extension _DvBoard on _DavinciScreenState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                height: 32, // 말풍선이 떠도 줄 높이가 변하지 않게 늘 같은 높이
+                height: _dense ? 26 : 32, // 말풍선이 떠도 줄 높이가 변하지 않게 늘 같은 높이
                 child: Row(
                 children: [
                   Icon(me ? Icons.person_rounded : (c.isCpuSeat(seat) || !c.online ? Icons.smart_toy_rounded : Icons.wifi_rounded), size: 18, color: kDavinciColor),
@@ -208,15 +215,15 @@ extension _DvBoard on _DavinciScreenState {
                 ],
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: _dense ? 1 : 4),
               Opacity(
                 opacity: out ? 0.6 : 1,
                 // 떠오르는 타일과 ○/✕ 표시가 들어갈 위쪽 여유, 눕힌 타일도 바닥에 맞춰 놓이게 아래 정렬
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 14),
+                  padding: EdgeInsets.only(top: _dense ? 6 : 14),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minHeight: tw * 1.4 + 4),
-                    child: Wrap(runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.end, children: tiles),
+                    child: Wrap(runSpacing: _dense ? 6 : 10, crossAxisAlignment: WrapCrossAlignment.end, children: tiles),
                   ),
                 ),
               ),

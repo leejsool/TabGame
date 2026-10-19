@@ -85,6 +85,9 @@ class DavinciScreen extends StatefulWidget {
 }
 
 class _DavinciScreenState extends State<DavinciScreen> {
+  /// 폰에서 3~4명이 함께 할 때 한 화면에 다 담기도록 간격과 타일을 줄이는가 (화면을 그릴 때마다 높이를 보고 정한다).
+  bool _dense = false;
+
   /// 다른 파일(part)에 나눠 둔 화면 조각에서 상태를 바꿀 때 쓴다.
   void _update(VoidCallback fn) => setState(fn);
 
