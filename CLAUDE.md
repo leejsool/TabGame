@@ -50,6 +50,18 @@ bump the version's middle number at release (see Release).
 - Dev build to tablet: `tool/build_dev.ps1` (separate "개발" app). Release APK: `flutter build apk --release`.
 - All tools live in `F:\MyApp\tools` (flutter, jdk, sdk, pub-cache, tmp). Never install tools elsewhere.
 
+## Multiple PCs — paths differ per PC (check first!)
+The user develops on several PCs; tool/key folders are not the same everywhere. **Before running any build or test, find out which layout this PC has** (`Test-Path F:\MyApp\tools`, `Test-Path C:\android\sdk`, `Test-Path C:\myapp\key`). Seen so far:
+- PC A: tools in `F:\MyApp\tools` (the paths used in this file and in `tool/*.ps1`; `tool/test.ps1`, `build_dev.ps1`, `preview_all.ps1` hardcode them), key in `F:\MyApp\key`.
+- PC B (school PC, project at `C:\myapp\tabgame`, no F: drive): sdk `C:\android\sdk`, key `C:\myapp\key`, ASCII temp `C:\ftmp`, pub cache `C:\pubcache`. The `tool/*.ps1` scripts do not work there — run the commands by hand.
+
+**Root cause of most build/test failures on a PC: the Windows user folder name is Korean.** Anything that reads or writes under it breaks:
+- `flutter test` crashes in `flutter_tester` → set `$env:TEMP=$env:TMP=<ASCII dir>` (e.g. `C:\ftmp`) first.
+- `flutter build apk` fails with `:jni:buildCMakeRelWithDebInfo` / `ninja: error: FindFirstFileExA(c:/users/<한글>/appdata/local/pub/cache/hosted/pub.dev/jni-1.1.0/src)` → the default pub cache is under the Korean folder. Set `$env:PUB_CACHE=<ASCII dir>` (e.g. `C:\pubcache`) **before** `flutter pub get` and the build. The error never mentions "Korean path", so don't chase code.
+- Release APK (PC B example): `$env:TEMP=$env:TMP='C:\ftmp'; $env:PUB_CACHE='C:\pubcache'; flutter pub get; flutter build apk --release`. `TABGAME_DEV` must NOT be set (it switches to debug signing + the ".dev" app id). Signing reads `<project>\..\key\keystore.properties` automatically; never print or commit it.
+- Dev build to tablet by hand (same env + `$env:TABGAME_DEV='1'`, `flutter build apk --release --dart-define=TABGAME_DEV=true`, then `adb install -r`). Forgetting `TABGAME_DEV` as an env var overwrites the user's real release app on the tablet.
+If a new PC has yet another layout, add a line to the list above.
+
 ## Rules
 - A button's `textStyle: TextStyle(...)` replaces the theme style, so it must include `fontFamily: 'NanumGothic'` (or start from `Theme.of(context).textTheme`). Same for `TextPainter`/`RichText` in painters. `test/core/app_font_test.dart` checks buttons.
 - Lay out for both phone and the user's tablet (Galaxy Tab S9 FE, ~800x1280 dp). Check previews at all three sizes after UI changes.
