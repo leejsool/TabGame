@@ -91,6 +91,24 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     });
 
+    // 1-2) 대기 중인 대포를 꾹 누른 모습: 같은 색의 도트와 대포(대기열·벨트)만 또렷하다
+    final c3 = DotController(level: cat);
+    await shoot('game_hold', const Size(430, 900), DotScreen(controller: c3), before: () async {
+      for (var i = 0; i < 40; i++) {
+        final ex = c3.game.exposedColors();
+        for (var col = 0; col < c3.game.queue.length; col++) {
+          final q = c3.game.queue[col];
+          if (q.isNotEmpty && ex.contains(q.first.color) && c3.game.canDeploy(col)) {
+            c3.deploy(col);
+            break;
+          }
+        }
+        c3.advance(DotController.stepSeconds);
+      }
+      c3.highlight.value = c3.game.belt.isNotEmpty ? c3.game.belt.first.color : c3.game.queue.first.first.color;
+      await tester.pump(const Duration(milliseconds: 16));
+    });
+
     // 2) 첫 화면
     await shoot('menu', const Size(430, 900), const DotMenuScreen());
 

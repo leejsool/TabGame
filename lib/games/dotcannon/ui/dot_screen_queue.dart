@@ -18,7 +18,7 @@ class _QueuePanel extends StatelessWidget {
           border: Border.all(color: scheme.outlineVariant),
         ),
         child: ListenableBuilder(
-          listenable: c,
+          listenable: Listenable.merge([c, c.highlight]),
           builder: (context, _) {
             final g = c.game;
             final ex = g.exposedColors();
@@ -39,7 +39,7 @@ class _QueuePanel extends StatelessWidget {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              '맨 앞 대포를 눌러 벨트에 올려요 · 대기 ${g.waiting}대',
+                              '맨 앞 대포를 눌러 벨트에 올려요 · 꾹 누르면 같은 색 표시 · 대기 ${g.waiting}대',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
@@ -93,18 +93,38 @@ class _QueuePanel extends StatelessWidget {
 
   Widget _tile(int col, int k, Cannon cannon, Set<int> ex, double size) {
     final front = k == 0;
-    final tile = CannonTile(
+    final hi = controller.highlight.value;
+    final same = hi != null && cannon.color == hi;
+    Widget tile = CannonTile(
       color: controller.level.colors[cannon.color],
       ammo: cannon.ammo,
       size: size,
       glow: front && ex.contains(cannon.color),
       dim: !front,
+      ring: same,
     );
-    if (!front) return tile;
-    return InkWell(
-      key: ValueKey('dot-front-$col'),
-      customBorder: const CircleBorder(),
-      onTap: () => controller.deploy(col),
+    if (hi != null && !same) tile = Opacity(opacity: 0.35, child: tile);
+    if (front) {
+      tile = InkWell(
+        key: ValueKey('dot-front-$col'),
+        customBorder: const CircleBorder(),
+        onTap: () => controller.deploy(col),
+        child: tile,
+      );
+    }
+    // 어느 대포든 꾹 누르고 있는 동안, 판·벨트·대기열에서 같은 색을 돋보이게 한다 (손을 떼면 원래대로)
+    // (색을 확인하려고 누를 때가 많으니, 기본(0.5초)보다 빨리 반응해서 살짝 눌렀다 떼는 일을 줄인다. 한 번 반응한 뒤에 떼면 올라가지 않는다)
+    return RawGestureDetector(
+      key: ValueKey('dot-hold-$col-$k'),
+      gestures: {
+        LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(duration: const Duration(milliseconds: 300)),
+          (r) => r
+            ..onLongPressStart = ((_) => controller.highlight.value = cannon.color)
+            ..onLongPressEnd = ((_) => controller.highlight.value = null)
+            ..onLongPressCancel = (() => controller.highlight.value = null),
+        ),
+      },
       child: tile,
     );
   }

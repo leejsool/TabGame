@@ -19,17 +19,24 @@ extension _DsFlow on _DotScreenState {
   }
 
   void _feedback(String kind) {
-    if (kind == 'full') _showBanner('벨트가 가득 찼거나, 입구가 막혀 있어요');
+    if (kind == 'full') _showBanner('벨트가 가득 찼어요. 대포가 다 쓰이면 올릴 수 있어요');
     _fx.play(context, kind);
   }
+
+  /// 마지막 도트를 맞힌 순간에 클리어를 기록한다 (한 판에 한 번만).
+  /// 완성 창은 마지막 탄이 터진 뒤에야 뜨는데, 그 사이에 나가거나 일시정지·앱 전환을 해도 깬 기록이 남게 한다.
+  Future<DotBest> _recordSolved() => _winRecord ??= () async {
+        // 기록을 먼저 남긴다: 보관된 판이 지워지면 메뉴가 곧바로 기록을 읽으러 오는데, 그때 아직 기록이 없으면 "못 깼어요"로 보인다
+        final best = await DotStorage.recordWin(c.level.id, seconds: c.elapsed.value, deploys: c.game.deploys);
+        await _saver.finish();
+        return best;
+      }();
 
   Future<void> _onWon() async {
     WinSound.play(context); showWinCelebration(context, title: '완성!', subtitle: '도트를 모두 채웠어요'); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     final deploys = c.game.deploys;
-    // 기록을 먼저 남긴다: 보관된 판이 지워지면 메뉴가 곧바로 기록을 읽으러 오는데, 그때 아직 기록이 없으면 "못 깼어요"로 보인다
-    final best = await DotStorage.recordWin(c.level.id, seconds: seconds, deploys: deploys);
-    await _saver.finish();
+    final best = await _recordSolved();
     await Future<void>.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
     final index = dotLevels.indexWhere((l) => l.id == c.level.id);
@@ -122,6 +129,7 @@ extension _DsFlow on _DotScreenState {
 
   void _restartNow() {
     c.restart();
+    _winRecord = null;
     _saver.rearm();
     _saver.save();
     _savedAtDeploys = 0;

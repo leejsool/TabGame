@@ -44,6 +44,12 @@ class DotController extends ChangeNotifier {
 
   final ValueNotifier<int> elapsed;
 
+  /// 대기 중인 대포를 꾹 누르고 있는 동안, 그 대포의 색 번호 (판·벨트·대기열에서 같은 색을 돋보이게 한다). 평소엔 null.
+  final ValueNotifier<int?> highlight = ValueNotifier<int?>(null);
+
+  /// 입구가 막혀서 기다리는 중인 줄 번호. 입구가 비면 차례로 벨트에 올라간다.
+  final List<int> pending = [];
+
   int speedIndex = 0;
   int get speed => speeds[speedIndex];
 
@@ -67,6 +73,9 @@ class DotController extends ChangeNotifier {
   void Function(String kind)? onFeedback;
   VoidCallback? onWon;
   VoidCallback? onStalled;
+
+  /// 마지막 도트를 맞힌 바로 그 순간 (완성 창은 한참 뒤에 뜨니까, 기록은 이때 남긴다).
+  VoidCallback? onSolved;
 
   /// 벨트가 한 칸 도는 중 어디까지 왔는지 (0..1).
   double get stepFraction => (_acc / stepSeconds).clamp(0.0, 1.0);
@@ -93,8 +102,17 @@ class DotController extends ChangeNotifier {
   }
 
   /// 열 [column]의 맨 앞 대포를 벨트에 올린다.
+  ///
+  /// 벨트 자리는 남았는데 입구에 다른 대포가 지나가는 중이면, 거절하지 않고 기다렸다가 입구가 비는 대로 올린다.
   bool deploy(int column) {
     if (completed || game.won || gaveUp || paused || stalled) return false;
+    if (_entryBusyOnly(column)) {
+      if (!pending.contains(column)) {
+        pending.add(column);
+        notifyListeners();
+      }
+      return true;
+    }
     if (!game.deploy(column)) {
       onFeedback?.call('full');
       return false;
@@ -102,6 +120,35 @@ class DotController extends ChangeNotifier {
     onFeedback?.call('deploy');
     notifyListeners();
     return true;
+  }
+
+  /// 입구가 막힌 것 말고는 올릴 수 있는 상태인가.
+  bool _entryBusyOnly(int column) =>
+      !game.canDeploy(column) &&
+      column >= 0 &&
+      column < game.queue.length &&
+      game.queue[column].isNotEmpty &&
+      game.belt.length < game.capacity;
+
+  /// 기다리던 대포를 입구가 빈 만큼 올린다. 올릴 수 없게 된 것(벨트가 가득 참 등)은 접는다.
+  /// 올린 것이 있으면 true.
+  bool _flushPending() {
+    var placed = false;
+    while (pending.isNotEmpty) {
+      final col = pending.first;
+      if (game.canDeploy(col)) {
+        pending.removeAt(0);
+        game.deploy(col);
+        onFeedback?.call('deploy');
+        placed = true;
+      } else if (_entryBusyOnly(col)) {
+        break; // 아직 입구가 막혀 있다: 더 기다린다
+      } else {
+        pending.removeAt(0);
+        onFeedback?.call('full');
+      }
+    }
+    return placed;
   }
 
   /// [dt]초만큼 시간을 흘려보낸다 (화면의 프레임마다).
@@ -135,6 +182,7 @@ class DotController extends ChangeNotifier {
       _acc -= stepSeconds;
       final before = game.belt.toList();
       final shots = game.step();
+      _flushPending();
       for (final s in shots) {
         fx.add(ShotFx(s, clock));
       }
@@ -147,6 +195,7 @@ class DotController extends ChangeNotifier {
         // 탄이 날아가 터지는 시간(게임 시계)을 실제 초로 바꾸고, 터진 뒤 잠깐 더 보여 준다
         _winDelay = (flightSeconds + popSeconds) / (speed * baseSpeed) + 0.3;
         _acc = 0;
+        onSolved?.call();
       } else if (game.stuck) {
         stalled = true;
         onFeedback?.call('stuck');
@@ -172,6 +221,8 @@ class DotController extends ChangeNotifier {
     _acc = 0;
     _secAcc = 0;
     _winDelay = null;
+    pending.clear();
+    highlight.value = null;
     elapsed.value = 0;
     notifyListeners();
   }
@@ -209,6 +260,7 @@ class DotController extends ChangeNotifier {
   @override
   void dispose() {
     frame.dispose();
+    highlight.dispose();
     elapsed.dispose();
     super.dispose();
   }

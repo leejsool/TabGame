@@ -29,11 +29,32 @@ void paintCannon(
   double alpha = 1,
   bool glow = false,
   bool dim = false,
+  bool ring = false,
 }) {
   if (alpha <= 0) return;
   if (alpha < 1) canvas.saveLayer(Rect.fromCircle(center: c, radius: d), Paint()..color = Color.fromRGBO(0, 0, 0, alpha));
   if (glow) {
     canvas.drawCircle(c, d * 0.62, Paint()..color = color.withValues(alpha: 0.35));
+  }
+  if (ring) {
+    // 꾹 눌러 고른 색: 굵은 흰 고리 + 색 테두리로 어디서든 눈에 띄게
+    canvas.drawCircle(c, d * 0.58, Paint()..color = color.withValues(alpha: 0.45));
+    canvas.drawCircle(
+      c,
+      d * 0.54,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = d * 0.09
+        ..color = Colors.white,
+    );
+    canvas.drawCircle(
+      c,
+      d * 0.6,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = d * 0.05
+        ..color = shade(color, -0.3),
+    );
   }
   // 그림자
   canvas.drawCircle(c + Offset(0, d * 0.07), d * 0.44, Paint()..color = Colors.black.withValues(alpha: 0.28));
@@ -158,7 +179,7 @@ class DotGeometry {
 
 /// 도트 캐논 판 그림. [controller.frame]이 바뀔 때마다 다시 그린다.
 class DotBoardPainter extends CustomPainter {
-  DotBoardPainter(this.c, this.palette) : super(repaint: c.frame);
+  DotBoardPainter(this.c, this.palette) : super(repaint: Listenable.merge([c.frame, c.highlight]));
 
   final DotController c;
   final List<Color> palette;
@@ -228,12 +249,28 @@ class DotBoardPainter extends CustomPainter {
     }
 
     // 도트
+    // (대기 중인 대포를 꾹 누르면 그 색만 또렷하고, 나머지 색은 종이색으로 흐려진다)
+    final hi = c.highlight.value;
     final pad = u * 0.07;
     for (var y = 0; y < h; y++) {
       for (var x = 0; x < w; x++) {
         final col = g.grid[y * w + x];
         if (col == kDotEmpty) continue;
-        _pixel(canvas, geo.center(x, y), u - pad * 2, palette[col]);
+        final center = geo.center(x, y);
+        if (hi == null) {
+          _pixel(canvas, center, u - pad * 2, palette[col]);
+        } else if (col != hi) {
+          _pixel(canvas, center, u - pad * 2, Color.lerp(palette[col], _paper, 0.8)!, flat: true);
+        }
+      }
+    }
+    // 고른 색의 도트는 흐려진 도트 위로 살짝 떠올라 커 보이게 나중에 그린다 (이웃을 다 가리지 않을 만큼만 키운다)
+    if (hi != null) {
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          if (g.grid[y * w + x] != hi) continue;
+          _lifted(canvas, geo.center(x, y), u - pad * 2, palette[hi]);
+        }
       }
     }
 
@@ -288,17 +325,38 @@ class DotBoardPainter extends CustomPainter {
       paintCannon(canvas, pos, band * 0.96, palette[cn.color], geo.angleAt(cn.pos), label: '0', alpha: a * 0.8);
     }
 
-    // 벨트 위 대포
+    // 벨트 위 대포 (고른 색이 아니면 흐리게)
     for (final cn in g.belt) {
       final p = geo.ringPoint(cn.pos + f);
-      paintCannon(canvas, p, band * 0.98, palette[cn.color], geo.angleAt(cn.pos), label: '${cn.ammo}');
+      final same = hi != null && cn.color == hi;
+      paintCannon(canvas, p, band * 0.98, palette[cn.color], geo.angleAt(cn.pos),
+          label: '${cn.ammo}', ring: same, alpha: hi == null || same ? 1 : 0.35);
     }
   }
 
-  void _pixel(Canvas canvas, Offset center, double s, Color color) {
+  /// 고른 색의 도트: 그림자를 깔고 1.2배로 키운 뒤 얇은 흰 테두리를 둘러, 흐려진 도트 위로 떠올라 보이게 한다.
+  void _lifted(Canvas canvas, Offset center, double s, Color color) {
+    final big = s * 1.2;
+    final lift = Offset(0, -s * 0.06);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: center + Offset(0, s * 0.1), width: big, height: big), Radius.circular(big * 0.2)),
+      Paint()..color = Colors.black.withValues(alpha: 0.35),
+    );
+    _pixel(canvas, center + lift, big, color);
+    if (s < 4) return;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromCenter(center: center + lift, width: big + 1, height: big + 1), Radius.circular(big * 0.25)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = max(1.0, s * 0.08)
+        ..color = Colors.white,
+    );
+  }
+
+  void _pixel(Canvas canvas, Offset center, double s, Color color, {bool flat = false}) {
     final r = RRect.fromRectAndRadius(Rect.fromCenter(center: center, width: s, height: s), Radius.circular(s * 0.2));
     canvas.drawRRect(r, Paint()..color = color);
-    if (s < 7) return; // (칸이 아주 작으면 윤곽과 반사광은 생략한다)
+    if (flat || s < 7) return; // (흐린 도트나 칸이 아주 작을 때는 윤곽과 반사광을 생략한다)
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(r.left + s * 0.1, r.top + s * 0.1, s * 0.8, s * 0.22),
@@ -370,7 +428,7 @@ class DotArtPainter extends CustomPainter {
 
 /// 대기열의 대포 한 대를 그리는 작은 위젯.
 class CannonTile extends StatelessWidget {
-  const CannonTile({super.key, required this.color, required this.ammo, this.size = 52, this.glow = false, this.dim = false});
+  const CannonTile({super.key, required this.color, required this.ammo, this.size = 52, this.glow = false, this.dim = false, this.ring = false});
 
   final Color color;
   final int ammo;
@@ -378,31 +436,35 @@ class CannonTile extends StatelessWidget {
   final bool glow;
   final bool dim;
 
+  /// 꾹 눌러 고른 색과 같은 색이다 (굵은 흰 고리).
+  final bool ring;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(painter: _CannonTilePainter(color, ammo, glow, dim)),
+      child: CustomPaint(painter: _CannonTilePainter(color, ammo, glow, dim, ring)),
     );
   }
 }
 
 class _CannonTilePainter extends CustomPainter {
-  _CannonTilePainter(this.color, this.ammo, this.glow, this.dim);
+  _CannonTilePainter(this.color, this.ammo, this.glow, this.dim, this.ring);
 
   final Color color;
   final int ammo;
   final bool glow;
   final bool dim;
+  final bool ring;
 
   @override
   void paint(Canvas canvas, Size size) {
     paintCannon(canvas, size.center(Offset.zero) + Offset(0, size.height * 0.1), size.width * 0.9, color, -pi / 2,
-        label: '$ammo', glow: glow, dim: dim);
+        label: '$ammo', glow: glow, dim: dim, ring: ring);
   }
 
   @override
   bool shouldRepaint(_CannonTilePainter old) =>
-      old.color != color || old.ammo != ammo || old.glow != glow || old.dim != dim;
+      old.color != color || old.ammo != ammo || old.glow != glow || old.dim != dim || old.ring != ring;
 }

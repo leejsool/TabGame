@@ -53,6 +53,7 @@ GameTutorial dotTutorial() => GameTutorial(
         TutorialStep(
           title: '맨 앞 대포를 눌러 벨트에 올려요',
           body: '아래 대기열에서 줄마다 맨 앞 대포를 누르면 벨트 입구(왼쪽 아래)에서 벨트에 올라가요.\n'
+              '입구에 다른 대포가 지나가는 중이면, 잠깐 기다렸다가 저절로 올라가요.\n'
               '대포의 숫자는 쏠 수 있는 탄의 수예요. 탄을 다 쓰면 대포가 사라져요.',
           art: (context, accent) => ArtCanvas(
             width: 340,
@@ -63,6 +64,32 @@ GameTutorial dotTutorial() => GameTutorial(
                 CannonTile(color: _r, ammo: 6, size: 76, glow: true),
                 CannonTile(color: _y, ammo: 9, size: 76, glow: true),
                 CannonTile(color: _b, ammo: 4, size: 76, glow: true),
+              ],
+            ),
+          ),
+        ),
+        TutorialStep(
+          title: '꾹 누르면 같은 색을 보여 줘요',
+          body: '색이 비슷해서 헷갈리면, 대기 중인 대포 아무거나 꾹 누르고 있어 보세요.\n'
+              '누르는 동안 같은 색 도트는 떠올라 커지고, 같은 색 대포(대기열·벨트 위)는 흰 고리가 생겨요. 다른 색은 흐려져요.\n'
+              '손을 떼면 원래대로 돌아오고, 꾹 눌렀다 떼도 대포는 올라가지 않아요. 짧게 톡 누를 때만 올라가요.',
+          art: (context, accent) => ArtCanvas(
+            width: 340,
+            height: 170,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Align(alignment: Alignment(-0.78, 0), child: Icon(Icons.touch_app_rounded, size: 34, color: _dotColor)),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: const [
+                    CannonTile(color: _r, ammo: 6, size: 72, ring: true),
+                    Opacity(opacity: 0.35, child: CannonTile(color: _y, ammo: 9, size: 72)),
+                    CannonTile(color: _r, ammo: 4, size: 72, ring: true),
+                    Opacity(opacity: 0.35, child: CannonTile(color: _b, ammo: 5, size: 72)),
+                  ],
+                ),
               ],
             ),
           ),

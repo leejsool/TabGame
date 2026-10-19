@@ -2,6 +2,7 @@ import '../../../core/win_celebration.dart';
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
@@ -41,6 +42,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
   late final Ticker _ticker;
   Duration _last = Duration.zero;
   int _savedAtDeploys = 0;
+  Future<DotBest>? _winRecord;
   Timer? _bannerTimer;
   final ValueNotifier<String?> _banner = ValueNotifier<String?>(null);
 
@@ -62,6 +64,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
     c.addListener(_onChanged);
     c.onFeedback = _feedback;
     c.onWon = _onWon;
+    c.onSolved = _recordSolved;
     c.onStalled = _onStalled;
     _ticker = createTicker((elapsed) {
       final dt = (elapsed - _last).inMicroseconds / 1e6;
@@ -82,6 +85,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
     c.removeListener(_onChanged);
     c.onFeedback = null;
     c.onWon = null;
+    c.onSolved = null;
     c.onStalled = null;
     // 저장은 비동기로 컨트롤러 상태를 읽을 수 있어서, 굳힌 뒤 정리한다.
     Future<void>.microtask(c.dispose);

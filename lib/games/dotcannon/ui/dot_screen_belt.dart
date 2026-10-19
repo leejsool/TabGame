@@ -25,9 +25,10 @@ class _BeltStrip extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           child: ListenableBuilder(
-            listenable: c,
+            listenable: Listenable.merge([c, c.highlight]),
             builder: (context, _) {
               final g = c.game;
+              final hi = c.highlight.value;
               return Row(
                 children: [
                   Icon(
@@ -59,11 +60,15 @@ class _BeltStrip extends StatelessWidget {
                                 height: tile,
                                 child: i < g.belt.length
                                     ? Center(
-                                        child: CannonTile(
-                                          color:
-                                              c.level.colors[g.belt[i].color],
-                                          ammo: g.belt[i].ammo,
-                                          size: size,
+                                        child: Opacity(
+                                          opacity: hi == null || g.belt[i].color == hi ? 1 : 0.35,
+                                          child: CannonTile(
+                                            color:
+                                                c.level.colors[g.belt[i].color],
+                                            ammo: g.belt[i].ammo,
+                                            size: size,
+                                            ring: hi != null && g.belt[i].color == hi,
+                                          ),
                                         ),
                                       )
                                     : Center(
