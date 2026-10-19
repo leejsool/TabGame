@@ -78,7 +78,7 @@ extension _DvBoard on _DavinciScreenState {
 
   /// 위쪽 안내 띠. 글이 한 줄이든 두 줄이든 높이가 늘 같다 (높이가 바뀌면 아래 화면 전체가 출렁여서 어지럽다).
   Widget _statusBanner() {
-    final color = c.showOver || c.halted ? Colors.grey : (c.turn == c.humanSeat ? kDavinciColor : const Color(0xFF6B7A85));
+    final color = c.showOver || c.halted ? Colors.grey : (c.displayTurn == c.humanSeat ? kDavinciColor : const Color(0xFF6B7A85));
     final event = _lastEvent;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -115,7 +115,7 @@ extension _DvBoard on _DavinciScreenState {
     final s = c.state;
     final row = s.rows[seat];
     final me = seat == c.humanSeat;
-    final active = !c.showOver && !c.halted && c.turn == seat;
+    final active = !c.showOver && !c.halted && c.displayTurn == seat;
     // 탈락은 ○ / ✕ 연출이 다 끝난 뒤에 보인다
     final out = s.isOut(seat) && !c.outPendingSeats.contains(seat);
     final scheme = Theme.of(context).colorScheme;

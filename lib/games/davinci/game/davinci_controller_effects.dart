@@ -5,6 +5,16 @@ extension DavinciControllerEffects on DavinciController {
   /// 상대의 수를 보여 주는 중이라 내가 아직 못 두는가.
   bool get effectBusy => animate && ((effect?.blocking ?? false) || _effects.any((e) => e.blocking));
 
+  /// 화면에 "차례"로 보여 줄 자리. 판([turn])은 수를 두자마자 다음 사람으로 넘어가지만,
+  /// 상대(CPU·다른 기기)의 수를 한 단계씩 보여 주는 동안은 그 수를 둔 사람이 계속 차례로 보여야 한다.
+  /// (안 그러면 CPU1이 타일을 고르는 중에 파란 실루엣이 벌써 CPU2로 넘어간다)
+  /// 내가 둔 수는 바로 넘어간다 (내 수는 막지 않고 표시만 하니까).
+  int get displayTurn {
+    if (!animate) return state.turn;
+    final e = effect ?? (_effects.isEmpty ? null : _effects.first);
+    return e != null && e.actor != humanSeat ? e.actor : state.turn;
+  }
+
   /// 연출 동안 (실제로는 이미 공개됐더라도) 아직 숨은 타일로 보여야 하는 타일들.
   /// 맞힌 타일은 "추측 중"일 때까지, 틀렸을 때 내가 뽑았던 타일은 결과가 다 보일 때까지 세워 둔다.
   Set<int> get hiddenOverride {

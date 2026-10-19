@@ -309,7 +309,8 @@ extension _DvFlow on _DavinciScreenState {
         if (e.kind == 2) return '${_name(e.actor)}이(가) ${e.stage == DvEffectStage.pick ? '타일을 고르는 중…' : '추측하는 중…'}';
         return '${_name(e.actor)}이(가) 두는 중…';
       }
-      return c.thinking && c.turn != c.humanSeat ? '${_name(s.turn)}이(가) 생각하는 중…' : '${_name(s.turn)} 차례';
+      final shown = c.displayTurn;
+      return c.thinking && shown != c.humanSeat ? '${_name(shown)}이(가) 생각하는 중…' : '${_name(shown)} 차례';
     }
     return switch (s.phase) {
       DvPhase.draw => '내 차례 · 더미에서 타일을 한 장 뽑아요',
