@@ -89,7 +89,7 @@ class SettingsScreen extends StatelessWidget {
             SwitchListTile(
               secondary: const Icon(Icons.fast_forward_rounded),
               title: const Text('빠른 진행'),
-              subtitle: const Text('CPU가 덜 기다리고, 상대의 수가 더 빨리 움직여요'),
+              subtitle: const Text('CPU가 덜 기다리고, 상대의 수가 더 빨리 움직여요\n주의: CPU가 너무 빠르면 CPU 턴에 어떤 행동을 했는지 알기 어려울 수도 있어요.'),
               value: settings.fastPace,
               onChanged: (v) => settings.fastPace = v,
             ),

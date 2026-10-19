@@ -6,7 +6,7 @@ import 'rummikub_tiles.dart';
 
 /// 이겼을 때의 축하 연출: 화면 위에서 색종이와 별이 쏟아지고, 가운데에 "승리!" 현판이 튀어 오른다.
 ///
-/// 눌림을 막지 않는다 ([IgnorePointer]). 연출이 끝나면 [onDone]을 부른다.
+/// 눌림을 막지 않는다. 화면 어디든 닿으면 바로 사라지고(눌린 것은 그대로 아래로 전해진다), 저절로 끝나도 [onDone]을 부른다.
 class RkCelebration extends StatefulWidget {
   const RkCelebration({super.key, this.title = '승리!', this.subtitle, this.onDone});
 
@@ -22,9 +22,17 @@ class _RkCelebrationState extends State<RkCelebration> with SingleTickerProvider
   static const _duration = Duration(milliseconds: 5200);
   late final AnimationController _c = AnimationController(vsync: this, duration: _duration)
     ..addStatusListener((s) {
-      if (s == AnimationStatus.completed) widget.onDone?.call();
+      if (s == AnimationStatus.completed) _finish();
     })
     ..forward();
+  bool _closed = false;
+
+  /// 끝났다고 한 번만 알린다 (저절로 끝났거나 눌려서 끝났거나).
+  void _finish() {
+    if (_closed) return;
+    _closed = true;
+    widget.onDone?.call();
+  }
   late final List<_Piece> _pieces = _makePieces(Random(7));
 
   @override
@@ -53,7 +61,10 @@ class _RkCelebrationState extends State<RkCelebration> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _finish(),
+      child: IgnorePointer(
       child: Material(
         type: MaterialType.transparency, // (글꼴·글자 스타일을 화면의 테마대로 받으려고)
         child: AnimatedBuilder(
@@ -83,6 +94,7 @@ class _RkCelebrationState extends State<RkCelebration> with SingleTickerProvider
           );
         },
         ),
+      ),
       ),
     );
   }
