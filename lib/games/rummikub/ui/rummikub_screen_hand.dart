@@ -177,21 +177,11 @@ extension _RkHand on _RummikubScreenState {
                 '손으로',
                 () => c.returnToHand(c.selected.toList()),
               ),
-            // 늘 보이되, 묶음을 못 이룬 타일이 없으면 흐리게 눌리지 않는다. 아이콘만으로는 뜻을 몰라 글자를 함께 적는다
-            OutlinedButton.icon(
-              onPressed: c.wrongTiles.isNotEmpty ? c.returnWrongToHand : null,
-              icon: const Icon(Icons.rule_rounded, size: 20),
-              label: const Text('미완성만 손으로'),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                minimumSize: const Size(44, 38),
-                side: BorderSide(color: Theme.of(context).colorScheme.outline),
-                textStyle: const TextStyle(
-                  fontFamily: 'NanumGothic',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+            // 늘 보이되, 묶음을 못 이룬 타일이 없으면 흐리게 눌리지 않는다 (뜻은 튜토리얼에서 알려 준다)
+            icon(
+              Icons.rule_rounded,
+              '미완성 타일만 손으로 (맞게 만든 묶음은 그대로)',
+              c.wrongTiles.isNotEmpty ? c.returnWrongToHand : null,
             ),
             icon(Icons.undo_rounded, '되돌리기', c.canUndoStep ? c.undoStep : null),
             icon(

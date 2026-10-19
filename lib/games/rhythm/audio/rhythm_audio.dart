@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/sfx_restarter.dart';
+
 /// 리듬 검사단에서 쓰는 효과음 (tool/make_rhythm_sounds.dart 로 만든 assets/rhythm/*.wav).
 enum Sfx {
   // 좌우 공격음: 직접 고른 검 베기 소리 (왼쪽 = 퐉, 오른쪽 = 쉭). 앞사람(NPC)은 같은 소리를 작게.
@@ -84,6 +86,7 @@ class PoolSfx implements RhythmSfx {
   final Map<Sfx, List<AudioPlayer>> _voices = {};
   final Map<Sfx, int> _next = {};
   final List<AudioPlayer> _all = [];
+  final SfxRestarter _restarter = SfxRestarter();
   AudioPlayer? _warm;
   bool _ready = false;
   Future<void>? _loading;
@@ -188,6 +191,7 @@ class PoolSfx implements RhythmSfx {
     _voices.clear();
     _warm = null;
     for (final p in all) {
+      _restarter.forget(p);
       try {
         await p.dispose();
       } catch (_) {}
@@ -198,7 +202,7 @@ class PoolSfx implements RhythmSfx {
   Future<void> warmUp() async {
     final p = _warm;
     if (!_ready || p == null) return;
-    await _start(p);
+    _restarter.restart(p);
   }
 
   @override
@@ -206,16 +210,10 @@ class PoolSfx implements RhythmSfx {
     if (!_ready) return;
     final list = _voices[sfx];
     if (list == null || list.isEmpty) return;
-    final i = (_next[sfx] ?? 0) % list.length;
+    // 쉬고 있는 플레이어를 골라 튼다 (같은 플레이어에 잇달아 오면 앞 호출과 엉켜 소리가 삼켜졌다)
+    final i = _restarter.pick(list, _next[sfx] ?? 0);
     _next[sfx] = i + 1;
-    unawaited(_start(list[i]));
-  }
-
-  Future<void> _start(AudioPlayer p) async {
-    try {
-      if (p.state == PlayerState.playing) await p.stop();
-      await p.resume();
-    } catch (_) {}
+    _restarter.restart(list[i]);
   }
 
   /// 화면이 나갈 때 부른다. 함께 쓰는 [shared]는 없애지 않는다 (다음 화면이 그대로 쓴다).

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/widgets.dart';
 
+import 'sfx_restarter.dart';
+
 /// 짧은 효과음 하나를 빠르게 여러 번 틀 수 있게 해 주는 재생기 (게임마다 자기 소리를 하나씩 쓴다).
 ///
 /// 소리마다 플레이어를 몇 개 만들어 두고 돌아가며 쓴다. (같은 소리가 겹쳐도 끊기지 않고, 틀 때마다 새로 만들지 않아
@@ -17,6 +19,7 @@ class SfxPool {
   final double volume;
 
   final List<AudioPlayer> _players = [];
+  final SfxRestarter _restarter = SfxRestarter();
   int _next = 0;
   bool _ready = false;
   bool _loading = false;
@@ -66,21 +69,16 @@ class SfxPool {
       unawaited(load());
       return;
     }
-    final p = _players[_next++ % _players.length];
-    unawaited(_start(p));
-  }
-
-  Future<void> _start(AudioPlayer p) async {
-    try {
-      if (p.state == PlayerState.playing) await p.stop();
-      await p.resume();
-    } catch (_) {}
+    final i = _restarter.pick(_players, _next);
+    _next = i + 1;
+    _restarter.restart(_players[i]);
   }
 
   Future<void> dispose() async {
     _disposed = true;
     _ready = false;
     for (final p in _players) {
+      _restarter.forget(p);
       try {
         await p.dispose();
       } catch (_) {}

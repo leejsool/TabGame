@@ -77,6 +77,15 @@ enum Foe {
   goblin,
   bossOrc;
 
+  /// 화면 글에 쓰는 이름 ("○○이 힘을 모을 때" 같은 말에 넣는다).
+  String get label => switch (this) {
+        dummy => '허수아비',
+        slime => '슬라임',
+        bossSlime => '거대 슬라임',
+        goblin => '고블린',
+        bossOrc => '오크 대장',
+      };
+
   /// 크게 한 마리가 덮쳐 오는 보스인가 (막기 필요).
   bool get isBoss => this == bossSlime || this == bossOrc;
 
@@ -166,7 +175,7 @@ class RhythmCourse {
     RhythmCourse(
       title: '오크 대장',
       subtitle: '막기로 오크 대장을 쓰러뜨려요',
-      stages: RhythmChart.bossStages,
+      stages: RhythmChart.orcStages,
       bpm: 104,
       foe: Foe.bossOrc,
       welcome: '저건… 오크 대장이다! 정신 바짝 차려라!',
@@ -419,33 +428,63 @@ class RhythmChart {
     TutorialStage(
       title: '거대 슬라임 등장',
       hint: '엄청 큰 슬라임이다!\n먼저 박자에 맞춰 공격하자!',
-      waves: [Motif.left, Motif.swipeRight, Motif.rightDouble, Motif.swipeLeft],
+      waves: _bossWaves1,
     ),
     TutorialStage(
       title: '막아라!',
       hint: '슬라임이 덤벼든다!\n화면을 위로 쓱 밀어서 검으로 막아라!',
-      waves: [Motif.right, Motif.swipeLeft, Motif.bossAttack, Motif.leftDouble, Motif.holdRight],
+      waves: _bossWaves2,
     ),
     TutorialStage(
       title: '공격과 방어',
       hint: '공격하다가도 슬라임이 힘을 모으면 막을 준비를 해라!',
-      waves: [Motif.rightLeft, Motif.swipeRight, Motif.holdLeft, Motif.bossAttack, Motif.leftRight, Motif.swipeLeft],
+      waves: _bossWaves3,
     ),
     TutorialStage(
       title: '최후의 일격',
       hint: '안내 없이 간다! 슬라임의 움직임을 잘 봐라!',
       cue: false,
-      waves: [
-        Motif.leftDouble,
-        Motif.holdRight,
-        Motif.swipeLeft,
-        Motif.rightLeft,
-        Motif.swipeRight,
-        Motif.holdLeft,
-        Motif.bossAttack,
-        Motif.rightDouble,
-      ],
+      waves: _bossWaves4,
     ),
+  ];
+
+  /// 6코스: 오크 대장(보스). 4코스와 같은 곡이고 말만 오크 대장에 맞춘다.
+  static const orcStages = <TutorialStage>[
+    TutorialStage(
+      title: '오크 대장 등장',
+      hint: '엄청 큰 오크 대장이다!\n먼저 박자에 맞춰 공격하자!',
+      waves: _bossWaves1,
+    ),
+    TutorialStage(
+      title: '막아라!',
+      hint: '오크 대장이 덤벼든다!\n화면을 위로 쓱 밀어서 검으로 막아라!',
+      waves: _bossWaves2,
+    ),
+    TutorialStage(
+      title: '공격과 방어',
+      hint: '공격하다가도 오크 대장이 힘을 모으면 막을 준비를 해라!',
+      waves: _bossWaves3,
+    ),
+    TutorialStage(
+      title: '최후의 일격',
+      hint: '안내 없이 간다! 오크 대장의 움직임을 잘 봐라!',
+      cue: false,
+      waves: _bossWaves4,
+    ),
+  ];
+
+  static const _bossWaves1 = <Motif>[Motif.left, Motif.swipeRight, Motif.rightDouble, Motif.swipeLeft];
+  static const _bossWaves2 = <Motif>[Motif.right, Motif.swipeLeft, Motif.bossAttack, Motif.leftDouble, Motif.holdRight];
+  static const _bossWaves3 = <Motif>[Motif.rightLeft, Motif.swipeRight, Motif.holdLeft, Motif.bossAttack, Motif.leftRight, Motif.swipeLeft];
+  static const _bossWaves4 = <Motif>[
+    Motif.leftDouble,
+    Motif.holdRight,
+    Motif.swipeLeft,
+    Motif.rightLeft,
+    Motif.swipeRight,
+    Motif.holdLeft,
+    Motif.bossAttack,
+    Motif.rightDouble,
   ];
 
   /// 단계 목록으로 곡을 만든다. 물결 하나는 4박(꾹 누르기는 5박): 선배1 → 선배2 → 선배3 → 나.

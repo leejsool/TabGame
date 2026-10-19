@@ -1,5 +1,6 @@
 import '../../../core/win_celebration.dart';
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -17,6 +18,7 @@ import '../game/dot_controller.dart';
 import '../tutorial/dot_tutorial.dart';
 import 'dot_painter.dart';
 
+part 'dot_screen_belt.dart';
 part 'dot_screen_flow.dart';
 part 'dot_screen_layout.dart';
 part 'dot_screen_queue.dart';
@@ -44,8 +46,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   final GameFx _fx = GameFx({
-    // 대포가 쏠 때의 레이저 (사용자가 고른 소리). 여럿이 잇달아 쏘면 난잡해지니 작게, 0.17초에 한 번까지만
-    'hit': const Fx(sound: 'sfx/laser.wav', volume: 0.45, minGap: Duration(milliseconds: 170)),
+    // 대포가 쏠 때의 소리는 없다: 배속으로 하면 너무 많이 쏴서 오디오가 밀려 "짜잔"까지 늦어졌다
     'deploy': const Fx(haptic: Haptic.select),
     'full': const Fx(haptic: Haptic.light),
     'stuck': const Fx(haptic: Haptic.vibrate),
@@ -122,6 +123,7 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
                 final landscape = box.maxWidth > box.maxHeight * 1.15;
                 final board = _board();
                 final queue = _QueuePanel(controller: c);
+                final belt = _BeltStrip(controller: c);
                 return Column(
                   children: [
                     _topBar(),
@@ -130,12 +132,16 @@ class _DotScreenState extends State<DotScreen> with WidgetsBindingObserver, Sing
                           ? Row(
                               children: [
                                 Expanded(child: board),
-                                SizedBox(width: (box.maxWidth * 0.36).clamp(240.0, 380.0), child: queue),
+                                SizedBox(
+                                  width: (box.maxWidth * 0.36).clamp(240.0, 380.0),
+                                  child: Column(children: [belt, Expanded(child: queue)]),
+                                ),
                               ],
                             )
                           : Column(
                               children: [
                                 Expanded(flex: 5, child: board),
+                                belt,
                                 Expanded(flex: 3, child: queue),
                               ],
                             ),

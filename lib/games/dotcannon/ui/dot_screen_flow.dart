@@ -27,8 +27,9 @@ extension _DsFlow on _DotScreenState {
     WinSound.play(context); showWinCelebration(context, title: '완성!', subtitle: '도트를 모두 채웠어요'); // 이겼을 때 "짜잔"
     final seconds = c.elapsed.value;
     final deploys = c.game.deploys;
-    await _saver.finish();
+    // 기록을 먼저 남긴다: 보관된 판이 지워지면 메뉴가 곧바로 기록을 읽으러 오는데, 그때 아직 기록이 없으면 "못 깼어요"로 보인다
     final best = await DotStorage.recordWin(c.level.id, seconds: seconds, deploys: deploys);
+    await _saver.finish();
     await Future<void>.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
     final index = dotLevels.indexWhere((l) => l.id == c.level.id);

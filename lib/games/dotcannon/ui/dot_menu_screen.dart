@@ -62,12 +62,16 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
     super.dispose();
   }
 
+  /// 읽기를 시작한 차례. 잇달아 읽을 때(연속 클리어) 먼저 시작한 낡은 읽기가 늦게 끝나 새 기록을 덮어쓰지 않게 한다.
+  int _loadSeq = 0;
+
   Future<void> _load() async {
+    final seq = ++_loadSeq;
     final saved = await GameSave.load(dotGameId);
     final custom = await DotCustomStore.loadAll();
     final stats = await DotStorage.statsFor([...dotLevels, ...custom]);
     final unlockAll = await DotStorage.unlockedAll();
-    if (!mounted) return;
+    if (!mounted || seq != _loadSeq) return;
     setState(() {
       _unlockAll = unlockAll;
       _saved = saved;

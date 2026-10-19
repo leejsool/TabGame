@@ -306,7 +306,7 @@ class _ComingSoonCard extends StatelessWidget {
         children: [
           Icon(Icons.more_horiz_rounded, color: _ink),
           SizedBox(width: 12),
-          Expanded(child: Text('마을 밖 모험은 준비 중이에요', style: TextStyle(color: _ink, fontWeight: FontWeight.w800))),
+          Expanded(child: Text('다음 모험도 준비 중이에요', style: TextStyle(color: _ink, fontWeight: FontWeight.w800))),
         ],
       ),
     );

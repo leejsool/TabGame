@@ -4,9 +4,19 @@ part of 'rhythm_screen.dart';
 // ── 위쪽 안내 ──
 
 class _Hud extends StatelessWidget {
-  const _Hud({required this.c, required this.welcome, required this.songTime, required this.onBack, required this.onPause});
+  const _Hud({
+    required this.c,
+    required this.foe,
+    required this.welcome,
+    required this.songTime,
+    required this.onBack,
+    required this.onPause,
+  });
 
   final RhythmController c;
+
+  /// 이 코스의 상대 (한가운데 뜨는 글이 상대를 가리지 않게 자리를 고르는 데 쓴다).
+  final Foe foe;
   final String welcome;
   final double Function() songTime;
   final VoidCallback onBack;
@@ -14,39 +24,78 @@ class _Hud extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: c,
-      builder: (context, _) {
-        final playing = c.status == RhythmStatus.playing;
-        final t = playing ? songTime() : -1.0;
-        final countIn = c.chart.countInBeats * c.chart.beat;
-        final inCount = playing && t < countIn;
-        return Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _RoundButton(icon: Icons.arrow_back_rounded, onTap: onBack),
-                  const SizedBox(width: 10),
-                  Expanded(child: IgnorePointer(child: _HintPanel(c: c, welcome: welcome, playing: playing))),
-                  const SizedBox(width: 10),
-                  _RoundButton(icon: Icons.pause_rounded, onTap: onPause),
-                ],
-              ),
-            ),
-            if (playing && c.hasHearts) Positioned(left: 14, top: 96, child: IgnorePointer(child: _Hearts(c: c, t: t))),
-            if (playing && c.judge.combo >= 2)
-              Positioned(
-                right: 14,
-                top: 96,
-                child: IgnorePointer(child: _ComboBadge(combo: c.judge.combo)),
-              ),
-            if (inCount) IgnorePointer(child: _CountIn(c: c, t: t)),
-            if (playing && !inCount && t - c.stageBannerAt < 1.7 && c.stage > 0)
-              IgnorePointer(child: _StageBanner(c: c, age: t - c.stageBannerAt)),
-          ],
+    return LayoutBuilder(
+      builder: (context, box) {
+        final wideBoss = foe.isBoss && box.maxWidth / box.maxHeight >= 1.15;
+        return AnimatedBuilder(
+          animation: c,
+          builder: (context, _) {
+            final playing = c.status == RhythmStatus.playing;
+            final t = playing ? songTime() : -1.0;
+            final countIn = c.chart.countInBeats * c.chart.beat;
+            final inCount = playing && t < countIn;
+            return Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RoundButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: onBack,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: IgnorePointer(
+                          child: _HintPanel(
+                            c: c,
+                            welcome: welcome,
+                            playing: playing,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      _RoundButton(icon: Icons.pause_rounded, onTap: onPause),
+                    ],
+                  ),
+                ),
+                if (playing && c.hasHearts)
+                  Positioned(
+                    left: 14,
+                    top: 96,
+                    child: IgnorePointer(
+                      child: _Hearts(c: c, t: t),
+                    ),
+                  ),
+                if (playing && c.judge.combo >= 2)
+                  Positioned(
+                    right: 14,
+                    top: 96,
+                    child: IgnorePointer(
+                      child: _ComboBadge(combo: c.judge.combo),
+                    ),
+                  ),
+                // 가운데 뜨는 글(박자 세기·단계 이름)은 상대의 머리 위, 안내판 바로 아래에 띄운다.
+                // 가로 화면의 보스는 키가 커서 위쪽 가운데를 차지하니, 글은 오른쪽 빈자리로 비킨다.
+                if (inCount ||
+                    (playing && t - c.stageBannerAt < 1.7 && c.stage > 0))
+                  Positioned(
+                    top: 138,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: Align(
+                        alignment: Alignment(wideBoss ? 0.64 : 0, -1),
+                        child: inCount
+                            ? _CountIn(c: c, t: t)
+                            : _StageBanner(c: c, age: t - c.stageBannerAt),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
@@ -66,7 +115,10 @@ class _RoundButton extends StatelessWidget {
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Padding(padding: const EdgeInsets.all(9), child: Icon(icon, color: _ink, size: 26)),
+        child: Padding(
+          padding: const EdgeInsets.all(9),
+          child: Icon(icon, color: _ink, size: 26),
+        ),
       ),
     );
   }
@@ -74,7 +126,11 @@ class _RoundButton extends StatelessWidget {
 
 /// 위쪽 안내판: 단계 표시 점 + 교관의 한마디.
 class _HintPanel extends StatelessWidget {
-  const _HintPanel({required this.c, required this.welcome, required this.playing});
+  const _HintPanel({
+    required this.c,
+    required this.welcome,
+    required this.playing,
+  });
   final RhythmController c;
   final String welcome;
   final bool playing;
@@ -106,9 +162,13 @@ class _HintPanel extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(horizontal: 3),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: c.status == RhythmStatus.finished || (playing && i < c.stage)
+                        color:
+                            c.status == RhythmStatus.finished ||
+                                (playing && i < c.stage)
                             ? _gold
-                            : (playing && i == c.stage ? const Color(0xFFFF7A2F) : Colors.white),
+                            : (playing && i == c.stage
+                                  ? const Color(0xFFFF7A2F)
+                                  : Colors.white),
                         border: Border.all(color: _ink, width: 2),
                       ),
                     ),
@@ -121,7 +181,12 @@ class _HintPanel extends StatelessWidget {
                   text,
                   key: ValueKey(text),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 19, height: 1.25),
+                  style: const TextStyle(
+                    color: _ink,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 19,
+                    height: 1.25,
+                  ),
                 ),
               ),
             ],
@@ -140,8 +205,19 @@ class _ComboBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFFFF7A2F), borderRadius: BorderRadius.circular(16), border: Border.all(color: _ink, width: 3)),
-      child: Text('콤보 $combo', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF7A2F),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _ink, width: 3),
+      ),
+      child: Text(
+        '콤보 $combo',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
+          fontSize: 17,
+        ),
+      ),
     );
   }
 }
@@ -157,27 +233,31 @@ class _CountIn extends StatelessWidget {
     final phase = c.beatPhase(t);
     final scale = 1.0 + 0.5 * pow(1 - phase, 3).toDouble();
     final text = b < 0 ? '준비…' : '${b + 1}';
-    return Align(
-      alignment: const Alignment(0, -0.1),
-      child: Transform.scale(
-        scale: scale,
-        child: Stack(
-          children: [
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: b < 0 ? 40 : 110,
-                fontWeight: FontWeight.w900,
-                foreground: Paint()
-                  ..style = PaintingStyle.stroke
-                  ..strokeWidth = 12
-                  ..strokeJoin = StrokeJoin.round
-                  ..color = _ink,
-              ),
+    return Transform.scale(
+      scale: scale,
+      child: Stack(
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: b < 0 ? 40 : 88,
+              fontWeight: FontWeight.w900,
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 11
+                ..strokeJoin = StrokeJoin.round
+                ..color = _ink,
             ),
-            Text(text, style: TextStyle(fontSize: b < 0 ? 40 : 110, fontWeight: FontWeight.w900, color: Colors.white)),
-          ],
-        ),
+          ),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: b < 0 ? 40 : 88,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -190,27 +270,40 @@ class _StageBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final a = age < 0.2 ? age / 0.2 : (age > 1.3 ? max(0.0, 1 - (age - 1.3) / 0.4) : 1.0);
-    return Align(
-      alignment: const Alignment(0, -0.15),
-      child: Opacity(
-        opacity: a,
-        child: Transform.scale(
-          scale: 0.9 + 0.1 * a,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-            decoration: BoxDecoration(
-              color: _gold,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: _ink, width: 4),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${c.stage + 1}단계', style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 16)),
-                Text(c.stageInfo.title, style: const TextStyle(color: _ink, fontWeight: FontWeight.w900, fontSize: 28)),
-              ],
-            ),
+    final a = age < 0.2
+        ? age / 0.2
+        : (age > 1.3 ? max(0.0, 1 - (age - 1.3) / 0.4) : 1.0);
+    return Opacity(
+      opacity: a,
+      child: Transform.scale(
+        scale: 0.9 + 0.1 * a,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+          decoration: BoxDecoration(
+            color: _gold,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _ink, width: 4),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${c.stage + 1}단계',
+                style: const TextStyle(
+                  color: _ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                c.stageInfo.title,
+                style: const TextStyle(
+                  color: _ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 28,
+                ),
+              ),
+            ],
           ),
         ),
       ),

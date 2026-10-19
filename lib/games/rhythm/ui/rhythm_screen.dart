@@ -24,7 +24,14 @@ const _ink = Color(0xFF1A1523);
 
 /// 훈련소 튜토리얼 플레이 화면.
 class RhythmScreen extends StatefulWidget {
-  const RhythmScreen({super.key, this.controller, this.autoStart = false, this.art, this.course = 0, this.sfx});
+  const RhythmScreen({
+    super.key,
+    this.controller,
+    this.autoStart = false,
+    this.art,
+    this.course = 0,
+    this.sfx,
+  });
 
   /// 몇 번째 코스인지 (RhythmCourse.all의 번호).
   final int course;
@@ -45,7 +52,8 @@ class RhythmScreen extends StatefulWidget {
   State<RhythmScreen> createState() => _RhythmScreenState();
 }
 
-class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _RhythmScreenState extends State<RhythmScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   /// 시작을 누른 뒤 첫 박자까지의 여유 시간(초).
   static const _lead = 0.9;
 
@@ -83,9 +91,14 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
     super.didChangeDependencies();
     if (_c != null) return;
     final soundOn = SettingsScope.of(context).sound;
-    final sfx = widget.controller?.sfx ?? widget.sfx ?? (soundOn ? PoolSfx.shared : const SilentSfx());
+    final sfx =
+        widget.controller?.sfx ??
+        widget.sfx ??
+        (soundOn ? PoolSfx.shared : const SilentSfx());
     _sfx = sfx;
-    _c = widget.controller ?? RhythmController(chart: RhythmChart.course(widget.course), sfx: sfx);
+    _c =
+        widget.controller ??
+        RhythmController(chart: RhythmChart.course(widget.course), sfx: sfx);
     c.onJudged = _onJudged;
     c.onFinished = _onFinished;
     _art = widget.art;
@@ -227,7 +240,11 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
   }
 
   void _next() {
-    Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => RhythmScreen(course: widget.course + 1)));
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => RhythmScreen(course: widget.course + 1),
+      ),
+    );
   }
 
   Future<void> _onFinished() async {
@@ -237,9 +254,15 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
       return;
     }
     final j = c.judge;
-    if (j.stars >= RhythmCourse.passStars) WinSound.play(context); // 합격했을 때 "짜잔"
+    if (j.stars >= RhythmCourse.passStars)
+      WinSound.play(context); // 합격했을 때 "짜잔"
     final best = await RhythmStorage.record(
-      RhythmResult(stars: j.stars, accuracy: j.accuracy, score: j.score, maxCombo: j.maxCombo),
+      RhythmResult(
+        stars: j.stars,
+        accuracy: j.accuracy,
+        score: j.score,
+        maxCombo: j.maxCombo,
+      ),
       widget.course,
     );
     if (!mounted) return;
@@ -256,8 +279,25 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
           final width = box.maxWidth;
           return Stack(
             children: [
-              Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: BackgroundPainter(art, name: _course.background)))),
-              Positioned.fill(child: CustomPaint(painter: StagePainter(c, art: art, clock: _songTime, wall: _wall, foe: _course.foe, iron: _course.ironSword))),
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: BackgroundPainter(art, name: _course.background),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: StagePainter(
+                    c,
+                    art: art,
+                    clock: _songTime,
+                    wall: _wall,
+                    foe: _course.foe,
+                    iron: _course.ironSword,
+                  ),
+                ),
+              ),
               // 화면 전체가 탭 영역: 왼쪽 절반 / 오른쪽 절반
               Positioned.fill(
                 child: Listener(
@@ -269,13 +309,30 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
                   child: const SizedBox.expand(),
                 ),
               ),
-              SafeArea(child: _Hud(c: c, welcome: _course.welcome, songTime: _songTime, onBack: () => Navigator.of(context).maybePop(), onPause: _pause)),
+              SafeArea(
+                child: _Hud(
+                  c: c,
+                  foe: _course.foe,
+                  welcome: _course.welcome,
+                  songTime: _songTime,
+                  onBack: () => Navigator.of(context).maybePop(),
+                  onPause: _pause,
+                ),
+              ),
               AnimatedBuilder(
                 animation: c,
                 builder: (context, _) {
-                  if (c.status == RhythmStatus.ready) return _ReadyCard(course: widget.course, onStart: _audioReady && _art != null ? _begin : null);
+                  if (c.status == RhythmStatus.ready)
+                    return _ReadyCard(
+                      course: widget.course,
+                      onStart: _audioReady && _art != null ? _begin : null,
+                    );
                   if (c.status == RhythmStatus.finished && c.gameOver) {
-                    return _GameOverCard(onAgain: _restart, onExit: () => Navigator.of(context).pop());
+                    return _GameOverCard(
+                      foe: RhythmCourse.all[widget.course].foe,
+                      onAgain: _restart,
+                      onExit: () => Navigator.of(context).pop(),
+                    );
                   }
                   if (c.status == RhythmStatus.finished) {
                     return _ResultCard(
@@ -287,7 +344,13 @@ class _RhythmScreenState extends State<RhythmScreen> with SingleTickerProviderSt
                       onExit: () => Navigator.of(context).pop(),
                     );
                   }
-                  if (_paused) return _PauseCard(quitLabel: _course.foe == Foe.dummy ? '훈련 그만두기' : '그만두기', onResume: _resume, onRestart: _restart, onExit: () => Navigator.of(context).pop());
+                  if (_paused)
+                    return _PauseCard(
+                      quitLabel: _course.foe == Foe.dummy ? '훈련 그만두기' : '그만두기',
+                      onResume: _resume,
+                      onRestart: _restart,
+                      onExit: () => Navigator.of(context).pop(),
+                    );
                   return const SizedBox.shrink();
                 },
               ),
