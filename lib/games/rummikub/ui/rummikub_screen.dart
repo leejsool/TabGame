@@ -12,6 +12,7 @@ import '../../../core/leave_guard.dart';
 import '../../../core/win_sound.dart';
 import '../../../core/settings_scope.dart';
 import '../../../core/tablet_scale.dart';
+import '../../../core/turn_glow.dart';
 import '../../../net/lan_connection.dart';
 import '../../../net/lan_rejoin.dart';
 import '../../../net/lan_rejoin_flow.dart';
@@ -24,7 +25,6 @@ import '../game/rummikub_layout.dart';
 import '../tutorial/rummikub_tutorial.dart';
 import 'rummikub_celebration.dart';
 import 'rummikub_tiles.dart';
-import 'rummikub_turn_glow.dart';
 import '../../../versus/vs_screen_parts.dart';
 
 part 'rummikub_screen_net.dart';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/turn_glow.dart';
 import '../core/davinci_rules.dart';
 
 /// 게임 색 (허브 카드 색).
@@ -124,7 +125,8 @@ class DvTile extends StatelessWidget {
           BoxShadow(color: Colors.black.withValues(alpha: (selected || lifted) ? 0.3 : 0.18), blurRadius: (selected || lifted) ? 6 : 2, offset: Offset(0, (selected || lifted) ? 4 : 1.5)),
         ],
       ),
-      child: face,
+      // 고른 타일(내가 고른 것, 상대가 고르며 고민하는 것)은 테두리를 따라 은은한 빛이 돈다
+      child: TurnGlow(active: selected || lifted, radius: width * 0.14, color: const Color(0xFFFFB300), child: SizedBox.expand(child: face)),
     );
     return Semantics(
       label: '${black ? '검정' : '흰색'} ${shown ? (joker ? '조커' : '${dvNumber(id)}') : '숨은 타일'}${lying ? ' (공개됨)' : ''}',

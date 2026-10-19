@@ -31,7 +31,7 @@ extension _RkHand on _RummikubScreenState {
       onAcceptWithDetails: (d) => c.moveInHand(d.data),
       builder: (context, candidate, _) => Padding(
         padding: const EdgeInsets.fromLTRB(_edge, 3, _edge, 3),
-        child: RkTurnGlow(
+        child: TurnGlow(
           active: c.canAct && !c.isOver, // 내 차례에는 금빛 테두리가 돌면서 은은하게 빛난다
           child: Container(
         key: _rackAreaKey,

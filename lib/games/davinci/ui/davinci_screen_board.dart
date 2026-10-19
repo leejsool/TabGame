@@ -177,7 +177,12 @@ extension _DvBoard on _DavinciScreenState {
         }
         if (placing) tiles.add(slot(row.length));
 
-        return Container(
+        // 지금 차례인 사람의 줄은 테두리를 따라 은은한 빛이 돈다
+        return TurnGlow(
+          active: active,
+          color: const Color(0xFF5B8DEF),
+          radius: 16,
+          child: Container(
           key: _rowKey(seat),
           padding: _dense ? const EdgeInsets.fromLTRB(10, 4, 10, 6) : const EdgeInsets.fromLTRB(10, 8, 10, 10),
           decoration: BoxDecoration(
@@ -228,6 +233,7 @@ extension _DvBoard on _DavinciScreenState {
                 ),
               ),
             ],
+          ),
           ),
         );
       },
