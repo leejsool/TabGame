@@ -33,6 +33,8 @@ import 'package:tabgame/games/quoridor/ui/quoridor_screen.dart';
 import 'package:tabgame/games/rummikub/game/rummikub_controller.dart';
 import 'package:tabgame/games/rummikub/ui/rummikub_screen.dart';
 import 'package:tabgame/games/solitaire/game/solitaire_controller.dart';
+import 'package:tabgame/games/snake/game/snake_controller.dart';
+import 'package:tabgame/games/snake/ui/snake_screen.dart';
 import 'package:tabgame/games/solitaire/ui/solitaire_screen.dart';
 import 'package:tabgame/games/sprouts/ui/sprouts_screen.dart';
 import 'package:tabgame/games/sudoku/core/generator.dart';
@@ -129,6 +131,7 @@ void main() {
     'dandelion': () => const DandelionScreen(mode: PlayMode.local2p),
     'sprouts': () => const SproutsScreen(mode: PlayMode.local2p, dotCount: 4),
     'davinci': () => DavinciScreen(players: 3, controller: DavinciController(mode: PlayMode.vsCpu, players: 3, seed: 8)..cpuStepDelay = Duration.zero),
+    'snake': () => SnakeScreen(controller: SnakeController.host(nick: '나', rng: Random(5)), showHint: false),
     'rummikub': () => RummikubScreen(controller: RummikubController(animate: false, mode: PlayMode.vsCpu, players: 3, seed: 12)),
   };
   for (final e in games.entries) {

@@ -31,6 +31,7 @@ import '../games/rummikub/rummikub_entry.dart';
 import '../games/rummikub/tutorial/rummikub_tutorial.dart';
 import '../games/rummikub/ui/rummikub_records_tab.dart';
 import '../games/rhythm/tutorial/rhythm_tutorial.dart';
+import '../games/snake/snake_entry.dart';
 import '../games/solitaire/solitaire_entry.dart';
 import '../games/sprouts/sprouts_entry.dart';
 import '../games/sprouts/tutorial/sprouts_tutorial.dart';
@@ -284,5 +285,19 @@ const List<GameInfo> allGames = [
     tutorial: davinciTutorial,
     iconPainter: paintDavinciIcon,
     recordsTab: DavinciRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'snake',
+    title: '지렁이의 모험',
+    tagline: '먹고 자라서 30마리 중 1등!',
+    icon: Icons.gesture_rounded,
+    color: Color(0xFF2ED1A2),
+    modes: [PlayMode.wifi],
+    builder: buildSnake,
+    lanGame: kSnakeLanGame,
+    lanResume: snakeResume,
+    tutorial: snakeTutorial,
+    iconPainter: paintSnakeIcon,
+    recordsTab: SnakeRecordsTab.new,
   ),
 ];

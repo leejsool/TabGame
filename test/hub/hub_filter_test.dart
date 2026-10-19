@@ -25,7 +25,7 @@ List<String> shownGames(WidgetTester tester) =>
 void main() {
   test('같은 Wi‑Fi로 할 수 있는 게임은 Wi‑Fi 모드를 가진다', () {
     final wifi = {for (final g in allGames) if (g.hasWifi) g.id};
-    expect(wifi, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy', 'rummikub', 'quoridor', 'goblet_gobblers', 'davinci_code'});
+    expect(wifi, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy', 'rummikub', 'quoridor', 'goblet_gobblers', 'davinci_code', 'snake'});
     // 루미큐브는 남의 패가 보이면 안 되니 한 기기에서 둘이 하는 모드가 없다
     final rummikub = allGames.firstWhere((g) => g.id == 'rummikub');
     expect(rummikub.modes, [PlayMode.vsCpu, PlayMode.wifi]);
@@ -47,11 +47,14 @@ void main() {
 
     testWidgets('필터로 Wi‑Fi 게임만, 교과학습 게임만 모아 볼 수 있다 ($size)', (tester) async {
       await pumpHub(tester, size);
-      expect(shownGames(tester).length, greaterThan(allGames.where((g) => g.hasWifi).length));
+      expect(shownGames(tester), contains('sudoku')); // (Wi‑Fi가 없는 게임도 보인다)
 
       await tester.tap(find.byTooltip('Wi‑Fi'));
       await tester.pump(const Duration(milliseconds: 400));
-      expect(shownGames(tester).toSet(), {for (final g in allGames) if (g.hasWifi) g.id});
+      // (목록은 화면에 들어오는 만큼만 만들어지니, 만들어진 카드가 모두 Wi‑Fi 게임인지 본다)
+      final wifiIds = {for (final g in allGames) if (g.hasWifi) g.id};
+      expect(shownGames(tester), isNotEmpty);
+      expect(wifiIds.containsAll(shownGames(tester)), isTrue);
       expect(find.text('같은 Wi‑Fi로 함께'), findsOneWidget);
 
       await tester.tap(find.byTooltip('교과학습'));

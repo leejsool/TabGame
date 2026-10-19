@@ -165,9 +165,12 @@ void main() {
     await tester.pumpWidget(SettingsScope(settings: settings, child: MaterialApp(home: GameVisibilityScreen(settings: settings))));
     await tester.pump();
     for (final g in allGames) {
-      final tile = find.byKey(ValueKey('visible-${g.id}'));
+      // (화면 바로 밖에 미리 만들어 둔 줄도 찾아서 화면 안으로 끌어온다)
+      final tile = find.byKey(ValueKey('visible-${g.id}'), skipOffstage: false);
       await tester.scrollUntilVisible(tile, 200, scrollable: find.byType(Scrollable).first);
-      expect(tile, findsOneWidget, reason: g.title);
+      await tester.ensureVisible(tile);
+      await tester.pump();
+      expect(find.byKey(ValueKey('visible-${g.id}')), findsOneWidget, reason: g.title);
     }
     expect(tester.takeException(), isNull);
   });

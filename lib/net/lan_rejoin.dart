@@ -10,7 +10,7 @@ import 'lan_discovery.dart';
 /// 손님마다 시작할 때 표(방 번호 + 비밀 번호)를 받아 둔다. 앱을 껐다 켜도 이 표로 같은 자리에 다시 앉을 수 있다.
 /// 표가 맞으면 나가 있던 그 손님의 연결([LanConnection.adopt])에 새 소켓을 이어 붙이고, 게임이 만들어 주는 판의 모습(`resume`)을 보낸다.
 class LanRejoinDesk {
-  LanRejoinDesk._(this._host, this.roomId, this.links, this._tokens, this._info) {
+  LanRejoinDesk._(this._host, this.roomId, this.links, this._tokens, this._info, this._hex) {
     _host.rejoinHandler = _accept;
     _host.updateInfo({..._info, 'rejoin': true, 'roomId': roomId});
   }
@@ -19,7 +19,7 @@ class LanRejoinDesk {
   factory LanRejoinDesk.open({required LanHost host, required List<LanConnection> guests, required Map<String, dynamic> info, Random? rng}) {
     final r = rng ?? Random.secure();
     String hex() => List.generate(4, (_) => r.nextInt(1 << 16).toRadixString(16).padLeft(4, '0')).join();
-    return LanRejoinDesk._(host, hex(), guests, [for (var i = 0; i < guests.length; i++) hex()], info);
+    return LanRejoinDesk._(host, hex(), guests, [for (var i = 0; i < guests.length; i++) hex()], info, hex);
   }
 
   final LanHost _host;
@@ -29,7 +29,22 @@ class LanRejoinDesk {
   final List<LanConnection> links;
   final List<String> _tokens;
   final Map<String, dynamic> _info;
+  final String Function() _hex;
   bool _closed = false;
+
+  /// 판 도중에 처음 들어오는 손님 (표 없이 `hello`만 보낸 기기)을 받는 게임이면 채운다: 받으면 true.
+  /// 받을 때는 [addGuest]로 손님 줄에 올리고 시작 메시지(`start`, 표 포함)를 직접 보낸다. (뱀 게임처럼 언제든 끼어드는 판)
+  bool Function(LanConnection conn, Map<String, dynamic> hello)? onNewcomer;
+
+  /// 방 찾는 기기에게 보이는 방 정보를 바꾼다 (지금 몇 명인지 등).
+  void updateInfo(Map<String, dynamic> info) => _host.updateInfo({...info, 'rejoin': true, 'roomId': roomId});
+
+  /// 판 도중에 들어온 손님을 줄 끝에 올리고 그 손님의 번호를 돌려준다 (표는 [ticketFor]).
+  int addGuest(LanConnection conn) {
+    links.add(conn);
+    _tokens.add(_hex());
+    return links.length - 1;
+  }
 
   bool get isOpen => !_closed;
 
@@ -45,6 +60,7 @@ class LanRejoinDesk {
 
   bool _accept(LanConnection fresh, Map<String, dynamic> hello) {
     final ticket = hello['rejoin'];
+    if (!_closed && ticket == null && onNewcomer != null) return onNewcomer!(fresh, hello);
     if (_closed || ticket is! Map || ticket['room'] != roomId) return false;
     final i = _tokens.indexOf('${ticket['token']}');
     if (i < 0 || links[i].isClosed) return false;
@@ -88,10 +104,14 @@ class LanHubKeeper {
     desk.onRejoin = _onRejoin;
     desk.canRejoin = isActive;
     for (var i = 0; i < links.length; i++) {
-      final k = i;
-      links[k].canResume = () => isActive() && desk.isOpen;
-      links[k].onTakeOver = () => takeOver(k);
+      watch(i);
     }
+  }
+
+  /// [link]번째 손님 연결을 돌보기 시작한다 (판 도중에 들어온 손님은 [LanRejoinDesk.addGuest] 뒤에 부른다).
+  void watch(int link) {
+    links[link].canResume = () => isActive() && desk.isOpen;
+    links[link].onTakeOver = () => takeOver(link);
   }
 
   final LanRejoinDesk desk;

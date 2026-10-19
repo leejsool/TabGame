@@ -72,7 +72,7 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
       _finder = finder;
       _sub = finder.rooms.listen((r) {
         // 이미 시작한 판(다시 들어오기만 받는 방)은 새로 들어갈 방이 아니니 목록에 올리지 않는다
-        if (mounted) setState(() => _rooms = [for (final room in r) if (room.info['rejoin'] != true) room]);
+        if (mounted) setState(() => _rooms = [for (final room in r) if (room.info['rejoin'] != true || room.info['open'] == true) room]);
       });
     } catch (_) {
       if (mounted) setState(() => _message = '방을 찾을 수 없어요. 이 기기가 Wi‑Fi에 연결되어 있는지 확인해 주세요.');
