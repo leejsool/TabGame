@@ -47,7 +47,7 @@ bump the version's middle number at release (see Release).
 - Screenshots of every screen at 3 sizes (+ phone dark, + `<name>_all.png` side by side): `tool/preview_all.ps1 [-Name "game (sudoku|mines)$"] [-Out <dir>]` (~1 min; add new games to `test/preview_all_test.dart`). Per-game scenario shots: `$env:<GAME>_PREVIEW_DIR='<dir>'` + `tool/test.ps1 test/<game>/preview_test.dart`.
 - In tests call `loadAppFonts()` from `test/support/preview_kit.dart` (NanumGothic + Material icons); don't copy FontLoader code.
 - Check sizes: phone 400x860, tablet portrait 800x1280, tablet landscape 1280x800. Tablet = shortestSide >= 600.
-- Dot cannon stage colors: `python tool/dot_stage_editor.py` (browser tool on :8765, merges ambiguous colors → `stages.json` `merge`, reruns `tool/make_dot_stages.dart`; see `tool/dot_stage_art/README.md`).
+- Dot cannon stage colors: double-click `tool/도트색합치기.bat` (= `python tool/dot_stage_editor.py --open`, browser tool on :8765, merges ambiguous colors → `stages.json` `merge`, reruns `tool/make_dot_stages.dart`; see `tool/dot_stage_art/README.md`).
 - Dev build to tablet: `tool/build_dev.ps1` (separate "개발" app). Release APK: `flutter build apk --release`.
 - All tools live in `F:\MyApp\tools` (flutter, jdk, sdk, pub-cache, tmp). Never install tools elsewhere.
 

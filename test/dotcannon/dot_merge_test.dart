@@ -19,4 +19,18 @@ void main() {
     expect(out.pixels, [0, 0, kDotEmpty, 1]);
     expect(skipped, ['123456']);
   });
+
+  test('칸 칠하기: 칸을 있는 색이나 빈 칸으로 바꾸고, 안 쓰이게 된 색은 뺀다', () {
+    const art = DotArt(
+      width: 2,
+      height: 2,
+      pixels: [0, 1, 1, 2],
+      colors: [Color(0xFFFF0000), Color(0xFF00FF00), Color(0xFF0000FF)],
+    );
+    final skipped = <String>[];
+    final out = paintDotCells(art, {'0,0': '00ff00', '1,1': '.', '5,0': 'FF0000', '0,1': '123456'}, skipped: (c, _) => skipped.add(c));
+    expect([for (final c in out.colors) dotHex(c)], ['00FF00']);
+    expect(out.pixels, [0, 0, 0, kDotEmpty]);
+    expect(skipped, ['5,0', '0,1']);
+  });
 }

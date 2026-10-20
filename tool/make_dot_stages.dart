@@ -10,6 +10,7 @@ import 'package:tabgame/games/dotcannon/core/dot_convert.dart';
 import 'package:tabgame/games/dotcannon/core/dot_enhance.dart';
 import 'package:tabgame/games/dotcannon/core/dot_merge.dart';
 import 'package:tabgame/games/dotcannon/core/dot_rules.dart';
+import 'package:tabgame/games/dotcannon/core/dot_stage_data.dart';
 import 'package:tabgame/games/dotcannon/core/dot_stages.dart';
 
 void main() {
@@ -22,8 +23,16 @@ void main() {
         ..writeln("import 'dot_stages.dart';")
         ..writeln()
         ..writeln('const List<DotStageData> dotStageData = [');
-      for (final s in specs) {
+      // DOT_ONLY=<stages.json 안 번호, 0부터>: 그 그림 하나만 다시 만들고 나머지는 지금 파일 그대로 둔다 (색 고치기 도구가 쓴다)
+      final only = int.tryParse(Platform.environment['DOT_ONLY'] ?? '');
+      for (var i = 0; i < specs.length; i++) {
+        final s = specs[i];
         final name = s['name'] as String;
+        final kept = dotStageData.where((d) => d.name == name).firstOrNull;
+        if (only != null && i != only && kept != null) {
+          _write(out, kept);
+          continue;
+        }
         final bytes = File('${dir.path}/${s['file']}').readAsBytesSync();
         final longSide = (s['size'] as int?) ?? 32;
         final colors = (s['colors'] as int?) ?? 8;
@@ -94,11 +103,18 @@ void main() {
         }
         // 색 합치기(선택): "merge": [["RRGGBB", "RRGGBB"], ...] 앞 색을 뒤 색으로 (tool/dot_stage_editor.py로 고른다)
         final merges = [for (final m in (s['merge'] as List? ?? const [])) ((m as List)[0] as String, m[1] as String)];
-        final art = mergeDotColors(
-          quantizeCells(cells, dw, dh, colors: colors, removeBackground: s['removeBg'] == true),
-          merges,
+        // 칸 칠하기(선택): "paint": {"x,y": "RRGGBB" 또는 "." (빈 칸)} — 색 합치기 뒤에 적용한다
+        final paint = {for (final e in (s['paint'] as Map? ?? const {}).entries) e.key as String: e.value as String};
+        final art = paintDotCells(
+          mergeDotColors(
+            quantizeCells(cells, dw, dh, colors: colors, removeBackground: s['removeBg'] == true),
+            merges,
+            // ignore: avoid_print
+            skipped: (f, t) => print('$name: 합칠 색 $f → $t 이 그림에 없어서 건너뜀'),
+          ),
+          paint,
           // ignore: avoid_print
-          skipped: (f, t) => print('$name: 합칠 색 $f → $t 이 그림에 없어서 건너뜀'),
+          skipped: (cell, c) => print('$name: 칸 $cell 을 $c 로 칠하지 못해서 건너뜀'),
         );
         final sw = Stopwatch()..start();
         final a = assessArt(pixels: art.pixels, width: art.width, height: art.height, colors: art.colors.length, capacity: capacity);
@@ -119,22 +135,24 @@ void main() {
         // ignore: avoid_print
         print('$name: ${art.width}x${art.height} 도트 ${art.pixelCount} 색 ${art.colors.length} 벨트 ${a.capacity}(요청 $capacity) '
             '난이도 ${a.difficulty} 대포 ${a.columns}줄 탄 ${a.ammoLo}-${a.ammoHi} (${sw.elapsedMilliseconds}ms)');
-        out
-          ..writeln('  DotStageData(')
-          ..writeln("    name: '${name.replaceAll("'", r"\'")}',")
-          ..writeln('    width: ${d.width},')
-          ..writeln('    height: ${d.height},')
-          ..writeln('    colors: [${d.colors.map((c) => '0x${c.toRadixString(16).toUpperCase()}').join(', ')}],')
-          ..writeln("    runs: '${d.runs}',")
-          ..writeln('    columns: ${d.columns},')
-          ..writeln('    ammoLo: ${d.ammoLo},')
-          ..writeln('    ammoHi: ${d.ammoHi},')
-          ..writeln('    seed: ${d.seed},')
-          ..writeln('    capacity: ${d.capacity},')
-          ..writeln('  ),');
+        _write(out, d);
       }
       out.writeln('];');
       File('lib/games/dotcannon/core/dot_stage_data.dart').writeAsStringSync(out.toString());
     });
   }, timeout: const Timeout(Duration(minutes: 30)));
 }
+
+void _write(StringBuffer out, DotStageData d) => out
+  ..writeln('  DotStageData(')
+  ..writeln("    name: '${d.name.replaceAll("'", r"\'")}',")
+  ..writeln('    width: ${d.width},')
+  ..writeln('    height: ${d.height},')
+  ..writeln('    colors: [${d.colors.map((c) => '0x${c.toRadixString(16).toUpperCase()}').join(', ')}],')
+  ..writeln("    runs: '${d.runs}',")
+  ..writeln('    columns: ${d.columns},')
+  ..writeln('    ammoLo: ${d.ammoLo},')
+  ..writeln('    ammoHi: ${d.ammoHi},')
+  ..writeln('    seed: ${d.seed},')
+  ..writeln('    capacity: ${d.capacity},')
+  ..writeln('  ),');
