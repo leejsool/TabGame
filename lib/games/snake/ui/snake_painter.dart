@@ -144,10 +144,7 @@ class SnakeFieldPainter extends CustomPainter {
       seen = view.inflate(r * 2).contains(Offset(t.xAt(i), t.yAt(i)));
     }
     if (!seen) return;
-    final path = Path()..moveTo(b.x, b.y);
-    for (var i = t.length - 1; i >= 0; i--) {
-      path.lineTo(t.xAt(i), t.yAt(i));
-    }
+    final path = _bodyPath(b, view.inflate(r * 2 + 8), r);
     final color = snakeColors[b.color % snakeColors.length];
     final dark = Color.lerp(color, Colors.black, 0.45)!;
     final stroke = Paint()
@@ -173,14 +170,43 @@ class SnakeFieldPainter extends CustomPainter {
     // 줄무늬 비늘
     final scaleDot = Paint()..color = Color.lerp(color, Colors.black, 0.18)!;
     final gap = max(3, (r * 1.8 / 6).round());
+    final near = view.inflate(r * 2 + 8);
     for (var i = t.length - 1 - gap; i >= 0; i -= gap * 2) {
-      canvas.drawCircle(Offset(t.xAt(i), t.yAt(i)), r * 0.55, scaleDot);
+      final p = Offset(t.xAt(i), t.yAt(i));
+      if (near.contains(p)) canvas.drawCircle(p, r * 0.55, scaleDot);
     }
     canvas.drawPath(path, stroke
       ..color = Colors.white.withValues(alpha: 0.18)
       ..strokeWidth = r * 0.5);
     _head(canvas, b, color, dark, r);
     if (!mine) _name(canvas, b, r, scale);
+  }
+
+  /// 머리에서 꼬리까지의 몸 선. 점수가 높아 몸이 길고 굵을수록 선을 굵게 그리는 값이 비싸지므로,
+  /// 굵은 몸은 점을 성기게 잇고(굵기에 비해 6칸 간격은 촘촘하다), 화면 밖으로 나간 토막은 잇지 않는다.
+  Path _bodyPath(SnakeBody b, Rect near, double r) {
+    final t = b.trail;
+    final stride = max(1, (r * 0.8 / SnakeRules.spacing).floor());
+    final path = Path();
+    var prevX = b.x, prevY = b.y, down = false;
+    void visit(double x, double y) {
+      final inside = near.contains(Offset(x, y));
+      if (inside || down) {
+        if (!down) path.moveTo(prevX, prevY);
+        path.lineTo(x, y);
+        down = inside;
+      }
+      prevX = x;
+      prevY = y;
+    }
+
+    visit(b.x, b.y);
+    var i = t.length - 1;
+    for (; i > 0; i -= stride) {
+      visit(t.xAt(i), t.yAt(i));
+    }
+    if (t.length > 0) visit(t.xAt(0), t.yAt(0));
+    return path;
   }
 
   void _head(Canvas canvas, SnakeBody b, Color color, Color dark, double r) {

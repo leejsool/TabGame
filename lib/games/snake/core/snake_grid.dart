@@ -8,20 +8,28 @@ class BodyGrid {
 
   final double cell;
   final int side;
-  final List<double> px = [], py = [], pr = [];
+
+  /// 점 좌표·굵기 (앞의 [count]칸만 쓴다). 한 걸음마다 수천 점을 다시 담으므로
+  /// 숫자 하나하나가 새 객체가 되는 List 대신 미리 잡아 둔 배열을 되풀이해 쓴다.
+  Float64List px = Float64List(1024), py = Float64List(1024), pr = Float64List(1024);
 
   /// 점 주인 (그 걸음의 뱀 번호).
-  final List<int> owner = [];
-  final List<int> _cellOf = [];
+  Int32List owner = Int32List(1024);
+  Int32List _cellOf = Int32List(1024);
+  int count = 0;
   late Int32List _cellStart;
+  late final Int32List _fill = Int32List(side * side + 1);
   Int32List _order = Int32List(0);
 
-  void begin() {
-    px.clear();
-    py.clear();
-    pr.clear();
-    owner.clear();
-    _cellOf.clear();
+  void begin() => count = 0;
+
+  void _grow() {
+    final n = px.length * 2;
+    px = Float64List(n)..setRange(0, count, px);
+    py = Float64List(n)..setRange(0, count, py);
+    pr = Float64List(n)..setRange(0, count, pr);
+    owner = Int32List(n)..setRange(0, count, owner);
+    _cellOf = Int32List(n)..setRange(0, count, _cellOf);
   }
 
   int _cellIndex(double x, double y) {
@@ -34,26 +42,28 @@ class BodyGrid {
   }
 
   void add(double x, double y, double r, int who) {
-    px.add(x);
-    py.add(y);
-    pr.add(r);
-    owner.add(who);
-    _cellOf.add(_cellIndex(x, y));
+    if (count == px.length) _grow();
+    px[count] = x;
+    py[count] = y;
+    pr[count] = r;
+    owner[count] = who;
+    _cellOf[count] = _cellIndex(x, y);
+    count++;
   }
 
   /// 담은 점들을 칸 차례로 정리한다 (센 다음 줄 세우기).
   void build() {
     _cellStart.fillRange(0, _cellStart.length, 0);
-    for (final c in _cellOf) {
-      _cellStart[c + 1]++;
+    for (var i = 0; i < count; i++) {
+      _cellStart[_cellOf[i] + 1]++;
     }
     for (var i = 1; i < _cellStart.length; i++) {
       _cellStart[i] += _cellStart[i - 1];
     }
-    if (_order.length < _cellOf.length) _order = Int32List(_cellOf.length * 2);
-    final fill = Int32List.fromList(_cellStart);
-    for (var i = 0; i < _cellOf.length; i++) {
-      _order[fill[_cellOf[i]]++] = i;
+    if (_order.length < count) _order = Int32List(px.length);
+    _fill.setRange(0, _fill.length, _cellStart);
+    for (var i = 0; i < count; i++) {
+      _order[_fill[_cellOf[i]]++] = i;
     }
   }
 
