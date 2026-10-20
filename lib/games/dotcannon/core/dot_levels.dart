@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'dot_rules.dart';
 import 'dot_stage_data.dart';
+import 'dot_stages.dart';
+
+export 'dot_stages.dart' show DotTheme;
 
 /// 도트 캐논의 한 단계: 액자 속 도트 그림과 대포 구성.
 ///
@@ -171,12 +174,19 @@ const Color _navy = Color(0xFF26324D);
 const Color _mint = Color(0xFF7FD6B4);
 const Color _violet = Color(0xFFA48BE8);
 
-/// 모든 기본 단계. 손으로 만든 그림이 앞에 오고, 그 뒤에 사진에서 뽑은 그림([dotStageData])이 쉬운 것부터 이어져요.
-/// 메뉴에서는 앞 단계를 깨야 다음 단계가 열려요.
-final List<DotLevel> dotLevels = [
-  ..._handmade,
-  for (final d in dotStageData) d.toLevel(),
-];
+/// 묶음([DotTheme])마다의 기본 그림. 손으로 만든 그림은 '애니메이션과 게임' 맨 앞에 오고,
+/// 그 뒤에 사진에서 뽑은 그림([dotStageData])이 적힌 차례대로 이어져요. 어느 그림이든 바로 할 수 있어요.
+final Map<DotTheme, List<DotLevel>> dotLevelsByTheme = {
+  for (final t in DotTheme.values)
+    t: [
+      if (t == DotTheme.anime) ..._handmade,
+      for (final d in dotStageData)
+        if (d.theme == t) d.toLevel(),
+    ],
+};
+
+/// 모든 기본 그림 (묶음 차례대로).
+final List<DotLevel> dotLevels = [for (final t in DotTheme.values) ...dotLevelsByTheme[t]!];
 
 /// 손으로 만든 첫 단계들. (글자 그림 한 칸이 3x3 도트가 되어 도트가 360개에서 1100개쯤 돼요.)
 final List<DotLevel> _handmade = [

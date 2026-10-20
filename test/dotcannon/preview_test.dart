@@ -111,6 +111,8 @@ void main() {
 
     // 2) 첫 화면
     await shoot('menu', const Size(430, 900), const DotMenuScreen());
+    await shoot('menu_tablet', const Size(800, 1280), const DotMenuScreen());
+    await shoot('menu_landscape', const Size(1280, 800), const DotMenuScreen());
 
     // 3) 허브 카드 아이콘
     final info = allGames.firstWhere((g) => g.id == 'dot_cannon');

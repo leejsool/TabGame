@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -22,7 +21,7 @@ const Color dotAccent = Color(0xFF2F8FDB);
 /// 난이도 이름표 색.
 const List<Color> dotDifficultyColors = [Color(0xFF3FA796), Color(0xFF3F7CAC), Color(0xFFE09F3E), Color(0xFFD1495B)];
 
-/// 도트 캐논 첫 화면: 이어하기 + 내 사진으로 만들기 + 그림 고르기.
+/// 도트 캐논 첫 화면: 이어하기 + 내 사진으로 만들기 + 그림 고르기 (내가 만든 그림, 그리고 묶음마다 옆으로 미는 줄).
 class DotMenuScreen extends StatefulWidget {
   const DotMenuScreen({super.key});
 
@@ -36,17 +35,6 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
   Map<String, DotStageStats> _stats = {};
   bool _loaded = false;
   bool _busy = false;
-  bool _showAllCustom = false;
-  bool _unlockAll = false;
-
-  /// 개발자용 숨은 단추: 제목의 '시작'을 짧은 사이에 10번 누르면 모든 그림의 잠금이 풀리고(다시 10번이면 잠기고) 한다.
-  static const _secretTaps = 10;
-  int _taps = 0;
-  DateTime _lastTap = DateTime.fromMillisecondsSinceEpoch(0);
-  late final TapGestureRecognizer _secret = TapGestureRecognizer()..onTap = _secretTap;
-
-  /// 접어 둘 때 보여 주는 "내가 만든 그림" 장수.
-  static const _customPreview = 6;
 
   @override
   void initState() {
@@ -57,7 +45,6 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
 
   @override
   void dispose() {
-    _secret.dispose();
     GameSave.changes.removeListener(_load);
     super.dispose();
   }
@@ -70,10 +57,8 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
     final saved = await GameSave.load(dotGameId);
     final custom = await DotCustomStore.loadAll();
     final stats = await DotStorage.statsFor([...dotLevels, ...custom]);
-    final unlockAll = await DotStorage.unlockedAll();
     if (!mounted || seq != _loadSeq) return;
     setState(() {
-      _unlockAll = unlockAll;
       _saved = saved;
       _custom = custom;
       _stats = stats;
@@ -85,19 +70,6 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  Future<void> _secretTap() async {
-    final now = DateTime.now();
-    _taps = now.difference(_lastTap) > const Duration(seconds: 2) ? 1 : _taps + 1;
-    _lastTap = now;
-    if (_taps < _secretTaps) return;
-    _taps = 0;
-    final next = !_unlockAll;
-    await DotStorage.setUnlockedAll(next);
-    if (!mounted) return;
-    setState(() => _unlockAll = next);
-    _toast(next ? '개발자 모드: 모든 그림을 열었어요.' : '모든 그림 열기를 껐어요.');
   }
 
   Future<void> _start(DotLevel level) async {
@@ -163,6 +135,7 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final heading = Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
+    final hint = TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55));
     return Scaffold(
       appBar: AppBar(
         title: const Text('도트 캐논', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -200,60 +173,49 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
                       const TutorialButton(tutorial: dotTutorial),
                       const SizedBox(height: 14),
                       _CreateCard(onTap: _pickFromGallery, busy: _busy),
-                      const SizedBox(height: 22),
-                      Text.rich(
-                        key: const ValueKey('dot-stage-title'),
-                        TextSpan(
-                          children: [
-                            const TextSpan(text: '그림을 골라 '),
-                            TextSpan(text: '시작', recognizer: _secret),
-                            const TextSpan(text: '해요'),
-                          ],
-                        ),
-                        style: heading,
-                      ),
                       const SizedBox(height: 10),
                       Text(
-                        '앞 그림을 깨면 다음 그림이 열려요. 왼쪽으로 밀면 깬 그림을 다시 고를 수 있어요.',
-                        style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+                        '아무 그림이나 골라 바로 할 수 있어요. 줄을 옆으로 밀면 그림이 더 있어요.',
+                        key: const ValueKey('dot-stage-title'),
+                        style: hint,
                       ),
-                      const SizedBox(height: 10),
-                      DotStageCarousel(
-                        levels: dotLevels,
-                        stats: _stats,
-                        unlockAll: _unlockAll,
-                        onPlay: _start,
-                        onLocked: (_) => _toast('앞 그림을 먼저 깨야 열려요.'), // (앞 그림 이름은 알려 주지 않는다: 아직 못 본 그림이라 스포일러가 된다)
-                      ),
-                      // 내가 만든 그림은 기본 그림 아래에 둔다 (많이 만들어도 기본 그림이 밀려나지 않게). 많으면 최근 것만 보이고 나머지는 펼쳐 본다.
+                      // 내가 만든 그림이 맨 위, 그 아래로 묶음마다 한 줄씩
                       if (_custom.isNotEmpty) ...[
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 18),
                         Text('내가 만든 그림', style: heading),
+                        const SizedBox(height: 2),
+                        Text('그림을 길게 누르면 지울 수 있어요.', style: hint),
                         const SizedBox(height: 10),
-                        _grid([
-                          for (final l in _showAllCustom ? _custom : _custom.take(_customPreview))
-                            DotLevelCard(
-                              key: ValueKey('dot-card-${l.id}'),
-                              level: l,
-                              stats: _stats[l.id],
-                              onTap: () => _start(l),
-                              onLongPress: () => _delete(l),
-                            ),
-                        ]),
-                        if (_custom.length > _customPreview)
-                          Align(
-                            child: TextButton(
-                              key: const ValueKey('dot-custom-more'),
-                              onPressed: () => setState(() => _showAllCustom = !_showAllCustom),
-                              child: Text(_showAllCustom ? '접기' : '내가 만든 그림 모두 보기 (${_custom.length}장)'),
-                            ),
-                          ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '그림을 길게 누르면 지울 수 있어요.',
-                          style: TextStyle(fontSize: 12.5, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+                        DotStageCarousel(
+                          key: const ValueKey('dot-row-custom'),
+                          listKey: const ValueKey('dot-custom-list'),
+                          levels: _custom,
+                          stats: _stats,
+                          numbered: false,
+                          onPlay: _start,
+                          onLongPress: _delete,
                         ),
                       ],
+                      for (final t in DotTheme.values)
+                        if (dotLevelsByTheme[t]!.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          Text.rich(
+                            key: ValueKey('dot-theme-${t.name}'),
+                            TextSpan(children: [
+                              TextSpan(text: t.label),
+                              TextSpan(text: '  ${dotLevelsByTheme[t]!.length}장', style: hint),
+                            ]),
+                            style: heading,
+                          ),
+                          const SizedBox(height: 10),
+                          DotStageCarousel(
+                            key: ValueKey('dot-row-${t.name}'),
+                            listKey: t == DotTheme.anime ? const ValueKey('dot-stage-list') : ValueKey('dot-stage-list-${t.name}'),
+                            levels: dotLevelsByTheme[t]!,
+                            stats: _stats,
+                            onPlay: _start,
+                          ),
+                        ],
                     ],
                   ),
                 ),
@@ -261,20 +223,6 @@ class _DotMenuScreenState extends State<DotMenuScreen> {
       ),
     );
   }
-
-  /// 카드를 한 줄에 몇 장씩 놓을지 폭에 맞춰 정하고, 남는 폭을 고르게 나눈다.
-  Widget _grid(List<Widget> children) => LayoutBuilder(
-        builder: (context, box) {
-          const gap = 12.0;
-          final cols = ((box.maxWidth + gap) / (150 + gap)).floor().clamp(2, 6);
-          final w = (box.maxWidth - gap * (cols - 1)) / cols;
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: [for (final c in children) SizedBox(width: w, child: c)],
-          );
-        },
-      );
 }
 
 /// 그림 한 장 카드: 도트 그림, 이름, 기록.
@@ -286,7 +234,6 @@ class DotLevelCard extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.number,
-    this.locked = false,
     this.highlight = false,
   });
 
@@ -295,11 +242,8 @@ class DotLevelCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
-  /// 기본 그림의 차례 번호 (내가 만든 그림은 없다).
+  /// 기본 그림의 줄 안 차례 번호 (내가 만든 그림은 없다).
   final int? number;
-
-  /// 앞 그림을 아직 못 깨서 잠겨 있다.
-  final bool locked;
 
   /// 지금 도전할 그림이라서 눈에 띄게 한다.
   final bool highlight;
@@ -328,23 +272,8 @@ class DotLevelCard extends StatelessWidget {
                     decoration: BoxDecoration(color: const Color(0xFFF7F1E3), borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(8),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          CustomPaint(
-                            painter: DotArtPainter(level.pixels, level.width, level.height, level.colors, fog: !cleared && !level.custom),
-                          ),
-                          if (locked)
-                            Center(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(10),
-                                  child: Icon(Icons.lock_rounded, size: 28, color: Colors.white),
-                                ),
-                              ),
-                            ),
-                        ],
+                      child: CustomPaint(
+                        painter: DotArtPainter(level.pixels, level.width, level.height, level.colors, fog: !cleared && !level.custom),
                       ),
                     ),
                   ),
@@ -355,7 +284,7 @@ class DotLevelCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        number == null ? level.name : '$number. ${locked ? '???' : level.name}',
+                        number == null ? level.name : '$number. ${level.name}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
@@ -386,7 +315,7 @@ class DotLevelCard extends StatelessWidget {
                   ),
                 Text(
                   // (기록을 저장하는 중간에 읽어 최단 시간이 아직 없을 수 있다: 그때는 시간 없이 보여 준다)
-                  locked ? '잠겨 있어요' : !cleared ? '아직 못 깼어요' : (stats?.bestSeconds == null ? '깼어요' : '최단 ${formatTime(stats!.bestSeconds!)}'),
+                  !cleared ? '아직 못 깼어요' : (stats?.bestSeconds == null ? '깼어요' : '최단 ${formatTime(stats!.bestSeconds!)}'),
                   style: TextStyle(fontSize: 12, color: scheme.onSurface.withValues(alpha: 0.6)),
                 ),
               ],

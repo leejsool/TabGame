@@ -29,8 +29,9 @@ void main() {
         final s = specs[i];
         final name = s['name'] as String;
         final kept = dotStageData.where((d) => d.name == name).firstOrNull;
+        final theme = DotTheme.values.byName((s['theme'] as String?) ?? 'art');
         if (only != null && i != only && kept != null) {
-          _write(out, kept);
+          _write(out, kept, theme);
           continue;
         }
         final bytes = File('${dir.path}/${s['file']}').readAsBytesSync();
@@ -135,7 +136,7 @@ void main() {
         // ignore: avoid_print
         print('$name: ${art.width}x${art.height} 도트 ${art.pixelCount} 색 ${art.colors.length} 벨트 ${a.capacity}(요청 $capacity) '
             '난이도 ${a.difficulty} 대포 ${a.columns}줄 탄 ${a.ammoLo}-${a.ammoHi} (${sw.elapsedMilliseconds}ms)');
-        _write(out, d);
+        _write(out, d, theme);
       }
       out.writeln('];');
       File('lib/games/dotcannon/core/dot_stage_data.dart').writeAsStringSync(out.toString());
@@ -143,7 +144,7 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 30)));
 }
 
-void _write(StringBuffer out, DotStageData d) => out
+void _write(StringBuffer out, DotStageData d, DotTheme theme) => out
   ..writeln('  DotStageData(')
   ..writeln("    name: '${d.name.replaceAll("'", r"\'")}',")
   ..writeln('    width: ${d.width},')
@@ -155,4 +156,5 @@ void _write(StringBuffer out, DotStageData d) => out
   ..writeln('    ammoHi: ${d.ammoHi},')
   ..writeln('    seed: ${d.seed},')
   ..writeln('    capacity: ${d.capacity},')
+  ..writeln('    theme: DotTheme.${theme.name},')
   ..writeln('  ),');

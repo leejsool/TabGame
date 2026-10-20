@@ -5,7 +5,8 @@
     "exact": true,
     "scale": 2,
     "colors": 8,
-    "capacity": 4
+    "capacity": 4,
+    "theme": "anime"
   },
   {
     "file": "great_wave.jpg",
@@ -22,7 +23,8 @@
         "6F8481",
         "40565D"
       ]
-    ]
+    ],
+    "theme": "art"
   },
   {
     "file": "sunflowers.jpg",
@@ -38,14 +40,16 @@
     ],
     "paint": {
       "24,0": "FEF910"
-    }
+    },
+    "theme": "art"
   },
   {
     "file": "scream.jpg",
     "name": "절규",
     "size": 32,
     "colors": 10,
-    "capacity": 4
+    "capacity": 4,
+    "theme": "art"
   },
   {
     "file": "charmander.png",
@@ -53,7 +57,8 @@
     "exact": true,
     "scale": 2,
     "colors": 10,
-    "capacity": 4
+    "capacity": 4,
+    "theme": "anime"
   },
   {
     "file": "earth_blue.jpg",
@@ -86,7 +91,8 @@
         "2E4467",
         "0C1930"
       ]
-    ]
+    ],
+    "theme": "art"
   },
   {
     "file": "bunny.png",
@@ -164,21 +170,24 @@
       "3,34": ".",
       "6,37": ".",
       "7,38": "."
-    }
+    },
+    "theme": "anime"
   },
   {
     "file": "mario_face.png",
     "name": "슈퍼 마리오",
     "exact": true,
     "colors": 12,
-    "capacity": 4
+    "capacity": 4,
+    "theme": "anime"
   },
   {
     "file": "pikachu.png",
     "name": "피카츄",
     "exact": true,
     "colors": 12,
-    "capacity": 4
+    "capacity": 4,
+    "theme": "anime"
   },
   {
     "file": "blue_crown.png",
@@ -372,7 +381,8 @@
       "15,43": ".",
       "11,44": ".",
       "12,44": "."
-    }
+    },
+    "theme": "anime"
   },
   {
     "file": "pearl_earring.jpg",
@@ -385,7 +395,8 @@
       "28,15": "180B02",
       "29,18": "180B02",
       "27,33": "180B02"
-    }
+    },
+    "theme": "art"
   },
   {
     "file": "kiss.jpg",
@@ -398,14 +409,16 @@
         "DF9908",
         "B26503"
       ]
-    ]
+    ],
+    "theme": "art"
   },
   {
     "file": "starry_night.jpg",
     "name": "별이 빛나는 밤",
     "size": 48,
     "colors": 12,
-    "capacity": 3
+    "capacity": 3,
+    "theme": "art"
   },
   {
     "file": "van_gogh_self.jpg",
@@ -413,34 +426,159 @@
     "size": 48,
     "colors": 12,
     "capacity": 4,
-    "saturation": 1.2
+    "saturation": 1.2,
+    "theme": "art"
   },
   {
     "file": "dragon.png",
     "name": "푸른 용",
     "exact": true,
     "colors": 12,
-    "capacity": 3
+    "capacity": 3,
+    "theme": "anime"
   },
   {
     "file": "iron_man.png",
     "name": "아이언맨",
     "size": 48,
     "colors": 12,
-    "capacity": 3
+    "capacity": 3,
+    "theme": "movie"
   },
   {
     "file": "bowser.png",
     "name": "쿠파",
     "exact": true,
     "colors": 12,
-    "capacity": 3
+    "capacity": 3,
+    "theme": "anime"
   },
   {
     "file": "mona_lisa.jpg",
     "name": "모나리자",
     "size": 64,
     "colors": 12,
-    "capacity": 3
+    "capacity": 3,
+    "theme": "art"
+  },
+  {
+    "file": "duffy.png",
+    "name": "더피",
+    "exact": true,
+    "colors": 8,
+    "capacity": 4,
+    "theme": "anime"
+  },
+  {
+    "file": "frame_dog.png",
+    "name": "액자 속 강아지",
+    "exact": true,
+    "colors": 7,
+    "capacity": 4,
+    "theme": "anime"
+  },
+  {
+    "file": "shinchan_friends.png",
+    "name": "짱구 친구들",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4,
+    "theme": "anime"
+  },
+  {
+    "file": "chiikawa_siren.png",
+    "name": "치이카와 세이렌",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4,
+    "theme": "anime"
+  },
+  {
+    "file": "hello_kitty.png",
+    "name": "Hello Kitty",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "patrick.png",
+    "name": "뚱이",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "pancake_cat.png",
+    "name": "고양이 팬케이크 코스터",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "nick.png",
+    "name": "닉",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "dino_kitty.png",
+    "name": "공룡 옷 Kitty",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "judy.png",
+    "name": "주디",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "shiba_hero.png",
+    "name": "시바용사",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "witch_kitty.png",
+    "name": "마녀 Kitty",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "delivery_dog.png",
+    "name": "강아지 배달원",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "little_prince.png",
+    "name": "어린 왕자",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
+  },
+  {
+    "file": "stacked_cats.png",
+    "name": "차곡차곡 쌓인 고양이",
+    "theme": "anime",
+    "exact": true,
+    "colors": 12,
+    "capacity": 4
   }
 ]

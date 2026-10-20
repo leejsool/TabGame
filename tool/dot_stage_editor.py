@@ -53,6 +53,7 @@ def read_stages():
             'runs': re.search(r"runs: '([^']*)'", body).group(1),
             'merge': specs.get(name, {}).get('merge', []),
             'paint': len(specs.get(name, {}).get('paint', {})),
+            'theme': specs.get(name, {}).get('theme', 'art'),
         })
     return out
 
@@ -150,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=run_build, args=(only,), daemon=True).start()
             self.send(200, {'started': True})
             return
-        if self.path not in ('/api/save', '/api/reset'):
+        if self.path not in ('/api/save', '/api/reset', '/api/theme'):
             self.send(404, {'error': 'not found'})
             return
         specs = read_specs()
@@ -158,7 +159,12 @@ class Handler(BaseHTTPRequestHandler):
         if spec is None:
             self.send(400, {'error': '그 이름의 그림이 stages.json에 없어요'})
             return
-        if self.path == '/api/save':
+        if self.path == '/api/theme':
+            if req.get('theme') not in ('anime', 'movie', 'art'):
+                self.send(400, {'error': '모르는 묶음이에요'})
+                return
+            spec['theme'] = req['theme']
+        elif self.path == '/api/save':
             apply_ops(spec, req.get('ops', []))
         else:
             spec.pop('merge', None)

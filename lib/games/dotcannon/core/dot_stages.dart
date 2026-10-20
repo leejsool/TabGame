@@ -3,6 +3,17 @@ import 'package:flutter/material.dart';
 import 'dot_levels.dart';
 import 'dot_rules.dart';
 
+/// 기본 그림의 묶음 (메뉴에서 묶음마다 한 줄로 보인다).
+enum DotTheme {
+  anime('애니메이션과 게임'),
+  movie('영화'),
+  art('명화');
+
+  const DotTheme(this.label);
+
+  final String label;
+}
+
 /// 사진에서 미리 뽑아 둔 기본 그림 한 장의 데이터 (`tool/make_dot_stages.dart`가 만든다).
 ///
 /// 그림 칸은 한 줄로 이어 붙여 길이 부호화한다: 색 번호는 글자 하나('a'가 0번째 색, '.'은 빈 칸), 그 뒤에 이어진 칸 수.
@@ -19,6 +30,7 @@ class DotStageData {
     required this.ammoHi,
     required this.seed,
     required this.capacity,
+    this.theme = DotTheme.art,
   });
 
   final String name;
@@ -33,6 +45,7 @@ class DotStageData {
   final int ammoHi;
   final int seed;
   final int capacity;
+  final DotTheme theme;
 
   DotLevel toLevel() => DotLevel(
         id: 'b:$name',

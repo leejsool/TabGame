@@ -33,29 +33,39 @@ DotArt mergeDotColors(DotArt art, List<(String, String)> merges, {void Function(
   return DotArt(width: art.width, height: art.height, pixels: pixels, colors: colors);
 }
 
-/// 칸 하나하나 다시 칠하기: [paint]의 'x,y' 칸을 'RRGGBB' 색(그림에 있는 색만)으로, '.'이면 빈 칸(부술 타일 없음)으로.
-/// 칠한 뒤 아무 칸에도 안 쓰이는 색은 목록에서 뺀다. 그림 밖 칸이나 없는 색은 건너뛰고 [skipped]로 알려 준다.
+/// 칸 하나하나 다시 칠하기: [paint]의 'x,y' 칸을 'RRGGBB' 색으로, '.'이면 빈 칸(부술 타일 없음)으로.
+/// 그림에 없던 색이면 색 목록 끝에 새로 넣는다. 칠한 뒤 아무 칸에도 안 쓰이는 색은 목록에서 뺀다.
+/// 그림 밖 칸이나 'RRGGBB'가 아닌 값은 건너뛰고 [skipped]로 알려 준다.
 DotArt paintDotCells(DotArt art, Map<String, String> paint, {void Function(String cell, String color)? skipped}) {
   if (paint.isEmpty) return art;
   final pixels = [...art.pixels];
+  final colors = [...art.colors];
+  final hex = RegExp(r'^[0-9a-fA-F]{6}$');
   for (final MapEntry(key: cell, value: color) in paint.entries) {
     final xy = cell.split(',');
     final x = xy.length == 2 ? int.tryParse(xy[0]) : null, y = xy.length == 2 ? int.tryParse(xy[1]) : null;
-    final c = color == '.' ? kDotEmpty : art.colors.indexWhere((k) => dotHex(k) == color.toUpperCase());
-    if (x == null || y == null || x < 0 || y < 0 || x >= art.width || y >= art.height || c == -1 && color != '.') {
+    if (x == null || y == null || x < 0 || y < 0 || x >= art.width || y >= art.height || color != '.' && !hex.hasMatch(color)) {
       skipped?.call(cell, color);
       continue;
+    }
+    var c = kDotEmpty;
+    if (color != '.') {
+      c = colors.indexWhere((k) => dotHex(k) == color.toUpperCase());
+      if (c < 0) {
+        colors.add(Color(0xFF000000 | int.parse(color, radix: 16)));
+        c = colors.length - 1;
+      }
     }
     pixels[y * art.width + x] = c;
   }
   // 안 쓰이게 된 색 빼기
   final used = {for (final p in pixels) if (p != kDotEmpty) p};
-  final keep = [for (var i = 0; i < art.colors.length; i++) if (used.contains(i)) i];
+  final keep = [for (var i = 0; i < colors.length; i++) if (used.contains(i)) i];
   final newIndex = {for (var j = 0; j < keep.length; j++) keep[j]: j};
   return DotArt(
     width: art.width,
     height: art.height,
     pixels: [for (final p in pixels) p == kDotEmpty ? p : newIndex[p]!],
-    colors: [for (final i in keep) art.colors[i]],
+    colors: [for (final i in keep) colors[i]],
   );
 }
