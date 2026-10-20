@@ -11,12 +11,20 @@ import 'lan_connection.dart';
 /// 끝내기를 고르면 연결을 닫고, 게임 화면은 평소의 "연결이 끊겼어요" 안내로 이어진다.
 /// 방장 화면에서는 "CPU가 대신하기"도 고를 수 있다: 그 사람 자리를 CPU가 맡아 판이 계속되고, 그 사람이 돌아오면 바로 자리를 되찾는다.
 class LanStallOverlay extends StatefulWidget {
-  const LanStallOverlay({super.key, required this.child, this.decisionAfter = const Duration(seconds: 30)});
+  const LanStallOverlay({
+    super.key,
+    required this.child,
+    this.decisionAfter = const Duration(seconds: 30),
+    this.coveredNoticeFor = const Duration(seconds: 6),
+  });
 
   final Widget child;
 
   /// 이만큼 기다려도 안 돌아오면 결정 단추가 나타난다.
   final Duration decisionAfter;
+
+  /// "CPU가 대신하고 있어요" 한 줄 안내를 보여 주는 시간 (지나면 사라진다).
+  final Duration coveredNoticeFor;
 
   @override
   State<LanStallOverlay> createState() => _LanStallOverlayState();
@@ -24,6 +32,9 @@ class LanStallOverlay extends StatefulWidget {
 
 class _LanStallOverlayState extends State<LanStallOverlay> {
   Timer? _tick;
+
+  /// CPU가 자리를 맡기 시작한 때 (사람마다). 안내를 잠깐만 보여 주려고 기억한다.
+  final Map<LanConnection, DateTime> _coveredAt = {};
 
   @override
   void initState() {
@@ -59,7 +70,17 @@ class _LanStallOverlayState extends State<LanStallOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final stalled = LanConnection.stalledConnections.value;
+    final now = DateTime.now();
+    final all = LanConnection.stalledConnections.value;
+    _coveredAt.removeWhere((c, _) => !all.contains(c) || !c.cpuCovered);
+    for (final c in all) {
+      if (c.cpuCovered) _coveredAt.putIfAbsent(c, () => now);
+    }
+    // CPU가 맡은 자리의 안내는 잠깐 보여 주고 사라진다
+    final stalled = [
+      for (final c in all)
+        if (!c.cpuCovered || now.difference(_coveredAt[c]!) < widget.coveredNoticeFor) c,
+    ];
     return Stack(
       children: [
         widget.child,

@@ -36,7 +36,8 @@ GameTutorial snakeTutorial() => GameTutorial(
         const TutorialStep(
           title: '똑똑한 CPU를 조심해요',
           body: 'CPU 중에는 어리숙한 지렁이도 있지만, 내 앞을 가로막거나 커다란 몸으로 빙 둘러싸서 가두려는 영리한 지렁이도 있어요.\n'
-              '갇혔다면 서두르지 말고 둘레를 돌며 기다려 보세요. 영리한 지렁이도 언젠가는 실수로 틈을 열어요.',
+              '갇혔다면 서두르지 말고 둘레를 돌며 기다려 보세요. 영리한 지렁이도 언젠가는 실수로 틈을 열어요.\n'
+              '내 점수가 높아질수록 어리숙한 지렁이는 줄고 영리한 지렁이가 늘어나요. 3000점을 넘으면 여럿이 떼로 몰려와요!',
           icon: Icons.psychology_alt_rounded,
         ),
         const TutorialStep(

@@ -55,21 +55,29 @@ class CpuBrain {
   bool get lapsing => _lapse > 0;
 
   /// 지금 CPU 단계 ([SnakeWorld.cpuLevel]): 높을수록 빨리 판단하고 멀리 보고 실수가 드물다.
+  /// (판단 빠르기·보는 거리는 [_sharpCap]단계까지만 오르고, 그 위로는 CPU 물갈이와 떼 사냥으로 어려워진다)
   int _level = 0;
+  static const int _sharpCap = 7;
+  int get _sharp => min(_level, _sharpCap);
+
+  /// 이 단계부터 (사람 뱀 3000점) CPU가 떼로 사냥한다: 보통·똑똑한 CPU는 성격과 상관없이 사람 뱀을 노리고,
+  /// 한 사람 뱀을 넷까지 함께 몰아붙이며, 더 멀리서도 달려온다. 둘러싼 뒤 실수(틈 열기)는 그대로 한다.
+  static const int packLevel = 6;
+  bool get _pack => _level >= packLevel;
 
   double _lapseGap() => switch (skill) {
         CpuSkill.dumb => 6 + rng.nextDouble() * 10,
         CpuSkill.normal => 12 + rng.nextDouble() * 18,
         CpuSkill.smart => 15 + rng.nextDouble() * 20,
       } *
-      (1 + 0.15 * _level);
+      (1 + 0.15 * _sharp);
 
   double get _interval => switch (skill) {
         CpuSkill.dumb => 0.3 + rng.nextDouble() * 0.15,
         CpuSkill.normal => 0.17 + rng.nextDouble() * 0.06,
         CpuSkill.smart => 0.09 + rng.nextDouble() * 0.04,
       } *
-      (1 - 0.07 * _level);
+      (1 - 0.07 * _sharp);
 
   void update(SnakeWorld w, WorldSnake s, double dt) {
     _level = w.cpuLevel;
@@ -93,11 +101,12 @@ class CpuBrain {
   }
 
   /// 사냥(가로막기·둘러싸기)을 하는 머리인가.
-  /// (단계 2부터는 보통형 보통 솜씨도 가로막기를 한다)
+  /// (단계 2부터는 보통형 보통 솜씨도 가로막기를 하고, 떼 사냥 단계부터는 신중형도 사람 뱀을 노린다)
   bool get _hunter =>
       hunts &&
-      mood != CpuMood.cautious &&
-      (skill == CpuSkill.smart || (skill == CpuSkill.normal && (mood == CpuMood.aggressive || _level >= 2)));
+      skill != CpuSkill.dumb &&
+      (_pack ||
+          (mood != CpuMood.cautious && (skill == CpuSkill.smart || mood == CpuMood.aggressive || _level >= 2)));
 
   void _decide(SnakeWorld w, WorldSnake s) {
     final r = s.radius;
@@ -107,7 +116,7 @@ class CpuBrain {
           CpuSkill.smart => 170 + r * 4,
         } *
         (mood == CpuMood.cautious ? 1.3 : 1) *
-        (1 + 0.08 * _level);
+        (1 + 0.08 * _sharp);
     final dangerW = switch (mood) { CpuMood.aggressive => 4.5, CpuMood.balanced => 6.0, CpuMood.cautious => 8.0 };
     if (_hunter) _updatePlan(w, s);
     var goal = s.angle;
@@ -135,7 +144,7 @@ class CpuBrain {
       goal = edge < 150 ? center : goal + wrapAngle(center - goal) * 0.5;
     }
     // 멍청한 CPU는 가끔 앞을 안 본다
-    final blind = skill == CpuSkill.dumb && rng.nextDouble() < max(0.05, 0.3 - 0.05 * _level);
+    final blind = skill == CpuSkill.dumb && rng.nextDouble() < max(0.05, 0.3 - 0.05 * _sharp);
     final wary = mood == CpuMood.cautious ? 1.5 : 1.0;
     final heads = switch (skill) {
       CpuSkill.dumb => const <HeadPath>[],
@@ -231,7 +240,7 @@ class CpuBrain {
   void _updatePlan(SnakeWorld w, WorldSnake s) {
     final t = targetId == null ? null : w.byId[targetId];
     if (hunting) {
-      if (t == null || !_huntable(s, t) || _dist(s, t) > 900) {
+      if (t == null || !_huntable(s, t) || _dist(s, t) > (_pack ? 1200 : 900)) {
         _endPlan(3, 6);
       } else if (_planTime > _planLimit) {
         if (plan == CpuPlan.coil) {
@@ -250,7 +259,7 @@ class CpuBrain {
     }
     if (_cooldown > 0 || s.mass < 18) return;
     WorldSnake? pick;
-    var pickD = 650.0;
+    var pickD = _pack ? 950.0 : 650.0;
     for (final o in w.snakes) {
       if (!_huntable(s, o) || o.id == s.id) continue;
       // 사람 뱀을 먼저 노린다 (CPU는 조금 더 가까워야 고른다)
@@ -261,7 +270,8 @@ class CpuBrain {
         final b = h.brain;
         if (b != null && b.hunting && b.targetId == o.id && !h.human) hunters++;
       }
-      if (hunters >= (_level >= 3 ? 3 : 2)) continue; // 한 뱀을 셋 이상(단계 3부터는 넷 이상)이 몰아붙이지는 않는다
+      // 한 뱀을 셋 이상(단계 3부터는 넷, 떼 사냥 때 사람 뱀은 다섯 이상)이 몰아붙이지는 않는다
+      if (hunters >= (_pack && o.human ? 4 : (_level >= 3 ? 3 : 2))) continue;
       pick = o;
       pickD = d;
     }
@@ -284,6 +294,7 @@ class CpuBrain {
   /// 노릴 수 있는 뱀: 직접 조종 중인 사람 뱀. 공격형은 자기보다 작은 CPU도.
   bool _huntable(WorldSnake me, WorldSnake o) {
     if (o.human) return !o.covered && !o.autopilot;
+    if (_pack) return false; // 떼 사냥 때는 사람 뱀만 노린다
     return mood == CpuMood.aggressive && o.mass < me.mass * 0.8;
   }
 
@@ -291,7 +302,7 @@ class CpuBrain {
     plan = CpuPlan.roam;
     targetId = null;
     final k = mood == CpuMood.aggressive ? 0.6 : 1.0; // 공격형은 금방 다시 사냥한다
-    _cooldown = (lo + rng.nextDouble() * (hi - lo)) * k * (1 - 0.1 * _level);
+    _cooldown = (lo + rng.nextDouble() * (hi - lo)) * k * (1 - 0.1 * _sharp) * (_pack ? 0.6 : 1);
   }
 
   static double _dist(SnakeBody a, SnakeBody b) {

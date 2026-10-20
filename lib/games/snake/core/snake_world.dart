@@ -80,8 +80,17 @@ class SnakeWorld {
 
   /// CPU 단계 (0~[maxCpuLevel]). 사람 뱀이 1등인 채로 [levelStep]점을 넘을 때마다 하나씩 올라가고,
   /// CPU가 1등이면 15초마다 하나씩 내려간다. 단계가 높을수록 CPU가 더 빨리 판단하고 멀리 보고 실수가 줄어든다.
+  /// 4단계부터는 멍청한 CPU가 점점 똑똑한 CPU로 바뀌고 (8단계면 멍청한 CPU가 없다),
+  /// 6단계(3000점)부터는 CPU가 떼로 사냥한다 ([CpuBrain.packLevel]).
   int cpuLevel = 0;
-  static const int maxCpuLevel = 5;
+  static const int maxCpuLevel = 10;
+
+  /// [level] 단계에서 바라는 CPU 솜씨 비율 (멍청한·보통·똑똑한 순서, 합이 3).
+  static List<double> skillMix(int level) {
+    final k = ((level - 3) / 5).clamp(0.0, 1.0);
+    return [1 - k, 1 - 0.2 * k, 1 + 1.2 * k];
+  }
+
   static const int levelStep = 500;
   double _levelTimer = 0, _levelDecay = 0;
 
@@ -225,6 +234,7 @@ class SnakeWorld {
       _levelDecay = 0;
       final want = min(maxCpuLevel, top.score ~/ levelStep);
       if (want > cpuLevel) cpuLevel = want;
+      _upgradeOneCpu();
     } else if (cpuLevel > 0) {
       _levelDecay += 0.5;
       if (_levelDecay >= 15) {
@@ -413,6 +423,40 @@ class SnakeWorld {
 
   // ── 태어나기 ──
 
+  /// 단계가 높은데 멍청한 CPU가 바라는 비율보다 많으면 하나를 더 모자란 솜씨로 바꾼다 (0.5초마다 하나씩, 물갈이).
+  void _upgradeOneCpu() {
+    final cpus = [for (final s in snakes) if (!s.human && s.brain != null) s];
+    if (cpus.isEmpty) return;
+    final mix = skillMix(cpuLevel);
+    final dumb = [for (final s in cpus) if (s.brain!.skill == CpuSkill.dumb) s];
+    if (dumb.isEmpty || dumb.length <= cpus.length * mix[0] / 3 + 0.5) return;
+    final s = dumb[rng.nextInt(dumb.length)];
+    final old = s.brain!;
+    s.brain = CpuBrain(_neededSkill(), rng, mood: old.mood);
+  }
+
+  /// 바라는 비율에 비해 가장 모자란 솜씨.
+  CpuSkill _neededSkill() {
+    final counts = {for (final k in CpuSkill.values) k: 0};
+    for (final s in snakes) {
+      final b = s.brain;
+      if (!s.human && b != null) counts[b.skill] = counts[b.skill]! + 1;
+    }
+    final mix = skillMix(cpuLevel);
+    CpuSkill? best;
+    var bestFill = double.infinity;
+    for (final k in CpuSkill.values) {
+      final w = mix[k.index];
+      if (w <= 0) continue;
+      final fill = counts[k]! / w;
+      if (fill < bestFill) {
+        bestFill = fill;
+        best = k;
+      }
+    }
+    return best ?? CpuSkill.smart;
+  }
+
   void _respawnCpus(double dt) {
     _deficitCheck -= dt;
     if (_deficitCheck <= 0) {
@@ -431,13 +475,8 @@ class SnakeWorld {
   }
 
   void _spawnCpu() {
-    final counts = {for (final k in CpuSkill.values) k: 0};
-    for (final s in snakes) {
-      final b = s.brain;
-      if (!s.human && b != null) counts[b.skill] = counts[b.skill]! + 1;
-    }
-    // 멍청한·보통·똑똑한 CPU를 고루 섞는다 (가장 적은 쪽부터)
-    final skill = CpuSkill.values.reduce((a, b) => counts[a]! <= counts[b]! ? a : b);
+    // 멍청한·보통·똑똑한 CPU를 단계에 맞는 비율로 섞는다 (가장 모자란 쪽부터)
+    final skill = _neededSkill();
     // 성격(공격형·보통형·신중형)도 같은 솜씨 안에서 고루 섞는다
     final moods = {for (final k in CpuMood.values) k: 0};
     for (final x in snakes) {

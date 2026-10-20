@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도트 색 합치기</title>
+<style>
+  :root { --bg: #f4f1ea; --card: #fff; --ink: #222; --mute: #777; --line: #ddd; --accent: #2d6cdf; --warn: #c0392b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'NanumGothic', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--ink); }
+  header { padding: 12px 18px; background: #263238; color: #fff; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { font-size: 13px; opacity: .8; }
+  main { display: grid; grid-template-columns: 190px 1fr 320px; gap: 14px; padding: 14px; align-items: start; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px #0001; }
+  #list button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 8px; border-radius: 8px; font: inherit; cursor: pointer; }
+  #list button:hover { background: #eef; }
+  #list button.on { background: var(--accent); color: #fff; }
+  #list small { opacity: .7; }
+  #pic { display: flex; justify-content: center; align-items: center; min-height: 400px; }
+  canvas { image-rendering: pixelated; cursor: crosshair; max-width: 100%; }
+  h2 { font-size: 15px; margin: 4px 0 8px; }
+  .hint { font-size: 12.5px; color: var(--mute); line-height: 1.5; margin: 0 0 10px; }
+  .pal { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sw { width: 64px; border: 2px solid transparent; border-radius: 10px; padding: 3px; cursor: pointer; text-align: center; font-size: 11px; background: #fafafa; }
+  .sw .c { height: 40px; border-radius: 7px; border: 1px solid #0002; }
+  .sw.sel { border-color: var(--accent); background: #eaf1ff; }
+  .row { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 5px 0; }
+  .dot { width: 22px; height: 22px; border-radius: 5px; border: 1px solid #0003; flex: none; }
+  .btn { border: 0; border-radius: 8px; padding: 8px 12px; font: inherit; font-size: 13px; cursor: pointer; background: #e8e8e8; }
+  .btn.main { background: var(--accent); color: #fff; font-weight: 700; }
+  .btn.warn { background: #fbe3e0; color: var(--warn); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .sug { cursor: pointer; border-radius: 8px; padding: 3px 4px; }
+  .sug:hover { background: #f0f4ff; }
+  #status { font-size: 13px; white-space: pre-wrap; max-height: 180px; overflow: auto; background: #f7f7f7; border-radius: 8px; padding: 8px; display: none; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .sec { margin-top: 16px; }
+</style>
+</head>
+<body>
+<header><h1>도트 캐논 · 색 합치기</h1><span>색 하나를 누르고 → 합칠 색을 누르면 앞 색이 뒤 색으로 바뀌어요. 그림의 점을 눌러도 그 색이 골라져요.</span></header>
+<main>
+  <div class="card" id="list"></div>
+  <div class="card" id="pic"><canvas id="cv"></canvas></div>
+  <div>
+    <div class="card">
+      <h2 id="title">-</h2>
+      <p class="hint" id="pickHint">합칠 색을 먼저 누르세요.</p>
+      <div class="pal" id="pal"></div>
+      <div class="sec"><h2>비슷한 색 짝 (누르면 적은 쪽을 많은 쪽으로)</h2><div id="sug"></div></div>
+      <div class="sec"><h2>이번에 합친 것</h2><div id="pending"><p class="hint">아직 없어요.</p></div></div>
+      <div class="bar">
+        <button class="btn" id="undo">하나 되돌리기</button>
+        <button class="btn main" id="save">저장하고 그림 다시 만들기</button>
+      </div>
+    </div>
+    <div class="card sec">
+      <h2>예전에 저장한 합치기</h2>
+      <div id="saved"></div>
+      <div class="bar"><button class="btn warn" id="reset">이 그림 합치기 모두 지우고 다시 만들기</button></div>
+      <div class="sec" id="status"></div>
+    </div>
+  </div>
+</main>
+<script>
+const EMPTY = -1;
+let stages = [], cur = 0, pending = [], picked = null, building = false;
+
+function decode(runs) {
+  const out = []; let i = 0;
+  while (i < runs.length) {
+    const ch = runs[i++]; let n = 0;
+    while (i < runs.length && runs[i] >= '0' && runs[i] <= '9') n = n * 10 + (+runs[i++]);
+    const c = ch === '.' ? EMPTY : ch.charCodeAt(0) - 97;
+    for (let k = 0; k < n; k++) out.push(c);
+  }
+  return out;
+}
+
+// 지금 보이는 그림 = 저장된 그림 + 이번에 합친 것
+function view() {
+  const s = stages[cur];
+  let colors = [...s.colors], px = decode(s.runs);
+  for (const [from, to] of pending) {
+    const a = colors.indexOf(from), b = colors.indexOf(to);
+    if (a < 0 || b < 0 || a === b) continue;
+    px = px.map(p => p === EMPTY ? p : p === a ? (b > a ? b - 1 : b) : (p > a ? p - 1 : p));
+    colors.splice(a, 1);
+  }
+  const count = colors.map(() => 0);
+  px.forEach(p => { if (p !== EMPTY) count[p]++; });
+  return { colors, px, count, w: s.width, h: s.height };
+}
+
+function rgb(hex) { const n = parseInt(hex, 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+// 사람 눈에 가까운 색 거리 (CIE Lab)
+function lab(hex) {
+  const f = v => { v /= 255; return v > 0.04045 ? ((v + 0.055) / 1.055) ** 2.4 : v / 12.92; };
+  const [r, g, b] = rgb(hex).map(f);
+  const x = (r * .4124 + g * .3576 + b * .1805) / .95047, y = r * .2126 + g * .7152 + b * .0722, z = (r * .0193 + g * .1192 + b * .9505) / 1.08883;
+  const t = v => v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116;
+  return [116 * t(y) - 16, 500 * (t(x) - t(y)), 200 * (t(y) - t(z))];
+}
+function dist(a, b) { const p = lab(a), q = lab(b); return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); }
+
+function draw() {
+  const v = view(), cv = document.getElementById('cv');
+  const cell = Math.max(6, Math.floor(Math.min(560 / v.w, 640 / v.h)));
+  cv.width = v.w * cell; cv.height = v.h * cell;
+  const g = cv.getContext('2d');
+  for (let y = 0; y < v.h; y++) for (let x = 0; x < v.w; x++) {
+    const p = v.px[y * v.w + x];
+    g.fillStyle = (x + y) % 2 ? '#eee' : '#f8f8f8';
+    g.fillRect(x * cell, y * cell, cell, cell);
+    if (p === EMPTY) continue;
+    g.globalAlpha = picked === null || v.colors[p] === picked ? 1 : 0.18;
+    g.fillStyle = '#' + v.colors[p];
+    g.fillRect(x * cell, y * cell, cell, cell);
+    g.globalAlpha = 1;
+  }
+  cv.onclick = e => {
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) / r.width * v.w), y = Math.floor((e.clientY - r.top) / r.height * v.h);
+    const p = v.px[y * v.w + x];
+    if (p !== EMPTY) pick(v.colors[p]);
+  };
+  const s = stages[cur];
+  document.getElementById('title').textContent = `${s.name} — 색 ${v.colors.length}개 (${v.w}×${v.h})`;
+  document.getElementById('pickHint').textContent = picked === null
+    ? '합칠 색을 먼저 누르세요.'
+    : `#${picked} 을(를) 어느 색으로 합칠까요? 다른 색을 누르세요. (같은 색을 다시 누르면 취소)`;
+  const pal = document.getElementById('pal'); pal.innerHTML = '';
+  v.colors.forEach((c, i) => {
+    const d = document.createElement('div');
+    d.className = 'sw' + (c === picked ? ' sel' : '');
+    d.innerHTML = `<div class="c" style="background:#${c}"></div>${v.count[i]}칸`;
+    d.title = '#' + c;
+    d.onclick = () => pick(c);
+    pal.appendChild(d);
+  });
+  const pairs = [];
+  for (let i = 0; i < v.colors.length; i++) for (let j = i + 1; j < v.colors.length; j++) pairs.push([dist(v.colors[i], v.colors[j]), i, j]);
+  pairs.sort((a, b) => a[0] - b[0]);
+  const sug = document.getElementById('sug'); sug.innerHTML = '';
+  for (const [d, i, j] of pairs.slice(0, 6)) {
+    const [from, to] = v.count[i] <= v.count[j] ? [i, j] : [j, i];
+    const row = document.createElement('div');
+    row.className = 'row sug';
+    row.innerHTML = `<span class="dot" style="background:#${v.colors[from]}"></span>${v.count[from]}칸 → <span class="dot" style="background:#${v.colors[to]}"></span>${v.count[to]}칸 <small style="color:#999">차이 ${d.toFixed(0)}</small>`;
+    row.onclick = () => merge(v.colors[from], v.colors[to]);
+    sug.appendChild(row);
+  }
+  const pend = document.getElementById('pending');
+  pend.innerHTML = pending.length ? '' : '<p class="hint">아직 없어요.</p>';
+  for (const [a, b] of pending) pend.innerHTML += `<div class="row"><span class="dot" style="background:#${a}"></span>→<span class="dot" style="background:#${b}"></span></div>`;
+  const saved = document.getElementById('saved');
+  saved.innerHTML = s.merge.length ? '' : '<p class="hint">없어요.</p>';
+  for (const [a, b] of s.merge) saved.innerHTML += `<div class="row"><span class="dot" style="background:#${a}"></span>→<span class="dot" style="background:#${b}"></span> <small>#${a} → #${b}</small></div>`;
+  document.getElementById('undo').disabled = !pending.length || building;
+  document.getElementById('save').disabled = !pending.length || building;
+  document.getElementById('reset').disabled = !s.merge.length || building;
+}
+
+function pick(c) {
+  if (picked === null) picked = c;
+  else if (picked === c) picked = null;
+  else { merge(picked, c); return; }
+  draw();
+}
+function merge(a, b) {
+  if (view().colors.length <= 2) { alert('색은 2개보다 줄일 수 없어요.'); return; }
+  pending.push([a, b]); picked = null; draw();
+}
+
+function list() {
+  const el = document.getElementById('list'); el.innerHTML = '';
+  stages.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = i === cur ? 'on' : '';
+    b.innerHTML = `${i + 1}. ${s.name} <small>${s.colors.length}색</small>`;
+    b.onclick = () => {
+      if (pending.length && !confirm('저장하지 않은 합치기가 있어요. 버리고 다른 그림으로 갈까요?')) return;
+      cur = i; pending = []; picked = null; list(); draw();
+    };
+    el.appendChild(b);
+  });
+}
+
+async function load() {
+  stages = await (await fetch('/api/stages')).json();
+  cur = Math.min(cur, stages.length - 1);
+  list(); draw();
+}
+
+async function post(path, body) {
+  const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+async function rebuild() {
+  building = true; draw();
+  const st = document.getElementById('status');
+  st.style.display = 'block'; st.textContent = '그림을 다시 만드는 중... (몇 분 걸릴 수 있어요)';
+  await post('/api/build', {});
+  for (;;) {
+    await new Promise(r => setTimeout(r, 1500));
+    const b = await (await fetch('/api/build')).json();
+    const lines = b.log.split('\n').filter(l => /:\s\d+x\d+|건너뜀|풀리|Error|error|실행하지/.test(l)).map(l => l.replace(/^.*?\]\s*/, ''));
+    st.textContent = (b.running ? '만드는 중...\n' : '') + lines.slice(-12).join('\n');
+    if (!b.running) {
+      st.textContent = (b.ok ? '✅ 다 만들었어요! 게임에 반영됐어요.\n' : '❌ 만들지 못했어요. 아래를 보세요 (합친 것 때문에 안 풀리면 "모두 지우고 다시 만들기"를 눌러 보세요).\n')
+        + (b.ok ? lines.slice(-12) : b.log.split('\n').slice(-25)).join('\n');
+      break;
+    }
+  }
+  building = false; pending = []; picked = null;
+  await load();
+}
+
+document.getElementById('undo').onclick = () => { pending.pop(); draw(); };
+document.getElementById('save').onclick = async () => {
+  try { await post('/api/save', { name: stages[cur].name, merges: pending }); await rebuild(); }
+  catch (e) { alert('저장하지 못했어요: ' + e.message); }
+};
+document.getElementById('reset').onclick = async () => {
+  if (!confirm(`"${stages[cur].name}"에 저장한 합치기를 모두 지우고 원래 색으로 다시 만들까요?`)) return;
+  try { pending = []; await post('/api/reset', { name: stages[cur].name }); await rebuild(); }
+  catch (e) { alert('지우지 못했어요: ' + e.message); }
+};
+load();
+</script>
+</body>
+</html>

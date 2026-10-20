@@ -58,7 +58,7 @@ void main() {
     });
   });
 
-  testWidgets('방장 화면에서는 한참 기다린 뒤 "CPU가 대신하기"를 고를 수 있고, 맡기면 한 줄 안내만 남는다', (tester) async {
+  testWidgets('방장 화면에서는 한참 기다린 뒤 "CPU가 대신하기"를 고를 수 있고, 맡기면 한 줄 안내가 잠깐 뜬다', (tester) async {
     late LanConnection conn;
     late Socket raw;
     late ServerSocket server;
@@ -76,7 +76,13 @@ void main() {
       conn.cpuCovered = true;
     };
 
-    await tester.pumpWidget(const MaterialApp(home: LanStallOverlay(decisionAfter: Duration.zero, child: Scaffold(body: Text('게임')))));
+    await tester.pumpWidget(const MaterialApp(
+      home: LanStallOverlay(
+        decisionAfter: Duration.zero,
+        coveredNoticeFor: Duration(milliseconds: 300),
+        child: Scaffold(body: Text('게임')),
+      ),
+    ));
     await tester.pump();
     expect(find.text('CPU가 대신하기'), findsOneWidget);
     expect(find.text('이 판 끝내기'), findsOneWidget);
@@ -87,6 +93,11 @@ void main() {
     expect(find.textContaining('영희 자리는 CPU가 대신하고 있어요'), findsOneWidget);
     expect(find.text('CPU가 대신하기'), findsNothing);
     expect(find.text('이 판 끝내기'), findsNothing);
+
+    // 한 줄 안내는 잠깐 뒤 저절로 사라진다
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('CPU가 대신하고 있어요'), findsNothing);
 
     // 돌려주면 안내가 사라진다
     conn.cpuCovered = false;

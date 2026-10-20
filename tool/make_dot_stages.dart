@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/dotcannon/core/dot_assess.dart';
 import 'package:tabgame/games/dotcannon/core/dot_convert.dart';
 import 'package:tabgame/games/dotcannon/core/dot_enhance.dart';
+import 'package:tabgame/games/dotcannon/core/dot_merge.dart';
 import 'package:tabgame/games/dotcannon/core/dot_rules.dart';
 import 'package:tabgame/games/dotcannon/core/dot_stages.dart';
 
@@ -91,7 +92,14 @@ void main() {
             edge: (s['edge'] as num?)?.toDouble() ?? 0.8,
           );
         }
-        final art = quantizeCells(cells, dw, dh, colors: colors, removeBackground: s['removeBg'] == true);
+        // 색 합치기(선택): "merge": [["RRGGBB", "RRGGBB"], ...] 앞 색을 뒤 색으로 (tool/dot_stage_editor.py로 고른다)
+        final merges = [for (final m in (s['merge'] as List? ?? const [])) ((m as List)[0] as String, m[1] as String)];
+        final art = mergeDotColors(
+          quantizeCells(cells, dw, dh, colors: colors, removeBackground: s['removeBg'] == true),
+          merges,
+          // ignore: avoid_print
+          skipped: (f, t) => print('$name: 합칠 색 $f → $t 이 그림에 없어서 건너뜀'),
+        );
         final sw = Stopwatch()..start();
         final a = assessArt(pixels: art.pixels, width: art.width, height: art.height, colors: art.colors.length, capacity: capacity);
         if (!a.solvable) fail('$name: 풀리는 배치를 못 찾았어요 (색 ${art.colors.length}, 도트 ${art.pixelCount})');

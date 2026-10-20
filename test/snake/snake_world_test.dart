@@ -39,6 +39,17 @@ void main() {
     }
   });
 
+  test('사람 뱀 점수가 높으면 멍청한 CPU가 똑똑한 CPU로 바뀌고, 3000점부터 떼 사냥 단계가 된다', () {
+    final w = fresh();
+    final me = w.snakeOfSeat(0)!;
+    me.mass = 4200;
+    run(w, 20, each: () => w.steer(0, me.angle + 0.02, false));
+    expect(w.cpuLevel, greaterThanOrEqualTo(CpuBrain.packLevel));
+    final skills = [for (final s in w.snakes) if (!s.human) s.brain!.skill];
+    expect(skills.where((k) => k == CpuSkill.dumb), isEmpty);
+    expect(skills.where((k) => k == CpuSkill.smart).length, greaterThan(skills.length ~/ 2));
+  });
+
   test('먹이를 먹으면 길어지고 아주 서서히 굵어진다', () {
     expect(SnakeRules.lengthOf(100), greaterThan(SnakeRules.lengthOf(10) * 3));
     expect(SnakeRules.radiusOf(100) / SnakeRules.radiusOf(10), lessThan(1.4));
@@ -211,11 +222,11 @@ void main() {
     final friend = w.addSeat(1, '친구');
     friend.mass = 3000;
     run(w, 1, each: () => w.steer(1, friend.angle + 0.02, false));
-    expect(w.cpuLevel, 5);
+    expect(w.cpuLevel, 6);
     // 사람들이 사라지고 CPU가 1등이면 15초마다 하나씩 내려간다
     w.removeSeat(1);
     w.removeSeat(0);
     run(w, 16);
-    expect(w.cpuLevel, 4);
+    expect(w.cpuLevel, 5);
   });
 }

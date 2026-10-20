@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../net/lan_connection.dart';
 import '../../../net/lan_rejoin_flow.dart';
+import '../core/snake_ai.dart';
 import '../core/snake_body.dart';
 import '../core/snake_net.dart';
 import '../core/snake_world.dart';
@@ -173,7 +174,11 @@ class SnakeController {
 
   void _trackLife() {
     final lv = cpuLevel;
-    if (lv > _shownLevel) onToast?.call('CPU가 더 강해졌어요! ($lv단계)');
+    if (lv >= CpuBrain.packLevel && _shownLevel < CpuBrain.packLevel) {
+      onToast?.call('조심! CPU들이 떼로 사냥하기 시작해요 ($lv단계)');
+    } else if (lv > _shownLevel) {
+      onToast?.call('CPU가 더 강해졌어요! ($lv단계)');
+    }
     _shownLevel = lv;
     final m = me;
     if (m == null) return;
