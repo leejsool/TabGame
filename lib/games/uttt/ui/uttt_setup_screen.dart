@@ -45,6 +45,7 @@ class _UtttSetupScreenState extends State<UtttSetupScreen> {
     return VsSetupScaffold(
       gameId: 'ultimate_tictactoe',
       title: '궁극 틱택토 · CPU와 대결',
+      switchFrom: PlayMode.vsCpu,
       onStart: _start,
       resume: VsResume(gameName: '궁극 틱택토', describe: utttSavedLabel, onResume: _resume),
       tutorial: utttTutorial,

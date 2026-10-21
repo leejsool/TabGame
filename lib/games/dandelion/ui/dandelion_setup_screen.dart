@@ -45,6 +45,7 @@ class _DandelionSetupScreenState extends State<DandelionSetupScreen> {
     return VsSetupScaffold(
       gameId: 'dandelion',
       title: '민들레 · CPU와 대결',
+      switchFrom: PlayMode.vsCpu,
       onStart: _start,
       resume: VsResume(gameName: '민들레', describe: dandelionSavedLabel, onResume: _resume),
       tutorial: dandelionTutorial,

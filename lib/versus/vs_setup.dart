@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../core/game_info.dart';
 import '../core/game_save.dart';
 import '../core/game_widgets.dart';
 import '../records/record_widgets.dart' show confirmOverwrite;
 import '../records/records_screen.dart';
 import '../tutorial/tutorial_button.dart';
 import '../tutorial/tutorial.dart';
+import 'vs_mode_switch.dart';
 
 /// 이어하던 판이 있는 대결 게임의 이어하기 설정.
 class VsResume {
@@ -38,6 +40,7 @@ class VsSetupScaffold extends StatefulWidget {
     this.onLesson,
     this.startLabel = '시작하기',
     this.resume,
+    this.switchFrom,
   });
 
   /// game_registry의 id (내 기록 버튼이 이 게임의 기록을 연다).
@@ -57,6 +60,9 @@ class VsSetupScaffold extends StatefulWidget {
 
   /// 이어하기 (같은 Wi‑Fi 방 만들기처럼 이어할 수 없는 설정이면 null).
   final VsResume? resume;
+
+  /// 이 설정 화면의 방식. 있으면 맨 위에 "CPU / 둘이서 / Wi‑Fi" 전환 칩을 보여 준다 (방 만들기 화면은 null).
+  final PlayMode? switchFrom;
 
   @override
   State<VsSetupScaffold> createState() => _VsSetupScaffoldState();
@@ -124,6 +130,10 @@ class _VsSetupScaffoldState extends State<VsSetupScaffold> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
+                if (widget.switchFrom != null) ...[
+                  VsModeSwitch(gameId: widget.gameId, current: widget.switchFrom!),
+                  const SizedBox(height: 16),
+                ],
                 if (resume != null && saved != null) ...[
                   _ResumeCard(describe: resume.describe(saved), onTap: () => resume.onResume(saved)),
                   const SizedBox(height: 20),

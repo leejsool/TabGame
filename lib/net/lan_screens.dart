@@ -3,9 +3,11 @@ import 'dart:io' show InternetAddress, InternetAddressType;
 
 import 'package:flutter/material.dart';
 
+import '../core/game_info.dart';
 import '../core/nickname.dart';
 import '../core/settings_scope.dart';
 import '../records/records_screen.dart';
+import '../versus/vs_mode_switch.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
 import 'lan_rejoin.dart';
@@ -103,6 +105,8 @@ class LanChooseScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
+                VsModeSwitch(gameId: recordsGame, current: PlayMode.wifi),
+                const SizedBox(height: 12),
                 const NicknameBar(),
                 const SizedBox(height: 14),
                 Container(

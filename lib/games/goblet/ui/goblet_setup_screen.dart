@@ -44,6 +44,7 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
     return VsSetupScaffold(
       gameId: 'goblet_gobblers',
       title: '고블렛 고블러스 · CPU와 대결',
+      switchFrom: PlayMode.vsCpu,
       onStart: _start,
       resume: VsResume(gameName: '고블렛 고블러스', describe: gobletSavedLabel, onResume: _resume),
       tutorial: gobletTutorial,

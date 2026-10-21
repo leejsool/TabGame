@@ -55,6 +55,7 @@ class _ProphecySetupScreenState extends State<ProphecySetupScreen> {
     return VsSetupScaffold(
       gameId: 'prophecy',
       title: _vsCpu ? '예언 · CPU와 대결' : (_wifi ? '예언 · 방 만들기' : '예언 · 둘이서'),
+      switchFrom: _wifi ? null : widget.mode,
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
       resume: _wifi

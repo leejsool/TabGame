@@ -49,6 +49,7 @@ class _SproutsSetupScreenState extends State<SproutsSetupScreen> {
     return VsSetupScaffold(
       gameId: 'sprouts',
       title: _vsCpu ? '콩나물 · CPU와 대결' : '콩나물 · 둘이서',
+      switchFrom: widget.mode,
       onStart: _start,
       resume: VsResume(
         gameName: '콩나물',

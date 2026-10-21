@@ -50,6 +50,7 @@ class _RummikubSetupScreenState extends State<RummikubSetupScreen> {
     return VsSetupScaffold(
       gameId: 'rummikub',
       title: _wifi ? '루미큐브 · 방 만들기' : '루미큐브 · CPU와 대결',
+      switchFrom: _wifi ? null : widget.mode,
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
       resume: _wifi

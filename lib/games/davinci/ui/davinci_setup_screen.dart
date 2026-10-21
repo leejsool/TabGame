@@ -50,6 +50,7 @@ class _DavinciSetupScreenState extends State<DavinciSetupScreen> {
     return VsSetupScaffold(
       gameId: 'davinci_code',
       title: _wifi ? '다빈치 코드 · 방 만들기' : '다빈치 코드 · CPU와 대결',
+      switchFrom: _wifi ? null : widget.mode,
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
       resume: _wifi

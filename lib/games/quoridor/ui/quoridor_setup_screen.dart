@@ -52,6 +52,7 @@ class _QuoridorSetupScreenState extends State<QuoridorSetupScreen> {
     return VsSetupScaffold(
       gameId: 'quoridor',
       title: _vsCpu ? '쿼리도 · CPU와 대결' : (_wifi ? '쿼리도 · 방 만들기' : '쿼리도 · 한 기기로 함께'),
+      switchFrom: _wifi ? null : widget.mode,
       startLabel: _wifi ? '방 열기' : '시작하기',
       onStart: _start,
       resume: _wifi
