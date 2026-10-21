@@ -178,6 +178,30 @@ void main() {
       }
     }, timeout: const Timeout(Duration(minutes: 5)));
 
+    test('어려움 CPU가 벽을 다 쓰면 좌우로 왔다 갔다 하지 않고 도착 줄로 다가간다', () {
+      for (var seed = 0; seed < 6; seed++) {
+        final rng = Random(seed);
+        // 사람(0번)이 앞서 걷고 벽 5개를 쥔 채, CPU(1번)는 벽을 다 쓴 판 (사진 속 상황과 비슷하게)
+        final s = QState.start(2);
+        s.wallsLeft[1] = 0;
+        s.wallsLeft[0] = 5;
+        var cpuTurns = 0;
+        while (!s.isOver && cpuTurns < 60) {
+          if (s.turn == 1) {
+            final before = s.distance(1);
+            final m = QAi.choose(s, QLevel.hard, rng);
+            expect(isWallMove(m), isFalse);
+            s.apply(m);
+            cpuTurns++;
+            if (!s.isOver) expect(s.distance(1), lessThan(before), reason: 'seed $seed: CPU가 앞으로 가지 않았어요');
+          } else {
+            s.apply(QAi.choose(s, QLevel.hard, rng));
+          }
+        }
+        expect(s.isOver, isTrue, reason: 'seed $seed 끝나지 않았어요');
+      }
+    });
+
     test('보통은 쉬움보다 잘 둔다 (2명, 여러 판)', () {
       var normalWins = 0;
       const games = 12;

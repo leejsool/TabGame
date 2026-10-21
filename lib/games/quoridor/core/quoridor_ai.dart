@@ -69,8 +69,10 @@ class QAi {
   }
 
   /// 후보 수: 말 이동 + 앞선 상대들의 가장 짧은 길을 막는 벽 (놓을 수 있는 것만).
+  /// 벽을 다 쓴 사람은 도착 줄에 가까워지는 걸음만 본다: 상대가 벽으로 막는 건 어차피 피할 수 없는데,
+  /// 한 수 앞만 보면 옆걸음이 "덜 막혀 보여서" 좌우로 왔다 갔다만 하게 된다.
   static List<int> candidates(QState s) {
-    final out = <int>{...s.legalPawnMoves()};
+    final out = <int>{...s.wallsLeft[s.turn] > 0 ? s.legalPawnMoves() : forwardSteps(s)};
     if (s.wallsLeft[s.turn] > 0) {
       for (var p = 0; p < s.players; p++) {
         if (p == s.turn) continue;
@@ -86,6 +88,18 @@ class QAi {
       }
     }
     return out.toList();
+  }
+
+  /// 지금 차례인 사람의 말 이동 중 도착 줄까지 걸음 수가 줄어드는 것 (없으면 모든 말 이동).
+  static List<int> forwardSteps(QState s) {
+    final me = s.turn;
+    final moves = s.legalPawnMoves();
+    final now = s.distance(me);
+    final closer = [
+      for (final m in moves)
+        if (s.distanceFrom(me, m) case final d when d >= 0 && d < now) m,
+    ];
+    return closer.isEmpty ? moves : closer;
   }
 
   static QState _after(QState s, int move) {
