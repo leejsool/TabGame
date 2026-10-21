@@ -106,6 +106,10 @@ void main() {
         ..update(0.05);
       await shoot('over_${e.key}', e.value, PinballScreen(controller: over));
     }
+    // 판 전체가 한 화면에 보이는 크기로, 그림 위에 충돌 벽을 겹쳐 그린다 (배경 그림을 바꾸면 이걸로 벽 자리를 맞춘다)
+    final full = PinballController(seed: 9);
+    full.run.update(3.1);
+    await shoot('debug_full', const Size(700, 1900), PinballScreen(controller: full, debugWalls: true));
     await shoot('menu', const Size(400, 860), const PinballMenuScreen());
     await shoot('scoring', const Size(400, 860), const PinballScoringScreen());
     await shoot('scoring_tablet', const Size(800, 1280), const PinballScoringScreen());
