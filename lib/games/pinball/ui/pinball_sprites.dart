@@ -9,7 +9,7 @@ class PinballArt {
   final Map<String, ui.Image> _images;
 
   static const List<String> _names = [
-    'board',
+    'board_background',
     'bumper_red',
     'bumper_yellow',
     'bumper_green',
@@ -19,8 +19,14 @@ class PinballArt {
     'flipper_r',
     'ball1',
     'pokeball_ring',
+    'pokeball',
     'medal_pikachu',
     'star',
+    'logo_r',
+    'target_red',
+    'target_yellow',
+    'target_blue',
+    'target_green',
   ];
 
   static PinballArt? cached;
