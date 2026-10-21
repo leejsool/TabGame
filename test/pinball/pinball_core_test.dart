@@ -290,7 +290,12 @@ void main() {
       r.update(1.0); // 멈춰 있다
       expect(r.timeLeft, t);
 
+      expect(r.canStartNext, isFalse, reason: '공짜 카드를 먼저 골라야 해요');
       r.pickFree(0);
+      expect(r.phase, RunPhase.choosing, reason: '공짜 카드를 골라도 바로 시작하지 않아요 (상점을 볼 수 있게)');
+      r.pickFree(1);
+      expect(r.upgradeCount, 1, reason: '공짜 카드는 한 장만');
+      r.startNextRound();
       expect(r.round, 2);
       expect(r.phase, RunPhase.countdown);
       expect(r.targetScore, PinballRun.targetFor(2));
@@ -314,16 +319,74 @@ void main() {
       expect(r.phase, RunPhase.choosing, reason: '사도 창은 그대로예요');
     });
 
-    test('공을 놓치면 시간이 깎이고 새 공이 통로에 놓인다', () {
+    test('공을 놓치면 남은 공이 하나 줄고 새 공이 통로에 놓이며, 3개를 다 놓치면 끝난다', () {
       final r = PinballRun(seed: 3)..update(3.1);
-      r.engine.balls.clear();
-      r.engine.balls.add(Ball(280, kDrainY - 2)
-        ..waiting = false
-        ..vy = 600);
-      final t0 = r.timeLeft;
-      r.update(0.05);
-      expect(r.timeLeft, lessThan(t0 - 4));
+      void drain() {
+        r.engine.balls.clear();
+        r.engine.balls.add(Ball(280, kDrainY - 2)
+          ..waiting = false
+          ..vy = 600);
+        r.update(0.05);
+      }
+
+      expect(r.lives, 3);
+      drain();
+      expect(r.lives, 2);
       expect(r.engine.hasWaitingBall, isTrue);
+      expect(r.phase, RunPhase.playing);
+      drain();
+      drain();
+      expect(r.lives, 0);
+      expect(r.phase, RunPhase.over);
+      expect(r.outOfBalls, isTrue);
+    });
+
+    test('같은 걸 또 사거나 업그레이드가 많을수록 상점 값이 오른다', () {
+      final r = PinballRun(seed: 3);
+      final u = upgradeById('gold');
+      final p0 = r.priceOf(u);
+      r.stacks['gold'] = 1;
+      final p1 = r.priceOf(u);
+      expect(p1, greaterThan(p0 * 1.5));
+      r.stacks['moon'] = 3;
+      expect(r.priceOf(u), greaterThan(p1));
+    });
+
+    test('긴 플리퍼와 큰 공을 다 모아도 두 플리퍼 사이로 공이 빠질 틈이 있다', () {
+      final m = PinballMods({'flip_len': upgradeById('flip_len').max, 'big_ball': upgradeById('big_ball').max});
+      final fl = PinballTable.standard().flippers;
+      final l = fl[0], rt = fl[1];
+      final lx = l.px + l.length * m.flipLen * cos(l.restAngle);
+      final rx = rt.px + rt.length * m.flipLen * cos(rt.restAngle);
+      const thick = 9.0;
+      expect(rx - lx - 2 * thick, greaterThan(2 * kBallR * m.ballScale));
+    });
+
+    test('이자·시간 보너스를 다 모아도 다음 라운드가 저절로 깨지지 않는다', () {
+      for (final round in [2, 6, 12]) {
+        final r = PinballRun(seed: 7)..update(3.1);
+        r.round = round;
+        r.targetScore = PinballRun.targetFor(round);
+        r.stacks.addAll({'interest': upgradeById('interest').max, 'time_bonus': upgradeById('time_bonus').max});
+        r.mods = PinballMods(r.stacks);
+        r.timeLeft = 45;
+        r.score = r.targetScore;
+        r.update(0.001);
+        final b = r.lastBonus!;
+        final next = PinballRun.gainFor(round + 1);
+        expect(b.interestPts, lessThanOrEqualTo(next * kBonusCap + 1));
+        expect(b.timePts, lessThanOrEqualTo(next * kBonusCap + 1));
+        expect(r.score, lessThan(PinballRun.targetFor(round + 1) - next * 0.5), reason: '다음 라운드 몫의 절반 이상은 직접 모아야 해요');
+      }
+    });
+
+    test('여분 공을 고르면 남은 공이 늘어난다', () {
+      final r = PinballRun(seed: 7)..update(3.1);
+      r.score = r.targetScore;
+      r.update(0.016);
+      r.freeOffers[0] = Offer(upgradeById('extra_ball'), 0);
+      r.pickFree(0);
+      expect(r.lives, 4);
     });
 
     test('보호막은 떨어지는 공을 한 번 살려 준다', () {
@@ -348,14 +411,15 @@ void main() {
       expect(r.phase, RunPhase.choosing);
       expect(r.freeOffers, isEmpty);
       expect(r.paidOffers, isNotEmpty, reason: '시간 팩은 늘 살 수 있어요');
-      r.continueWithoutPick();
+      expect(r.canStartNext, isTrue);
+      r.startNextRound();
       expect(r.round, 2);
       expect(r.phase, RunPhase.countdown);
     });
 
     test('업그레이드가 수치에 반영된다', () {
       final m = PinballMods({'flip_len': 2, 'gold': 1, 'coupon': 1});
-      expect(m.flipLen, closeTo(1.2, 1e-9));
+      expect(m.flipLen, closeTo(1.12, 1e-9));
       expect(m.scoreMul, closeTo(1.15, 1e-9));
       expect(m.price, closeTo(0.85, 1e-9));
       for (final u in kUpgrades) {

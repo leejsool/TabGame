@@ -64,6 +64,7 @@ class PinballPainter extends CustomPainter {
     if (debug) _debugWalls(canvas);
     _popups(canvas);
     if (run.tilted) canvas.drawRect(const Rect.fromLTWH(0, 0, kTableW, kTableH), Paint()..color = const Color(0x33FF1744));
+    if (run.phase == RunPhase.countdown) _spotlightBalls(canvas);
     canvas.restore();
     _banners(canvas, size);
   }
@@ -197,11 +198,13 @@ class PinballPainter extends CustomPainter {
       final m = left ? _flipL : _flipR;
       final spriteLen = (m.tip - m.pivot).distance;
       final spriteAngle = atan2(m.tip.dy - m.pivot.dy, m.tip.dx - m.pivot.dx);
-      final k = f.spec.length * _e.flipperLenMul / spriteLen;
+      // 긴 플리퍼는 길이 방향으로만 늘린다 (두께는 그대로).
+      final k = f.spec.length / spriteLen;
       canvas.save();
       canvas.translate(f.spec.px, f.spec.py);
-      canvas.rotate(f.angle - spriteAngle);
-      canvas.scale(k);
+      canvas.rotate(f.angle);
+      canvas.scale(k * _e.flipperLenMul, k);
+      canvas.rotate(-spriteAngle);
       canvas.drawImage(img, -m.pivot, _smooth);
       canvas.restore();
     }
@@ -230,6 +233,29 @@ class PinballPainter extends CustomPainter {
       } else {
         canvas.drawCircle(c, r, Paint()..color = const Color(0xFFC3CCDA));
       }
+    }
+  }
+
+  /// 3·2·1 동안 판을 어둡게 덮고 공만 밝게, 둘레에 번쩍이는 고리를 그려서 공이 어디 있는지 알려 준다.
+  void _spotlightBalls(Canvas canvas) {
+    canvas.drawRect(const Rect.fromLTWH(-600, -600, kTableW + 1200, kTableH + 1200), Paint()..color = Colors.black.withValues(alpha: 0.55));
+    final r = _e.ballR;
+    final pulse = 0.5 + 0.5 * sin(run.clock * 9);
+    for (final b in _e.balls) {
+      final c = Offset(b.x, b.y);
+      canvas.drawCircle(c, r * (2.6 + pulse * 0.8), Paint()..color = const Color(0xFFFFD84D).withValues(alpha: 0.18 + 0.12 * pulse));
+      canvas.drawCircle(c, r * (1.9 + pulse * 0.6), Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..color = const Color(0xFFFFD84D));
+    }
+    _balls(canvas);
+    for (final b in _e.balls) {
+      final tp = _text('공', 30, const Color(0xFFFFD84D));
+      final y = b.y - r * 3.2 - tp.height - 6 * pulse;
+      // 통로 안 공은 오른쪽 끝에 붙어 있어서 글자가 판 밖으로 나가지 않게 안쪽으로 당긴다.
+      final x = min(b.x - tp.width / 2, kTableW - tp.width - 4);
+      tp.paint(canvas, Offset(x, y));
     }
   }
 

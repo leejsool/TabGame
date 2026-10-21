@@ -39,6 +39,9 @@ class Popup {
   double age = 0;
 }
 
+/// 라운드를 깰 때 받는 시간 보너스·점수 이자의 상한 (각각 다음 라운드에 새로 모아야 하는 점수의 비율).
+const double kBonusCap = 0.2;
+
 /// 라운드를 깰 때 받은 보너스 (창에 보여 줄 용도).
 class ClearBonus {
   const ClearBonus({required this.timeLeft, required this.timePts, required this.interestPts});
@@ -48,7 +51,7 @@ class ClearBonus {
 }
 
 /// 핀볼 도전 한 번의 규칙: 제한 시간 안에 목표 점수에 닿으면 업그레이드를 고르고 다음 라운드로,
-/// 못 채우면 끝. 점수는 하나의 "지갑"이라서 유료 업그레이드를 사면 그만큼 줄어든다.
+/// 못 채우거나 공(목숨)을 모두 놓치면 끝. 점수는 하나의 "지갑"이라서 유료 업그레이드를 사면 그만큼 줄어든다.
 class PinballRun {
   PinballRun({int? seed, PinballTable? table}) : rng = Random(seed) {
     engine = PinballEngine(table ?? PinballTable.standard(), rng: rng);
@@ -67,6 +70,16 @@ class PinballRun {
   double countdownLeft = 3;
   int round = 1;
   int score = 0;
+
+  /// 남은 공(목숨). 공을 놓칠 때마다 하나씩 줄고, 0이 되면 끝.
+  static const int startLives = 3;
+  int lives = startLives;
+
+  /// 공을 다 놓쳐서 끝났는지 (아니면 시간이 다 돼서 끝난 것).
+  bool outOfBalls = false;
+
+  /// 이번 창에서 공짜 카드를 이미 골랐는지.
+  bool freePicked = false;
   int targetScore = 0;
   double timeLeft = 0;
   double roundTime = 0;
@@ -204,6 +217,7 @@ class PinballRun {
     for (final e in events) {
       _handle(e);
     }
+    if (phase == RunPhase.over) return;
     if (score >= targetScore) {
       _clearRound();
     } else if (timeLeft <= 0) {
@@ -276,12 +290,18 @@ class PinballRun {
         onFeedback?.call('saved');
       case HitKind.drain:
         if (e.index == 0) {
-          final penalty = max(1.5, 5 - mods.penaltyCut);
-          timeLeft -= penalty;
+          lives--;
           combo = 0;
-          _banner('-${penalty.toStringAsFixed(penalty.truncateToDouble() == penalty ? 0 : 1)}초', const Color(0xFFFF5252));
-          engine.spawnWaitingBall();
           onFeedback?.call('drain');
+          if (lives <= 0) {
+            lives = 0;
+            outOfBalls = true;
+            phase = RunPhase.over;
+            onFeedback?.call('over');
+          } else {
+            _banner('남은 공 $lives개', const Color(0xFFFF5252));
+            engine.spawnWaitingBall();
+          }
         }
     }
   }
@@ -308,11 +328,14 @@ class PinballRun {
   // ── 라운드 끝: 업그레이드 고르기 ──
 
   void _clearRound() {
-    final timePts = (timeLeft * mods.timeBonus * gainFor(round)).round();
-    final interestPts = min((score * mods.interest).round(), gainFor(round));
+    // 보너스는 각각 다음 라운드 몫의 [kBonusCap]까지만: 보너스만으로 라운드가 저절로 깨지지 않게.
+    final cap = (gainFor(round + 1) * kBonusCap).round();
+    final timePts = min((timeLeft * mods.timeBonus * gainFor(round)).round(), cap);
+    final interestPts = min((score * mods.interest).round(), cap);
     score += timePts + interestPts;
     lastBonus = ClearBonus(timeLeft: timeLeft, timePts: timePts, interestPts: interestPts);
     phase = RunPhase.choosing;
+    freePicked = false;
     combo = 0;
     for (final f in engine.flippers) {
       f.pressed = false;
@@ -321,9 +344,11 @@ class PinballRun {
     onFeedback?.call('clear');
   }
 
+  /// 상점 값: 다음 라운드 몫에 비례하고, 같은 걸 또 살수록(×1.6) 그리고 업그레이드를 많이 모을수록(1개마다 +10%) 비싸진다.
   int priceOf(Upgrade u) {
     final tierMul = u.consumable ? 0.22 : (u.tier == 2 ? 0.55 : 0.28);
-    final raw = gainFor(round + 1) * tierMul * mods.price;
+    final again = u.consumable ? 1.0 : pow(1.6, stacks[u.id] ?? 0).toDouble();
+    final raw = gainFor(round + 1) * tierMul * again * (1 + 0.1 * upgradeCount) * mods.price;
     return max(100, (raw / 10).round() * 10);
   }
 
@@ -373,27 +398,30 @@ class PinballRun {
     return true;
   }
 
-  /// 공짜 카드 하나를 골라 다음 라운드로 간다.
+  /// 공짜 카드 하나를 고른다 (한 장만). 상점은 그 뒤에도 쓸 수 있고, [startNextRound]로 넘어간다.
   void pickFree(int i) {
-    if (phase != RunPhase.choosing) return;
+    if (phase != RunPhase.choosing || freePicked) return;
+    freePicked = true;
+    freeOffers[i].bought = true;
     _add(freeOffers[i].upgrade);
-    round++;
-    _beginRound();
     onFeedback?.call('pick');
   }
 
-  /// 더 고를 공짜 카드가 하나도 없을 때(전부 최대까지 모았을 때) 그냥 다음 라운드로 간다.
-  void continueWithoutPick() {
-    if (phase != RunPhase.choosing || freeOffers.isNotEmpty) return;
+  /// 공짜 카드를 골랐거나 고를 게 없으면 다음 라운드를 시작할 수 있다.
+  bool get canStartNext => phase == RunPhase.choosing && (freePicked || freeOffers.isEmpty);
+
+  void startNextRound() {
+    if (!canStartNext) return;
     round++;
     _beginRound();
-    onFeedback?.call('pick');
+    onFeedback?.call('start');
   }
 
   void _add(Upgrade u) {
     if (u.consumable) {
       bankedTime += 12;
     } else {
+      if (u.id == 'extra_ball') lives++;
       stacks[u.id] = (stacks[u.id] ?? 0) + 1;
     }
     _applyMods();

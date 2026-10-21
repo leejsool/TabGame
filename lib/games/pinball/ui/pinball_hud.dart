@@ -63,7 +63,9 @@ class PinballHud extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(children: [Expanded(child: round), const SizedBox(width: 8), Expanded(child: time)]),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              Row(children: [Text('남은 공  ', style: _base.copyWith(fontSize: 13, color: Colors.white70)), _lives(run, 20)]),
+              const SizedBox(height: 10),
               score,
               const SizedBox(height: 8),
               bar,
@@ -96,7 +98,7 @@ class PinballHud extends StatelessWidget {
               const SizedBox(height: 4),
               bar,
               const SizedBox(height: 4),
-              Row(children: [Expanded(child: combo), SizedBox(width: 110, child: _tiltBar(run))]),
+              Row(children: [Expanded(child: combo), const SizedBox(width: 6), _lives(run, 15), const SizedBox(width: 8), SizedBox(width: 90, child: _tiltBar(run))]),
             ],
           ),
         );
@@ -133,6 +135,27 @@ class PinballHud extends StatelessWidget {
             child: LinearProgressIndicator(value: frac, minHeight: 6, backgroundColor: Colors.white12, color: const Color(0xFFFFD84D)),
           ),
         ),
+      ],
+    );
+  }
+
+  /// 남은 공(목숨)을 공 모양으로 보여 준다.
+  Widget _lives(PinballRun run, double size) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < run.lives; i++)
+          Padding(
+            padding: const EdgeInsets.only(right: 3),
+            child: Container(
+              width: size,
+              height: size,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(center: Alignment(-0.4, -0.4), colors: [Colors.white, Color(0xFF9AA7C4)]),
+              ),
+            ),
+          ),
       ],
     );
   }

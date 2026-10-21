@@ -14,6 +14,7 @@ GameTutorial pinballTutorial() => GameTutorial(
         TutorialStep(
           title: '시간 안에 목표 점수를 채워요',
           body: '라운드마다 목표 점수와 제한 시간이 있어요. 시간 안에 점수를 채우면 다음 라운드로, 못 채우면 도전이 끝나요.\n'
+              '공(목숨)은 3개예요. 3개를 다 놓쳐도 끝나요.\n'
               '점수를 채운 순간 판이 멈추고 업그레이드를 고를 수 있어요.',
           art: (context, accent) => ArtCanvas(
             width: 220,
@@ -34,15 +35,15 @@ GameTutorial pinballTutorial() => GameTutorial(
           icon: Icons.stacked_line_chart_rounded,
         ),
         const TutorialStep(
-          title: '공을 놓치면 시간이 깎여요',
-          body: '공이 아래로 빠지면 시간이 5초 줄고, 새 공이 통로에 나와요. 빨리 다시 쏘세요!\n'
+          title: '공을 놓치면 목숨이 줄어요',
+          body: '공이 아래로 빠지면 남은 공이 하나 줄고, 새 공이 통로에 나와요. 빨리 다시 쏘세요!\n'
               '"흔들기" 단추로 판을 흔들어 공의 방향을 바꿀 수 있어요. 너무 자주 흔들면 틸트가 나서 잠깐 플리퍼가 멈춰요.',
-          icon: Icons.timer_rounded,
+          icon: Icons.favorite_rounded,
         ),
         const TutorialStep(
           title: '업그레이드를 골라요',
-          body: '라운드를 깨면 공짜 카드 3장 중 하나를 골라요. 고르면 3·2·1 뒤에 다음 라운드가 시작돼요.\n'
-              '아래의 "상점"에서는 점수를 내고 더 좋은 카드를 살 수 있어요. 점수를 쓰면 다음 목표를 채우기가 그만큼 어려워지니 잘 생각해서 사세요!',
+          body: '라운드를 깨면 공짜 카드 3장 중 하나를 골라요. "상점"에서는 점수를 내고 카드를 더 살 수 있어요. 다 고르면 "다음 라운드 시작"을 누르세요.\n'
+              '점수를 쓰면 다음 목표를 채우기가 그만큼 어려워지고, 상점 값은 살수록 빠르게 올라요. 점수가 붙는 방법은 첫 화면의 "점수 계산법"에 있어요.',
           icon: Icons.auto_awesome_rounded,
         ),
       ],

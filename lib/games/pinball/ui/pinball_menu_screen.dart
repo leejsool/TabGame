@@ -7,6 +7,7 @@ import '../../../tutorial/tutorial_button.dart';
 import '../data/pinball_history.dart';
 import '../tutorial/pinball_tutorial.dart';
 import 'pinball_hud.dart' show fmtNum, kPinballColor;
+import 'pinball_scoring_screen.dart';
 import 'pinball_screen.dart';
 
 /// 핀볼 첫 화면: 도전 시작 + 지금까지의 최고 기록.
@@ -50,6 +51,13 @@ class _PinballMenuScreenState extends State<PinballMenuScreen> {
       loaded: list != null,
       children: [
         const TutorialButton(tutorial: pinballTutorial),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800)),
+          onPressed: () => PinballScoringScreen.open(context),
+          icon: const Icon(Icons.calculate_rounded),
+          label: const Text('점수 계산법'),
+        ),
         const SizedBox(height: 18),
         Material(
           color: kPinballColor,
@@ -69,7 +77,7 @@ class _PinballMenuScreenState extends State<PinballMenuScreen> {
                       children: [
                         Text('도전 시작', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
                         SizedBox(height: 4),
-                        Text('시간 안에 목표 점수를 채우고,\n업그레이드를 골라 더 멀리 가요', style: TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
+                        Text('공 3개로 시간 안에 목표 점수를 채우고,\n업그레이드를 골라 더 멀리 가요', style: TextStyle(color: Colors.white, fontSize: 14, height: 1.3)),
                       ],
                     ),
                   ),

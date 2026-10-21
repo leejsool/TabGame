@@ -20,8 +20,8 @@ class PinballCountdown extends StatelessWidget {
     final n = max(1, run.countdownLeft.ceil());
     final frac = run.countdownLeft - run.countdownLeft.floor();
     final scale = 1 + frac * 0.35;
-    return ColoredBox(
-      color: Colors.black.withValues(alpha: 0.6),
+    // 판을 어둡게 하는 건 그림 쪽(PinballPainter)이 맡는다: 공만 밝게 보이게.
+    return IgnorePointer(
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -56,7 +56,7 @@ class PinballCountdown extends StatelessWidget {
   }
 }
 
-/// 라운드를 깬 뒤 업그레이드 고르기: 공짜 3장 중 하나를 고르면 시작하고, 유료 카드는 점수로 사요.
+/// 라운드를 깬 뒤 업그레이드 고르기: 공짜 3장 중 하나를 고르고, 유료 카드는 점수로 사고, "다음 라운드 시작"을 눌러요.
 class PinballUpgradeSheet extends StatelessWidget {
   const PinballUpgradeSheet({super.key, required this.controller});
 
@@ -75,13 +75,8 @@ class PinballUpgradeSheet extends StatelessWidget {
               if (run.phase != RunPhase.choosing) return const SizedBox.shrink();
               final wide = box.maxWidth > 760;
               final free = _section('공짜 — 하나만 골라요', const Color(0xFF3FB950), [
-                for (var i = 0; i < run.freeOffers.length; i++) _OfferTile(offer: run.freeOffers[i], run: run, onTap: () => run.pickFree(i)),
-                if (run.freeOffers.isEmpty)
-                  FilledButton(
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48), backgroundColor: kPinballColor, textStyle: const TextStyle(fontFamily: 'NanumGothic', fontWeight: FontWeight.w800)),
-                    onPressed: run.continueWithoutPick,
-                    child: const Text('더 고를 공짜 카드가 없어요 — 다음 라운드로'),
-                  ),
+                for (var i = 0; i < run.freeOffers.length; i++) _OfferTile(offer: run.freeOffers[i], run: run, onTap: run.freePicked ? null : () => run.pickFree(i)),
+                if (run.freeOffers.isEmpty) Text('더 고를 공짜 카드가 없어요', style: _t.copyWith(fontSize: 13, color: Colors.white60)),
               ]);
               final paid = _section('상점 — 점수를 내고 사요', const Color(0xFFFFB400), [
                 for (var i = 0; i < run.paidOffers.length; i++) _OfferTile(offer: run.paidOffers[i], run: run, onTap: run.canBuy(run.paidOffers[i]) ? () => run.buy(i) : null),
@@ -115,6 +110,22 @@ class PinballUpgradeSheet extends StatelessWidget {
                         child: wide
                             ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: free), const SizedBox(width: 14), Expanded(child: paid)])
                             : Column(children: [free, const SizedBox(height: 10), paid]),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          backgroundColor: kPinballColor,
+                          disabledBackgroundColor: Colors.white12,
+                          disabledForegroundColor: Colors.white54,
+                          textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 17, fontWeight: FontWeight.w900),
+                        ),
+                        onPressed: run.canStartNext ? run.startNextRound : null,
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text(run.canStartNext ? '다음 라운드 시작' : '공짜 카드를 먼저 1장 골라요'),
                       ),
                     ),
                   ],
@@ -151,8 +162,8 @@ class _OfferTile extends StatelessWidget {
     final paid = offer.price > 0;
     final have = run.stacks[u.id] ?? 0;
     final afford = run.score >= offer.price;
-    final dim = offer.bought || (paid && !afford);
-    final stackNote = u.consumable ? '' : (have > 0 ? '  (지금 $have개 → ${have + 1}개)' : '');
+    final dim = paid ? (offer.bought || !afford) : (run.freePicked && !offer.bought);
+    final stackNote = u.consumable || offer.bought ? '' : (have > 0 ? '  (지금 $have개 → ${have + 1}개)' : '');
     return Opacity(
       opacity: dim ? 0.45 : 1,
       child: Padding(
@@ -191,6 +202,10 @@ class _OfferTile extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (!paid && offer.bought) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFF3FB950), size: 30),
+                  ],
                   if (paid) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -236,9 +251,13 @@ class PinballGameOver extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('시간 끝!', style: _t.copyWith(fontSize: 30, fontWeight: FontWeight.w900, color: const Color(0xFFFF8A80))),
+                  Text(run.outOfBalls ? '공을 다 놓쳤어요!' : '시간 끝!', style: _t.copyWith(fontSize: 30, fontWeight: FontWeight.w900, color: const Color(0xFFFF8A80))),
                   const SizedBox(height: 4),
-                  Text('라운드 ${run.round}에서 목표 ${fmtNum(run.targetScore)}점을 못 채웠어요', textAlign: TextAlign.center, style: _t.copyWith(fontSize: 14, color: Colors.white70)),
+                  Text(
+                    run.outOfBalls ? '라운드 ${run.round}에서 마지막 공이 빠졌어요' : '라운드 ${run.round}에서 목표 ${fmtNum(run.targetScore)}점을 못 채웠어요',
+                    textAlign: TextAlign.center,
+                    style: _t.copyWith(fontSize: 14, color: Colors.white70),
+                  ),
                   const SizedBox(height: 14),
                   Row(
                     children: [

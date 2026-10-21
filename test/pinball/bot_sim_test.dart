@@ -37,11 +37,8 @@ void botFrame(PinballRun r) {
           if (r.canBuy(r.paidOffers[i]) && r.score - r.paidOffers[i].price > PinballRun.gainFor(r.round) * 0.2) r.buy(i);
         }
       }
-      if (r.freeOffers.isEmpty) {
-        r.continueWithoutPick();
-      } else {
-        r.pickFree(0);
-      }
+      if (r.freeOffers.isNotEmpty) r.pickFree(0);
+      r.startNextRound();
     }
     botFrame(r);
     r.update(1 / 60);

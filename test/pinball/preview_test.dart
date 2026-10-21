@@ -15,6 +15,7 @@ import 'package:tabgame/games/pinball/core/pinball_engine.dart';
 import 'package:tabgame/games/pinball/game/pinball_controller.dart';
 import 'package:tabgame/games/pinball/ui/pinball_menu_screen.dart';
 import 'package:tabgame/games/pinball/ui/pinball_screen.dart';
+import 'package:tabgame/games/pinball/ui/pinball_scoring_screen.dart';
 import 'package:tabgame/games/pinball/ui/pinball_sprites.dart';
 import 'package:tabgame/hub/game_icons.dart';
 
@@ -63,7 +64,10 @@ void main() {
       for (var i = 0; i < secs * 60; i++) {
         botFrame(r);
         r.update(1 / 60);
-        if (r.phase == RunPhase.choosing) r.pickFree(0);
+        if (r.phase == RunPhase.choosing) {
+          r.pickFree(0);
+          r.startNextRound();
+        }
         if (r.phase == RunPhase.countdown) r.update(3.1);
       }
       return c;
@@ -87,6 +91,13 @@ void main() {
         ..score = choose.run.targetScore + 900
         ..update(0.02);
       await shoot('choose_${e.key}', e.value, PinballScreen(controller: choose));
+      final picked = PinballController(seed: 3);
+      picked.run
+        ..update(3.1)
+        ..score = picked.run.targetScore + 900
+        ..update(0.02)
+        ..pickFree(1);
+      await shoot('choose_picked_${e.key}', e.value, PinballScreen(controller: picked));
       final over = PinballController(seed: 4);
       over.run
         ..update(3.1)
@@ -96,6 +107,8 @@ void main() {
       await shoot('over_${e.key}', e.value, PinballScreen(controller: over));
     }
     await shoot('menu', const Size(400, 860), const PinballMenuScreen());
+    await shoot('scoring', const Size(400, 860), const PinballScoringScreen());
+    await shoot('scoring_tablet', const Size(800, 1280), const PinballScoringScreen());
     final info = allGames.firstWhere((g) => g.id == 'pinball');
     await shoot('icon', const Size(300, 300), Scaffold(backgroundColor: info.color, body: Center(child: GameIcon(game: info, size: 240))));
   }, skip: dir == null);
