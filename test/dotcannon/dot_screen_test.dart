@@ -48,6 +48,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('벨트 위 대포를 꾹 누르는 동안 같은 색이 돋보이고, 떼면 원래대로', (tester) async {
+    final c = DotController(level: dotLevels.first);
+    await tester.pumpWidget(await app(DotScreen(controller: c)));
+    await tester.pump(const Duration(milliseconds: 100));
+    c.deploy(0);
+    await tester.pump(const Duration(milliseconds: 50));
+    final color = c.game.belt.first.color;
+    final g = await tester.startGesture(tester.getCenter(find.byKey(const ValueKey('dot-belt-hold-0'))));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(c.highlight.value, color);
+    await g.up();
+    await tester.pump();
+    expect(c.highlight.value, isNull);
+
+    // 빈 칸은 눌러도 아무 일 없다
+    final empty = await tester.startGesture(tester.getCenter(find.byKey(ValueKey('dot-belt-hold-${c.game.capacity - 1}'))));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(c.highlight.value, isNull);
+    await empty.up();
+  });
+
   testWidgets('벨트가 시간에 따라 돌고, 배속 단추가 바뀐다', (tester) async {
     final c = DotController(level: dotLevels.first);
     await tester.pumpWidget(await app(DotScreen(controller: c)));

@@ -58,32 +58,37 @@ class _BeltStrip extends StatelessWidget {
                               SizedBox(
                                 width: size,
                                 height: tile,
-                                child: i < g.belt.length
-                                    ? Center(
-                                        child: Opacity(
-                                          opacity: hi == null || g.belt[i].color == hi ? 1 : 0.35,
-                                          child: CannonTile(
-                                            color:
-                                                c.level.colors[g.belt[i].color],
-                                            ammo: g.belt[i].ammo,
-                                            size: size,
-                                            ring: hi != null && g.belt[i].color == hi,
+                                // (칸마다 늘 같은 감지기를 둬서, 누르는 사이 대포가 떠나 칸이 비어도 손을 떼면 원래대로 돌아오게 한다)
+                                child: _holdToHighlight(
+                                  c,
+                                  i < g.belt.length ? g.belt[i].color : null,
+                                  ValueKey('dot-belt-hold-$i'),
+                                  i < g.belt.length
+                                      ? Center(
+                                          child: Opacity(
+                                            opacity: hi == null || g.belt[i].color == hi ? 1 : 0.35,
+                                            child: CannonTile(
+                                              color: c.level.colors[g.belt[i].color],
+                                              ammo: g.belt[i].ammo,
+                                              size: size,
+                                              ring: hi != null && g.belt[i].color == hi,
+                                            ),
                                           ),
-                                        ),
-                                      )
-                                    : Center(
-                                        child: Container(
-                                          width: size * 0.6,
-                                          height: size * 0.6,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: scheme.outlineVariant,
-                                              width: 1.5,
+                                        )
+                                      : Center(
+                                          child: Container(
+                                            width: size * 0.6,
+                                            height: size * 0.6,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: scheme.outlineVariant,
+                                                width: 1.5,
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
+                                ),
                               ),
                           ],
                         );

@@ -112,20 +112,28 @@ class _QueuePanel extends StatelessWidget {
         child: tile,
       );
     }
-    // 어느 대포든 꾹 누르고 있는 동안, 판·벨트·대기열에서 같은 색을 돋보이게 한다 (손을 떼면 원래대로)
-    // (색을 확인하려고 누를 때가 많으니, 기본(0.5초)보다 빨리 반응해서 살짝 눌렀다 떼는 일을 줄인다. 한 번 반응한 뒤에 떼면 올라가지 않는다)
-    return RawGestureDetector(
-      key: ValueKey('dot-hold-$col-$k'),
-      gestures: {
-        LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(duration: const Duration(milliseconds: 300)),
-          (r) => r
-            ..onLongPressStart = ((_) => controller.highlight.value = cannon.color)
-            ..onLongPressEnd = ((_) => controller.highlight.value = null)
-            ..onLongPressCancel = (() => controller.highlight.value = null),
-        ),
-      },
-      child: tile,
-    );
+    return _holdToHighlight(controller, cannon.color, ValueKey('dot-hold-$col-$k'), tile);
   }
+}
+
+/// 대포(대기열·벨트 위)를 꾹 누르고 있는 동안, 판·벨트·대기열에서 같은 색을 돋보이게 한다 (손을 떼면 원래대로).
+/// (색을 확인하려고 누를 때가 많으니, 기본(0.5초)보다 빨리 반응해서 살짝 눌렀다 떼는 일을 줄인다. 한 번 반응한 뒤에 떼면 올라가지 않는다)
+/// [color]가 null이면(빈 칸) 눌러도 아무 일 없다.
+Widget _holdToHighlight(DotController controller, int? color, Key key, Widget child) {
+  return RawGestureDetector(
+    key: key,
+    behavior: HitTestBehavior.opaque,
+    gestures: {
+      LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+        () => LongPressGestureRecognizer(duration: const Duration(milliseconds: 300)),
+        (r) => r
+          ..onLongPressStart = ((_) {
+            if (color != null) controller.highlight.value = color;
+          })
+          ..onLongPressEnd = ((_) => controller.highlight.value = null)
+          ..onLongPressCancel = (() => controller.highlight.value = null),
+      ),
+    },
+    child: child,
+  );
 }
