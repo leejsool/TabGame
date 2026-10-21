@@ -42,6 +42,11 @@ Map<String, dynamic> encodeFull(SnakeWorld w, int seq) => {
       'k': seq,
       'field': w.field,
       'lv': w.cpuLevel,
+      // 사람 명단 (방장이 사라졌을 때 누가 이어받을지 손님들이 같은 답을 내려고): [자리, 이름, CPU가 대신하는 중이면 1]
+      'hs': w.hostSeat,
+      'seats': [
+        for (final e in w.seatNames.entries) [e.key, e.value, w.awaySeats.contains(e.key) ? 1 : 0],
+      ],
       'sn': [
         for (final s in w.snakes)
           [
@@ -96,6 +101,38 @@ class SnakeMirror {
   /// 변화를 놓쳐서 판 전체를 다시 받아야 한다.
   bool needSync = false;
 
+  /// 사람 명단 (자리 → 이름), 그중 CPU가 대신하는 자리, 지금 방장의 자리.
+  /// 방장이 사라지면 이 명단으로 다음 방장을 정한다 ([successor]).
+  final Map<int, String> seats = {};
+  final Set<int> away = {};
+  int hostSeat = 0;
+
+  void addSeat(int seat, String name) {
+    seats[seat] = name;
+    away.remove(seat);
+  }
+
+  void removeSeat(int seat) {
+    seats.remove(seat);
+    away.remove(seat);
+  }
+
+  void setAway(int seat, bool on) {
+    if (!seats.containsKey(seat)) return;
+    on ? away.add(seat) : away.remove(seat);
+  }
+
+  /// 방장이 사라졌을 때 판을 이어받을 자리: 방장이 아니고 CPU가 대신하지 않는 사람 중 가장 앞 자리 (없으면 null).
+  /// 모든 손님이 같은 명단을 가지고 있으므로 각자 계산해도 같은 사람이 나온다.
+  int? successor() {
+    int? best;
+    for (final s in seats.keys) {
+      if (s == hostSeat || away.contains(s)) continue;
+      if (best == null || s < best) best = s;
+    }
+    return best;
+  }
+
   /// 뱀이 죽을 때 (죽은 뱀, 부딪힌 상대 뱀 — 벽이면 null).
   void Function(MirrorSnake dead, SnakeBody? killer)? onDeath;
 
@@ -106,6 +143,14 @@ class SnakeMirror {
     seq = snap['k'] as int;
     field = (snap['field'] as num).toDouble();
     cpuLevel = snap['lv'] is int ? snap['lv'] as int : 0;
+    hostSeat = snap['hs'] is int ? snap['hs'] as int : 0;
+    seats.clear();
+    away.clear();
+    for (final raw in (snap['seats'] as List?) ?? const []) {
+      final j = raw as List;
+      seats[j[0] as int] = '${j[1]}';
+      if (j[2] == 1) away.add(j[0] as int);
+    }
     snakes.clear();
     for (final raw in snap['sn'] as List) {
       final j = raw as List;

@@ -4,6 +4,9 @@ import 'dart:math';
 import 'snake_ai.dart';
 import 'snake_body.dart';
 import 'snake_grid.dart';
+import 'snake_net.dart' show SnakeMirror;
+
+part 'snake_world_adopt.dart';
 
 /// 뱀 색 가짓수 (그리는 쪽의 `snakeColors`와 같은 수).
 const int snakeColorCount = 14;
@@ -46,7 +49,7 @@ class SnakeDeath {
 /// CPU는 죽고 2~4초 뒤 다시 태어나는데, 필드의 인원(살아 있는 뱀 + 다시 하기를 기다리는 사람)이
 /// [population] 이상이면 태어나지 않는다. 그래서 사람이 들어오면 CPU가 하나씩 줄어 인원이 지켜진다.
 class SnakeWorld {
-  SnakeWorld({Random? rng, this.field = SnakeRules.field, this.population = SnakeRules.population, this.foodTarget = SnakeRules.foodTarget})
+  SnakeWorld({Random? rng, this.field = SnakeRules.field, this.population = SnakeRules.population, this.foodTarget = SnakeRules.foodTarget, this.hostSeat = 0})
       : rng = rng ?? Random(),
         grid = BodyGrid(field),
         foodGrid = FoodGrid<Food>(field);
@@ -54,6 +57,10 @@ class SnakeWorld {
   final Random rng;
   final double field;
   final int population, foodTarget;
+
+  /// 이 판을 돌리는 기기(방장)의 사람 자리. 처음에는 0이고, 방장이 나가서 손님이 이어받으면 그 손님의 자리가 된다.
+  /// (방장 기기의 뱀은 손이 멈춰도 CPU가 대신 몰지 않는다)
+  final int hostSeat;
   final BodyGrid grid;
   final FoodGrid<Food> foodGrid;
 
@@ -245,7 +252,7 @@ class SnakeWorld {
   }
 
   void _control(WorldSnake s, double dt) {
-    if (s.human && !s.covered && s.seat != 0) s.autopilot = time - s.lastInput > 1.5;
+    if (s.human && !s.covered && s.seat != hostSeat) s.autopilot = time - s.lastInput > 1.5;
     if (s.cpuDriven) {
       final brain = s.brain ??= CpuBrain.cover(rng);
       brain.update(this, s, dt);
@@ -475,6 +482,14 @@ class SnakeWorld {
   }
 
   void _spawnCpu() {
+    final used = {for (final s in snakes) s.name};
+    final free = [for (final n in cpuNames) if (!used.contains(n)) n];
+    final name = free.isEmpty ? 'CPU $_nextId' : free[rng.nextInt(free.length)];
+    _spawn(name: name, color: rng.nextInt(snakeColorCount), brain: _newBrain());
+  }
+
+  /// 새 CPU의 머리: 솜씨와 성격을 지금 있는 CPU들에 비추어 모자란 쪽으로 정한다.
+  CpuBrain _newBrain() {
     // 멍청한·보통·똑똑한 CPU를 단계에 맞는 비율로 섞는다 (가장 모자란 쪽부터)
     final skill = _neededSkill();
     // 성격(공격형·보통형·신중형)도 같은 솜씨 안에서 고루 섞는다
@@ -486,10 +501,7 @@ class SnakeWorld {
     final fewest = moods.values.reduce(min);
     final pickable = [for (final k in CpuMood.values) if (moods[k] == fewest) k];
     final mood = pickable[rng.nextInt(pickable.length)];
-    final used = {for (final s in snakes) s.name};
-    final free = [for (final n in cpuNames) if (!used.contains(n)) n];
-    final name = free.isEmpty ? 'CPU $_nextId' : free[rng.nextInt(free.length)];
-    _spawn(name: name, color: rng.nextInt(snakeColorCount), brain: CpuBrain(skill, rng, mood: mood));
+    return CpuBrain(skill, rng, mood: mood);
   }
 
   WorldSnake _spawn({required String name, required int color, int seat = -1, CpuBrain? brain}) {

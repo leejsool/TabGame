@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../../core/game_fx.dart';
+import '../../../core/settings_scope.dart';
 import '../../../net/lan_connection.dart';
 import '../../../net/lan_rejoin_flow.dart';
 import '../../../versus/vs_screen_parts.dart' show showVsNotice;
 import '../game/snake_controller.dart';
 import '../data/snake_prefs.dart';
 import '../game/snake_host_net.dart';
+import '../game/snake_migrate.dart';
 import 'snake_hud.dart';
 import 'snake_painter.dart';
 
@@ -69,6 +71,8 @@ class _SnakeScreenState extends State<SnakeScreen> with SingleTickerProviderStat
     c.onOtherDeath = _otherDied;
     c.onEnded = _hostEnded;
     c.onDropped = _dropped;
+    final note = c.startNote;
+    if (note != null) _toasts.add((note, 4.5));
     final nick = widget.openRoomAs;
     if (nick != null) c.openRoom(nick: nick).then((_) => mounted ? setState(() {}) : null);
     SnakePrefs.load().then((_) => mounted ? setState(() {}) : null); // (다시 들어오기로 바로 열릴 때도 손 설정·순위표 접기를 읽는다)
@@ -158,7 +162,7 @@ class _SnakeScreenState extends State<SnakeScreen> with SingleTickerProviderStat
   Future<void> _askLeave() async {
     final guests = c.hostNet?.guests ?? 0;
     final body = c.isHost
-        ? (guests > 0 ? '방을 닫으면 들어와 있는 친구 $guests명의 판도 끝나요.' : '이 판을 끝낼까요?')
+        ? (guests > 0 ? '나가도 친구 $guests명의 판은 계속돼요. 친구 중 한 명이 방장을 이어받고, 내 지렁이는 먹이로 흩어져요.' : '이 판을 끝낼까요?')
         : '나가면 내 지렁이는 먹이로 흩어지고, 방에서 나와요.';
     final ok = await showDialog<bool>(
       context: context,
@@ -191,10 +195,49 @@ class _SnakeScreenState extends State<SnakeScreen> with SingleTickerProviderStat
     if (mounted) Navigator.of(context).pop();
   }
 
-  void _dropped() {
+  /// 방장이 사라졌다: 친구 중 한 명이 판을 이어받는다 ([snakeRecoverHost]). 길이 없으면 예전처럼 끊김을 알린다.
+  Future<void> _dropped(bool handover) async {
     if (!mounted || _leaving) return;
     _leaving = true;
-    lanGuestDropped(
+    final nick = SettingsScope.of(context).nickname;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    var shown = true;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (ctx) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+              SizedBox(width: 16),
+              Expanded(child: Text('방장이 사라졌어요. 판을 이어 가는 중…', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, height: 1.4))),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) => shown = false);
+    final next = await snakeRecoverHost(c, handover: handover, nick: nick);
+    if (shown) navigator.pop();
+    if (!mounted) {
+      next?.dispose();
+      return;
+    }
+    if (next != null) {
+      await Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+        builder: (_) => SnakeScreen(controller: next, openRoomAs: next.isHost ? nick : null, showHint: false),
+      ));
+      return;
+    }
+    if (handover) {
+      await RejoinTickets.forget(kSnakeLanGame);
+      if (mounted) await showVsNotice(context, '판이 끝났어요', '방장이 나갔고, 판을 이어받을 사람이 없어요.');
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    await lanGuestDropped(
       context,
       game: kSnakeLanGame,
       build: snakeResume,

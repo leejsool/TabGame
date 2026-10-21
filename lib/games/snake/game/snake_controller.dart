@@ -39,6 +39,23 @@ class SnakeController {
       ..onDeath = _hostDeath;
   }
 
+  /// 방장이 나가서 이 손님이 판을 이어받는다: 손님으로 따라 그리던 판([from])을 진짜 판으로 바꾼다.
+  /// 나(seat)는 그대로 내 자리에 있고, 나간 방장([oldHostSeat])의 뱀은 먹이로 흩어지고, 다른 손님 자리는 다시 들어올 때까지 CPU가 몬다.
+  /// [oldRoom]은 옛 방의 번호표 (다른 손님들이 새 방을 알아보고 같은 자리로 들어오는 데 쓴다).
+  SnakeController.takeover({required SnakeMirror from, required int seat, required int oldHostSeat, required String oldRoom, required String nick, Random? rng})
+      : mySeat = seat,
+        world = SnakeWorld(rng: rng, hostSeat: seat),
+        mirror = null,
+        _conn = null {
+    migratedFrom = oldRoom;
+    final w = world!;
+    // (명단에 내 자리가 없어도 나는 있다)
+    from.seats.putIfAbsent(seat, () => nick);
+    w.adoptMirror(from, oldHostSeat: oldHostSeat);
+    w.onDeath = _hostDeath;
+    migrants = {for (final s in w.seatNames.keys) if (s != seat) s};
+  }
+
   /// 손님: 방장이 보낸 판 전체([snap])로 시작한다. 나는 [seat] 자리.
   SnakeController.guest({required LanConnection conn, required int seat, required Map<String, dynamic> snap})
       : mySeat = seat,
@@ -47,9 +64,7 @@ class SnakeController {
         _conn = conn {
     mirror!.onDeath = _guestDeath;
     _sub = conn.messages.listen(_onGuestMessage);
-    conn.closed.then((_) {
-      if (!_disposed && !_ended) onDropped?.call();
-    });
+    conn.closed.then((_) => _hostLost(false));
   }
 
   final int mySeat;
@@ -57,6 +72,13 @@ class SnakeController {
   final SnakeMirror? mirror;
   final LanConnection? _conn;
   SnakeHostNet? hostNet;
+
+  /// 방장을 이어받은 판이면 옛 방의 번호표와, 새 방에 다시 들어오기를 기다리는 손님들의 자리.
+  String? migratedFrom;
+  Set<int> migrants = const {};
+
+  /// 화면이 열릴 때 한 번 보여 줄 알림 (방장이 바뀌었어요 …).
+  String? startNote;
   StreamSubscription<Map<String, dynamic>>? _sub;
   bool _disposed = false, _ended = false, _syncAsked = false;
 
@@ -65,8 +87,21 @@ class SnakeController {
   /// 알림 글 (누가 들어왔다 / 잡았다 …).
   void Function(String text)? onToast;
 
-  /// 손님: 방장이 판을 끝냈다 / 연결이 끊겼다.
-  VoidCallback? onEnded, onDropped;
+  /// 손님: 방장이 판을 끝냈다.
+  VoidCallback? onEnded;
+
+  /// 손님: 방장과 연결이 끊겼다. [handover]이면 방장이 일부러 나가며 이어받기를 알린 것이다.
+  void Function(bool handover)? onDropped;
+  bool _lostFired = false;
+
+  void _hostLost(bool handover) {
+    if (_lostFired || _disposed || _ended) return;
+    _lostFired = true;
+    onDropped?.call(handover);
+  }
+
+  /// 방장이 사라지면 판을 이어받을 사람의 자리 (손님만, 모르면 null).
+  int? get successorSeat => mirror?.successor();
 
   /// 진동·소리를 낼 일 ('kill', 'die', 'first' = 내가 1등이 됐다).
   void Function(String kind)? onFeedback;
@@ -95,7 +130,7 @@ class SnakeController {
   Future<void> openRoom({required String nick}) async {
     final w = world;
     if (w == null || hostNet != null) return;
-    final net = SnakeHostNet(w, hostNick: nick, cover: coverSeat, uncover: uncoverSeat, onToast: (t) => onToast?.call(t));
+    final net = SnakeHostNet(w, hostNick: nick, cover: coverSeat, uncover: uncoverSeat, onToast: (t) => onToast?.call(t), predecessorRoom: migratedFrom, migrants: migrants);
     hostNet = net;
     await net.open();
   }
@@ -143,6 +178,9 @@ class SnakeController {
     } else {
       mirror!.frame(_clock);
       _sendInput(dt);
+      // 방장 기기가 아무 말 없이 사라졌다 (연결은 안 끊겼는데 오래 응답이 없다)
+      final since = _conn?.stalledSince;
+      if (since != null && DateTime.now().difference(since) > const Duration(seconds: 10)) _hostLost(false);
     }
     _hudTimer += dt;
     if (_hudTimer >= 0.25) {
@@ -258,27 +296,33 @@ class SnakeController {
         if (m['snap'] is Map<String, dynamic>) mi.load(m['snap'] as Map<String, dynamic>);
         _syncAsked = false;
       case 'join':
+        if (m['seat'] is int) mi.addSeat(m['seat'] as int, '${m['name']}');
         onToast?.call('${m['name']}님이 들어왔어요');
       case 'left':
+        if (m['seat'] is int) mi.removeSeat(m['seat'] as int);
         onToast?.call('${m['name']}님이 나갔어요');
       case 'cpu':
+        if (m['seat'] is int) mi.setAway(m['seat'] as int, true);
         onToast?.call('${_seatName(m['seat'])}님의 연결이 끊겨 CPU가 대신 움직여요');
       case 'back':
+        if (m['seat'] is int) mi.setAway(m['seat'] as int, false);
         onToast?.call('${_seatName(m['seat'])}님이 돌아왔어요');
+      case 'handover':
+        _hostLost(true);
       case 'end':
         _ended = true;
         onEnded?.call();
     }
   }
 
-  String _seatName(Object? seat) => seat is int ? (mirror?.ofSeat(seat)?.name ?? '친구') : '친구';
+  String _seatName(Object? seat) => seat is int ? (mirror?.seats[seat] ?? mirror?.ofSeat(seat)?.name ?? '친구') : '친구';
 
-  /// 판에서 나간다. 방장이면 방을 닫고, 손님이면 방장에게 알리고 다시 들어오기 표를 버린다.
+  /// 판에서 나간다. 방장이면 방을 닫고(손님이 있으면 손님 중 한 명이 이어받는다), 손님이면 방장에게 알리고 다시 들어오기 표를 버린다.
   Future<void> leave() async {
     if (_disposed) return;
     _ended = true;
     if (isHost) {
-      await hostNet?.close();
+      await hostNet?.close(handover: true);
     } else {
       _conn!.send(const {'t': 'bye'});
       await _conn.close();
