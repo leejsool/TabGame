@@ -96,6 +96,12 @@ class PinballRun {
   double tilt = 0;
   double tiltedLeft = 0;
 
+  /// 볼 세이브: 공을 쏜 뒤 이 시간(초) 동안 공이 빠져도 목숨이 줄지 않고 공을 다시 쏴 준다 (한 번만).
+  /// 상점의 "볼 세이브 켜기"를 사면 무한대가 되어, 시간과 상관없이 다음에 공이 빠질 때까지 켜져 있다.
+  static const double ballSaveSecs = 8;
+  double ballSaveLeft = 0;
+  bool get ballSaveOn => ballSaveLeft > 0;
+
   List<Offer> freeOffers = [];
   List<Offer> paidOffers = [];
   ClearBonus? lastBonus;
@@ -149,6 +155,7 @@ class PinballRun {
     if (phase != RunPhase.playing || !engine.hasWaitingBall) return;
     final speed = PinballEngine.launchSpeed(power);
     engine.launch(power);
+    ballSaveLeft = max(ballSaveLeft, ballSaveSecs);
     if (power > 0.5) {
       for (var k = 1; k <= mods.twin; k++) {
         engine.launchExtra(0.28 * k, speed * (0.93 + rng.nextDouble() * 0.1));
@@ -207,6 +214,7 @@ class PinballRun {
         engine.locked = false;
       }
     }
+    if (ballSaveLeft > 0 && !engine.hasWaitingBall) ballSaveLeft = max(0, ballSaveLeft - dt);
     if (combo > 0) {
       comboTimer -= dt;
       if (comboTimer <= 0) combo = 0;
@@ -289,7 +297,15 @@ class PinballRun {
         _pop(e.x, e.y - 30, '보호막!', const Color(0xFF4FC3F7));
         onFeedback?.call('saved');
       case HitKind.drain:
-        if (e.index == 0) {
+        if (e.index == 0 && ballSaveOn) {
+          // 볼 세이브: 목숨은 그대로, 공을 곧장 다시 쏴 준다 (세이브는 이걸로 끝)
+          ballSaveLeft = 0;
+          combo = 0;
+          _banner('볼 세이브!', const Color(0xFFFFD84D));
+          onFeedback?.call('saved');
+          engine.spawnWaitingBall();
+          engine.launch(0.9);
+        } else if (e.index == 0) {
           lives--;
           combo = 0;
           onFeedback?.call('drain');
@@ -373,7 +389,8 @@ class PinballRun {
       free.add(u);
       pool.remove(u);
     }
-    final shop = kUpgrades.where((u) => open(u) && !free.contains(u)).toList();
+    // (볼 세이브 불이 아직 켜져 있으면 "볼 세이브 켜기"는 팔지 않는다)
+    final shop = kUpgrades.where((u) => open(u) && !free.contains(u) && !(u.id == 'save_light' && ballSaveLeft.isInfinite)).toList();
     final paid = <Upgrade>[];
     while (paid.length < 3) {
       final u = draw(shop, (u) => u.consumable ? 2 : (u.tier == 2 ? 3 : 2));
@@ -418,7 +435,9 @@ class PinballRun {
   }
 
   void _add(Upgrade u) {
-    if (u.consumable) {
+    if (u.id == 'save_light') {
+      ballSaveLeft = double.infinity;
+    } else if (u.consumable) {
       bankedTime += 12;
     } else {
       if (u.id == 'extra_ball') lives++;

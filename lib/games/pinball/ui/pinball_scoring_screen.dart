@@ -42,6 +42,8 @@ class PinballScoringScreen extends StatelessWidget {
                 const _Title('라운드와 점수 지갑'),
                 const _Line(Icons.flag_rounded, '목표 점수', '라운드마다 제한 시간 안에 목표 점수까지 모아야 해요. 못 모으면 끝이에요.'),
                 const _Line(Icons.favorite_rounded, '남은 공 3개', '공이 아래로 빠지면 공이 하나 줄어요. 3개를 다 놓치면 끝이에요.'),
+                const _Line(Icons.health_and_safety_rounded, '볼 세이브', '공을 쏜 뒤 8초 동안은 양쪽 바깥 길에 노란 "세이브" 불이 켜져요. 그동안 공이 빠지면 공이 줄지 않고 다시 쏴 줘요 (한 번만). 상점의 "볼 세이브 켜기"를 사면 시간 제한 없이 켜 둘 수 있어요.'),
+                const _Line(Icons.alt_route_rounded, '바깥 길과 안쪽 길', '플리퍼 옆 맨 바깥 길로 들어가면 그대로 빠지고, 그 바로 안쪽 길로 들어가면 플리퍼 위로 굴러 와서 다시 칠 수 있어요.'),
                 const _Line(Icons.account_balance_wallet_rounded, '점수가 곧 돈', '상점에서 업그레이드를 사면 그만큼 점수가 줄어요. 다음 목표는 그대로라서 다시 채워야 해요.'),
                 const _Line(Icons.sell_rounded, '상점 값', '라운드가 오를수록, 같은 걸 또 살수록(×1.6), 업그레이드를 많이 모을수록(1개마다 +10%) 비싸져요.'),
                 const _Line(Icons.timer_rounded, '라운드 끝 보너스', '"시간 보너스"는 남은 시간만큼, "점수 이자"는 지금 점수에 비례해서 더 받아요 (업그레이드를 골랐을 때만). 각각 다음 라운드 목표 몫의 20%까지만 받아요.'),

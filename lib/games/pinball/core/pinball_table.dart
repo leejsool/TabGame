@@ -147,6 +147,11 @@ class PinballTable {
       walls.add(Wall(mx(76), 1108, mx(196), 1212, visible: false));
       final nxv = left ? 0.655 : -0.655;
       walls.add(Wall(mx(113), 1095, mx(192), 1163, kick: 880, sling: left ? 0 : 1, bounce: 0.35, nx: nxv, ny: -0.756, visible: false));
+      // 그림의 흰 슬링샷 판 왼쪽 테두리와 윗변: 판 위를 굴러 온 공이 옆으로 새어 아웃레인에 빠지지 않게
+      walls.add(Wall(mx(104), 1030, mx(113), 1095, bounce: 0.3, visible: false));
+      walls.add(Wall(mx(150), 1000, mx(104), 1030, bounce: 0.3, visible: false));
+      // 아웃레인(바깥, 빠지는 길)과 인레인(안쪽, 플리퍼로 가는 길) 사이 칸막이
+      walls.add(Wall(mx(72), 985, mx(76), 1108, bounce: 0.3, visible: false));
     }
     return PinballTable(
       walls: walls,

@@ -111,6 +111,27 @@ void main() {
       expect(drained, isTrue);
     });
 
+    test('슬링샷 판 위의 공은 옆으로 새어 아웃레인(빠지는 길)으로 넘어가지 않는다', () {
+      for (final left in [true, false]) {
+        for (final (x, y, vx) in [(125.0, 1050.0, -700.0), (130.0, 1080.0, -900.0), (95.0, 1050.0, -500.0)]) {
+          final e = PinballEngine(PinballTable.standard());
+          final b = Ball(left ? x : mirrorX(x), y)
+            ..waiting = false
+            ..vx = left ? vx : -vx
+            ..vy = 150;
+          e.balls.add(b);
+          var outlane = false;
+          for (var i = 0; i < 90 && e.balls.isNotEmpty; i++) {
+            e.advance(1 / 60);
+            if (e.balls.isEmpty) break;
+            final bx = left ? e.balls.first.x : mirrorX(e.balls.first.x);
+            if (bx < 70 && e.balls.first.y > 1000) outlane = true;
+          }
+          expect(outlane, isFalse, reason: '${left ? '왼쪽' : '오른쪽'} ($x, $y)');
+        }
+      }
+    });
+
     test('범퍼는 공을 세게 밀어낸다', () {
       final e = PinballEngine(PinballTable.standard());
       e.balls.add(Ball(238, 430)
@@ -339,6 +360,62 @@ void main() {
       expect(r.lives, 0);
       expect(r.phase, RunPhase.over);
       expect(r.outOfBalls, isTrue);
+    });
+
+    test('볼 세이브: 쏜 뒤 8초 안에 빠지면 공이 줄지 않고 다시 쏴 주며, 한 번만이다', () {
+      final r = PinballRun(seed: 3)..update(3.1);
+      void drain() {
+        r.engine.balls.clear();
+        r.engine.balls.add(Ball(280, kDrainY - 2)
+          ..waiting = false
+          ..vy = 600);
+        r.update(0.05);
+      }
+
+      r.launch(0.9);
+      expect(r.ballSaveOn, isTrue);
+      r.update(2);
+      drain();
+      expect(r.lives, 3, reason: '세이브 중이라 공이 그대로예요');
+      expect(r.engine.hasWaitingBall, isFalse, reason: '공을 다시 쏴 줬어요');
+      expect(r.ballSaveOn, isFalse);
+      drain();
+      expect(r.lives, 2, reason: '세이브는 한 번만');
+
+      // 다시 쏘고 8초가 지나면 세이브가 꺼진다
+      r.launch(0.9);
+      for (var i = 0; i < 9 * 20; i++) {
+        r.update(0.05);
+      }
+      expect(r.ballSaveOn, isFalse);
+    });
+
+    test('상점의 "볼 세이브 켜기"는 시간이 지나도 꺼지지 않고, 켜져 있는 동안은 상점에 다시 안 나온다', () {
+      final r = PinballRun(seed: 7)..update(3.1);
+      r.score = r.targetScore + 100000;
+      r.update(0.016);
+      r.paidOffers[0] = Offer(upgradeById('save_light'), 100);
+      expect(r.buy(0), isTrue);
+      expect(r.ballSaveOn, isTrue);
+      r.pickFree(0);
+      r.startNextRound();
+      r.update(3.1);
+      r.launch(0.9);
+      for (var i = 0; i < 20 * 20; i++) {
+        r.update(0.05);
+        r.engine.balls.removeWhere((b) => b.y > 1200); // (빠지기 전에 치운다: 시간만 흘려 본다)
+        if (!r.engine.balls.any((b) => !b.waiting)) r.engine.balls.add(Ball(300, 600)..waiting = false);
+      }
+      expect(r.ballSaveOn, isTrue, reason: '20초가 지나도 켜져 있어요');
+      // 라운드를 깨면 상점에 볼 세이브 켜기가 나오지 않는다
+      for (var k = 0; k < 10; k++) {
+        r.score = r.targetScore;
+        r.update(0.016);
+        expect(r.paidOffers.map((o) => o.upgrade.id), isNot(contains('save_light')));
+        r.pickFree(0);
+        r.startNextRound();
+        r.update(3.1);
+      }
     });
 
     test('같은 걸 또 사거나 업그레이드가 많을수록 상점 값이 오른다', () {

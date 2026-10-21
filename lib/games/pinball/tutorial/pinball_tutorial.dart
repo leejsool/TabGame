@@ -37,6 +37,7 @@ GameTutorial pinballTutorial() => GameTutorial(
         const TutorialStep(
           title: '공을 놓치면 목숨이 줄어요',
           body: '공이 아래로 빠지면 남은 공이 하나 줄고, 새 공이 통로에 나와요. 빨리 다시 쏘세요!\n'
+              '공을 쏜 뒤 8초 동안은 바깥 길에 노란 "세이브" 불이 켜져요. 그때 빠지면 공이 줄지 않고 다시 쏴 줘요.\n'
               '"흔들기" 단추로 판을 흔들어 공의 방향을 바꿀 수 있어요. 너무 자주 흔들면 틸트가 나서 잠깐 플리퍼가 멈춰요.',
           icon: Icons.favorite_rounded,
         ),

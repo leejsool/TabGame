@@ -41,6 +41,7 @@ const List<Upgrade> kUpgrades = [
   Upgrade('lane_pts', '궤도 달인', '별 불빛 길(롤오버)과 양옆 큰 궤도 길 점수 +50%', Icons.route_rounded, 1, 4, color: Color(0xFFB36BFF)),
   Upgrade('spin_pts', '팽이 스피너', '스피너(공이 지나가면 빙글빙글 도는 판) 한 바퀴 점수 +50%', Icons.rotate_right_rounded, 1, 4, color: Color(0xFFFF6B6B)),
   Upgrade('hole_pts', '블랙홀 사냥', '블랙홀(가운데 R 마크 구멍)에 공을 넣을 때 점수 +50%, 멀티볼 점수도 커져요', Icons.circle_outlined, 2, 3, color: Color(0xFF8E4EC6)),
+  Upgrade('save_light', '볼 세이브 켜기', '바깥 길의 세이브 불을 켜 둬요. 시간이 지나도 안 꺼지고, 공이 한 번 빠질 때 살려 준 뒤 꺼져요', Icons.health_and_safety_rounded, 1, 99, consumable: true, color: Color(0xFFFFB400)),
   Upgrade('time_pack', '시간 팩', '다음 라운드 시작할 때 시간 +12초 (한 번)', Icons.alarm_add_rounded, 1, 99, consumable: true, color: Color(0xFF2F8FDB)),
 ];
 
