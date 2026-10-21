@@ -84,7 +84,7 @@ void main() {
       dbgTop.run.engine.balls.add(Ball(330, 300)..waiting = false);
       await shoot('debug_top_${e.key}', e.value, PinballScreen(controller: dbgTop, debugWalls: true));
       await shoot('countdown_${e.key}', e.value, PinballScreen(controller: PinballController(seed: 1)));
-      // 다음 라운드 3·2·1: 판 위에서 움직이던 공에 방향·빠르기 화살표가 붙는다
+      // 다음 라운드 3·2·1: 판 위에서 움직이던 공 (판은 멈춰 있다가 서서히 움직인다)
       final moving = PinballController(seed: 1);
       moving.run.engine.balls
         ..clear()

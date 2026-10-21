@@ -21,7 +21,7 @@ class PinballCountdown extends StatelessWidget {
     final frac = run.countdownLeft - run.countdownLeft.floor();
     final scale = 1 + frac * 0.35;
     // 판을 어둡게 하는 건 그림 쪽(PinballPainter)이 맡는다: 공만 밝게 보이게.
-    // 글자는 화면 위쪽에 둔다: 카메라는 공을 화면 아래쪽에 두니, 공과 방향 화살표를 가리지 않게.
+    // 글자는 화면 위쪽에 둔다: 카메라는 공을 화면 아래쪽에 두니, 공을 가리지 않게.
     return IgnorePointer(
       child: Align(
         alignment: const Alignment(0, -0.55),

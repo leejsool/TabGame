@@ -68,6 +68,14 @@ class PinballRun {
 
   RunPhase phase = RunPhase.countdown;
   double countdownLeft = 3;
+
+  /// 3·2·1 동안 판이 흐르는 빠르기(0~1). 3은 멈춰 있다가, 2부터 서서히 빨라져서 0이 되는 순간 1(원래 속도).
+  double get countdownSpeed {
+    if (phase != RunPhase.countdown) return 1;
+    final t = (1 - countdownLeft / 2).clamp(0.0, 1.0);
+    return t * t * (3 - 2 * t);
+  }
+
   int round = 1;
   int score = 0;
 
@@ -195,7 +203,9 @@ class PinballRun {
     switch (phase) {
       case RunPhase.countdown:
         countdownLeft -= dt;
-        if (countdownLeft <= 0) phase = RunPhase.playing;
+        final s = countdownSpeed;
+        if (s > 0) _runEngine(dt * s);
+        if (phase == RunPhase.countdown && countdownLeft <= 0) phase = RunPhase.playing;
       case RunPhase.playing:
         _tickPlaying(dt);
       case RunPhase.choosing:
@@ -219,12 +229,7 @@ class PinballRun {
       comboTimer -= dt;
       if (comboTimer <= 0) combo = 0;
     }
-    engine.advance(dt);
-    final events = List<HitEvent>.of(engine.events);
-    engine.events.clear();
-    for (final e in events) {
-      _handle(e);
-    }
+    _runEngine(dt);
     if (phase == RunPhase.over) return;
     if (score >= targetScore) {
       _clearRound();
@@ -232,6 +237,15 @@ class PinballRun {
       timeLeft = 0;
       phase = RunPhase.over;
       onFeedback?.call('over');
+    }
+  }
+
+  void _runEngine(double dt) {
+    engine.advance(dt);
+    final events = List<HitEvent>.of(engine.events);
+    engine.events.clear();
+    for (final e in events) {
+      _handle(e);
     }
   }
 

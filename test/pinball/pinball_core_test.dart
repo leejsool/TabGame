@@ -291,6 +291,34 @@ void main() {
       expect(r.timeLeft, lessThan(t0));
     });
 
+    test('3은 판이 멈춰 있고, 2부터 서서히 빨라져서 0이 되면 원래 속도다', () {
+      final r = PinballRun(seed: 1);
+      r.engine.balls
+        ..clear()
+        ..add(Ball(300, 600)
+          ..waiting = false
+          ..vy = -800);
+      final b = r.engine.balls.first;
+      // 3 ~ 2: 공이 꼼짝 않는다
+      for (var i = 0; i < 55; i++) {
+        r.update(1 / 60);
+      }
+      expect(b.y, 600);
+      expect(r.countdownSpeed, 0);
+      // 2 ~ 0: 속도가 단계적으로 올라간다
+      var prev = 0.0;
+      for (var i = 0; i < 100; i++) {
+        r.update(1 / 60);
+        expect(r.countdownSpeed, greaterThanOrEqualTo(prev));
+        prev = r.countdownSpeed;
+      }
+      expect(b.y, lessThan(600));
+      expect(prev, greaterThan(0.8));
+      r.update(0.5);
+      expect(r.phase, RunPhase.playing);
+      expect(r.countdownSpeed, 1);
+    });
+
     test('시간이 다 되면 끝난다', () {
       final r = PinballRun(seed: 1)..update(3.1);
       for (var i = 0; i < 60 * 50 && r.phase == RunPhase.playing; i++) {
