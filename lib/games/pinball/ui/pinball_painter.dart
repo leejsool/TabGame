@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../core/pinball_engine.dart';
 import '../core/pinball_run.dart';
 import '../core/pinball_table.dart';
+import 'pinball_ball_arrow.dart';
+import 'pinball_ball_save_light.dart';
 import 'pinball_sprites.dart';
 
 /// 화면 폭에 판이 꽉 차게 키우되, 한 화면에 판 높이 900쯤만 보이게 한다 (나머지는 카메라가 따라다니며 보여 준다).
@@ -69,6 +71,7 @@ class PinballPainter extends CustomPainter {
     canvas.scale(s);
     _board(canvas);
     _lights(canvas);
+    paintBallSaveLights(canvas, run);
     _spinners(canvas);
     _saucer(canvas);
     _bumpers(canvas);
@@ -466,10 +469,15 @@ class PinballPainter extends CustomPainter {
           ..color = const Color(0xFFFFD84D),
       );
     }
+    // 공이 움직이던 방향·빠르기 화살표 (멈춰 있던 판이 다시 움직이면 공이 어디로 갈지)
+    for (final b in _e.balls) {
+      paintBallArrow(canvas, b, r * 2.6);
+    }
     _balls(canvas);
     for (final b in _e.balls) {
       final tp = _text('공', 30, const Color(0xFFFFD84D));
-      final y = b.y - r * 3.2 - tp.height - 6 * pulse;
+      // 화살표가 위를 가리키면 글자는 공 아래에 둔다
+      final y = arrowPointsUp(b) ? b.y + r * 3.2 + 6 * pulse : b.y - r * 3.2 - tp.height - 6 * pulse;
       // 통로 안 공은 오른쪽 끝에 붙어 있어서 글자가 판 밖으로 나가지 않게 안쪽으로 당긴다.
       final x = min(b.x - tp.width / 2, kTableW - tp.width - 4);
       tp.paint(canvas, Offset(x, y));

@@ -84,6 +84,20 @@ void main() {
       dbgTop.run.engine.balls.add(Ball(330, 300)..waiting = false);
       await shoot('debug_top_${e.key}', e.value, PinballScreen(controller: dbgTop, debugWalls: true));
       await shoot('countdown_${e.key}', e.value, PinballScreen(controller: PinballController(seed: 1)));
+      // 다음 라운드 3·2·1: 판 위에서 움직이던 공에 방향·빠르기 화살표가 붙는다
+      final moving = PinballController(seed: 1);
+      moving.run.engine.balls
+        ..clear()
+        ..add(Ball(300, 1000)
+          ..waiting = false
+          ..vx = 500
+          ..vy = -1500)
+        ..add(Ball(200, 1150)
+          ..waiting = false
+          ..vx = -200
+          ..vy = 300);
+      moving.camY = 400;
+      await shoot('countdown_moving_${e.key}', e.value, PinballScreen(controller: moving));
       await shoot('play_${e.key}', e.value, PinballScreen(controller: playing(2, secs: 14)));
       final choose = PinballController(seed: 3);
       choose.run
@@ -108,7 +122,9 @@ void main() {
     }
     // 판 전체가 한 화면에 보이는 크기로, 그림 위에 충돌 벽을 겹쳐 그린다 (배경 그림을 바꾸면 이걸로 벽 자리를 맞춘다)
     final full = PinballController(seed: 9);
-    full.run.update(3.1);
+    full.run
+      ..update(3.1)
+      ..ballSaveLeft = PinballRun.ballSaveSecs; // (볼 세이브 불빛 자리도 같이 본다)
     await shoot('debug_full', const Size(700, 1900), PinballScreen(controller: full, debugWalls: true));
     await shoot('menu', const Size(400, 860), const PinballMenuScreen());
     await shoot('scoring', const Size(400, 860), const PinballScoringScreen());

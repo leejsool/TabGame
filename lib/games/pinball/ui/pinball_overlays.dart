@@ -21,18 +21,25 @@ class PinballCountdown extends StatelessWidget {
     final frac = run.countdownLeft - run.countdownLeft.floor();
     final scale = 1 + frac * 0.35;
     // 판을 어둡게 하는 건 그림 쪽(PinballPainter)이 맡는다: 공만 밝게 보이게.
+    // 글자는 화면 위쪽에 둔다: 카메라는 공을 화면 아래쪽에 두니, 공과 방향 화살표를 가리지 않게.
     return IgnorePointer(
-      child: Center(
+      child: Align(
+        alignment: const Alignment(0, -0.55),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('라운드 ${run.round}', style: _t.copyWith(fontSize: 30, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 14),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('라운드 ${run.round}', style: _t.copyWith(fontSize: 28, fontWeight: FontWeight.w900)),
+                const SizedBox(width: 16),
+                Transform.scale(scale: scale, child: Text('$n', style: _t.copyWith(fontSize: 64, fontWeight: FontWeight.w900, height: 1))),
+              ],
+            ),
+            const SizedBox(height: 10),
             _goal(Icons.flag_rounded, '목표 점수', fmtNum(run.targetScore), const Color(0xFFFFD84D)),
             const SizedBox(height: 8),
             _goal(Icons.timer_rounded, '제한 시간', '${run.timeLeft.round()}초', const Color(0xFF3FB950)),
-            const SizedBox(height: 22),
-            Transform.scale(scale: scale, child: Text('$n', style: _t.copyWith(fontSize: 120, fontWeight: FontWeight.w900, height: 1))),
           ],
         ),
       ),
