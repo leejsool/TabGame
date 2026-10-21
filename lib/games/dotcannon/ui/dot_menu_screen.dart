@@ -268,14 +268,21 @@ class DotLevelCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 1,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(color: const Color(0xFFF7F1E3), borderRadius: BorderRadius.circular(12)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: CustomPaint(
-                        painter: DotArtPainter(level.pixels, level.width, level.height, level.colors, fog: !cleared && !level.custom),
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: const Color(0xFFF7F1E3), borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: CustomPaint(
+                              painter: DotArtPainter(level.pixels, level.width, level.height, level.colors, fog: !cleared && !level.custom),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!level.custom && level.difficulty >= 2) Positioned(left: 4, top: 4, child: DotHardBadge(difficulty: level.difficulty)),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -322,6 +329,30 @@ class DotLevelCard extends StatelessWidget {
             ),
           ),
         ),
+    );
+  }
+}
+
+/// 유난히 어려운 기본 그림 카드 왼쪽 위의 이름표 (HARD / VERY HARD).
+class DotHardBadge extends StatelessWidget {
+  const DotHardBadge({super.key, required this.difficulty});
+
+  final int difficulty;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = difficulty.clamp(2, 3);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: dotDifficultyColors[d],
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 3, offset: Offset(0, 1))],
+      ),
+      child: Text(
+        d == 3 ? 'VERY HARD' : 'HARD',
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.3),
+      ),
     );
   }
 }

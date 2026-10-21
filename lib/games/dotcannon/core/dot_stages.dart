@@ -59,8 +59,16 @@ class DotStageData {
         ammoHi: ammoHi,
         seed: seed,
         capacity: capacity,
+        difficulty: dotStageHardness[name] ?? 0,
       );
 }
+
+/// 해 보니 유난히 어려운 기본 그림 (그림 카드 왼쪽 위에 표시). 2 = 어려움(HARD), 3 = 매우 어려움(VERY HARD).
+/// (`dot_stage_data.dart`는 도구가 다시 만드는 파일이라 여기에 따로 둔다)
+const Map<String, int> dotStageHardness = {
+  '절규': 2,
+  '아이언맨': 3,
+};
 
 /// 그림 칸 목록을 길이 부호화 문자열로 바꾼다 (색은 26가지까지).
 String encodeDotRuns(List<int> pixels) {

@@ -8,6 +8,7 @@ import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/dotcannon/core/dot_levels.dart';
 import 'package:tabgame/games/dotcannon/core/dot_rules.dart';
+import 'package:tabgame/games/dotcannon/core/dot_stages.dart';
 import 'package:tabgame/games/dotcannon/data/dot_custom_store.dart';
 import 'package:tabgame/games/dotcannon/data/dot_storage.dart';
 import 'package:tabgame/games/dotcannon/dotcannon_entry.dart';
@@ -252,6 +253,27 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byKey(const ValueKey('dot-resume')), findsOneWidget);
     expect(find.textContaining('하트'), findsWidgets);
+  });
+
+  testWidgets('어려운 기본 그림(절규 HARD, 아이언맨 VERY HARD)은 카드 왼쪽 위에 이름표가 붙는다', (tester) async {
+    for (final name in dotStageHardness.keys) {
+      expect(dotLevels.where((l) => l.name == name), isNotEmpty, reason: '$name 그림이 기본 그림에 있어야 해요');
+    }
+    DotLevel byName(String n) => dotLevels.firstWhere((l) => l.name == n);
+    for (final (name, label) in [('절규', 'HARD'), ('아이언맨', 'VERY HARD'), (dotLevels.first.name, null)]) {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: SizedBox(width: 170, child: DotLevelCard(level: byName(name), stats: null, onTap: () {}))),
+      ));
+      if (label == null) {
+        expect(find.byType(DotHardBadge), findsNothing);
+      } else {
+        expect(find.text(label), findsOneWidget, reason: name);
+        final card = tester.getTopLeft(find.byType(DotLevelCard));
+        final badge = tester.getTopLeft(find.byType(DotHardBadge));
+        expect(badge.dx - card.dx, lessThan(30));
+        expect(badge.dy - card.dy, lessThan(30));
+      }
+    }
   });
 
   testWidgets('기록을 저장하는 중간에 읽어 클리어는 있는데 최단 시간이 없어도 그림 카드가 깨지지 않는다', (tester) async {
