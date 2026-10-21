@@ -137,16 +137,22 @@ class _HandPicker extends StatelessWidget {
       builder: (context, left, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('조종 손', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+          const Text('부스터 위치', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
+          // (좁은 폰에서도 한 줄로 보이게 짧게: 부스터가 있는 쪽의 반대쪽 손으로 방향을 잡는다)
           SegmentedButton<bool>(
             segments: const [
-              ButtonSegment(value: false, label: Text('왼손 방향 · 오른손 부스터', style: style)),
-              ButtonSegment(value: true, label: Text('오른손 방향 · 왼손 부스터', style: style)),
+              ButtonSegment(value: false, label: Text('오른쪽', maxLines: 1, softWrap: false, style: style)),
+              ButtonSegment(value: true, label: Text('왼쪽', maxLines: 1, softWrap: false, style: style)),
             ],
             selected: {left},
             showSelectedIcon: false,
             onSelectionChanged: (v) => SnakePrefs.setBoostLeft(v.first),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            left ? '왼쪽 화면을 꾹 누르면 부스터, 오른쪽 화면을 끌면 방향이에요.' : '오른쪽 화면을 꾹 누르면 부스터, 왼쪽 화면을 끌면 방향이에요.',
+            style: TextStyle(fontSize: 12.5, height: 1.4, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
         ],
       ),

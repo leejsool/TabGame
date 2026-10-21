@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 /// 뱀 게임의 숫자들 (필드 크기, 빠르기, 굵기·길이가 자라는 정도).
 class SnakeRules {
@@ -15,6 +16,11 @@ class SnakeRules {
 
   /// 몸의 자취 점 사이 간격.
   static const double spacing = 6;
+
+  /// 몸이 커브 안쪽으로 파고드는 정도 (0 = 머리가 지난 길 그대로). 자취 점이 하나 찍힐 때마다 몸의 점들이
+  /// 이웃한 두 점의 가운데 쪽으로 이만큼씩 당겨진다. 그래서 오래된 꼬리 쪽일수록 많이 당겨져서,
+  /// 같은 자리를 빙빙 돌면 몸이 서서히 안쪽으로 조여든다 (곧게 가는 몸은 그대로).
+  static const double tighten = 0.2;
 
   static const double speed = 165, boostSpeed = 330;
   static const double startMass = 10;
@@ -42,27 +48,42 @@ class SnakeRules {
 }
 
 /// 뱀 몸이 지나온 자취: 머리가 [SnakeRules.spacing]만큼 갈 때마다 찍은 점들 (0 = 가장 오래된 점).
+/// 점을 하나 찍을 때마다 [smooth]로 몸이 안쪽으로 조금씩 파고든다. 수백 점을 자주 고치므로
+/// 숫자 하나하나가 새 객체가 되는 List 대신 배열을 쓴다.
 class SnakeTrail {
-  final List<double> _xs = [], _ys = [];
-  int _start = 0;
+  Float64List _xs = Float64List(256), _ys = Float64List(256);
+  int _start = 0, _end = 0;
 
-  int get length => _xs.length - _start;
+  int get length => _end - _start;
   bool get isEmpty => length == 0;
   double xAt(int i) => _xs[_start + i];
   double yAt(int i) => _ys[_start + i];
-  double get lastX => _xs.last;
-  double get lastY => _ys.last;
+  double get lastX => _xs[_end - 1];
+  double get lastY => _ys[_end - 1];
 
   void add(double x, double y) {
-    _xs.add(x);
-    _ys.add(y);
+    if (_end == _xs.length) {
+      if (_start > _xs.length ~/ 2) {
+        _compact();
+      } else {
+        _xs = Float64List(_xs.length * 2)..setRange(0, _end, _xs);
+        _ys = Float64List(_ys.length * 2)..setRange(0, _end, _ys);
+      }
+    }
+    _xs[_end] = x;
+    _ys[_end] = y;
+    _end++;
   }
 
-  void clear() {
-    _xs.clear();
-    _ys.clear();
+  void _compact() {
+    final n = length;
+    _xs.setRange(0, n, _xs, _start);
+    _ys.setRange(0, n, _ys, _start);
     _start = 0;
+    _end = n;
   }
+
+  void clear() => _start = _end = 0;
 
   /// 머리 ([hx], [hy])에서부터 [keep]만큼의 몸을 덮는 점만 남긴다.
   void trim(double hx, double hy, double keep) {
@@ -74,10 +95,20 @@ class SnakeTrail {
       i--;
     }
     _start += i;
-    if (_start > 512) {
-      _xs.removeRange(0, _start);
-      _ys.removeRange(0, _start);
-      _start = 0;
+    if (_start > 512) _compact();
+  }
+
+  /// 몸의 점들을 이웃한 두 점의 가운데 쪽으로 [k]만큼 당긴다 (맨 끝 점과 머리 가까운 두 점은 그대로).
+  /// 곧은 몸은 그대로고 굽은 몸은 안쪽으로 조금 파고든다.
+  void smooth(double k) {
+    final last = _end - 3;
+    var px = _xs[_start], py = _ys[_start];
+    for (var i = _start + 1; i <= last; i++) {
+      final cx = _xs[i], cy = _ys[i];
+      _xs[i] = cx + k * ((px + _xs[i + 1]) * 0.5 - cx);
+      _ys[i] = cy + k * ((py + _ys[i + 1]) * 0.5 - cy);
+      px = cx;
+      py = cy;
     }
   }
 
@@ -139,6 +170,7 @@ class SnakeBody {
       lx += (x - lx) * t;
       ly += (y - ly) * t;
       trail.add(lx, ly);
+      trail.smooth(SnakeRules.tighten);
       d = SnakeTrail._dist(x, y, lx, ly);
     }
     trail.trim(x, y, length);

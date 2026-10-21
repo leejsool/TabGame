@@ -72,7 +72,12 @@ class SnakeLeaderboard extends StatelessWidget {
             for (var i = 0; i < min(shown, ranked.length); i++) row(i + 1, ranked[i]),
             const Divider(color: Colors.white24, height: 10),
             if (me != null)
-              Text('내 순위 ${myIndex + 1}등/${ranked.length} · ${me.score}점', maxLines: 1, overflow: TextOverflow.ellipsis, style: style(true, size: 13))
+              // (폭이 좁은 폰에서도 점수가 "…"로 잘리지 않게: 길면 글자를 조금 줄인다)
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text('내 순위 ${myIndex + 1}등/${ranked.length} · ${me.score}점', maxLines: 1, softWrap: false, style: style(true, size: 13)),
+              )
             else
               Text('다시 태어나기를 기다려요', style: style(false, size: 12.5).copyWith(color: Colors.white70)),
           ],

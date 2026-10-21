@@ -186,7 +186,7 @@ class SnakeFieldPainter extends CustomPainter {
   /// 굵은 몸은 점을 성기게 잇고(굵기에 비해 6칸 간격은 촘촘하다), 화면 밖으로 나간 토막은 잇지 않는다.
   Path _bodyPath(SnakeBody b, Rect near, double r) {
     final t = b.trail;
-    final stride = max(1, (r * 0.8 / SnakeRules.spacing).floor());
+    final stride = max(1, (r * 0.45 / SnakeRules.spacing).floor());
     final path = Path();
     var prevX = b.x, prevY = b.y, down = false;
     void visit(double x, double y) {
