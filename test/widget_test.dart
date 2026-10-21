@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tabgame/app.dart';
 import 'package:tabgame/core/settings.dart';
+import 'package:tabgame/core/game_registry.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -79,7 +80,7 @@ void main() {
     expect(find.text('CPU 난이도'), findsOneWidget);
   });
 
-  testWidgets('아직 만들지 않은 게임은 준비 중 화면으로 간다', (tester) async {
+  testWidgets('다듬는 중인 게임(핀볼·리듬 검사단)은 허브 카드에 beta 표시가 붙는다', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
@@ -88,8 +89,7 @@ void main() {
     await tester.pumpWidget(TabGameApp(settings: settings));
 
     await tester.ensureVisible(find.text('핀볼'));
-    await tester.tap(find.text('핀볼'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('아직 만드는 중'), findsOneWidget);
+    expect(find.text('beta'), findsWidgets);
+    expect(allGames.where((g) => g.beta).map((g) => g.id), containsAll(['pinball', 'rhythm_swords']));
   });
 }

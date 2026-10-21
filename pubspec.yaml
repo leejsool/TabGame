@@ -73,6 +73,7 @@ flutter:
     - assets/rummikub/
     # 고블렛 말을 놓는 소리
     - assets/goblet/
+    - assets/pinball/
     # 모든 게임 공통 효과음 (이겼을 때 "짜잔")
     - assets/sfx/
 

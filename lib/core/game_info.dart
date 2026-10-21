@@ -41,6 +41,7 @@ class GameInfo {
     this.recordsTab,
     this.recordsTitle,
     this.hasLesson = false,
+    this.beta = false,
     this.lanGame,
     this.lanResume,
   });
@@ -74,6 +75,9 @@ class GameInfo {
 
   /// 교과학습(단원별로 배우는 학습)이 있는 게임이면 true. 허브 카드에 학사모 표시가 붙는다.
   final bool hasLesson;
+
+  /// 아직 다듬는 중인 게임이면 true. 허브 카드에 "beta" 표시가 붙는다.
+  final bool beta;
 
   /// 같은 Wi‑Fi에서 이 게임이 쓰는 이름 (방 찾기·"다시 들어오기 표"에 적힌 게임 이름). 같은 Wi‑Fi 게임은 반드시 채운다.
   final String? lanGame;

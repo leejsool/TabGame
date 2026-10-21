@@ -114,6 +114,8 @@ class _GameCardState extends State<GameCard> {
                         // (Wi‑Fi는 아래 모드 칩에 이미 있어서 위에는 교과학습 표시만 단다)
                         if (!game.isReady)
                           const _SoonBadge()
+                        else if (game.beta)
+                          const _SoonBadge(label: 'beta')
                         else if (game.hasLesson)
                           _LessonBadge(compact: widget.compact),
                       ],
@@ -199,7 +201,9 @@ class _LessonBadge extends StatelessWidget {
 }
 
 class _SoonBadge extends StatelessWidget {
-  const _SoonBadge();
+  const _SoonBadge({this.label = '준비 중'});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -209,9 +213,9 @@ class _SoonBadge extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Text(
-        '준비 중',
-        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }

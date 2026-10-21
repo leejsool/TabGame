@@ -49,7 +49,7 @@ import '../games/solitaire/ui/solitaire_records_tab.dart';
 import '../games/sprouts/ui/sprouts_records_tab.dart';
 import '../games/sudoku/ui/sudoku_records_tab.dart';
 import '../games/uttt/ui/uttt_records_tab.dart';
-import '../games/pinball/pinball_icon.dart';
+import '../games/pinball/pinball_entry.dart';
 import 'game_info.dart';
 
 /// 앱에 들어갈 모든 게임 목록.
@@ -157,15 +157,20 @@ const List<GameInfo> allGames = [
     tutorial: rhythmTutorial,
     iconImage: 'assets/rhythm/art/c3_side_swing.png',
     recordsTab: RhythmRecordsTab.new,
+    beta: true,
   ),
   GameInfo(
     id: 'pinball',
     title: '핀볼',
-    tagline: '플리퍼로 공을 튕겨요',
+    tagline: '업그레이드를 모으며 점수에 도전해요',
     icon: Icons.blur_circular_rounded,
     color: Color(0xFF1B998B),
     modes: [PlayMode.solo],
+    builder: buildPinball,
+    tutorial: pinballTutorial,
     iconPainter: paintPinballIcon,
+    recordsTab: PinballRecordsTab.new,
+    beta: true,
   ),
 
   // ── 함께 놀기 ('아주 이상한 수학책' 게임들) ──
