@@ -171,6 +171,7 @@ const List<GameInfo> allGames = [
     iconPainter: paintPinballIcon,
     recordsTab: PinballRecordsTab.new,
     beta: true,
+    devOnly: true,
   ),
 
   // ── 함께 놀기 ('아주 이상한 수학책' 게임들) ──

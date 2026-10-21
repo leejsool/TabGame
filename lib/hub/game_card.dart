@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../core/dev_unlock.dart';
 import '../core/game_info.dart';
 import 'game_icons.dart';
 
@@ -112,7 +113,7 @@ class _GameCardState extends State<GameCard> {
                           child: GameIcon(game: game, size: widget.compact ? 48 : 54),
                         ),
                         // (Wi‑Fi는 아래 모드 칩에 이미 있어서 위에는 교과학습 표시만 단다)
-                        if (!game.isReady)
+                        if (!game.isReady || game.locked)
                           const _SoonBadge()
                         else if (game.beta)
                           const _SoonBadge(label: 'beta')
@@ -174,8 +175,22 @@ class _GameCardState extends State<GameCard> {
       ),
     );
     // 준비 중인 게임은 흐리게 보여서 아직 할 수 없다는 걸 알린다
-    return game.isReady ? card : Opacity(opacity: 0.55, child: card);
+    return game.isReady && !game.locked ? card : Opacity(opacity: 0.55, child: card);
   }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.game.devOnly) DevUnlock.opened.addListener(_onUnlock);
+  }
+
+  @override
+  void dispose() {
+    DevUnlock.opened.removeListener(_onUnlock);
+    super.dispose();
+  }
+
+  void _onUnlock() => setState(() {});
 }
 
 /// 교과학습이 있는 게임 카드의 학사모 표시.

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../core/dev_unlock.dart';
 import '../core/game_info.dart';
 import '../core/settings_scope.dart';
 import '../games/coming_soon_screen.dart';
@@ -8,6 +9,13 @@ import '../tutorial/tutorial_progress.dart';
 
 /// 게임을 시작한다. 모드가 여러 개면 먼저 고르게 하고, 하나뿐이면 바로 들어간다.
 Future<void> launchGame(BuildContext context, GameInfo game) async {
+  // 정식 앱에서 닫아 둔 게임: 10번 연달아 눌러야 열린다 (몇 번 남았는지는 알려 주지 않는다).
+  if (game.locked && !DevUnlock.tap(game.id)) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('아직 만들고 있는 게임이에요'), duration: Duration(seconds: 1)));
+    return;
+  }
   final PlayMode? mode;
   if (game.modes.length == 1) {
     mode = game.modes.first;

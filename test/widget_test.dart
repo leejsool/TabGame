@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tabgame/app.dart';
+import 'package:tabgame/core/dev_unlock.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/game_registry.dart';
 
@@ -91,5 +92,47 @@ void main() {
     await tester.ensureVisible(find.text('핀볼'));
     expect(find.text('beta'), findsWidgets);
     expect(allGames.where((g) => g.beta).map((g) => g.id), containsAll(['pinball', 'rhythm_swords']));
+  });
+
+  testWidgets('정식 앱에서 핀볼은 닫혀 있고, 카드를 10번 연달아 누르면 열린다', (tester) async {
+    tester.view.physicalSize = const Size(1600, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    DevUnlock.reset();
+    addTearDown(DevUnlock.reset);
+
+    final settings = await Settings.load();
+    await tester.pumpWidget(TabGameApp(settings: settings));
+    final pinball = allGames.firstWhere((g) => g.id == 'pinball');
+    expect(pinball.locked, isTrue);
+
+    await tester.ensureVisible(find.text('핀볼'));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 9; i++) {
+      await tester.tap(find.text('핀볼'));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+    expect(find.text('아직 만들고 있는 게임이에요'), findsOneWidget);
+    expect(find.text('도전 시작'), findsNothing);
+
+    await tester.tap(find.text('핀볼'));
+    await tester.pumpAndSettle();
+    expect(pinball.locked, isFalse);
+    expect(find.text('건너뛰기'), findsOneWidget, reason: '열리면 처음엔 게임 방법이 먼저 나와요');
+  });
+
+  test('닫힌 카드는 쉬엄쉬엄 누르면 처음부터 다시 센다', () {
+    DevUnlock.reset();
+    addTearDown(DevUnlock.reset);
+    final t0 = DateTime(2026);
+    for (var i = 0; i < 9; i++) {
+      expect(DevUnlock.tap('x', now: t0.add(Duration(milliseconds: 300 * i))), isFalse);
+    }
+    // 한참 쉬었다가 누르면 다시 1번째
+    final late = t0.add(const Duration(seconds: 10));
+    for (var i = 0; i < 9; i++) {
+      expect(DevUnlock.tap('x', now: late.add(Duration(milliseconds: 300 * i))), isFalse);
+    }
+    expect(DevUnlock.tap('x', now: late.add(const Duration(milliseconds: 2700))), isTrue);
   });
 }

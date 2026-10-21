@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../net/lan_connection.dart';
+import 'dev_unlock.dart';
 import '../tutorial/tutorial.dart';
 
 /// 게임을 즐기는 방법.
@@ -42,6 +43,7 @@ class GameInfo {
     this.recordsTitle,
     this.hasLesson = false,
     this.beta = false,
+    this.devOnly = false,
     this.lanGame,
     this.lanResume,
   });
@@ -78,6 +80,13 @@ class GameInfo {
 
   /// 아직 다듬는 중인 게임이면 true. 허브 카드에 "beta" 표시가 붙는다.
   final bool beta;
+
+  /// 정식 앱에서는 닫아 두는 게임 (완성 전). 개발용 앱에서는 열려 있고, 정식 앱에서는
+  /// 허브 카드를 10번 연달아 누르면 열린다 ([DevUnlock]).
+  final bool devOnly;
+
+  /// 지금 닫혀 있는지 ("준비 중"처럼 흐리게 보이고 눌러도 들어가지 않는다).
+  bool get locked => devOnly && !DevUnlock.isOpen(id);
 
   /// 같은 Wi‑Fi에서 이 게임이 쓰는 이름 (방 찾기·"다시 들어오기 표"에 적힌 게임 이름). 같은 Wi‑Fi 게임은 반드시 채운다.
   final String? lanGame;
