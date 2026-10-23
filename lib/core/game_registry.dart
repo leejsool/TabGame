@@ -50,6 +50,10 @@ import '../games/sprouts/ui/sprouts_records_tab.dart';
 import '../games/sudoku/ui/sudoku_records_tab.dart';
 import '../games/uttt/ui/uttt_records_tab.dart';
 import '../games/pinball/pinball_entry.dart';
+import '../games/park/park_entry.dart';
+import '../games/park/tutorial/park_tutorial.dart';
+import '../games/stones/stones_entry.dart';
+import '../games/stones/tutorial/stones_tutorial.dart';
 import 'game_info.dart';
 
 /// 앱에 들어갈 모든 게임 목록.
@@ -234,6 +238,28 @@ const List<GameInfo> allGames = [
     tutorial: dandelionTutorial,
     iconPainter: paintDandelionIcon,
     recordsTab: DandelionRecordsTab.new,
+  ),
+  GameInfo(
+    id: 'stones',
+    title: '바둑돌 옮기기',
+    tagline: '같은 줄에서 돌을 옮겨 상대를 가둬요',
+    icon: Icons.circle_outlined,
+    color: Color(0xFF6D7F45),
+    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    builder: buildStones,
+    tutorial: stonesTutorial,
+    iconPainter: paintStonesIcon,
+  ),
+  GameInfo(
+    id: 'park',
+    title: '공원 길찾기',
+    tagline: '숲을 왼편·오른편에 두고 걷는 길을 모두 찾아요',
+    icon: Icons.park_rounded,
+    color: Color(0xFF3E9B5F),
+    modes: [PlayMode.solo],
+    builder: buildPark,
+    tutorial: parkTutorial,
+    iconPainter: paintParkIcon,
   ),
   GameInfo(
     id: 'prophecy',

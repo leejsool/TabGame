@@ -16,6 +16,9 @@ import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/davinci/game/davinci_controller.dart';
 import 'package:tabgame/games/davinci/ui/davinci_screen.dart';
 import 'package:tabgame/games/dandelion/ui/dandelion_screen.dart';
+import 'package:tabgame/games/park/ui/park_screen.dart';
+import 'package:tabgame/games/stones/core/stones_rules.dart';
+import 'package:tabgame/games/stones/ui/stones_screen.dart';
 import 'package:tabgame/games/dotcannon/core/dot_levels.dart';
 import 'package:tabgame/games/dotcannon/game/dot_controller.dart';
 import 'package:tabgame/games/dotcannon/ui/dot_screen.dart';
@@ -129,6 +132,8 @@ void main() {
     'prophecy': () => const ProphecyScreen(mode: PlayMode.local2p),
     'quoridor': () => const QuoridorScreen(mode: PlayMode.local2p),
     'dandelion': () => const DandelionScreen(mode: PlayMode.local2p),
+    'park': () => const ParkScreen(),
+    'stones': () => const StonesScreen(mode: PlayMode.local2p, puzzle: kStartBoard),
     'sprouts': () => const SproutsScreen(mode: PlayMode.local2p, dotCount: 4),
     'davinci': () => DavinciScreen(players: 3, controller: DavinciController(mode: PlayMode.vsCpu, players: 3, seed: 8)..cpuStepDelay = Duration.zero),
     'snake': () => SnakeScreen(controller: SnakeController.host(nick: '나', rng: Random(5)), showHint: false),

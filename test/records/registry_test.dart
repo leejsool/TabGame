@@ -31,7 +31,8 @@ void main() {
     });
 
     test('준비된 게임은 모두 기록 보드를 가진다 (기록을 남기지 않는 게임이면 이 검사에서 뺀다)', () {
-      for (final g in allGames.where((g) => g.isReady)) {
+      // 바둑돌 옮기기·공원 길찾기: 멘토링용 임시 게임이라 기록을 남기지 않는다
+      for (final g in allGames.where((g) => g.isReady && !{'stones', 'park'}.contains(g.id))) {
         expect(g.hasRecords, isTrue, reason: '${g.title}(${g.id})에 recordsTab이 없어요');
       }
     });

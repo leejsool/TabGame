@@ -19,7 +19,11 @@ void main() {
     await tester.pumpWidget(TabGameApp(settings: settings));
 
     expect(find.text('스도쿠'), findsOneWidget);
+    // 게임이 늘면 아래쪽 카드는 화면 밖에 있으니 굴려서 찾는다
+    await tester.scrollUntilVisible(find.text('고블렛 고블러스'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('고블렛 고블러스'), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 5000)); // 맨 위로 (필터 단추)
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('함께'));
     await tester.pumpAndSettle();
@@ -67,6 +71,7 @@ void main() {
     final settings = await Settings.load();
     await tester.pumpWidget(TabGameApp(settings: settings));
 
+    await tester.scrollUntilVisible(find.text('궁극 틱택토'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('궁극 틱택토'));
     await tester.pumpAndSettle();
     expect(find.text('CPU와 대결'), findsOneWidget);
