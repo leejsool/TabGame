@@ -54,6 +54,7 @@ import '../games/park/park_entry.dart';
 import '../games/park/tutorial/park_tutorial.dart';
 import '../games/stones/stones_entry.dart';
 import '../games/stones/tutorial/stones_tutorial.dart';
+import 'game_filter.dart';
 import 'game_info.dart';
 
 /// 앱에 들어갈 모든 게임 목록.
@@ -64,7 +65,12 @@ import 'game_info.dart';
 ///  - `iconPainter` / `iconImage`: 허브 카드의 큰 그림 (없으면 `icon`)
 ///  - `hasLesson`: 교과학습이 있으면 true (허브 카드에 학사모 표시)
 ///  - `recordsTab`: "내 기록" 화면의 기록 보드 (게임 안에서는 `openRecords(context, game: id)`로 연다)
-const List<GameInfo> allGames = [
+/// 앱에 보이는 게임들. 웹 멘토링판(`--dart-define=MENTORING_ONLY=true`)이면 멘토링 게임만 남는다.
+final List<GameInfo> allGames = kMentoringOnly
+    ? [for (final g in _registeredGames) if (GameFilter.mentoringGames.contains(g.id)) g]
+    : _registeredGames;
+
+const List<GameInfo> _registeredGames = [
   // ── 혼자 놀기 ──
   GameInfo(
     id: 'sudoku',

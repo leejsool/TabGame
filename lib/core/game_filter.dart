@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 import 'game_info.dart';
 
+/// 멘토링 수업용 웹판: 멘토링 게임만 넣고 분류 막대는 숨긴다 (`flutter build web --dart-define=MENTORING_ONLY=true`).
+const bool kMentoringOnly = bool.fromEnvironment('MENTORING_ONLY');
+
 /// 게임 목록(허브·기록 화면의 게임 고르개)을 거르는 분류.
 ///
 /// 분류는 게임 등록 정보([GameInfo])에서 저절로 정해지니, 게임이 늘어나도 등록만 하면 알맞은 분류에 들어간다.

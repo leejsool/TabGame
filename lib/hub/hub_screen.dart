@@ -120,7 +120,7 @@ class _HubScreenState extends State<HubScreen> {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
-                      child: Text('혼자서도, 함께도 즐거운 게임 놀이터', maxLines: 1, style: text.bodyLarge),
+                      child: Text(kMentoringOnly ? '게임하면서 수학 배우기 · 멘토링' : '혼자서도, 함께도 즐거운 게임 놀이터', maxLines: 1, style: text.bodyLarge),
                     ),
                   ],
                 ),
@@ -144,11 +144,14 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          GameFilterBar(
-            selected: _filter,
-            onChanged: (f) => setState(() => _filter = f),
-          ),
+          // 멘토링 웹판은 게임이 4개뿐이라 분류 막대가 필요 없다
+          if (!kMentoringOnly) ...[
+            const SizedBox(height: 20),
+            GameFilterBar(
+              selected: _filter,
+              onChanged: (f) => setState(() => _filter = f),
+            ),
+          ],
         ],
       ),
     );
