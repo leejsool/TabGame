@@ -1,0 +1,50 @@
+{
+ "slime_idle.png": {
+  "w": 402,
+  "h": 346,
+  "baseX": 195.10723296888142,
+  "baseY": 345.0
+ },
+ "slime_red_idle.png": {
+  "w": 402,
+  "h": 346,
+  "baseX": 195.10723296888142,
+  "baseY": 345.0
+ },
+ "slime_ready.png": {
+  "w": 525,
+  "h": 355,
+  "baseX": 265.47533444816054,
+  "baseY": 354.0
+ },
+ "slime_red_ready.png": {
+  "w": 525,
+  "h": 355,
+  "baseX": 265.47533444816054,
+  "baseY": 354.0
+ },
+ "slime_attack.png": {
+  "w": 721,
+  "h": 364,
+  "baseX": 342.2715736040609,
+  "baseY": 324.0
+ },
+ "slime_red_attack.png": {
+  "w": 721,
+  "h": 364,
+  "baseX": 342.2715736040609,
+  "baseY": 324.0
+ },
+ "slime_hit.png": {
+  "w": 485,
+  "h": 371,
+  "baseX": 164.87496431630032,
+  "baseY": 370.0
+ },
+ "slime_red_hit.png": {
+  "w": 485,
+  "h": 371,
+  "baseX": 164.87496431630032,
+  "baseY": 370.0
+ }
+}

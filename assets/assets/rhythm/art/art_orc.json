@@ -1,0 +1,26 @@
+{
+  "orc_idle.png": {
+    "w": 511,
+    "h": 560,
+    "baseX": 255.5,
+    "baseY": 541
+  },
+  "orc_ready.png": {
+    "w": 415,
+    "h": 627,
+    "baseX": 207.5,
+    "baseY": 611
+  },
+  "orc_attack.png": {
+    "w": 605,
+    "h": 534,
+    "baseX": 302.5,
+    "baseY": 515
+  },
+  "orc_hit.png": {
+    "w": 526,
+    "h": 595,
+    "baseX": 263.0,
+    "baseY": 576
+  }
+}
