@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../core/game_info.dart';
 import '../../../core/game_widgets.dart';
+import '../../../tutorial/lesson_kit.dart';
 import '../core/stones_rules.dart';
 import 'stones_board.dart';
+import 'stones_lesson_screen.dart';
 import 'stones_screen.dart';
 
 /// 첫 메뉴: 처음 판에서 자유 대결, 또는 문제 (1)·(2)·(3) 고르기.
@@ -44,7 +46,10 @@ class StonesMenuScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('바둑돌 옮기기', style: TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.transparent,
-        actions: [IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showStonesRules(context))],
+        actions: [
+          IconButton(tooltip: '교과학습', icon: const Icon(Icons.menu_book_rounded), onPressed: () => openStonesLesson(context)),
+          IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showStonesRules(context)),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -61,6 +66,8 @@ class StonesMenuScreen extends StatelessWidget {
                   child: Text('문제 풀기', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                 ),
                 CardGrid(children: puzzles),
+                const SizedBox(height: 18),
+                LessonOpenButton(onPressed: () => openStonesLesson(context), label: '교과학습: 님 게임 · 31 게임 · 이진법 필승법'),
               ],
             ),
           ),

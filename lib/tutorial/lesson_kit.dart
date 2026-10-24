@@ -15,6 +15,28 @@ class LessonAccent extends InheritedWidget {
   bool updateShouldNotify(LessonAccent old) => old.color != color;
 }
 
+/// 메뉴·설정 화면의 큰 "교과학습" 단추 (게임마다 같은 크기·모양).
+class LessonOpenButton extends StatelessWidget {
+  const LessonOpenButton({super.key, required this.onPressed, this.label = '교과학습'});
+
+  final VoidCallback onPressed;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.menu_book_rounded),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(50),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
 /// 교과학습의 한 단원.
 class LessonUnit {
   const LessonUnit({required this.title, required this.subtitle, required this.icon, required this.build});

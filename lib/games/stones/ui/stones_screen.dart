@@ -10,8 +10,10 @@ import '../../../core/tablet_scale.dart';
 import '../../../core/win_sound.dart';
 import '../../../versus/vs_screen_parts.dart';
 import '../core/stones_rules.dart';
-import '../tutorial/stones_tutorial.dart';
 import 'stones_board.dart';
+import 'stones_widgets.dart';
+
+export 'stones_widgets.dart' show showStonesRules;
 
 /// 바둑돌 옮기기 판 화면. [puzzle]의 판에서 시작한다 (처음 판이면 자유 대결).
 /// [mode]가 CPU와 대결이면 [cpuSide] 쪽을 컴퓨터가 둔다.
@@ -39,7 +41,14 @@ class _StonesScreenState extends State<StonesScreen> {
   (int, int)? _last;
   int? _selected;
   bool _showGaps = false;
+
+  /// "힌트 더보기"를 눌러 빈칸 수의 2진법 표까지 보는 중.
+  bool _showBinary = false;
   Timer? _cpu;
+
+  /// 빈칸이 모두 0이 되어 남은 수를 자동으로 두는 중.
+  Timer? _auto;
+  bool get _autoRunning => _auto != null;
   late final Random _rng = Random(widget.seed);
 
   /// 문제에서 처음 둔 수가 이기는 수였는지 (아직 안 뒀으면 null).
@@ -48,7 +57,7 @@ class _StonesScreenState extends State<StonesScreen> {
 
   bool get _isPuzzle => widget.puzzle != kStartBoard;
   Side? get _cpuSide => widget.mode == PlayMode.vsCpu ? widget.cpuSide : null;
-  bool get _cpuTurn => !_s.isOver && _s.turn == _cpuSide;
+  bool get _cpuTurn => !_s.isOver && !_autoRunning && _s.turn == _cpuSide;
 
   @override
   void initState() {
@@ -71,12 +80,15 @@ class _StonesScreenState extends State<StonesScreen> {
   @override
   void dispose() {
     _cpu?.cancel();
+    _auto?.cancel();
     if (_landscapeLocked) SystemChrome.setPreferredOrientations(const []);
     super.dispose();
   }
 
   void _restart() {
     _cpu?.cancel();
+    _auto?.cancel();
+    _auto = null;
     _s = widget.puzzle.start();
     _undo.clear();
     _last = null;
@@ -93,7 +105,7 @@ class _StonesScreenState extends State<StonesScreen> {
   }
 
   void _tap(int row, int col) {
-    if (_s.isOver || _cpuTurn) return;
+    if (_s.isOver || _cpuTurn || _autoRunning) return;
     final mine = _s.stonesOf(_s.turn)[row];
     if (col == mine) {
       setState(() => _selected = _selected == row ? null : row);
@@ -108,7 +120,7 @@ class _StonesScreenState extends State<StonesScreen> {
 
   void _play(StoneMove m) {
     final from = _s.stonesOf(_s.turn)[m.row];
-    final human = _s.turn != _cpuSide;
+    final human = _s.turn != _cpuSide && !_autoRunning;
     setState(() {
       if (_isPuzzle && _verdict == null && human) {
         _verdict = _s.isWinningMove(m);
@@ -121,9 +133,29 @@ class _StonesScreenState extends State<StonesScreen> {
     });
     if (_s.isOver) {
       _finish();
-    } else {
+    } else if (!_autoRunning && _s.isDecided) {
+      _startAuto();
+    } else if (!_autoRunning) {
       _scheduleCpu();
     }
+  }
+
+  /// 빈칸이 0, 0, 0이면 승부가 정해졌으니 (스도쿠 빠른 완성처럼) 남은 수를 차례로 자동으로 둔다.
+  void _startAuto() {
+    final moves = _s.finishMoves();
+    setState(() {
+      _auto = Timer.periodic(GameSpeed.scale(const Duration(milliseconds: 650)), (t) {
+        if (!mounted || moves.isEmpty) {
+          t.cancel();
+          return;
+        }
+        _play(moves.removeAt(0));
+        if (moves.isEmpty) {
+          t.cancel();
+          _auto = null;
+        }
+      });
+    });
   }
 
   void _scheduleCpu() {
@@ -163,7 +195,7 @@ class _StonesScreenState extends State<StonesScreen> {
       builder: (_) => VsResultDialog(
         title: _cpuSide == null ? '${winner.name}의 승리!' : (iWon ? '이겼어요!' : '컴퓨터가 이겼어요'),
         body: '${winner.other.name}(${winner.other.stone})은 더 움직일 수 있는 돌이 없어요.',
-        art: _StoneDot(side: winner, size: 48),
+        art: StoneDot(side: winner, size: 48),
       ),
     );
     if (!mounted) return;
@@ -195,6 +227,7 @@ class _StonesScreenState extends State<StonesScreen> {
 
   String get _bannerText {
     if (_s.isOver) return '${_who(_s.winner!)}의 승리!';
+    if (_autoRunning) return '빈칸이 모두 0! ${_who(_s.turn.other)}의 승리가 정해졌어요. 남은 수를 자동으로 둬요';
     if (_cpuTurn) return '${_who(_s.turn)}가 생각하고 있어요…';
     return '${_who(_s.turn)} 차례 — 옮길 칸을 누르세요';
   }
@@ -202,138 +235,132 @@ class _StonesScreenState extends State<StonesScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final chips = VsPlayerChips(chips: [
-      for (final side in Side.values)
-        VsPlayerChip(
-          icon: _StoneDot(side: side, size: 22),
-          label: _who(side),
-          color: kStonesColor,
-          active: _s.isOver ? _s.winner == side : _s.turn == side,
-        ),
-    ]);
-    final question = _isPuzzle
-        ? _InfoCard(
+    final chips = VsPlayerChips(
+      chips: [
+        for (final side in Side.values)
+          VsPlayerChip(
+            icon: StoneDot(side: side, size: 22),
+            label: _who(side),
             color: kStonesColor,
-            icon: Icons.quiz_rounded,
-            title: widget.puzzle.title,
-            text: widget.puzzle.question,
-          )
+            active: _s.isOver ? _s.winner == side : _s.turn == side,
+          ),
+      ],
+    );
+    final question = _isPuzzle
+        ? StonesInfoCard(color: kStonesColor, icon: Icons.quiz_rounded, title: widget.puzzle.title, text: widget.puzzle.question)
         : null;
     final verdict = _verdict == null
         ? null
-        : _InfoCard(
+        : StonesInfoCard(
             color: _verdict! ? const Color(0xFF2E8B3E) : scheme.error,
             icon: _verdict! ? Icons.check_circle_rounded : Icons.cancel_rounded,
             title: _verdict! ? '정답! 이기는 수예요' : '아쉬워요, 상대가 잘하면 지는 수예요',
             text: '$_firstMove\n계속 두면서 확인해 보세요.',
           );
     final extras = [?question, ?verdict];
-    return VsGameScaffold(
-      light: const [Color(0xFFF4F7EC), Color(0xFFE3EBD2)],
-      dark: const [Color(0xFF1E2219), Color(0xFF171A14)],
-      topBar: Padding(
-        padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-        child: Row(children: [
-          IconButton(tooltip: '뒤로', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.of(context).maybePop()),
-          Expanded(
-            child: Text(
-              _isPuzzle ? '바둑돌 옮기기 · ${widget.puzzle.title}' : '바둑돌 옮기기',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
-          IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showStonesRules(context)),
-        ]),
+    final title = Text(
+      _isPuzzle ? '바둑돌 옮기기 · ${widget.puzzle.title}' : '바둑돌 옮기기',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+    );
+    final back = IconButton(tooltip: '뒤로', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.of(context).maybePop());
+    final rules = IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showStonesRules(context));
+    final banner = VsStatusBanner(text: _bannerText, color: kStonesColor);
+    final board = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: StonesBoard(
+        state: _s,
+        onTapCell: _tap,
+        selectedRow: _selected,
+        lastMove: _last,
+        showGaps: _showGaps,
+        showBinary: _showBinary,
+        canDrag: !_s.isOver && !_cpuTurn && !_autoRunning,
+        onMoreHint: () => setState(() => _showBinary = true),
       ),
-      chips: chips,
-      banner: VsStatusBanner(text: _bannerText, color: kStonesColor),
-      board: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-        child: StonesBoard(state: _s, onTapCell: _tap, selectedRow: _selected, lastMove: _last, showGaps: _showGaps),
-      ),
-      extras: [for (final e in extras) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10), child: e)],
-      bottom: VsBottomBar(children: [
-        VsButton(icon: Icons.undo_rounded, label: '무르기', onPressed: _undo.isEmpty ? null : _undoMove),
+    );
+    final bottom = VsBottomBar(
+      children: [
+        VsButton(icon: Icons.undo_rounded, label: '무르기', onPressed: _undo.isEmpty || _autoRunning ? null : _undoMove),
         VsButton(icon: Icons.restart_alt_rounded, label: _isPuzzle ? '다시 풀기' : '새 판', onPressed: () => setState(_restart)),
         VsButton(
           icon: _showGaps ? Icons.visibility_off_rounded : Icons.straighten_rounded,
           label: _showGaps ? '빈칸 수 숨기기' : '빈칸 수 보기',
-          onPressed: () => setState(() => _showGaps = !_showGaps),
+          onPressed: () => setState(() {
+            _showGaps = !_showGaps;
+            _showBinary = false;
+          }),
         ),
         if (_isPuzzle) VsButton(icon: Icons.lightbulb_rounded, label: '정답 보기', onPressed: _showAnswer),
-      ]),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.color, required this.icon, required this.title, required this.text});
-
-  final Color color;
-  final IconData icon;
-  final String title;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.45), width: 1.5),
-      ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(icon, color: color, size: 26),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: color)),
-            const SizedBox(height: 2),
-            Text(text, style: const TextStyle(height: 1.4)),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
-/// 선수 칩·결과 창에 쓰는 작은 바둑돌.
-class _StoneDot extends StatelessWidget {
-  const _StoneDot({required this.side, required this.size});
-
-  final Side side;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final white = side == Side.white;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          center: const Alignment(-0.35, -0.4),
-          colors: white ? const [Colors.white, Color(0xFFD6D6D6)] : const [Color(0xFF5A5A5A), Color(0xFF111111)],
-        ),
-        border: Border.all(color: white ? const Color(0xFF555555) : Colors.black, width: 1.2),
-      ),
-    );
-  }
-}
-
-Future<void> showStonesRules(BuildContext context) => showVsRules(
-      context,
-      title: '바둑돌 옮기기 규칙',
-      lines: const [
-        '갑은 흰 돌, 을은 검은 돌을 움직이며 갑부터 번갈아 둬요.',
-        '자기 돌 한 개를 같은 행의 다른 빈칸으로 옮겨요. 앞으로도, 뒤로도 갈 수 있어요.',
-        '다른 돌을 건너뛸 수는 없어요.',
-        '더는 움직일 수 없는 사람이 져요.',
-        '옮길 칸을 바로 누르면 그 행의 내 돌이 옮겨 가요. 내 돌을 먼저 누르면 갈 수 있는 칸이 점으로 보여요.',
       ],
-      openTutorial: () => stonesTutorial().open(context),
     );
+    const light = [Color(0xFFF4F7EC), Color(0xFFE3EBD2)];
+    const dark = [Color(0xFF1E2219), Color(0xFF171A14)];
+
+    final size = MediaQuery.sizeOf(context);
+    if (size.width > size.height * 1.2) {
+      // 가로: 판이 좌우를 다 쓰도록 단추·안내는 위아래로 (판 옆 칸을 두지 않는다)
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        body: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: isDark ? dark : light),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+                  child: Row(
+                    children: [
+                      back,
+                      Expanded(child: title),
+                      rules,
+                    ],
+                  ),
+                ),
+                chips,
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(child: banner),
+                      for (final e in extras)
+                        Expanded(
+                          flex: 2,
+                          child: Padding(padding: const EdgeInsets.only(left: 10), child: e),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(child: board),
+                bottom,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return VsGameScaffold(
+      light: light,
+      dark: dark,
+      topBar: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+        child: Row(
+          children: [
+            back,
+            Expanded(child: title),
+            rules,
+          ],
+        ),
+      ),
+      chips: chips,
+      banner: banner,
+      board: board,
+      extras: [for (final e in extras) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 10), child: e)],
+      bottom: bottom,
+    );
+  }
+}

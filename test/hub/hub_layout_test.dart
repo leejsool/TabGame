@@ -48,7 +48,7 @@ void main() {
 
   testWidgets('교과학습이 있는 게임 카드에만 학사모 표시가 붙는다 (좁은 카드·넓은 카드 모두 넘침 없이)', (tester) async {
     final withLesson = {for (final g in allGames) if (g.hasLesson) g.id};
-    expect(withLesson, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy'});
+    expect(withLesson, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'stones', 'park', 'prophecy'});
     for (final (width, compact) in const [(165.0, true), (300.0, false)]) {
       for (final g in allGames) {
         await pumpAt(

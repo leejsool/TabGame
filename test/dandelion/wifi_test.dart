@@ -349,7 +349,8 @@ void main() {
     test('등록: 민들레에 Wi‑Fi 모드가 있고, 학사모와 함께 이제 모든 교과학습 게임이 Wi‑Fi를 쓴다', () {
       final g = allGames.firstWhere((g) => g.id == 'dandelion');
       expect(g.modes, contains(PlayMode.wifi));
-      for (final lesson in allGames.where((g) => g.hasLesson)) {
+      // (바둑돌 옮기기·공원 길찾기는 멘토링 교재용 게임이라 Wi‑Fi 없이 교과학습만 있다)
+      for (final lesson in allGames.where((g) => g.hasLesson && !{'stones', 'park'}.contains(g.id))) {
         expect(lesson.modes, contains(PlayMode.wifi), reason: '${lesson.title}에 Wi‑Fi 모드가 없어요');
       }
     });

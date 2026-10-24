@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 
 import 'core/click_sound.dart';
+import 'core/game_filter.dart';
 import 'core/settings.dart';
 import 'core/settings_scope.dart';
 import 'hub/hub_screen.dart';
 import 'net/lan_stall_overlay.dart';
 
 class TabGameApp extends StatelessWidget {
-  const TabGameApp({super.key, required this.settings});
+  const TabGameApp({super.key, required this.settings, this.hubFilter = GameFilter.mentoring});
 
   final Settings settings;
+
+  /// 첫 화면에서 골라져 있는 분류 (멘토링 수업용으로 멘토링부터 보인다).
+  final GameFilter hubFilter;
 
   static ThemeData _theme(Brightness brightness) {
     final scheme = ColorScheme.fromSeed(
@@ -45,7 +49,7 @@ class TabGameApp extends StatelessWidget {
           themeMode: settings.themeMode,
           // 같은 Wi‑Fi 대결에서 상대 응답이 끊기면 어느 화면에서든 "기다리는 중" 안내가 위에 뜬다
           builder: (context, child) => LanStallOverlay(child: child ?? const SizedBox.shrink()),
-          home: HubScreen(settings: settings),
+          home: HubScreen(settings: settings, initialFilter: hubFilter),
           );
         },
       ),

@@ -13,16 +13,19 @@ import 'settings_screen.dart';
 
 /// 첫 화면: 게임 목록.
 class HubScreen extends StatefulWidget {
-  const HubScreen({super.key, required this.settings});
+  const HubScreen({super.key, required this.settings, this.initialFilter = GameFilter.all});
 
   final Settings settings;
+
+  /// 앱을 켰을 때 골라져 있는 분류 (앱은 멘토링으로 시작한다).
+  final GameFilter initialFilter;
 
   @override
   State<HubScreen> createState() => _HubScreenState();
 }
 
 class _HubScreenState extends State<HubScreen> {
-  GameFilter _filter = GameFilter.all;
+  late GameFilter _filter = widget.initialFilter;
 
   @override
   void initState() {
@@ -90,6 +93,7 @@ class _HubScreenState extends State<HubScreen> {
   String _filterTitle(GameFilter f) => switch (f) {
         GameFilter.wifi => '같은 Wi‑Fi로 함께',
         GameFilter.lesson => '교과학습이 있는 게임',
+        GameFilter.mentoring => '멘토링 게임',
         _ => f.label,
       };
 

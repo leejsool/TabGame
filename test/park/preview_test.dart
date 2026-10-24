@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/core/game_info.dart';
 import 'package:tabgame/games/park/core/park_rules.dart';
 import 'package:tabgame/games/park/ui/park_board.dart';
+import 'package:tabgame/games/park/ui/park_lesson_screen.dart';
 import 'package:tabgame/games/park/ui/park_screen.dart';
 import 'package:tabgame/games/stones/core/stones_rules.dart';
 import 'package:tabgame/games/stones/ui/stones_screen.dart';
@@ -68,6 +69,16 @@ void main() {
     ));
     await tester.pump();
     await savePng(tester, await captureBoundary(tester, key), '$dir/stones_phone_land.png');
+    // 교과학습 단원 (긴 화면 한 장씩)
+    tester.view.physicalSize = const Size(400, 2600);
+    for (final unit in ['2. 같은 것이 있는 순열', '3. 공원의 최단경로 수', '4. 덧셈으로 세기', '5. 조건에 맞는 길 세기', '6. 퀴즈로 확인하기']) {
+      final k = GlobalKey();
+      await tester.pumpWidget(RepaintBoundary(key: k, child: MaterialApp(theme: ThemeData(fontFamily: 'NanumGothic'), home: const ParkLessonScreen())));
+      await tester.tap(find.textContaining(unit));
+      await tester.pumpAndSettle();
+      await savePng(tester, await captureBoundary(tester, k), '$dir/park_lesson_${unit.substring(0, 1)}.png');
+      expect(tester.takeException(), isNull);
+    }
     tester.view.reset();
   }, skip: dir == null);
 }

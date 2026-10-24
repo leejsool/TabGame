@@ -5,6 +5,7 @@ import '../core/game_save.dart';
 import '../core/game_widgets.dart';
 import '../records/record_widgets.dart' show confirmOverwrite;
 import '../records/records_screen.dart';
+import '../tutorial/lesson_kit.dart';
 import '../tutorial/tutorial_button.dart';
 import '../tutorial/tutorial.dart';
 import 'vs_mode_switch.dart';
@@ -153,16 +154,7 @@ class _VsSetupScaffoldState extends State<VsSetupScaffold> {
                 TutorialButton(tutorial: widget.tutorial),
                 if (widget.onLesson != null) ...[
                   const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: widget.onLesson,
-                    icon: const Icon(Icons.menu_book_rounded),
-                    label: const Text('교과학습'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800),
-                    ),
-                  ),
+                  LessonOpenButton(onPressed: widget.onLesson!),
                 ],
               ],
             ),

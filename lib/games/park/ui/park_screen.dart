@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../core/win_celebration.dart';
 import '../../../core/win_sound.dart';
+import '../../../tutorial/lesson_kit.dart';
 import '../../../versus/vs_screen_parts.dart' show showVsRules;
 import '../core/park_rules.dart';
 import '../tutorial/park_tutorial.dart';
 import 'park_board.dart';
 import 'park_found_panel.dart';
+import 'park_lesson_screen.dart';
 
 /// 공원 길찾기: 단계(2×2·3×3·4×4)를 골라 A에서 B까지 길을 긋고, 조건에 맞는 길을 모두 모은다.
 class ParkScreen extends StatefulWidget {
@@ -136,7 +138,10 @@ class _ParkScreenState extends State<ParkScreen> {
       appBar: AppBar(
         title: const Text('공원 길찾기', style: TextStyle(fontWeight: FontWeight.w800)),
         backgroundColor: Colors.transparent,
-        actions: [IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showParkRules(context))],
+        actions: [
+          IconButton(tooltip: '교과학습', icon: const Icon(Icons.menu_book_rounded), onPressed: () => openParkLesson(context)),
+          IconButton(tooltip: '규칙', icon: const Icon(Icons.help_outline_rounded), onPressed: () => showParkRules(context)),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -161,6 +166,8 @@ class _ParkScreenState extends State<ParkScreen> {
                 child: ListView(padding: const EdgeInsets.fromLTRB(8, 4, 16, 16), children: [
                   _stagePicker(),
                   const SizedBox(height: 10),
+                  LessonOpenButton(onPressed: () => openParkLesson(context), label: '교과학습: 같은 것이 있는 순열'),
+                  const SizedBox(height: 10),
                   _status(),
                   const SizedBox(height: 8),
                   const _Legend(),
@@ -180,6 +187,8 @@ class _ParkScreenState extends State<ParkScreen> {
               _status(),
               const SizedBox(height: 12),
               panel,
+              const SizedBox(height: 10),
+              LessonOpenButton(onPressed: () => openParkLesson(context), label: '교과학습: 같은 것이 있는 순열'),
             ]),
           );
         }),

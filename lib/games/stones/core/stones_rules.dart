@@ -13,6 +13,9 @@ import 'dart:math';
 const int kRows = 3;
 const int kCols = 12;
 
+/// 빈칸 수(0~10)를 2진법으로 쓸 때의 자리값.
+const List<int> kBits = [8, 4, 2, 1];
+
 enum Side {
   white('갑', '흰 돌'),
   black('을', '검은 돌');
@@ -111,6 +114,33 @@ class StonesState {
     final pool = small.isNotEmpty ? small : all;
     return pool[rng.nextInt(pool.length)];
   }
+
+  /// 모든 행의 빈칸이 0이면 승부는 정해졌다: 차례인 사람이 물러나면 상대가 그만큼 따라붙으면 된다.
+  bool get isDecided => !isOver && gaps.every((g) => g == 0);
+
+  /// 정해진 판([isDecided])을 끝까지 두는 수들. 지는 쪽은 한 행의 돌을 벽까지 물리고,
+  /// 이기는 쪽은 바로 붙는다. 행마다 두 수씩이라 많아야 6수.
+  List<StoneMove> finishMoves() {
+    final s = copy();
+    final moves = <StoneMove>[];
+    while (!s.isOver) {
+      final open = [for (var r = 0; r < kRows; r++) if (s.gap(r) > 0) r];
+      final StoneMove m;
+      if (open.isNotEmpty) {
+        final r = open.first;
+        m = StoneMove(r, s.turn == Side.white ? s.black[r] - 1 : s.white[r] + 1);
+      } else {
+        final r = [for (var r = 0; r < kRows; r++) if (s.targets(r).isNotEmpty) r].first;
+        m = StoneMove(r, s.turn == Side.white ? 0 : kCols - 1);
+      }
+      s.apply(m);
+      moves.add(m);
+    }
+    return moves;
+  }
+
+  /// 빈칸 수를 2진법으로 쓸 때 8·4·2·1 자리마다 1이 몇 개인지 (8 자리부터).
+  List<int> get bitCounts => [for (final b in kBits) gaps.where((g) => g & b != 0).length];
 
   bool _closesGap(StoneMove m) {
     final from = stonesOf(turn)[m.row];

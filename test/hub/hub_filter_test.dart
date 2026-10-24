@@ -62,6 +62,10 @@ void main() {
       expect(shownGames(tester).toSet(), {for (final g in allGames) if (g.hasLesson) g.id});
       expect(find.text('교과학습이 있는 게임'), findsOneWidget);
 
+      await tester.tap(find.byTooltip('멘토링'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(shownGames(tester).toSet(), {'stones', 'dandelion', 'park', 'goblet_gobblers'});
+
       await tester.tap(find.byTooltip('전체'));
       await tester.pump(const Duration(milliseconds: 400));
       expect(shownGames(tester), contains('sudoku')); // (목록은 보이는 만큼만 만들어진다)

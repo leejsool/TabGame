@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/sudoku/tutorial/technique_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/app.dart';
+import 'package:tabgame/core/game_filter.dart';
 import 'package:tabgame/core/game_registry.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/tutorial/tutorial_progress.dart';
@@ -16,7 +17,7 @@ Future<Settings> _start(WidgetTester tester, {Map<String, Object> prefs = const 
   tester.view.devicePixelRatio = 2.0;
   addTearDown(tester.view.reset);
   final settings = await Settings.load();
-  await tester.pumpWidget(TabGameApp(settings: settings));
+  await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
   await tester.pumpAndSettle();
   return settings;
 }

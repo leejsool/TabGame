@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/games/park/core/park_rules.dart';
 import 'package:tabgame/games/park/ui/park_board.dart';
+import 'package:tabgame/games/park/ui/park_lesson_screen.dart';
+import 'package:tabgame/games/park/ui/park_lesson_widgets.dart';
 import 'package:tabgame/games/park/ui/park_screen.dart';
 
 const _r = Walk.right, _d = Walk.down;
@@ -33,6 +35,17 @@ void main() {
   group('규칙', () {
     test('정답: 2×2는 2가지, 3×3은 10가지, 4×4는 42가지', () {
       expect([for (final s in kParkStages) s.answer], [2, 10, 42]);
+    // 숲이 오른편에만 있는 길 = 숲 줄 아래로 내려가지 않는 길 (열 >= 행): 2, 5, 14
+    for (final (i, want) in [(0, 2), (1, 5), (2, 14)]) {
+      final st = kParkStages[i];
+      bool rightOnly(List<Walk> p) => st.sides(p).every((x) => x != ForestSide.left);
+      bool above(List<Walk> p) => st.points(p).every((pt) => pt.$2 >= pt.$1);
+      final paths = allPaths(st.size);
+      expect(paths.where(rightOnly).length, want);
+      expect(paths.where((p) => rightOnly(p) != above(p)), isEmpty);
+    }
+    // 교과학습 그림의 예: RDRRDRDD는 숲이 오른편에만 있다
+    expect(kParkStages[2].sides([Walk.right, Walk.down, Walk.right, Walk.right, Walk.down, Walk.right, Walk.down, Walk.down]), isNot(contains(ForestSide.left)));
     });
 
     test('문제지의 예: → ↓ ↓ → 는 오른편 숲(처음 두 구간)과 왼편 숲(나중 두 구간)을 모두 지난다', () {
@@ -110,5 +123,42 @@ void main() {
       await tester.pump();
       expect(find.textContaining('B까지 이어 주세요'), findsOneWidget);
     });
+  });
+
+  test('같은 것이 있는 순열: RRDD 6가지, 토마토 3가지, n×n 공원 6·20·70가지', () {
+    expect(distinctArrangements('RRDD'.split('')).length, 6);
+    expect(distinctArrangements('토마토'.split('')), ['마토토', '토마토', '토토마']);
+    expect([for (final s in kParkStages) allPaths(s.size).length], [6, 20, 70]);
+    // 조건에 맞는 길 = 전체 − 숲이 한쪽에만 있는 길 (교과학습에 적은 수)
+    expect([for (final s in kParkStages) s.answer], [2, 10, 42]);
+    // 숲이 오른편에만 있는 길 = 숲 줄 아래로 내려가지 않는 길 (열 >= 행): 2, 5, 14
+    for (final (i, want) in [(0, 2), (1, 5), (2, 14)]) {
+      final st = kParkStages[i];
+      bool rightOnly(List<Walk> p) => st.sides(p).every((x) => x != ForestSide.left);
+      bool above(List<Walk> p) => st.points(p).every((pt) => pt.$2 >= pt.$1);
+      final paths = allPaths(st.size);
+      expect(paths.where(rightOnly).length, want);
+      expect(paths.where((p) => rightOnly(p) != above(p)), isEmpty);
+    }
+    // 교과학습 그림의 예: RDRRDRDD는 숲이 오른편에만 있다
+    expect(kParkStages[2].sides([Walk.right, Walk.down, Walk.right, Walk.right, Walk.down, Walk.right, Walk.down, Walk.down]), isNot(contains(ForestSide.left)));
+  });
+
+  testWidgets('교과학습 단원들이 모두 열린다', (tester) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: ParkLessonScreen()));
+    await tester.tap(find.textContaining('1. 길을 글자로 적기'));
+    await tester.pumpAndSettle();
+    for (var i = 1; i < 6; i++) {
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(find.textContaining('다음:'), 300, scrollable: find.byType(Scrollable).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('다음:'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('퀴즈로 확인하기'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 }

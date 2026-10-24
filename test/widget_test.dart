@@ -4,11 +4,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tabgame/app.dart';
 import 'package:tabgame/core/dev_unlock.dart';
+import 'package:tabgame/core/game_filter.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/game_registry.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('앱을 켜면 멘토링 게임만 보인다', (tester) async {
+    tester.view.physicalSize = const Size(1600, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final settings = await Settings.load();
+    await tester.pumpWidget(TabGameApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('멘토링 게임'), findsOneWidget);
+    expect(find.text('바둑돌 옮기기'), findsOneWidget);
+    expect(find.text('스도쿠'), findsNothing);
+  });
 
   testWidgets('허브에 게임 목록이 보이고, 필터가 동작한다', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
@@ -16,7 +29,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final settings = await Settings.load();
-    await tester.pumpWidget(TabGameApp(settings: settings));
+    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
 
     expect(find.text('스도쿠'), findsOneWidget);
     // 게임이 늘면 아래쪽 카드는 화면 밖에 있으니 굴려서 찾는다
@@ -36,7 +49,7 @@ void main() {
     for (final size in const [Size(360, 640), Size(800, 500), Size(1280, 800)]) {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
-      await tester.pumpWidget(TabGameApp(settings: settings));
+      await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
       await tester.pump();
       expect(tester.takeException(), isNull, reason: '$size');
       // 끝까지 스크롤해도 넘침이 없어야 한다
@@ -52,7 +65,7 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final settings = await Settings.load();
-    await tester.pumpWidget(TabGameApp(settings: settings));
+    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
     await tester.tap(find.byTooltip('함께')); // 화면이 낮아 "함께 놀기" 카드만 보이게 한다
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('궁극 틱택토'));
@@ -69,7 +82,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final settings = await Settings.load();
-    await tester.pumpWidget(TabGameApp(settings: settings));
+    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
 
     await tester.scrollUntilVisible(find.text('궁극 틱택토'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('궁극 틱택토'));
@@ -92,7 +105,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final settings = await Settings.load();
-    await tester.pumpWidget(TabGameApp(settings: settings));
+    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
 
     await tester.ensureVisible(find.text('핀볼'));
     expect(find.text('beta'), findsWidgets);
@@ -107,7 +120,7 @@ void main() {
     addTearDown(DevUnlock.reset);
 
     final settings = await Settings.load();
-    await tester.pumpWidget(TabGameApp(settings: settings));
+    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
     final pinball = allGames.firstWhere((g) => g.id == 'pinball');
     expect(pinball.locked, isTrue);
 
