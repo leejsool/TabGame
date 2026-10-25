@@ -8,6 +8,9 @@ class SnakeRules {
   /// 네모난 필드의 한 변 (벽 안쪽). 30마리가 자주 마주치되 숨 쉴 틈은 있는 넓이.
   static const double field = 5000;
 
+  /// 이 값 이상인 먹이는 "큰 먹이" (먹으면 꿀꺽 소리). 저절로 깔리는 큰 먹이(2)와 죽은 뱀이 흩뿌린 큰 알갱이가 해당한다.
+  static const double bigFoodValue = 2;
+
   /// 필드에 있어야 할 뱀 수 (사람 + CPU). 사람이 늘면 죽은 CPU가 다시 태어나지 않아 이 수가 지켜진다.
   static const int population = 30;
 

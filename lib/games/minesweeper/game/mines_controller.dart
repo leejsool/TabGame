@@ -29,6 +29,9 @@ class MinesController extends ChangeNotifier {
   final ValueNotifier<int> elapsed;
   final Random _rng;
 
+  /// 물음표 소리를 고르는 데 쓴다 (지뢰 배치용 [_rng]를 건드리지 않게 따로 둔다).
+  final Random _soundRng = Random();
+
   /// 다시 도전하는 판의 지뢰 배치 (첫 칸을 열 때 쓰고 비운다).
   List<int>? _preset;
 
@@ -54,7 +57,7 @@ class MinesController extends ChangeNotifier {
   VoidCallback? onWon;
   VoidCallback? onLost;
 
-  /// 소리/진동 알림 ('reveal' | 'flag' | 'boom' | 'win').
+  /// 소리/진동 알림 ('reveal' | 'flag' = 깃발을 꽂음 | 'question0'~'question2' = 물음표를 닮 | 'unmark' = 깃발·물음표를 뗌 | 'boom' | 'win').
   void Function(String kind)? onFeedback;
 
   // ── 애니메이션용 시각 정보 (밀리초, [clockMs] 기준) ──
@@ -122,11 +125,17 @@ class MinesController extends ChangeNotifier {
     } else {
       board.toggleFlag(i);
     }
+    final now = board.marks[i];
     flagAt[i] = clockMs;
     animEndMs = max(animEndMs, clockMs + 400);
     hint = null;
     hintMessage = null;
-    onFeedback?.call('flag');
+    // 깃발을 꽂을 때, 물음표를 달 때(세 가지 소리 중 하나), 뗄 때가 각각 다르다
+    onFeedback?.call(switch (now) {
+      CellMark.flagged => 'flag',
+      CellMark.question => 'question${_soundRng.nextInt(3)}',
+      _ => 'unmark',
+    });
     notifyListeners();
   }
 

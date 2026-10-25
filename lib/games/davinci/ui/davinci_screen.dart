@@ -159,7 +159,12 @@ class _DavinciScreenState extends State<DavinciScreen> {
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   final GameFx _fx = GameFx({
     'draw': const Fx(haptic: Haptic.select),
-    'right': const Fx(haptic: Haptic.medium),
+    // 추측이 맞았을 때 "번뜩" (내가 맞혀도, 컴퓨터·상대가 맞혀도)
+    'right': const Fx(haptic: Haptic.medium, sound: 'sfx/idea.wav'),
+    // 차례에 상대 타일을 눌러 숫자를 고민할 때 "흐음" (세 가지 중 하나, 내가 눌러도 CPU·상대가 눌러도)
+    'think0': const Fx(sound: 'sfx/hmm1.wav', volume: 0.8),
+    'think1': const Fx(sound: 'sfx/hmm2.wav', volume: 0.8),
+    'think2': const Fx(sound: 'sfx/hmm3.wav', volume: 0.8),
     'wrong': const Fx(haptic: Haptic.vibrate),
     'bad': const Fx(haptic: Haptic.vibrate),
     'win': const Fx(haptic: Haptic.heavy),

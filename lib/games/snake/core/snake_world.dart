@@ -112,6 +112,9 @@ class SnakeWorld {
   /// 뱀이 죽을 때마다 (이 기기의 화면이 "내가 죽었다 / 잡았다"를 알려고 듣는다).
   void Function(SnakeDeath death)? onDeath;
 
+  /// 뱀이 먹이를 먹을 때마다 (이 기기의 화면이 "내가 큰 먹이를 먹었다"를 알려고 듣는다).
+  void Function(Food food, WorldSnake by)? onEat;
+
   /// 처음 판을 차린다: 먹이를 깔고 사람 자리를 뺀 만큼 CPU를 넣는다.
   void setUp() {
     while (_natural < foodTarget) {
@@ -367,6 +370,7 @@ class SnakeWorld {
         _removeFood(f);
         s.mass += f.value;
         foodEaten.add((f.id, s.id));
+        onEat?.call(f, s);
       }
     }
   }

@@ -64,6 +64,25 @@ void main() {
       }
     });
 
+    test('소리 알림: 칸 열기는 reveal, 깃발은 flag, 물음표는 question0~2, 깃발·물음표를 뗄 때는 unmark', () {
+      final c = fixed([36, 37, 38, 39, 40, 41, 42, 43, 44]); // 가운데 줄이 지뢰 벽: 위쪽만 열린다
+      final kinds = <String>[];
+      c.onFeedback = kinds.add;
+      c.tap(0); // 시작 칸 열기
+      expect(kinds.last, 'reveal');
+      c.flag(72); // 깃발 꽂기
+      expect(kinds.last, 'flag');
+      c.flag(72); // 깃발 뽑기
+      expect(kinds.last, 'unmark');
+      c.question(72); // 물음표 달기
+      expect(kinds.last, matches(RegExp(r'^question[012]$')));
+      c.question(72); // 물음표 떼기
+      expect(kinds.last, 'unmark');
+      c.flag(72);
+      c.question(72); // 깃발 칸에 물음표 (깃발은 뽑히고 물음표가 달린다)
+      expect(kinds.last, matches(RegExp(r'^question[012]$')));
+    });
+
     test('시작 전에는 깃발을 꽂을 수 없다', () {
       final c = MinesController(level: MinesLevel.beginner);
       c.flag(0);

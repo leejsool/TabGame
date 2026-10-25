@@ -63,7 +63,8 @@ class _UtttScreenState extends State<UtttScreen> with VsTwoPlayer {
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   final GameFx _fx = GameFx({
-    'place': const Fx(haptic: Haptic.select),
+    // 매 수마다 종이에 선을 긋는 "샤락" (내가 두어도, CPU·상대가 두어도)
+    'place': const Fx(haptic: Haptic.select, sound: 'sfx/paper.wav'),
     'win': const Fx(haptic: Haptic.heavy),
   });
 

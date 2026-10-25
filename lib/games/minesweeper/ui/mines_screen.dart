@@ -43,10 +43,15 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
   final Completer<void> _skip = Completer<void>();
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
-  /// 소리: 지뢰를 밟으면 "쾅" (사용자가 고른 소리: dragon-studio-boom).
+  /// 소리: 사용자가 고른 것만 쓴다 (칸 열기 페타, 깃발 털컥, 물음표 흐음, 지뢰 쾅).
   final GameFx _fx = GameFx({
-    'reveal': const Fx(haptic: Haptic.select),
-    'flag': const Fx(haptic: Haptic.light),
+    // 칸을 열 때 "페타", 깃발을 꽂을 때 "털컥", 물음표를 달 때 "흐음" (세 가지 중 하나)
+    'reveal': const Fx(haptic: Haptic.select, sound: 'sfx/peta.wav'),
+    'flag': const Fx(haptic: Haptic.light, sound: 'sfx/thunk.wav'),
+    'question0': const Fx(haptic: Haptic.light, sound: 'sfx/hmm1.wav', volume: 0.8),
+    'question1': const Fx(haptic: Haptic.light, sound: 'sfx/hmm2.wav', volume: 0.8),
+    'question2': const Fx(haptic: Haptic.light, sound: 'sfx/hmm3.wav', volume: 0.8),
+    'unmark': const Fx(haptic: Haptic.light),
     'boom': const Fx(haptic: Haptic.heavy, sound: 'sfx/boom.wav'),
     'win': const Fx(haptic: Haptic.heavy),
   });

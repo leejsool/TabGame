@@ -42,7 +42,7 @@ class VsTopBar extends StatelessWidget {
 
 /// 선수 칩 하나: 지금 차례면 진하게 강조된다.
 class VsPlayerChip extends StatelessWidget {
-  const VsPlayerChip({super.key, required this.icon, required this.label, required this.color, required this.active, this.trailing});
+  const VsPlayerChip({super.key, required this.icon, required this.label, required this.color, required this.active, this.trailing, this.compact = false});
 
   /// 선수를 나타내는 작은 그림 (22~24 크기).
   final Widget icon;
@@ -55,22 +55,25 @@ class VsPlayerChip extends StatelessWidget {
   /// 이름 뒤에 붙일 것 (예: 끝난 판의 점수).
   final Widget? trailing;
 
+  /// 작게 그린다 (가로 화면처럼 판에 자리를 많이 주고 싶을 때).
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: compact ? const EdgeInsets.symmetric(horizontal: 8, vertical: 3) : const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: active ? 0.22 : 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: active ? 1 : 0.3), width: active ? 2.5 : 1.2),
+        border: Border.all(color: color.withValues(alpha: active ? 1 : 0.3), width: active ? (compact ? 2 : 2.5) : 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           icon,
-          const SizedBox(width: 8),
-          Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: color)),
+          SizedBox(width: compact ? 5 : 8),
+          Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: compact ? 12.5 : null)),
           if (trailing != null) ...[const SizedBox(width: 8), trailing!],
         ],
       ),

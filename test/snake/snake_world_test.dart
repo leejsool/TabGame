@@ -167,6 +167,26 @@ void main() {
     c.dispose();
   });
 
+  test('내가 큰 먹이를 먹으면 "꿀꺽"(gulp) 알림이 나고, 작은 먹이나 남이 먹은 것에는 나지 않는다', () {
+    final c = SnakeController.host(nick: '나', rng: Random(9));
+    final kinds = <String>[];
+    c.onFeedback = kinds.add;
+    final w = c.world!;
+    c.frame(1 / 60);
+    final me = w.snakeOfSeat(0)!;
+    w.addFood(me.x, me.y, 1.0, 0, natural: false); // 작은 먹이
+    c.frame(1 / 60);
+    expect(kinds.where((k) => k == 'gulp'), isEmpty);
+    w.addFood(me.x, me.y, SnakeRules.bigFoodValue, 0, natural: false); // 큰 먹이
+    c.frame(1 / 60);
+    expect(kinds.where((k) => k == 'gulp').length, 1);
+    final cpu = w.snakes.firstWhere((x) => !x.human);
+    w.addFood(cpu.x, cpu.y, SnakeRules.bigFoodValue, 0, natural: false); // 남이 먹는 큰 먹이
+    c.frame(1 / 60);
+    expect(kinds.where((k) => k == 'gulp').length, 1);
+    c.dispose();
+  });
+
   test('오래 놀아도 먹이가 벽 근처에만 몰리지 않는다 (안 먹힌 먹이는 치우고 드문 곳에 새로 깐다)', () {
     final w = fresh(seed: 10);
     final edgeOf = <double>[];

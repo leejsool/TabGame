@@ -66,6 +66,7 @@ extension DavinciControllerEffects on DavinciController {
         // 맞히기는 두 단계로 보여 준다: 먼저 타일을 고르고(떠오른다), 잠깐 뒤에 말풍선으로 숫자를 말한다. (동시에 보이면 따라가기 어렵다)
         if (e.kind == 2) {
           e.stage = DvEffectStage.pick;
+          if (!e.heard) _thinkSound(); // (CPU나 소식 없이 둔 사람이 타일을 고르는 순간)
           _notify();
           await Future<void>.delayed(_ms(1.2));
           if (_disposed || epoch != _fxEpoch) break;

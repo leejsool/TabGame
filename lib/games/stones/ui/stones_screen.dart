@@ -231,6 +231,12 @@ class _StonesScreenState extends State<StonesScreen> {
     );
   }
 
+  /// 가로 화면의 작은 선수 표시에 쓰는 짧은 이름.
+  String _short(Side side) {
+    if (_cpuSide == null) return side.name;
+    return side == _cpuSide ? '컴퓨터' : '나';
+  }
+
   String get _bannerText {
     if (_s.isOver) return '${_who(_s.winner!)}의 승리!';
     if (_autoRunning) return '빈칸이 모두 0! ${_who(_s.turn.other)}의 승리가 정해졌어요. 남은 수를 자동으로 둬요';
@@ -283,6 +289,7 @@ class _StonesScreenState extends State<StonesScreen> {
         showGaps: _showGaps,
         showBinary: _showBinary,
         canDrag: !_s.isOver && !_cpuTurn && !_autoRunning,
+        highlightMovable: !_s.isOver && !_cpuTurn && !_autoRunning,
         onMoreHint: () => setState(() => _showBinary = true),
       ),
     );
@@ -316,31 +323,47 @@ class _StonesScreenState extends State<StonesScreen> {
           child: SafeArea(
             child: Column(
               children: [
+                // 한 줄에 모은다: 뒤로 · 제목(끝났거나 자동 진행 중이면 그 안내) · 작은 차례 표시 · 규칙.
+                // ("옮길 칸을 누르세요" 줄은 없앴다 — 차례는 작은 표시와 움직일 수 있는 돌의 빛으로 알린다)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
                   child: Row(
                     children: [
                       back,
-                      Expanded(child: title),
+                      Expanded(
+                        child: _s.isOver || _autoRunning
+                            ? Text(
+                                _s.isOver ? '${_who(_s.winner!)}의 승리!' : '빈칸이 모두 0! ${_who(_s.turn.other)}의 승리가 정해졌어요. 남은 수를 자동으로 둬요',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                              )
+                            : title,
+                      ),
+                      for (final side in Side.values) ...[
+                        VsPlayerChip(
+                          compact: true,
+                          icon: StoneDot(side: side, size: 16),
+                          label: _short(side),
+                          color: kStonesColor,
+                          active: _s.isOver ? _s.winner == side : _s.turn == side,
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       rules,
                     ],
                   ),
                 ),
-                chips,
-                Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(child: banner),
-                      for (final e in extras)
-                        Expanded(
-                          flex: 2,
-                          child: Padding(padding: const EdgeInsets.only(left: 10), child: e),
-                        ),
-                    ],
+                if (extras.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        for (final e in extras) Expanded(child: Padding(padding: const EdgeInsets.only(right: 10), child: e)),
+                      ],
+                    ),
                   ),
-                ),
                 Expanded(child: board),
                 bottom,
               ],

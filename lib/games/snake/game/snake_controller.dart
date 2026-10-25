@@ -36,7 +36,8 @@ class SnakeController {
     world!
       ..addSeat(0, nick)
       ..setUp()
-      ..onDeath = _hostDeath;
+      ..onDeath = _hostDeath
+      ..onEat = _hostAte;
   }
 
   /// 방장이 나가서 이 손님이 판을 이어받는다: 손님으로 따라 그리던 판([from])을 진짜 판으로 바꾼다.
@@ -53,6 +54,7 @@ class SnakeController {
     from.seats.putIfAbsent(seat, () => nick);
     w.adoptMirror(from, oldHostSeat: oldHostSeat);
     w.onDeath = _hostDeath;
+    w.onEat = _hostAte;
     migrants = {for (final s in w.seatNames.keys) if (s != seat) s};
   }
 
@@ -63,6 +65,7 @@ class SnakeController {
         mirror = SnakeMirror(snap),
         _conn = conn {
     mirror!.onDeath = _guestDeath;
+    mirror!.onEat = (f, by) => _ate(f, by?.seat);
     _sub = conn.messages.listen(_onGuestMessage);
     conn.closed.then((_) => _hostLost(false));
   }
@@ -103,7 +106,7 @@ class SnakeController {
   /// 방장이 사라지면 판을 이어받을 사람의 자리 (손님만, 모르면 null).
   int? get successorSeat => mirror?.successor();
 
-  /// 진동·소리를 낼 일 ('kill', 'die', 'first' = 내가 1등이 됐다).
+  /// 진동·소리를 낼 일 ('kill', 'die', 'first' = 내가 1등이 됐다, 'gulp' = 내가 큰 먹이를 먹었다).
   void Function(String kind)? onFeedback;
 
   /// 다른 뱀이 죽었다 (그 머리 자리). 화면이 가까우면 소리를 낸다.
@@ -276,6 +279,13 @@ class SnakeController {
     }
     onOtherDeath?.call(dead.x, dead.y);
     if (killer != null && killer.seat == mySeat) _gotKill(dead.name);
+  }
+
+  void _hostAte(Food f, WorldSnake by) => _ate(f, by.seat);
+
+  /// 내 뱀이 큰 먹이를 먹었다 ("꿀꺽"). 남의 뱀이 먹은 것은 소리 없이 넘어간다.
+  void _ate(Food f, int? seat) {
+    if (seat == mySeat && f.value >= SnakeRules.bigFoodValue) onFeedback?.call('gulp');
   }
 
   void _gotKill(String name) {

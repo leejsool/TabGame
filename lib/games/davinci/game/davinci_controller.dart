@@ -170,7 +170,7 @@ class DavinciController extends ChangeNotifier {
   /// 내가 한 수를 알린다 (Wi‑Fi 대결에서 다른 기기에 보내려고).
   void Function(List<int> move)? onLocalMove;
 
-  /// 소리/진동 알림 ('draw' | 'right' | 'wrong' | 'win' | 'bad').
+  /// 소리/진동 알림 ('draw' | 'right' | 'wrong' | 'win' | 'bad' | 'think0'~'think2' = 상대 타일을 눌러 고민하는 소리).
   void Function(String kind)? onFeedback;
 
   /// CPU가 수를 두기 전에 생각하는 시간이자 상대 수 연출의 기준 시간 (추측 1.7배, 결과 1.4배). 사람이 따라볼 수 있게 느긋하게. 시험에서는 줄인다.
@@ -315,6 +315,7 @@ class DvEffect {
     this.guesserTile,
     this.blocking = true,
     this.ask = true,
+    this.heard = false,
   });
 
   /// 둔 사람의 자리와 수의 종류 (0 뽑기, 1 조커 놓기, 2 맞히기, 3 멈추기, 4 내 타일 공개).
@@ -333,6 +334,9 @@ class DvEffect {
 
   /// "추측하는 중" 단계를 보여 주는가 (내가 맞힐 때는 건너뛰고 결과만 보인다).
   final bool ask;
+
+  /// 이 사람이 타일을 고르는 소식을 이미 받아 "고민" 소리를 낸 수인가 (같은 사람의 고름과 맞히기에서 두 번 울리지 않게).
+  final bool heard;
 
   DvEffectStage stage = DvEffectStage.ask;
 }

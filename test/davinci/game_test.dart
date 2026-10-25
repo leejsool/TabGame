@@ -106,6 +106,58 @@ void main() {
   });
 
   group('컨트롤러', () {
+    test('상대 타일을 누르면 "고민"(think) 소리가 한 번 나고, 다시 눌러 고름을 풀 때는 나지 않는다', () {
+      final c = fixed([
+        [b(1), b(6), w(9)],
+        [b(2), w(7), b(10)],
+      ], black: [b(4)], white: [w(3)]);
+      final sounds = <String>[];
+      c.onFeedback = sounds.add;
+      expect(c.draw(0), isTrue);
+      sounds.clear(); // (뽑기 소리는 빼고)
+      c.selectTarget(1, 1);
+      expect(sounds.where((k) => k.startsWith('think')).length, 1);
+      c.selectTarget(1, 1); // 고름을 푼다
+      expect(sounds.where((k) => k.startsWith('think')).length, 1);
+      c.selectTarget(0, 0); // 내 타일은 못 고른다
+      expect(sounds.where((k) => k.startsWith('think')).length, 1);
+    });
+
+    test('다른 기기의 사람이 타일을 고르면 고민 소리가 나고, 이어 그 타일을 맞히는 연출에서는 또 나지 않는다', () async {
+      final c = fixed([
+        [b(1), b(6), w(9)],
+        [b(2), w(7), b(10)],
+      ], mode: PlayMode.wifi, animate: true)
+        ..cpuStepDelay = const Duration(milliseconds: 10);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.guess;
+      final sounds = <String>[];
+      c.onFeedback = sounds.add;
+      c.receiveSelection(1, 0, 1); // 상대가 내 1번 타일을 누른다
+      expect(sounds.where((k) => k.startsWith('think')).length, 1);
+      expect(c.receiveMove(DvMove.guess(0, 1, 6)), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(sounds.where((k) => k.startsWith('think')).length, 1, reason: sounds.join(','));
+      expect(sounds, contains('right'));
+      c.dispose();
+    });
+
+    test('고름 소식 없이 상대가 맞히면(CPU 등) 타일을 고르는 순간 고민 소리가 한 번 난다', () async {
+      final c = fixed([
+        [b(1), b(6), w(9)],
+        [b(2), w(7), b(10)],
+      ], mode: PlayMode.wifi, animate: true)
+        ..cpuStepDelay = const Duration(milliseconds: 10);
+      c.state.turn = 1;
+      c.state.phase = DvPhase.guess;
+      final sounds = <String>[];
+      c.onFeedback = sounds.add;
+      expect(c.receiveMove(DvMove.guess(0, 1, 6)), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(sounds.where((k) => k.startsWith('think')).length, 1, reason: sounds.join(','));
+      c.dispose();
+    });
+
     test('뽑고, 상대 타일을 골라 맞히면 공개되고, 멈추면 차례가 넘어간다 (CPU가 이어서 둔다)', () async {
       final c = fixed([
         [b(1), b(6), w(9)],

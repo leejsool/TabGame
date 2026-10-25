@@ -19,10 +19,14 @@ extension DavinciControllerMoves on DavinciController {
     } else {
       selSeat = seat;
       selIndex = index;
+      _thinkSound();
     }
     _notify();
     onLocalSelect?.call(selSeat, selIndex);
   }
+
+  /// 상대 타일을 눌러 숫자를 고민할 때 나는 "흐음" 소리 (세 가지 중 아무거나).
+  void _thinkSound() => onFeedback?.call('think${_rng.nextInt(3)}');
 
   void clearSelection() {
     if (selSeat < 0) return;
@@ -58,6 +62,7 @@ extension DavinciControllerMoves on DavinciController {
 
   void _apply(List<int> move) {
     final before = state.lastGuess;
+    final heard = remoteSel?.actor == state.turn; // (이 사람의 고름은 이미 "고민" 소리를 냈다)
     remoteSel = null; // (수를 두면 고르던 타일 표시는 그 수의 연출로 이어진다)
     final actor = state.turn;
     final preDrawn = state.drawn;
@@ -94,6 +99,7 @@ extension DavinciControllerMoves on DavinciController {
         guesserTile: !g.correct ? preDrawn : null,
         blocking: !mine,
         ask: !mine,
+        heard: heard,
       ));
     } else if (!mine) {
       // 뽑기는 어느 더미에서 어느 타일을 뽑았는지도 담아 둔다. 조커는 자리를 정한 뒤 "뽑기" 하나로 합쳐 보여 준다.
@@ -158,6 +164,7 @@ extension DavinciControllerMoves on DavinciController {
     final next = ok ? (actor: actor, seat: seat, index: index) : null;
     if (next == remoteSel) return;
     remoteSel = next;
+    if (next != null) _thinkSound();
     _notify();
   }
 }

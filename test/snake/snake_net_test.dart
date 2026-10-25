@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/games/snake/core/snake_body.dart';
 import 'package:tabgame/games/snake/core/snake_net.dart';
 import 'package:tabgame/games/snake/core/snake_world.dart';
 import 'package:tabgame/games/snake/game/snake_controller.dart';
@@ -42,6 +43,22 @@ void main() {
       // 몸도 거의 같은 자리에 그려진다 (꼬리 끝)
       expect(snakeDist(m.trail.xAt(0), m.trail.yAt(0), s.trail.xAt(0), s.trail.yAt(0)), lessThan(s.radius * 1.5));
     }
+  });
+
+  test('손님 기기에도 방장이 알려 준 "먹힌 먹이"로 먹은 뱀과 먹이 크기가 전해진다 (큰 먹이 소리용)', () {
+    final w = SnakeWorld(rng: Random(5));
+    w.addSeat(0, '방장');
+    w.setUp();
+    final mirror = SnakeMirror(wire(encodeFull(w, 0)));
+    final eaten = <(double, int?)>[];
+    mirror.onEat = (f, by) => eaten.add((f.value, by?.seat));
+    final me = w.snakeOfSeat(0)!;
+    w.addFood(me.x, me.y, SnakeRules.bigFoodValue, 0, natural: false);
+    mirror.apply(wire(encodeDelta(w, 1)), 0.1); // 먹이가 놓였다 (아직 안 먹힘)
+    expect(eaten, isEmpty);
+    w.step(1 / 60);
+    mirror.apply(wire(encodeDelta(w, 2)), 0.2);
+    expect(eaten.where((e) => e.$1 >= SnakeRules.bigFoodValue && e.$2 == 0), isNotEmpty);
   });
 
   test('변화를 하나 놓치면 판 전체를 다시 받을 때까지 기다린다', () {

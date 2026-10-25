@@ -23,6 +23,7 @@ class StonesBoard extends StatefulWidget {
     this.showBinary = false,
     this.onMoreHint,
     this.canDrag = false,
+    this.highlightMovable = false,
   });
 
   final StonesState state;
@@ -35,6 +36,9 @@ class StonesBoard extends StatefulWidget {
   final bool showBinary;
   final VoidCallback? onMoreHint;
   final bool canDrag;
+
+  /// 차례인 사람의 돌 중 지금 움직일 수 있는 돌 둘레를 밝게 보여 준다 (어느 돌을 눌러야 하는지 알려 주려고).
+  final bool highlightMovable;
 
   @override
   State<StonesBoard> createState() => _StonesBoardState();
@@ -111,6 +115,9 @@ class _StonesBoardState extends State<StonesBoard> {
               binary: binary,
               dark: dark,
               drag: dragging ? (_dragRow!, _dragPos) : null,
+              movableRows: widget.highlightMovable && !dragging
+                  ? [for (var r = 0; r < kRows; r++) if (r != widget.selectedRow && state.targets(r).isNotEmpty) r]
+                  : const [],
             ),
           ),
         );
@@ -161,6 +168,7 @@ class _BoardPainter extends CustomPainter {
     required this.binary,
     required this.dark,
     this.drag,
+    this.movableRows = const [],
   });
 
   final StonesState state;
@@ -173,6 +181,9 @@ class _BoardPainter extends CustomPainter {
 
   /// 끌고 있는 돌: (행, 손가락 위치). 그 돌은 제자리에 흐리게, 손가락 위에 떠서 그린다.
   final (int, Offset)? drag;
+
+  /// 둘레를 밝게 보여 줄 돌의 행 (차례인 쪽의 돌).
+  final List<int> movableRows;
 
   Color get _ink => dark ? const Color(0xFFE6E8DD) : const Color(0xFF3C4A35);
 
@@ -246,6 +257,20 @@ class _BoardPainter extends CustomPainter {
     // 갈 수 있는 칸
     for (final col in targets) {
       canvas.drawCircle(_cellRect(selectedRow!, col).center, cell * 0.11, Paint()..color = const Color(0xFFE09B00));
+    }
+
+    // 지금 움직일 수 있는 돌 둘레: 은은한 노랑 빛과 고리 (돌 밑에 깔린다)
+    for (final r in movableRows) {
+      final center = _cellRect(r, state.stonesOf(state.turn)[r]).center;
+      canvas.drawCircle(center, cell * 0.5, Paint()..color = const Color(0xFFFFC107).withValues(alpha: dark ? 0.38 : 0.45));
+      canvas.drawCircle(
+        center,
+        cell * 0.49,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = cell * 0.05
+          ..color = const Color(0xFFE09B00),
+      );
     }
 
     final drag = this.drag;

@@ -136,6 +136,9 @@ class SnakeMirror {
   /// 뱀이 죽을 때 (죽은 뱀, 부딪힌 상대 뱀 — 벽이면 null).
   void Function(MirrorSnake dead, SnakeBody? killer)? onDeath;
 
+  /// 뱀이 먹이를 먹을 때 (먹은 뱀 — 이미 사라졌으면 null). 시간이 지나 치워진 먹이는 알리지 않는다.
+  void Function(Food food, MirrorSnake? by)? onEat;
+
   double _lastAt = -1, _interval = 1 / 15, _now = 0;
 
   /// 판 전체로 바꾼다.
@@ -224,7 +227,8 @@ class SnakeMirror {
     _addFood((m['fa'] as List?) ?? const []);
     final fe = (m['fe'] as List?) ?? const [];
     for (var i = 0; i + 1 < fe.length; i += 2) {
-      food.remove(fe[i]);
+      final eaten = food.remove(fe[i]);
+      if (eaten != null && (fe[i + 1] as int) >= 0) onEat?.call(eaten, snakes[fe[i + 1]]);
     }
     _now = now;
   }
