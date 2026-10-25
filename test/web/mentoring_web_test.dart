@@ -31,14 +31,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   }
 
-  testWidgets('첫 화면: 멘토링판이면 멘토링 게임 4개만 보인다', (tester) async {
+  testWidgets('첫 화면: 멘토링 게임이 모두 보인다 (웹판이면 그 4개만)', (tester) async {
     tester.view.physicalSize = const Size(800, 1280);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(TabGameApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
     final ids = {for (final c in tester.widgetList<GameCard>(find.byType(GameCard, skipOffstage: false))) c.game.id};
-    expect(ids, GameFilter.mentoringGames);
+    // (바둑돌 옮기기·공원 길찾기는 맨 밑 작은 아이콘이라 카드가 아니다)
+    expect(ids.containsAll(GameFilter.mentoringGames.difference(GameFilter.mentoringOnlyGames)), isTrue);
+    expect(find.byKey(const ValueKey('hub-mentoring-shelf'), skipOffstage: false), findsOneWidget);
     if (kMentoringOnly) expect(allGames.map((g) => g.id).toSet(), GameFilter.mentoringGames);
     expect(tester.takeException(), isNull);
   });

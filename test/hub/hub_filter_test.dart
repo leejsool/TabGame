@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/core/game_filter.dart';
 import 'package:tabgame/core/game_info.dart';
 import 'package:tabgame/core/game_registry.dart';
 import 'package:tabgame/core/settings.dart';
@@ -59,12 +60,12 @@ void main() {
 
       await tester.tap(find.byTooltip('교과학습'));
       await tester.pump(const Duration(milliseconds: 400));
-      expect(shownGames(tester).toSet(), {for (final g in allGames) if (g.hasLesson) g.id});
+      expect(shownGames(tester).toSet(), {for (final g in allGames) if (g.hasLesson && !GameFilter.mentoringOnlyGames.contains(g.id)) g.id});
       expect(find.text('교과학습이 있는 게임'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('멘토링'));
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(shownGames(tester).toSet(), {'stones', 'dandelion', 'park', 'goblet_gobblers'});
+      // 멘토링 분류는 없고, 멘토링 전용 게임은 맨 밑 작은 아이콘 선반에 따로 있다
+      expect(find.byTooltip('멘토링'), findsNothing);
+      expect(find.byKey(const ValueKey('hub-mentoring-shelf'), skipOffstage: false), findsOneWidget);
 
       await tester.tap(find.byTooltip('전체'));
       await tester.pump(const Duration(milliseconds: 400));

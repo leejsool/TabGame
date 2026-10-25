@@ -2,13 +2,23 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
+import 'package:tabgame/core/settings.dart';
+import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/stones/core/stones_rules.dart';
 import 'package:tabgame/games/stones/ui/stones_board.dart';
 import 'package:tabgame/games/stones/ui/stones_lesson_31.dart';
 import 'package:tabgame/games/stones/ui/stones_lesson_screen.dart';
 import 'package:tabgame/games/stones/ui/stones_menu.dart';
 import 'package:tabgame/games/stones/ui/stones_screen.dart';
+
+/// 설정(효과음 스위치)을 갖춘 앱 안에 [screen]을 띄운다.
+Future<void> pumpScreen(WidgetTester tester, Widget screen) async {
+  SharedPreferences.setMockInitialValues({});
+  final settings = await Settings.load();
+  await tester.pumpWidget(SettingsScope(settings: settings, child: MaterialApp(home: screen)));
+}
 
 void main() {
   group('규칙', () {
@@ -95,7 +105,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       const p = StonesPuzzle(title: '시험', question: '', white: [1, 1, 1], black: [3, 2, 2], turn: Side.white);
-      await tester.pumpWidget(const MaterialApp(home: StonesScreen(mode: PlayMode.local2p, puzzle: p)));
+      await pumpScreen(tester, StonesScreen(mode: PlayMode.local2p, puzzle: p));
       // 1행 흰 돌을 2칸으로 → 0, 0, 0 (을 차례) → 을이 지고 갑이 이긴다
       final board = tester.getRect(find.descendant(of: find.byType(StonesBoard), matching: find.byType(CustomPaint)).first);
       final cell = board.height / 4;
@@ -132,7 +142,7 @@ void main() {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(const MaterialApp(home: StonesMenuScreen(mode: PlayMode.local2p)));
+      await pumpScreen(tester, const StonesMenuScreen(mode: PlayMode.local2p));
       await tester.tap(find.text('문제 (1)'));
       await tester.pumpAndSettle();
       expect(find.byType(StonesScreen), findsOneWidget);
@@ -153,7 +163,7 @@ void main() {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(MaterialApp(home: StonesScreen(mode: PlayMode.local2p, puzzle: kPuzzles[0])));
+      await pumpScreen(tester, StonesScreen(mode: PlayMode.local2p, puzzle: kPuzzles[0]));
       final board = tester.getRect(find.descendant(of: find.byType(StonesBoard), matching: find.byType(CustomPaint)).first);
       final cell = board.height / 4;
       Offset at(int row, int col) => board.topLeft + Offset(cell * (col + 1.5), cell * (row + 1.5));
@@ -178,7 +188,7 @@ void main() {
       tester.view.physicalSize = const Size(400, 860);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      await tester.pumpWidget(MaterialApp(home: StonesScreen(mode: PlayMode.vsCpu, puzzle: kStartBoard, cpuSide: Side.white, seed: 1)));
+      await pumpScreen(tester, StonesScreen(mode: PlayMode.vsCpu, puzzle: kStartBoard, cpuSide: Side.white, seed: 1));
       expect(find.textContaining('생각하고 있어요'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
       expect(find.textContaining('나 을(검은 돌) 차례'), findsOneWidget);

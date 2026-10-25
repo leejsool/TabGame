@@ -260,7 +260,7 @@ void main() {
       expect(dotLevels.where((l) => l.name == name), isNotEmpty, reason: '$name 그림이 기본 그림에 있어야 해요');
     }
     DotLevel byName(String n) => dotLevels.firstWhere((l) => l.name == n);
-    for (final (name, label) in [('절규', 'HARD'), ('아이언맨', 'VERY HARD'), (dotLevels.first.name, null)]) {
+    for (final (name, label) in [('절규', 'HARD'), ('아이언맨', 'VERY HARD'), ('토끼', 'VERY HARD'), (dotLevels.first.name, null)]) {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(body: SizedBox(width: 170, child: DotLevelCard(level: byName(name), stats: null, onTap: () {}))),
       ));

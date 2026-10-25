@@ -7,6 +7,7 @@ import '../core/settings.dart';
 import '../core/update/update_ui.dart';
 import '../records/records_screen.dart';
 import 'game_card.dart';
+import 'game_icons.dart';
 import 'launch.dart';
 import 'rejoin_cards.dart';
 import 'settings_screen.dart';
@@ -17,7 +18,7 @@ class HubScreen extends StatefulWidget {
 
   final Settings settings;
 
-  /// 앱을 켰을 때 골라져 있는 분류 (앱은 멘토링으로 시작한다).
+  /// 앱을 켰을 때 골라져 있는 분류 (처음엔 '전체').
   final GameFilter initialFilter;
 
   @override
@@ -42,7 +43,10 @@ class _HubScreenState extends State<HubScreen> {
     return ListenableBuilder(
       listenable: widget.settings,
       builder: (context, _) {
-        final shown = [for (final g in allGames) if (widget.settings.isGameVisible(g.id)) g];
+        final visible = [for (final g in allGames) if (widget.settings.isGameVisible(g.id)) g];
+        // 멘토링 전용 게임은 다른 묶음에서 빼고 맨 밑에 작은 아이콘으로 따로 보여 준다
+        final shown = [for (final g in visible) if (!GameFilter.mentoringOnlyGames.contains(g.id)) g];
+        final mentoring = [for (final g in visible) if (GameFilter.mentoringOnlyGames.contains(g.id) && _filter.matches(g)) g];
         final solo = shown.where((g) => g.hasSolo).toList();
         final multi = shown.where((g) => g.hasMulti).toList();
         return Scaffold(
@@ -51,7 +55,7 @@ class _HubScreenState extends State<HubScreen> {
               slivers: [
                 SliverToBoxAdapter(child: _buildHeader(context)),
                 const SliverToBoxAdapter(child: RejoinCards()),
-                if (shown.isEmpty) SliverToBoxAdapter(child: _allHidden(context)),
+                if (visible.isEmpty) SliverToBoxAdapter(child: _allHidden(context)),
                 if (_filter == GameFilter.all || _filter == GameFilter.solo)
                   ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
                 if (_filter == GameFilter.all || _filter == GameFilter.multi)
@@ -59,6 +63,7 @@ class _HubScreenState extends State<HubScreen> {
                 // Wi‑Fi·교과학습처럼 등록 정보로 정해지는 분류는 해당 게임만 한 묶음으로 모아 보여 준다
                 if (_filter != GameFilter.all && _filter != GameFilter.solo && _filter != GameFilter.multi)
                   ..._section(context, _filterTitle(_filter), _filter.icon, [for (final g in shown) if (_filter.matches(g)) g]),
+                if (mentoring.isNotEmpty) SliverToBoxAdapter(child: _mentoringShelf(context, mentoring)),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
               ],
             ),
@@ -93,9 +98,35 @@ class _HubScreenState extends State<HubScreen> {
   String _filterTitle(GameFilter f) => switch (f) {
         GameFilter.wifi => '같은 Wi‑Fi로 함께',
         GameFilter.lesson => '교과학습이 있는 게임',
-        GameFilter.mentoring => '멘토링 게임',
         _ => f.label,
       };
+
+  /// 멘토링 전용 게임: 다른 게임보다 훨씬 작은 아이콘으로 맨 밑에 모아 둔다.
+  Widget _mentoringShelf(BuildContext context, List<GameInfo> games) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      key: const ValueKey('hub-mentoring-shelf'),
+      padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.co_present_rounded, size: 18, color: scheme.outline),
+              const SizedBox(width: 6),
+              Text('멘토링 전용', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: scheme.outline)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 14,
+            runSpacing: 10,
+            children: [for (final g in games) _MentoringTile(game: g, onTap: () => launchGame(context, g))],
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildHeader(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -208,5 +239,46 @@ class _HubScreenState extends State<HubScreen> {
         ),
       ),
     ];
+  }
+}
+
+/// 멘토링 전용 게임의 작은 아이콘 타일.
+class _MentoringTile extends StatelessWidget {
+  const _MentoringTile({required this.game, required this.onTap});
+
+  final GameInfo game;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hsl = HSLColor.fromColor(game.color);
+    final dark = hsl.withLightness((hsl.lightness - 0.12).clamp(0.0, 1.0)).toColor();
+    return SizedBox(
+      width: 84,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [game.color, dark]),
+                ),
+                child: GameIcon(game: game, size: 36),
+              ),
+              const SizedBox(height: 4),
+              Text(game.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -8,11 +8,11 @@ import 'hub/hub_screen.dart';
 import 'net/lan_stall_overlay.dart';
 
 class TabGameApp extends StatelessWidget {
-  const TabGameApp({super.key, required this.settings, this.hubFilter = GameFilter.mentoring});
+  const TabGameApp({super.key, required this.settings, this.hubFilter = GameFilter.all});
 
   final Settings settings;
 
-  /// 첫 화면에서 골라져 있는 분류 (멘토링 수업용으로 멘토링부터 보인다).
+  /// 첫 화면에서 골라져 있는 분류 (처음엔 '전체').
   final GameFilter hubFilter;
 
   static ThemeData _theme(Brightness brightness) {

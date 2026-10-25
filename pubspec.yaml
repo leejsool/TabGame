@@ -74,6 +74,9 @@ flutter:
     # 고블렛 말을 놓는 소리
     - assets/goblet/
     - assets/pinball/
+    # 바둑돌 옮기기 돌 소리(탁), 콩나물 선 긋는 소리(종이 샤락)
+    - assets/stones/
+    - assets/sprouts/
     # 모든 게임 공통 효과음 (이겼을 때 "짜잔")
     - assets/sfx/
 

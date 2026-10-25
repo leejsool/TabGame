@@ -120,7 +120,7 @@ const List<DotStageData> dotStageData = [
     theme: DotTheme.anime,
   ),
   DotStageData(
-    name: '파란 왕관 친구',
+    name: '한복 하치와레',
     width: 37,
     height: 45,
     colors: [0xFFBFC3BB, 0xFF0E0E0E, 0xFF721416, 0xFF518BA5, 0xFF63A1B9, 0xFFB87E9F, 0xFF868174],

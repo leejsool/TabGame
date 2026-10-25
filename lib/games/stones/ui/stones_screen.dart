@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/game_fx.dart';
 import '../../../core/game_info.dart';
 import '../../../core/game_speed.dart';
 import '../../../core/tablet_scale.dart';
@@ -59,6 +60,9 @@ class _StonesScreenState extends State<StonesScreen> {
   Side? get _cpuSide => widget.mode == PlayMode.vsCpu ? widget.cpuSide : null;
   bool get _cpuTurn => !_s.isOver && !_autoRunning && _s.turn == _cpuSide;
 
+  /// 돌을 옮길 때 나는 "탁" 소리 (내가 옮겨도, 컴퓨터·자동 진행이 옮겨도).
+  final GameFx _fx = GameFx({'move': const Fx(sound: 'stones/clack.mp3')});
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +85,7 @@ class _StonesScreenState extends State<StonesScreen> {
   void dispose() {
     _cpu?.cancel();
     _auto?.cancel();
+    _fx.dispose();
     if (_landscapeLocked) SystemChrome.setPreferredOrientations(const []);
     super.dispose();
   }
@@ -131,6 +136,7 @@ class _StonesScreenState extends State<StonesScreen> {
       _last = (m.row, m.to);
       _selected = null;
     });
+    _fx.play(context, 'move');
     if (_s.isOver) {
       _finish();
     } else if (!_autoRunning && _s.isDecided) {

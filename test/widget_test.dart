@@ -7,20 +7,24 @@ import 'package:tabgame/core/dev_unlock.dart';
 import 'package:tabgame/core/game_filter.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/game_registry.dart';
+import 'package:tabgame/hub/game_card.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('앱을 켜면 멘토링 게임만 보인다', (tester) async {
+  testWidgets('앱을 켜면 "전체"가 골라져 있고, 멘토링 전용 게임은 맨 밑 작은 아이콘이다', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
     final settings = await Settings.load();
     await tester.pumpWidget(TabGameApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('멘토링 게임'), findsOneWidget);
-    expect(find.text('바둑돌 옮기기'), findsOneWidget);
-    expect(find.text('스도쿠'), findsNothing);
+    expect(find.text('혼자 놀기'), findsOneWidget);
+    expect(find.byTooltip('멘토링'), findsNothing);
+    expect(find.text('멘토링 전용', skipOffstage: false), findsOneWidget);
+    expect(find.text('바둑돌 옮기기', skipOffstage: false), findsOneWidget);
+    expect(find.text('공원 길찾기', skipOffstage: false), findsOneWidget);
+    expect(find.byType(GameCard, skipOffstage: false).evaluate().any((e) => (e.widget as GameCard).game.id == 'stones'), isFalse);
   });
 
   testWidgets('허브에 게임 목록이 보이고, 필터가 동작한다', (tester) async {

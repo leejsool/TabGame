@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tabgame/core/game_filter.dart';
 import 'package:tabgame/core/game_registry.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
@@ -61,7 +62,7 @@ void main() {
 
   testWidgets('메인 화면: 기본은 모든 게임, 숨긴 게임은 빠지고 다시 켜면 돌아온다', (tester) async {
     final settings = await pumpHub(tester);
-    expect(shownGames(tester).toSet(), {for (final g in allGames) g.id});
+    expect(shownGames(tester).toSet(), {for (final g in allGames) if (!GameFilter.mentoringOnlyGames.contains(g.id)) g.id});
 
     settings.setGameVisible('sudoku', false);
     settings.setGameVisible('dot_cannon', false);
@@ -73,7 +74,7 @@ void main() {
 
     settings.showAllGames();
     await tester.pump();
-    expect(shownGames(tester).toSet(), {for (final g in allGames) g.id});
+    expect(shownGames(tester).toSet(), {for (final g in allGames) if (!GameFilter.mentoringOnlyGames.contains(g.id)) g.id});
   });
 
   testWidgets('저장해 둔 숨김이 앱을 켜면 바로 반영된다 (필터를 바꿔도 숨긴 게임은 안 나온다)', (tester) async {
@@ -112,7 +113,7 @@ void main() {
     await tester.tap(find.text('모든 게임 다시 보이기'));
     await tester.pump();
     expect(find.byKey(const ValueKey('hub-all-hidden')), findsNothing);
-    expect(shownGames(tester).toSet(), {for (final g in allGames) g.id});
+    expect(shownGames(tester).toSet(), {for (final g in allGames) if (!GameFilter.mentoringOnlyGames.contains(g.id)) g.id});
   });
 
   testWidgets('설정 화면 → 메인 화면에 보일 게임: 스위치로 끄고 켜고, "모두 켜기"로 되돌린다', (tester) async {

@@ -48,7 +48,7 @@ class DotStageData {
   final DotTheme theme;
 
   DotLevel toLevel() => DotLevel(
-        id: 'b:$name',
+        id: dotStageLegacyIds[name] ?? 'b:$name',
         name: name,
         colors: [for (final c in colors) Color(c)],
         pixels: decodeDotRuns(runs),
@@ -63,11 +63,18 @@ class DotStageData {
       );
 }
 
+/// 이름을 바꾼 기본 그림의 옛 번호. 기록·클리어 표시가 번호로 저장되니, 이름을 바꿔도 번호는 그대로 둔다.
+/// (`dot_stage_data.dart`는 도구가 다시 만드는 파일이라 여기에 따로 둔다)
+const Map<String, String> dotStageLegacyIds = {
+  '한복 하치와레': 'b:파란 왕관 친구',
+};
+
 /// 해 보니 유난히 어려운 기본 그림 (그림 카드 왼쪽 위에 표시). 2 = 어려움(HARD), 3 = 매우 어려움(VERY HARD).
 /// (`dot_stage_data.dart`는 도구가 다시 만드는 파일이라 여기에 따로 둔다)
 const Map<String, int> dotStageHardness = {
   '절규': 2,
   '아이언맨': 3,
+  '토끼': 3,
 };
 
 /// 그림 칸 목록을 길이 부호화 문자열로 바꾼다 (색은 26가지까지).

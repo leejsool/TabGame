@@ -69,7 +69,7 @@ class _SproutsScreenState extends State<SproutsScreen> with VsTwoPlayer {
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   final GameFx _fx = GameFx({
-    'draw': const Fx(haptic: Haptic.select),
+    'draw': const Fx(haptic: Haptic.select, sound: 'sprouts/paper.mp3'),
     'bad': const Fx(haptic: Haptic.light),
     'win': const Fx(haptic: Haptic.heavy),
   });

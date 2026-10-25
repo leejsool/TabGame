@@ -11,7 +11,6 @@ const bool kMentoringOnly = bool.fromEnvironment('MENTORING_ONLY');
 /// 분류는 게임 등록 정보([GameInfo])에서 저절로 정해지니, 게임이 늘어나도 등록만 하면 알맞은 분류에 들어간다.
 /// 새 분류를 만들 때는 여기에 항목과 [matches]만 더하면 두 화면에 모두 나온다.
 enum GameFilter {
-  mentoring(Icons.co_present_rounded, '멘토링'),
   all(Icons.apps_rounded, '전체'),
   solo(Icons.person_rounded, '혼자'),
   multi(Icons.groups_rounded, '함께'),
@@ -26,11 +25,13 @@ enum GameFilter {
   /// 분류 막대 알약에 쓰는 짧은 이름.
   String get shortLabel => this == GameFilter.lesson ? '학습' : label;
 
-  /// 멘토링(게임하며 수학 배우기) 시간에 쓰는 게임들. 임시 분류라 나중에 없앨 수 있다.
+  /// 멘토링 수업용 웹판([kMentoringOnly])에 들어가는 게임들. 앱 허브의 분류와는 상관없다.
   static const mentoringGames = {'stones', 'dandelion', 'park', 'goblet_gobblers'};
 
+  /// 멘토링 전용 게임: 허브에서 다른 게임과 따로 맨 밑에 작은 아이콘으로 모아 보여 준다.
+  static const mentoringOnlyGames = {'stones', 'park'};
+
   bool matches(GameInfo g) => switch (this) {
-        GameFilter.mentoring => mentoringGames.contains(g.id),
         GameFilter.all => true,
         GameFilter.solo => g.hasSolo,
         GameFilter.multi => g.hasMulti,
