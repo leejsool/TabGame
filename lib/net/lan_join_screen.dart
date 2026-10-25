@@ -2,13 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/game_info.dart';
+import '../core/nickname.dart';
 import '../core/settings_scope.dart';
+import '../records/records_screen.dart';
+import '../versus/vs_mode_switch.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
 import 'lan_rejoin_flow.dart';
 import 'lan_screens.dart';
 
 /// 같은 Wi‑Fi에서 열린 방을 찾아 들어가는 화면. 주소를 직접 입력해서 들어갈 수도 있다.
+///
+/// [LanChooseScreen] 안에서 열리면([LanHubScope]) 같은 Wi‑Fi 첫 화면 노릇도 한다: 위에 모드 전환·별명, 아래에 "방 만들기" 단추.
 class LanJoinScreen extends StatefulWidget {
   const LanJoinScreen({
     super.key,
@@ -184,6 +190,14 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
     )).catchError((Object _) {}); // (보관을 못 해도 판은 그대로 한다)
   }
 
+  /// 아래 "방 만들기": 방 찾기를 잠시 멈추고(내가 연 방이 목록에 뜨지 않게) 방 만들기 화면을 열었다가, 돌아오면 다시 찾는다.
+  Future<void> _createRoom(LanHubScope hub) async {
+    _stopFinder();
+    if (mounted) setState(() {});
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: hub.createRoom));
+    if (mounted) _startFinder();
+  }
+
   /// 모이는 중인 방에서 기다리다 나온다.
   void _leaveLobby() {
     _cancelled = true;
@@ -204,113 +218,160 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final hub = LanHubScope.maybeOf(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('방 찾기', style: TextStyle(fontWeight: FontWeight.w800)), backgroundColor: Colors.transparent),
+      appBar: AppBar(
+        title: Text(hub?.title ?? '방 찾기', style: const TextStyle(fontWeight: FontWeight.w800)),
+        backgroundColor: Colors.transparent,
+        actions: [
+          if (hub != null)
+            IconButton(
+              tooltip: '내 기록',
+              icon: const Icon(Icons.emoji_events_rounded),
+              onPressed: () => openRecords(context, game: hub.recordsGame),
+            ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            child: Column(
               children: [
-                if (_lobbyNames != null) ...[
-                  LanInfoCard(
-                    title: '방장이 시작하기를 기다리는 중이에요${_lobbyNeed == null ? '' : ' (${_lobbyNames!.length}/$_lobbyNeed명)'}',
-                    lines: _lobbyNames!,
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(onPressed: _leaveLobby, icon: const Icon(Icons.logout_rounded), label: const Text('방에서 나가기')),
-                  const SizedBox(height: 16),
-                ],
-                if (_message != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(14)),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline_rounded, color: scheme.error),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(_message!, style: const TextStyle(fontSize: 14, height: 1.35))),
-                      ],
-                    ),
-                  ),
-                Text('열려 있는 방', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 10),
-                if (_rooms.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: scheme.outlineVariant),
-                    ),
+                // 위: (첫 화면일 때) 모드 전환과 별명 — 방을 찾는 동안에도 바꿀 수 있다
+                if (hub != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                     child: Column(
                       children: [
-                        const SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 3)),
-                        const SizedBox(height: 14),
-                        const Text('같은 Wi‑Fi의 방을 찾는 중…', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '다른 기기에서 "방 만들기 → 방 열기"를 먼저 눌러 주세요.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
-                        ),
+                        VsModeSwitch(gameId: hub.recordsGame, current: PlayMode.wifi),
+                        const SizedBox(height: 12),
+                        const NicknameBar(),
                       ],
                     ),
-                  )
-                else
-                  for (final r in _rooms)
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      elevation: 0,
-                      color: scheme.surface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: scheme.outlineVariant)),
-                      child: ListTile(
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(color: widget.color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                          child: Icon(Icons.wifi_rounded, color: widget.color),
+                  ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+                    children: [
+                      if (_lobbyNames != null) ...[
+                        LanInfoCard(
+                          title: '방장이 시작하기를 기다리는 중이에요${_lobbyNeed == null ? '' : ' (${_lobbyNames!.length}/$_lobbyNeed명)'}',
+                          lines: _lobbyNames!,
                         ),
-                        title: Text(widget.roomTitle(r), style: const TextStyle(fontWeight: FontWeight.w800)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('${_nameOf(r)} 방 · ${r.address.split('.').last}번', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: widget.color)),
-                            Text(widget.roomSubtitle(r), style: const TextStyle(fontSize: 12.5)),
-                          ],
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(onPressed: _leaveLobby, icon: const Icon(Icons.logout_rounded), label: const Text('방에서 나가기')),
+                        const SizedBox(height: 16),
+                      ],
+                      if (_message != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: scheme.errorContainer.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(14)),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline_rounded, color: scheme.error),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text(_message!, style: const TextStyle(fontSize: 14, height: 1.35))),
+                            ],
+                          ),
                         ),
-                        trailing: FilledButton(onPressed: _connecting ? null : () => _join(r.address, r.port), child: const Text('들어가기')),
+                      Text('열려 있는 방', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 10),
+                      if (_rooms.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: scheme.outlineVariant),
+                          ),
+                          child: Column(
+                            children: [
+                              const SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 3)),
+                              const SizedBox(height: 14),
+                              const Text('같은 Wi‑Fi의 방을 찾는 중…', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 4),
+                              Text(
+                                '다른 기기에서 "방 만들기 → 방 열기"를 먼저 눌러 주세요.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        for (final r in _rooms)
+                          Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            elevation: 0,
+                            color: scheme.surface,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: scheme.outlineVariant)),
+                            child: ListTile(
+                              leading: Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(color: widget.color.withValues(alpha: 0.15), shape: BoxShape.circle),
+                                child: Icon(Icons.wifi_rounded, color: widget.color),
+                              ),
+                              title: Text(widget.roomTitle(r), style: const TextStyle(fontWeight: FontWeight.w800)),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${_nameOf(r)} 방 · ${r.address.split('.').last}번', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: widget.color)),
+                                  Text(widget.roomSubtitle(r), style: const TextStyle(fontSize: 12.5)),
+                                ],
+                              ),
+                              trailing: FilledButton(onPressed: _connecting ? null : () => _join(r.address, r.port), child: const Text('들어가기')),
+                            ),
+                          ),
+                      const SizedBox(height: 24),
+                      Text('방 번호로 들어가기', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 4),
+                      Text(
+                        '방이 위에 안 보이면, 방을 만든 기기 화면에 나온 방 번호(또는 주소)를 입력하세요.',
+                        style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.6)),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _address,
+                              keyboardType: TextInputType.text,
+                              textInputAction: TextInputAction.go,
+                              onSubmitted: (_) => _joinTyped(),
+                              decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '방 번호 또는 주소', hintText: '37  또는  192.168.0.37', isDense: true),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          FilledButton(onPressed: _connecting ? null : _joinTyped, child: const Text('들어가기')),
+                        ],
+                      ),
+                      if (_connecting) ...[
+                        const SizedBox(height: 20),
+                        const Center(child: CircularProgressIndicator()),
+                      ],
+                    ],
+                  ),
+                ),
+                // 아래: (첫 화면일 때) 방 만들기
+                if (hub != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _connecting ? null : () => _createRoom(hub),
+                        icon: const Icon(Icons.add_home_work_rounded),
+                        label: const Text('방 만들기'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                const SizedBox(height: 24),
-                Text('방 번호로 들어가기', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                const SizedBox(height: 4),
-                Text(
-                  '방이 위에 안 보이면, 방을 만든 기기 화면에 나온 방 번호(또는 주소)를 입력하세요.',
-                  style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.6)),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _address,
-                        keyboardType: TextInputType.text,
-                        textInputAction: TextInputAction.go,
-                        onSubmitted: (_) => _joinTyped(),
-                        decoration: const InputDecoration(border: OutlineInputBorder(), labelText: '방 번호 또는 주소', hintText: '37  또는  192.168.0.37', isDense: true),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    FilledButton(onPressed: _connecting ? null : _joinTyped, child: const Text('들어가기')),
-                  ],
-                ),
-                if (_connecting) ...[
-                  const SizedBox(height: 20),
-                  const Center(child: CircularProgressIndicator()),
-                ],
+                  ),
               ],
             ),
           ),

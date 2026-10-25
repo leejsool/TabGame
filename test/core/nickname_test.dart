@@ -134,7 +134,7 @@ void main() {
       expect(settings.nickname, '빨간 토끼');
     });
 
-    testWidgets('같은 Wi‑Fi 첫 화면 맨 위에서도 별명을 보고 바꿀 수 있다', (tester) async {
+    testWidgets('같은 Wi‑Fi 첫 화면(방 찾기) 맨 위에서도 별명을 보고 바꿀 수 있고, 아래에 방 만들기 단추가 있다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -147,14 +147,21 @@ void main() {
           color: Colors.indigo,
           recordsGame: 'sudoku',
           createRoom: (_) => const SizedBox(),
-          findRoom: (_) => const SizedBox(),
+          findRoom: (_) => LanJoinScreen(
+            game: 'sudoku',
+            color: Colors.indigo,
+            roomTitle: (_) => '',
+            roomSubtitle: (_) => '',
+            buildGame: (_, __) => null,
+            discoveryPort: 45977,
+          ),
         ),
       ));
       await settle(tester);
       expect(find.text('빨간 토끼'), findsOneWidget);
       await tester.tap(find.text('바꾸기'));
       await settle(tester);
-      await tester.enterText(find.byType(TextField), '수진');
+      await tester.enterText(find.byType(TextField).last, '수진'); // (뒤에 깔린 방 번호 입력칸이 아니라 대화상자의 칸)
       await tester.tap(find.text('저장'));
       await settle(tester);
       expect(find.text('수진'), findsOneWidget);

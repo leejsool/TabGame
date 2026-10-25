@@ -3,11 +3,7 @@ import 'dart:io' show InternetAddress, InternetAddressType;
 
 import 'package:flutter/material.dart';
 
-import '../core/game_info.dart';
-import '../core/nickname.dart';
 import '../core/settings_scope.dart';
-import '../records/records_screen.dart';
-import '../versus/vs_mode_switch.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
 import 'lan_rejoin.dart';
@@ -58,7 +54,8 @@ class LanStart {
   final Widget Function(LanConnection conn, LanRejoinDesk desk) hostScreen;
 }
 
-/// 같은 Wi‑Fi로 함께 하기 첫 화면.
+/// 같은 Wi‑Fi로 함께 하기 첫 화면: 곧바로 열려 있는 방을 찾는 화면([LanJoinScreen])이고,
+/// 위에는 별명, 아래에는 "방 만들기" 단추가 붙는다 ([LanHubScope]로 그 정보를 아래 화면에 알려 준다).
 class LanChooseScreen extends StatelessWidget {
   const LanChooseScreen({
     super.key,
@@ -79,89 +76,42 @@ class LanChooseScreen extends StatelessWidget {
   /// "방 만들기"가 여는 화면 (보통 방의 설정 화면).
   final WidgetBuilder createRoom;
 
-  /// "방 찾기"가 여는 화면.
+  /// 방 찾기 화면 ([LanJoinScreen]을 돌려주면 된다).
   final WidgetBuilder findRoom;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        backgroundColor: Colors.transparent,
-        actions: [
-          IconButton(
-            tooltip: '내 기록',
-            icon: const Icon(Icons.emoji_events_rounded),
-            onPressed: () => openRecords(context, game: recordsGame),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              children: [
-                VsModeSwitch(gameId: recordsGame, current: PlayMode.wifi),
-                const SizedBox(height: 12),
-                const NicknameBar(),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.withValues(alpha: 0.3)),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.wifi_rounded, size: 48, color: color),
-                      const SizedBox(height: 10),
-                      const Text('같은 Wi‑Fi에 연결된 두 기기가 있으면\n서로 마주 보지 않아도 겨룰 수 있어요', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.4)),
-                      const SizedBox(height: 8),
-                      Text(
-                        '한 기기에서 방을 만들고, 다른 기기에서 그 방을 찾아 들어오세요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13.5, height: 1.4, color: scheme.onSurface.withValues(alpha: 0.7)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: createRoom)),
-                  icon: const Icon(Icons.add_home_work_rounded),
-                  label: const Text('방 만들기'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonalIcon(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: findRoom)),
-                  icon: const Icon(Icons.search_rounded),
-                  label: const Text('방 찾기'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '공용 Wi‑Fi나 손님용 Wi‑Fi 중에는 기기끼리의 연결을 막아 둔 곳이 있어요. 방이 보이지 않으면 방을 만든 기기의 주소를 직접 입력해 보세요.',
-                  style: TextStyle(fontSize: 12.5, height: 1.4, color: scheme.onSurface.withValues(alpha: 0.6)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return LanHubScope(
+      title: title,
+      color: color,
+      recordsGame: recordsGame,
+      createRoom: createRoom,
+      child: Builder(builder: findRoom),
     );
   }
+}
+
+/// [LanChooseScreen]이 아래의 방 찾기 화면에 건네는 정보. 있으면 방 찾기 화면이 제목·내 기록·모드 전환·별명(위)과
+/// "방 만들기" 단추(아래)를 함께 보여 준다.
+class LanHubScope extends InheritedWidget {
+  const LanHubScope({
+    super.key,
+    required this.title,
+    required this.color,
+    required this.recordsGame,
+    required this.createRoom,
+    required super.child,
+  });
+
+  final String title;
+  final Color color;
+  final String recordsGame;
+  final WidgetBuilder createRoom;
+
+  static LanHubScope? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<LanHubScope>();
+
+  @override
+  bool updateShouldNotify(LanHubScope old) => title != old.title || color != old.color || recordsGame != old.recordsGame;
 }
 
 /// 방을 열고 상대가 들어오기를 기다리는 화면. 상대가 들어오면 바로 게임이 시작된다.

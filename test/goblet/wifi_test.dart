@@ -364,7 +364,7 @@ void main() {
       await tester.pumpWidget(await app(const GobbletWifiScreen()));
       await settle(tester, rounds: 2);
       expect(find.text('방 만들기'), findsOneWidget);
-      expect(find.text('방 찾기'), findsOneWidget);
+      expect(find.text('열려 있는 방'), findsOneWidget); // (첫 화면이 곧 방 찾기 화면)
       await tester.tap(find.text('방 만들기'));
       await settle(tester, rounds: 3);
       expect(find.byType(GobbletHostSetupScreen), findsOneWidget);

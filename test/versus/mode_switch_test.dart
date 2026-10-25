@@ -54,7 +54,8 @@ void main() {
 
     // Wi‑Fi로 바꾸면 방 만들기/찾기 화면이 위에 쌓인다
     await tester.tap(find.text('Wi‑Fi'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1)); // (방을 찾는 동안 돌아가는 표시 때문에 pumpAndSettle은 끝나지 않는다)
     expect(find.byType(UtttWifiScreen), findsOneWidget);
     expect(find.byType(LanChooseScreen), findsOneWidget);
     expect(find.byType(VsModeSwitch), findsOneWidget);
