@@ -165,7 +165,8 @@ class _DavinciScreenState extends State<DavinciScreen> {
     'think0': const Fx(sound: 'sfx/hmm1.wav', volume: 0.8),
     'think1': const Fx(sound: 'sfx/hmm2.wav', volume: 0.8),
     'think2': const Fx(sound: 'sfx/hmm3.wav', volume: 0.8),
-    'wrong': const Fx(haptic: Haptic.vibrate),
+    // 추측이 틀렸을 때 "삐-" (✕와 같은 순간)
+    'wrong': const Fx(haptic: Haptic.vibrate, sound: 'sfx/beep.wav', volume: 0.7),
     'bad': const Fx(haptic: Haptic.vibrate),
     'win': const Fx(haptic: Haptic.heavy),
   });

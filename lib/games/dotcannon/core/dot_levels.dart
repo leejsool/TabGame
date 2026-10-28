@@ -87,7 +87,7 @@ class DotLevel {
   /// 갤러리 사진으로 만든 단계인가.
   final bool custom;
 
-  /// 매겨 둔 난이도 (0 = 쉬움 … 3 = 매우 어려움). 내장 단계는 유난히 어려운 것만 2·3 ([dotStageHardness]), 나머지는 0.
+  /// 매겨 둔 난이도 (0 = 쉬움 … 3 = 매우 어려움). 갤러리 사진으로 만든 단계만 쓴다 (기본 그림은 [dotStageStars]의 별로 보여 준다).
   final int difficulty;
 
   final int createdAt;

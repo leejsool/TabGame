@@ -316,6 +316,7 @@ class DvEffect {
     this.blocking = true,
     this.ask = true,
     this.heard = false,
+    this.resultFx,
   });
 
   /// 둔 사람의 자리와 수의 종류 (0 뽑기, 1 조커 놓기, 2 맞히기, 3 멈추기, 4 내 타일 공개).
@@ -337,6 +338,9 @@ class DvEffect {
 
   /// 이 사람이 타일을 고르는 소식을 이미 받아 "고민" 소리를 낸 수인가 (같은 사람의 고름과 맞히기에서 두 번 울리지 않게).
   final bool heard;
+
+  /// 결과(○ / ✕)가 보이는 순간 낼 소리·진동 ('right' | 'wrong'). (수를 둘 때 바로 내면 표시보다 소리가 먼저 난다)
+  final String? resultFx;
 
   DvEffectStage stage = DvEffectStage.ask;
 }

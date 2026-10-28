@@ -44,4 +44,25 @@ void main() {
     expect(shown, {1});
     c.dispose();
   });
+
+  test('상대가 맞히거나 틀린 소리는 ○ / ✕가 뜨는 순간에 난다 (고르는 중·말하는 중에는 안 난다)', () async {
+    final c = DavinciController(mode: PlayMode.wifi, players: 4, humanSeat: 0, seed: 5, animate: true)
+      ..cpuStepDelay = const Duration(milliseconds: 40);
+    c.state.rows[0]
+      ..clear()
+      ..addAll([b(1), w(4), b(6)]);
+    c.state.revealed.clear();
+    c.state.turn = 1;
+    c.state.phase = DvPhase.guess;
+    c.state.drawn = w(7);
+    final heard = <(String, DvEffectStage?)>[];
+    c.onFeedback = (kind) {
+      if (kind == 'right' || kind == 'wrong') heard.add((kind, c.effect?.stage));
+    };
+    expect(c.receiveMove(DvMove.guess(0, 1, 9), index: 0), isTrue); // 틀린 추측
+    expect(heard, isEmpty, reason: '수를 받자마자 소리가 나면 ✕보다 먼저 들린다');
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    expect(heard, [('wrong', DvEffectStage.result)]);
+    c.dispose();
+  });
 }

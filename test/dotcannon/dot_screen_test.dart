@@ -255,24 +255,24 @@ void main() {
     expect(find.textContaining('하트'), findsWidgets);
   });
 
-  testWidgets('어려운 기본 그림(절규 HARD, 아이언맨 VERY HARD)은 카드 왼쪽 위에 이름표가 붙는다', (tester) async {
-    for (final name in dotStageHardness.keys) {
+  testWidgets('기본 그림마다 난이도 별(1~5개)이 매겨져 있고, 카드 왼쪽 위에 별로 보인다', (tester) async {
+    for (final name in dotStageStars.keys) {
       expect(dotLevels.where((l) => l.name == name), isNotEmpty, reason: '$name 그림이 기본 그림에 있어야 해요');
     }
-    DotLevel byName(String n) => dotLevels.firstWhere((l) => l.name == n);
-    for (final (name, label) in [('절규', 'HARD'), ('아이언맨', 'VERY HARD'), ('토끼', 'VERY HARD'), (dotLevels.first.name, null)]) {
+    for (final l in dotLevels) {
+      expect(dotStageStars[l.name], inInclusiveRange(1, 5), reason: '${l.name} 그림에 별이 없어요');
+    }
+    for (final name in ['아이언맨', '토끼', dotLevels.first.name]) {
+      final level = dotLevels.firstWhere((l) => l.name == name);
       await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: SizedBox(width: 170, child: DotLevelCard(level: byName(name), stats: null, onTap: () {}))),
+        home: Scaffold(body: SizedBox(width: 170, child: DotLevelCard(level: level, stats: null, onTap: () {}))),
       ));
-      if (label == null) {
-        expect(find.byType(DotHardBadge), findsNothing);
-      } else {
-        expect(find.text(label), findsOneWidget, reason: name);
-        final card = tester.getTopLeft(find.byType(DotLevelCard));
-        final badge = tester.getTopLeft(find.byType(DotHardBadge));
-        expect(badge.dx - card.dx, lessThan(30));
-        expect(badge.dy - card.dy, lessThan(30));
-      }
+      expect(find.byIcon(Icons.star_rounded), findsNWidgets(dotStageStars[name]!), reason: name);
+      expect(find.text('HARD'), findsNothing);
+      final card = tester.getTopLeft(find.byType(DotLevelCard));
+      final badge = tester.getTopLeft(find.byType(DotStarBadge));
+      expect(badge.dx - card.dx, lessThan(30));
+      expect(badge.dy - card.dy, lessThan(30));
     }
   });
 

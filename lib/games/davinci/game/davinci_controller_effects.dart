@@ -79,6 +79,7 @@ extension DavinciControllerEffects on DavinciController {
       if (e.kind == 2) {
         e.stage = DvEffectStage.result;
         _notify();
+        if (e.resultFx != null) onFeedback?.call(e.resultFx!); // (○ / ✕가 뜨는 바로 그 순간)
         await Future<void>.delayed(_ms(1.4));
         if (_disposed || epoch != _fxEpoch) break;
       }

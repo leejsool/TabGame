@@ -53,12 +53,10 @@ extension _DvBoard on _DavinciScreenState {
                         children: [
                           _statusBanner(),
                           SizedBox(height: gap),
-                          for (var seat = 0; seat < c.players; seat++)
-                            if (seat != c.humanSeat) ...[_playerRow(seat), SizedBox(height: gap)],
+                          // 차례 순서대로 (첫 차례가 맨 위). 나도 내 차례 자리에 끼어 있다.
+                          for (var seat = 0; seat < c.players; seat++) ...[_playerRow(seat), SizedBox(height: gap)],
                           if (!c.showOver && !c.halted) ...[_pilesStrip(), SizedBox(height: gap)],
                           _actionPanel(),
-                          SizedBox(height: gap),
-                          _playerRow(c.humanSeat),
                           SizedBox(height: gap),
                           if (c.showOver) _resultPanel() else _bottomBar(),
                         ],

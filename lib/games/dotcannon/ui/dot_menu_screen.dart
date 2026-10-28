@@ -7,6 +7,7 @@ import '../../../core/game_widgets.dart';
 import '../../../records/records_screen.dart';
 import '../../../tutorial/tutorial_button.dart';
 import '../core/dot_levels.dart';
+import '../core/dot_stages.dart';
 import '../data/dot_custom_store.dart';
 import '../data/dot_storage.dart';
 import '../dotcannon_entry.dart';
@@ -281,7 +282,7 @@ class DotLevelCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (!level.custom && level.difficulty >= 2) Positioned(left: 4, top: 4, child: DotHardBadge(difficulty: level.difficulty)),
+                      if (!level.custom && dotStageStars[level.name] != null) Positioned(left: 4, top: 4, child: DotStarBadge(stars: dotStageStars[level.name]!)),
                     ],
                   ),
                 ),
@@ -333,25 +334,27 @@ class DotLevelCard extends StatelessWidget {
   }
 }
 
-/// 유난히 어려운 기본 그림 카드 왼쪽 위의 이름표 (HARD / VERY HARD).
-class DotHardBadge extends StatelessWidget {
-  const DotHardBadge({super.key, required this.difficulty});
+/// 기본 그림 카드 왼쪽 위의 난이도 별 (★ 1개 쉬움 … 5개 아주 어려움, [dotStageStars]).
+class DotStarBadge extends StatelessWidget {
+  const DotStarBadge({super.key, required this.stars});
 
-  final int difficulty;
+  final int stars;
 
   @override
   Widget build(BuildContext context) {
-    final d = difficulty.clamp(2, 3);
+    final n = stars.clamp(1, 5);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: dotDifficultyColors[d],
+        color: const Color(0xCC26324D),
         borderRadius: BorderRadius.circular(8),
         boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 3, offset: Offset(0, 1))],
       ),
-      child: Text(
-        d == 3 ? 'VERY HARD' : 'HARD',
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < n; i++) const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFFC83D)),
+        ],
       ),
     );
   }

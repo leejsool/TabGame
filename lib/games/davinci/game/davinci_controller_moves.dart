@@ -87,7 +87,10 @@ extension DavinciControllerMoves on DavinciController {
     }
     final heldColor = move[0] == 1 && !mine ? _heldDrawColor : null;
     _heldDrawColor = null;
-    if (move[0] == 2 && g != null && !identical(g, before)) {
+    final guessed = move[0] == 2 && g != null && !identical(g, before);
+    // 맞힘/틀림 소리는 ○ / ✕가 뜨는 순간에 낸다 (연출이 있으면 결과 단계에서, 없으면 바로).
+    final resultFx = guessed && !state.isOver ? (g.correct ? 'right' : 'wrong') : null;
+    if (guessed) {
       _enqueue(DvEffect(
         actor: actor,
         kind: 2,
@@ -100,6 +103,7 @@ extension DavinciControllerMoves on DavinciController {
         blocking: !mine,
         ask: !mine,
         heard: heard,
+        resultFx: animate ? resultFx : null,
       ));
     } else if (!mine) {
       // 뽑기는 어느 더미에서 어느 타일을 뽑았는지도 담아 둔다. 조커는 자리를 정한 뒤 "뽑기" 하나로 합쳐 보여 준다.
@@ -115,8 +119,8 @@ extension DavinciControllerMoves on DavinciController {
     }
     if (state.isOver) {
       onFeedback?.call('win');
-    } else if (move[0] == 2 && g != null && !identical(g, before)) {
-      onFeedback?.call(g.correct ? 'right' : 'wrong');
+    } else if (resultFx != null) {
+      if (!animate) onFeedback?.call(resultFx);
     } else if (move[0] == 0 || heldColor != null) {
       onFeedback?.call('draw');
     }
