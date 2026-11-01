@@ -78,6 +78,8 @@ flutter:
     - assets/stones/
     # 모든 게임 공통 효과음 (이겼을 때 "짜잔")
     - assets/sfx/
+    # 게임 배경음악 (사용자가 고른 곡만)
+    - assets/bgm/
 
   # 나눔고딕 (SIL Open Font License, assets/fonts/OFL.txt 참고)
   fonts:

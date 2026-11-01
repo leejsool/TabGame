@@ -22,5 +22,11 @@
     "h": 595,
     "baseX": 263.0,
     "baseY": 576
+  },
+  "orc_defeated.png": {
+    "w": 605,
+    "h": 595,
+    "baseX": 302.5,
+    "baseY": 576
   }
 }

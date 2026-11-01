@@ -72,6 +72,17 @@ extension _SpBoss on StagePainter {
         }
     }
 
+    if (foe == Foe.bossOrc && c.status == RhythmStatus.finished && !c.gameOver) {
+      kind = 'defeated';
+      pos = home;
+      mirror = false;
+      grow = 1;
+      rotate = 0;
+      squashX = 1;
+      squashY = 1;
+      flash = 0;
+    }
+
     final center = pos + Offset(0, -bodyH * grow * 0.5);
     if (st.phase == BossPhase.windup && p > 0.05) {
       // 달아오르는 붉은 기운

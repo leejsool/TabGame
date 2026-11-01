@@ -9,6 +9,7 @@ import 'nickname.dart';
 class Settings extends ChangeNotifier {
   Settings._(this._prefs)
       : _sound = _prefs.getBool(_kSound) ?? true,
+        _bgm = _prefs.getBool(_kBgm) ?? true,
         _haptics = _prefs.getBool(_kHaptics) ?? true,
         _autoComplete = _prefs.getBool(_kAutoComplete) ?? true,
         _freecellAutoMove = _prefs.getBool(_kFreecellAutoMove) ?? true,
@@ -66,6 +67,7 @@ class Settings extends ChangeNotifier {
   }
 
   static const _kSound = 'sound';
+  static const _kBgm = 'bgm';
   static const _kHaptics = 'haptics';
   static const _kFastPace = 'fastPace';
   static const _kTheme = 'themeMode';
@@ -85,6 +87,7 @@ class Settings extends ChangeNotifier {
 
   final SharedPreferences _prefs;
   bool _sound;
+  bool _bgm;
   bool _haptics;
   bool _fastPace;
   bool _autoComplete;
@@ -105,6 +108,9 @@ class Settings extends ChangeNotifier {
 
   bool get sound => _sound;
   bool get haptics => _haptics;
+
+  /// 게임 배경음악 (모든 게임 공통 스위치).
+  bool get bgm => _bgm;
 
   /// 빠른 진행: CPU 대기와 상대 수 보여 주기가 짧아진다.
   bool get fastPace => _fastPace;
@@ -253,6 +259,12 @@ class Settings extends ChangeNotifier {
     _fastPace = v;
     GameSpeed.factor = v ? GameSpeed.fastFactor : 1;
     _prefs.setBool(_kFastPace, v);
+    notifyListeners();
+  }
+
+  set bgm(bool v) {
+    _bgm = v;
+    _prefs.setBool(_kBgm, v);
     notifyListeners();
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/bgm.dart';
 import '../../core/game_info.dart';
 import '../../records/record_widgets.dart';
 import 'core/mines_rules.dart';
@@ -10,7 +11,7 @@ import 'ui/mines_screen.dart';
 export 'ui/minesweeper_icon.dart';
 
 /// 허브(game_registry)에서 지뢰찾기를 열 때 쓰는 진입점.
-Widget buildMinesweeper(BuildContext context, PlayMode mode) => const MinesMenuScreen();
+Widget buildMinesweeper(BuildContext context, PlayMode mode) => const GameBgm(asset: kBgmMed, child: MinesMenuScreen());
 
 /// 새 판을 시작한다. [replace]면 지금 화면을 새 판으로 바꾼다.
 /// [askIfSaved]면 이어하던 판이 있을 때 덮어써도 되는지 먼저 묻는다.
@@ -29,7 +30,7 @@ Future<void> startMines(
     }
   }
   await MinesStorage.saveLevel(level);
-  final route = MaterialPageRoute<void>(builder: (_) => MinesScreen(level: level));
+  final route = MaterialPageRoute<void>(builder: (_) => GameBgm(asset: kBgmMed, child: MinesScreen(level: level)));
   if (replace) {
     await navigator.pushReplacement(route);
   } else {
@@ -40,7 +41,7 @@ Future<void> startMines(
 /// 저장된 판을 이어서 한다.
 Future<void> resumeMines(BuildContext context, Map<String, dynamic> saved) {
   return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => MinesScreen(saved: saved)),
+    MaterialPageRoute<void>(builder: (_) => GameBgm(asset: kBgmMed, child: MinesScreen(saved: saved))),
   );
 }
 
@@ -57,6 +58,6 @@ Future<void> retryMines(BuildContext context, MinesRecord record) async {
   if (!context.mounted) return;
   final controller = MinesController(level: record.level, presetMines: mines);
   await Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => MinesScreen(controller: controller)),
+    MaterialPageRoute<void>(builder: (_) => GameBgm(asset: kBgmMed, child: MinesScreen(controller: controller))),
   );
 }

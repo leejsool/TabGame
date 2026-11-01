@@ -100,6 +100,15 @@ extension _SpActors on StagePainter {
       }
     }
 
+    if (foe == Foe.goblin && c.status == RhythmStatus.finished && !c.gameOver) {
+      kind = 'defeated';
+      mirror = false;
+      rotate = 0;
+      squashX = 1;
+      squashY = 1;
+      offset = Offset.zero;
+    }
+
     Paint? paint;
     if (flash > 0) {
       paint = Paint()

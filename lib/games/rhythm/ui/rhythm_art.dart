@@ -52,7 +52,7 @@ class RhythmArt {
   /// [red]면 보스용 빨간 슬라임.
   static String slimeSprite(String kind, {bool red = false}) => red ? 'slime_red_$kind' : 'slime_$kind';
 
-  /// 적의 자세 그림 이름. kind: idle / ready / attack / hit. [red]는 슬라임 보스용.
+  /// 적의 자세 그림 이름. kind: idle / ready / attack / hit / defeated. [red]는 슬라임 보스용.
   static String foeSprite(Foe foe, String kind, {bool red = false}) => switch (foe) {
         Foe.goblin => 'goblin_$kind',
         Foe.bossOrc => 'orc_$kind',
@@ -79,6 +79,8 @@ class RhythmArt {
       'bg_outpost_twilight',
       'dummy',
       for (final k in ['idle', 'ready', 'attack', 'hit']) ...[slimeSprite(k), slimeSprite(k, red: true), 'goblin_$k', 'orc_$k'],
+      'goblin_defeated',
+      'orc_defeated',
     ];
     for (var i = 0; i < 4; i++) {
       for (final k in ['idle', 'windup', 'strike', 'side_ready', 'side_swing']) {

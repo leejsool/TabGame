@@ -62,6 +62,13 @@ class SettingsScreen extends StatelessWidget {
               onChanged: (v) => settings.sound = v,
             ),
             SwitchListTile(
+              secondary: const Icon(Icons.music_note_rounded),
+              title: const Text('배경음악'),
+              subtitle: const Text('게임 안에서 흐르는 음악 (모든 게임)'),
+              value: settings.bgm,
+              onChanged: (v) => settings.bgm = v,
+            ),
+            SwitchListTile(
               secondary: const Icon(Icons.vibration_rounded),
               title: const Text('진동'),
               value: settings.haptics,
