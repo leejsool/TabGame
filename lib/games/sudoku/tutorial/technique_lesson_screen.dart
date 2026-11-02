@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../core/format.dart';
 import '../../../tutorial/tutorial_progress.dart';
 import '../core/generator.dart';
 import '../core/grid.dart';
 import '../core/solver.dart';
 import '../core/techniques.dart';
+import '../data/technique_stats.dart';
 import '../game/hint.dart';
 import '../game/sudoku_game.dart';
 import 'basic_lesson.dart' show explainWrong;
@@ -41,6 +45,13 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
   LessonTone _tone = LessonTone.neutral;
   bool _selfChange = false;
 
+  /// 직접 해 보기를 시작한 뒤 흐른 시간. 패턴을 찾을 때까지 잰다.
+  final Stopwatch _watch = Stopwatch();
+  Timer? _ticker;
+
+  /// 이번 연습에서 "정답대로 해 줘요"를 썼는가 (그러면 평균 시간에 넣지 않는다).
+  bool _usedAnswer = false;
+
   List<TechniqueExample> get _examples => kTechniqueExamples[info.technique]!;
 
   @override
@@ -51,6 +62,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
 
   @override
   void dispose() {
+    _ticker?.cancel();
     game.removeListener(_onGame);
     game.dispose();
     super.dispose();
@@ -74,13 +86,17 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
       hintElims: elims,
       notes: info.fill ? null : List<int>.of(grid0.cand),
       ignoreLimit: true,
-    )..autoCompleteEnabled = false;
+    )
+      ..autoCompleteEnabled = false
+      // 빠른 입력을 켜 두었으면 다음 예제에서도 그대로
+      ..quickMode = old?.quickMode ?? false;
     game.addListener(_onGame);
     _loaded = true;
     _phase = _Phase.intro;
     _hintLevel = 0;
     _message = null;
     _tone = LessonTone.neutral;
+    _stopWatch(reset: true);
     final s = step;
     if (s != null && !direct) game.hint = ActiveHint.fromStep(s, grid0, visualOnly: true);
     if (direct) {
@@ -88,6 +104,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
       game.selected = -1;
       _phase = _Phase.practice;
       _message = _progressText();
+      _startWatch();
     }
     // 이전 판은 화면이 새 판으로 바뀐 뒤에 정리한다.
     if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
@@ -176,8 +193,32 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
     setState(() {});
   }
 
+  // ── 시간 재기 ──
+
+  void _startWatch() {
+    _usedAnswer = false;
+    _watch
+      ..reset()
+      ..start();
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _stopWatch({bool reset = false}) {
+    _watch.stop();
+    if (reset) _watch.reset();
+    _ticker?.cancel();
+    _ticker = null;
+  }
+
+  int get _seconds => _watch.elapsed.inSeconds;
+
   void _finish() {
     TutorialProgress.markLessonDone(info.id);
+    _stopWatch();
+    TechniqueStats.record(info.id, seconds: _seconds, found: !_usedAnswer);
     _selfChange = true;
     game.hint = null;
     game.selected = -1;
@@ -205,6 +246,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
       _message = _progressText();
       _tone = LessonTone.neutral;
     });
+    _startWatch();
   }
 
   // ── 힌트 사다리 ──
@@ -248,6 +290,7 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
     if (_hintLevel >= 2) {
       // 정답대로 해 준다.
       final apply = ActiveHint.fromStep(s, g);
+      _usedAnswer = true;
       _selfChange = true;
       game.hint = apply;
       game.applyHint();
@@ -329,11 +372,12 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
         ];
       case _Phase.done:
         title = '잘했어요! 🎉';
-        text = info.fill
+        final time = _usedAnswer ? '' : '걸린 시간: ${spokenTime(_seconds)}\n\n';
+        text = time + (info.fill
             ? '${info.label} 연습을 마쳤어요. 이제 어려운 판에서도 후보가 하나만 남은 칸, '
                 '한 줄에서 자리가 하나뿐인 숫자를 놓치지 마세요.'
             : '${info.label} 성공! 패턴을 찾아 후보를 지웠어요.\n\n'
-                '${cur == null ? '' : describeStep(cur, grid0)}';
+                '${cur == null ? '' : describeStep(cur, grid0)}');
         actions = [
           if (_examples.length > 1)
             OutlinedButton(onPressed: () => _load(_example + 1, direct: true), child: const Text('다른 예제로 한 번 더')),
@@ -349,7 +393,9 @@ class _SudokuTechniqueLessonScreenState extends State<SudokuTechniqueLessonScree
       title: '심화 기술 연습 · ${info.label}',
       closeLabel: '목록',
       onClose: () => Navigator.of(context).pop(),
+      progressLabel: practice || _phase == _Phase.done ? '⏱ ${formatTime(_seconds)}' : null,
       showControls: practice,
+      quickToggle: true,
       spotlight: practice && !info.fill && !info.placeOne && !game.notesMode ? const {'notes'} : const {},
       actions: actions,
       revealSignal: _message,

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/tablet_scale.dart';
 import '../game/sudoku_game.dart';
 import '../ui/board_widget.dart';
 import '../ui/controls.dart';
@@ -24,6 +25,7 @@ class LessonShell extends StatefulWidget {
     this.spotlight = const {},
     this.padSpotlight = false,
     this.revealSignal,
+    this.quickToggle = false,
   });
 
   final SudokuGame game;
@@ -49,6 +51,10 @@ class LessonShell extends StatefulWidget {
 
   /// 이 값이 바뀌면 설명 카드를 맨 아래(방금 생긴 안내 문구)까지 스크롤한다.
   final Object? revealSignal;
+
+  /// 입력 버튼 위에 "빠른 입력" 스위치를 둘지 (보통 게임 화면과 같은 자리). 켜면 [actions]도 그 줄 왼쪽에 놓아
+  /// 판 아래 자리를 아낀다.
+  final bool quickToggle;
 
   @override
   State<LessonShell> createState() => _LessonShellState();
@@ -173,18 +179,40 @@ class _LessonShellState extends State<LessonShell> {
     );
   }
 
-  Widget _controls() {
+  /// 버튼들이 "빠른 입력" 줄에 함께 놓이는가.
+  bool get _inlineActions => widget.quickToggle && widget.showControls;
+
+  Widget _controls({int padColumns = 9}) {
     return ListenableBuilder(
       listenable: widget.game,
       builder: (context, _) {
         final hint = widget.game.hint;
-        if (hint != null && !hint.visualOnly) return HintPanel(game: widget.game, hint: hint);
+        final toggleRow = widget.quickToggle
+            ? Row(
+                children: [
+                  ...widget.actions,
+                  const SizedBox(width: 8),
+                  Expanded(child: QuickInputToggle(game: widget.game)),
+                ],
+              )
+            : null;
+        if (hint != null && !hint.visualOnly) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [?toggleRow, HintPanel(game: widget.game, hint: hint)],
+          );
+        }
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ?toggleRow,
             ActionBar(game: widget.game, spotlight: widget.spotlight),
             const SizedBox(height: 10),
-            NumberPad(game: widget.game, spotlight: widget.padSpotlight),
+            // 가로 화면의 3×3 패드는 설명 카드 자리가 남도록 조금 작게
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: padColumns == 3 ? 280 : double.infinity),
+              child: NumberPad(game: widget.game, columns: padColumns, spotlight: widget.padSpotlight),
+            ),
           ],
         );
       },
@@ -206,7 +234,7 @@ class _LessonShellState extends State<LessonShell> {
 
   /// 설명 카드(스크롤) + 아래에 고정된 입력 버튼과 "다음" 버튼들.
   /// 판이 작아져도 이 영역은 화면 너비를 그대로 쓴다 (넓은 화면에서만 가운데로 모은다).
-  Widget _lower(double maxHeight) {
+  Widget _lower(double maxHeight, {int padColumns = 9, double controlsShare = 0.45}) {
     // fit이 true이면 높이는 내용에 맞추고(아래에 고정되는 영역용), 아니면 주어진 높이를 모두 쓴다.
     Widget centered(Widget child, {bool fit = false}) => Align(
           alignment: Alignment.topCenter,
@@ -227,16 +255,16 @@ class _LessonShellState extends State<LessonShell> {
         if (widget.showControls)
           ConstrainedBox(
             // 힌트 설명 카드가 열려도 화면을 넘치지 않도록 높이를 제한하고 스크롤시킨다.
-            constraints: BoxConstraints(maxHeight: maxHeight * 0.45),
+            constraints: BoxConstraints(maxHeight: maxHeight * controlsShare),
             child: centered(
               SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                child: _controls(),
+                child: _controls(padColumns: padColumns),
               ),
               fit: true,
             ),
           ),
-        if (widget.actions.isNotEmpty) centered(_actionBar(), fit: true),
+        if (widget.actions.isNotEmpty && !_inlineActions) centered(_actionBar(), fit: true),
       ],
     );
   }
@@ -244,16 +272,16 @@ class _LessonShellState extends State<LessonShell> {
   Widget _portrait() {
     return LayoutBuilder(
       builder: (context, box) {
-        // 숫자 패드와 버튼은 아래에 고정하고, 판은 설명 카드가 들어갈 자리를 남기는 만큼만 키운다.
-        final reserved = (widget.showControls ? 150.0 : 0.0) +
-            (widget.actions.isNotEmpty ? 56.0 : 0.0) +
-            170.0;
-        final boardSize = min(box.maxWidth - 24, max(220.0, box.maxHeight - reserved - 8));
+        // 판 크기는 보통 게임 화면과 같게, 단계(설명 → 직접 해 보기)가 바뀌어도 그대로 둔다.
+        // 숫자 패드와 버튼은 아래에 고정되고, 설명 카드는 남는 자리에서 스크롤된다.
+        final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
+        final boardSize = min(box.maxWidth - 24, box.maxHeight * (tablet ? 0.64 : 0.56));
         return Column(
           children: [
             const SizedBox(height: 8),
             SizedBox(width: boardSize, child: _board(context)),
-            Expanded(child: _lower(box.maxHeight)),
+            // 아래 영역 높이 기준: 입력 버튼이 많아야 이만큼만 쓰고, 나머지는 설명 카드 몫
+            Expanded(child: _lower(box.maxHeight - boardSize - 8, controlsShare: 0.75)),
           ],
         );
       },
@@ -263,7 +291,7 @@ class _LessonShellState extends State<LessonShell> {
   Widget _landscape() {
     return LayoutBuilder(
       builder: (context, box) {
-        final boardSize = min(box.maxHeight - 24, box.maxWidth * 0.52);
+        final boardSize = min(box.maxHeight - 24, box.maxWidth * 0.58);
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -271,7 +299,7 @@ class _LessonShellState extends State<LessonShell> {
               padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
               child: SizedBox(width: boardSize, height: boardSize, child: _board(context)),
             ),
-            Expanded(child: _lower(box.maxHeight)),
+            Expanded(child: _lower(box.maxHeight, padColumns: 3, controlsShare: 0.62)),
           ],
         );
       },

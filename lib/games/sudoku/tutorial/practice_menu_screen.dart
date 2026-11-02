@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../tutorial/tutorial_progress.dart';
+import '../data/technique_stats.dart';
 import 'technique_info.dart';
 import 'technique_lesson_screen.dart';
 
@@ -14,6 +15,7 @@ class SudokuPracticeMenuScreen extends StatefulWidget {
 
 class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
   Set<String> _done = {};
+  Map<String, TechniqueStat> _stats = {};
 
   @override
   void initState() {
@@ -23,7 +25,13 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
 
   Future<void> _load() async {
     final done = await TutorialProgress.doneLessons();
-    if (mounted) setState(() => _done = done);
+    final stats = await TechniqueStats.load();
+    if (mounted) {
+      setState(() {
+        _done = done;
+        _stats = stats;
+      });
+    }
   }
 
   Future<void> _open(int index) async {
@@ -50,7 +58,8 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
             children: [
               Text(
                 '어려운 판은 "싱글"만으로는 풀리지 않아요. 기술을 하나씩, 예제 판에서 직접 해 보며 '
-                '익혀요. 마음 내키는 것부터 골라도 좋아요. ($doneCount / ${kTechniqueInfos.length} 완료)',
+                '익혀요. 마음 내키는 것부터 골라도 좋아요. ($doneCount / ${kTechniqueInfos.length} 완료)\n'
+                '오른쪽 평균 시간은 정답 보기 없이 스스로 찾은 연습만 세요.',
                 style: TextStyle(
                   height: 1.5,
                   color: scheme.onSurface.withValues(alpha: 0.7),
@@ -72,6 +81,7 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
                     _TechniqueTile(
                       info: kTechniqueInfos[i],
                       done: _done.contains(kTechniqueInfos[i].id),
+                      stat: _stats[kTechniqueInfos[i].id],
                       onTap: () => _open(i),
                     ),
               ],
@@ -84,10 +94,11 @@ class _SudokuPracticeMenuScreenState extends State<SudokuPracticeMenuScreen> {
 }
 
 class _TechniqueTile extends StatelessWidget {
-  const _TechniqueTile({required this.info, required this.done, required this.onTap});
+  const _TechniqueTile({required this.info, required this.done, required this.onTap, this.stat});
 
   final TechniqueInfo info;
   final bool done;
+  final TechniqueStat? stat;
   final VoidCallback onTap;
 
   @override
@@ -130,12 +141,43 @@ class _TechniqueTile extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (stat != null && stat!.count > 0) ...[
+                  const SizedBox(width: 10),
+                  _StatBadge(stat: stat!),
+                ],
                 const Icon(Icons.chevron_right_rounded),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 오른쪽에 보이는 "연습 3번 / 평균 1분 5초".
+class _StatBadge extends StatelessWidget {
+  const _StatBadge({required this.stat});
+
+  final TechniqueStat stat;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final avg = stat.averageSeconds;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          '연습 ${stat.count}번',
+          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: scheme.primary),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          avg == null ? '평균 —' : '평균 ${spokenTime(avg)}',
+          style: TextStyle(fontSize: 12.5, color: scheme.onSurface.withValues(alpha: 0.6)),
+        ),
+      ],
     );
   }
 }
