@@ -10,6 +10,7 @@ import '../games/davinci/ui/davinci_records_tab.dart';
 import '../games/dandelion/tutorial/dandelion_tutorial.dart';
 import '../games/freecell/freecell_entry.dart';
 import '../games/getcolor/getcolor_entry.dart';
+import '../games/keytap/keytap_entry.dart';
 import '../games/getcolor/tutorial/getcolor_tutorial.dart';
 import '../games/freecell/tutorial/freecell_tutorial.dart';
 import '../games/goblet/goblet_entry.dart';
@@ -182,6 +183,21 @@ const List<GameInfo> _registeredGames = [
     recordsTab: PinballRecordsTab.new,
     beta: true,
     devOnly: true,
+  ),
+  GameInfo(
+    id: 'keytap',
+    title: '건반 톡톡',
+    tagline: '내려오는 검은 블록을 쳐서 곡을 연주해요',
+    icon: Icons.piano_rounded,
+    color: Color(0xFF5A54D6),
+    modes: [PlayMode.solo, PlayMode.wifi],
+    builder: buildKeytap,
+    lanGame: kKeytapLanGame,
+    lanResume: keytapResume,
+    tutorial: keytapTutorial,
+    iconPainter: paintKeytapIcon,
+    recordsTab: KtRecordsTab.new,
+    beta: true,
   ),
 
   // ── 함께 놀기 ('아주 이상한 수학책' 게임들) ──

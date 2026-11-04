@@ -28,6 +28,8 @@ import 'package:tabgame/games/getcolor/core/getcolor_rules.dart';
 import 'package:tabgame/games/getcolor/game/getcolor_controller.dart';
 import 'package:tabgame/games/getcolor/ui/getcolor_screen.dart';
 import 'package:tabgame/games/goblet/ui/goblet_screen.dart';
+import 'package:tabgame/games/keytap/core/kt_songs.dart';
+import 'package:tabgame/games/keytap/ui/kt_play_screen.dart';
 import 'package:tabgame/games/minesweeper/core/mines_rules.dart';
 import 'package:tabgame/games/minesweeper/game/mines_controller.dart';
 import 'package:tabgame/games/minesweeper/ui/mines_screen.dart';
@@ -136,6 +138,7 @@ void main() {
     'stones': () => const StonesScreen(mode: PlayMode.local2p, puzzle: kStartBoard),
     'sprouts': () => const SproutsScreen(mode: PlayMode.local2p, dotCount: 4),
     'davinci': () => DavinciScreen(players: 3, controller: DavinciController(mode: PlayMode.vsCpu, players: 3, seed: 8)..cpuStepDelay = Duration.zero),
+    'keytap': () => KtPlayScreen(song: KtSong.all.first, seed: 3),
     'snake': () => SnakeScreen(controller: SnakeController.host(nick: '나', rng: Random(5)), showHint: false),
     'rummikub': () => RummikubScreen(controller: RummikubController(animate: false, mode: PlayMode.vsCpu, players: 3, seed: 12)),
   };

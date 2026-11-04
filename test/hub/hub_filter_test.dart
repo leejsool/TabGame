@@ -26,7 +26,7 @@ List<String> shownGames(WidgetTester tester) =>
 void main() {
   test('같은 Wi‑Fi로 할 수 있는 게임은 Wi‑Fi 모드를 가진다', () {
     final wifi = {for (final g in allGames) if (g.hasWifi) g.id};
-    expect(wifi, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy', 'rummikub', 'quoridor', 'goblet_gobblers', 'davinci_code', 'snake'});
+    expect(wifi, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy', 'rummikub', 'quoridor', 'goblet_gobblers', 'davinci_code', 'snake', 'keytap'});
     // 루미큐브는 남의 패가 보이면 안 되니 한 기기에서 둘이 하는 모드가 없다
     final rummikub = allGames.firstWhere((g) => g.id == 'rummikub');
     expect(rummikub.modes, [PlayMode.vsCpu, PlayMode.wifi]);
