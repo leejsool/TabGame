@@ -19,6 +19,7 @@ class YachtDiceTray extends StatefulWidget {
     this.onTap,
     this.maxDie = 64,
     this.launchDelays,
+    this.twoRows = false,
   });
 
   /// 지금 놓인 눈 (0이면 아직 안 굴린 빈 주사위).
@@ -38,6 +39,9 @@ class YachtDiceTray extends StatefulWidget {
   /// 굴러가는 주사위들이 던져지기 시작하는 순간(밀리초). 굴러가는 주사위를 번호 순서로 하나씩 받는다 (남는 주사위는 바로 시작).
   /// 소리와 같은 값을 써서 서로 어긋나게 던진다. 없으면 모두 한꺼번에 던진다.
   final List<int>? launchDelays;
+
+  /// 주사위를 두 줄(위 3개 · 아래 2개, 가운데 맞춤)로 놓는다. 폭이 좁은 핸드폰 가로 모드에서 주사위를 크게 보이려고 쓴다.
+  final bool twoRows;
 
   @override
   State<YachtDiceTray> createState() => _YachtDiceTrayState();
@@ -147,12 +151,20 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
     return LayoutBuilder(builder: (context, box) {
       const gap = 8.0;
       final n = widget.dice.length;
-      final die = min(widget.maxDie, (box.maxWidth - gap * (n - 1)) / n);
-      final width = die * n + gap * (n - 1);
+      final two = widget.twoRows;
+      final die = two ? min(widget.maxDie, (box.maxWidth - gap * 2) / 3) : min(widget.maxDie, (box.maxWidth - gap * (n - 1)) / n);
+      final width = two ? die * 3 + gap * 2 : die * n + gap * (n - 1);
       final slots = _slots();
+      // 자리 번호 → 놓이는 곳. 한 줄이면 가로로 나란히, 두 줄이면 위 3개 · 아래 2개를 가운데 맞춤
+      Offset place(int slot) {
+        if (!two) return Offset(slot * (die + gap), 0);
+        if (slot < 3) return Offset(slot * (die + gap), 0);
+        return Offset((width - (2 * die + gap)) / 2 + (slot - 3) * (die + gap), die + 22 + 4);
+      }
+
       return SizedBox(
         width: width,
-        height: die + 22,
+        height: two ? (die + 22) * 2 + 4 : die + 22,
         child: AnimatedBuilder(
           animation: _anim,
           builder: (context, _) => Stack(
@@ -165,12 +177,12 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
                     key: ValueKey('rest-$i'),
                     duration: _sortTime,
                     curve: Curves.easeInOutCubic,
-                    left: slots[i] * (die + gap),
-                    top: 0,
+                    left: place(slots[i]).dx,
+                    top: place(slots[i]).dy,
                     child: _resting(i, die),
                   ),
               for (var i = 0; i < n; i++)
-                if (_flying(i)) Positioned(key: ValueKey('fly-$i'), left: i * (die + gap), top: 0, child: _rollingDie(i, die, width, gap)),
+                if (_flying(i)) Positioned(key: ValueKey('fly-$i'), left: place(i).dx, top: place(i).dy, child: _rollingDie(i, die, width, place(i).dx + die / 2)),
             ],
           ),
         ),
@@ -212,14 +224,13 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
   }
 
   /// 구르는 주사위: 줄의 아래 가운데에서 던져져, 통통 튀고 빙글빙글 돌면서 제자리로 온다.
-  Widget _rollingDie(int i, double die, double width, double gap) {
+  Widget _rollingDie(int i, double die, double width, double slotX) {
     final t = _throws[i];
     if (_anim.value < t.start) return SizedBox.square(dimension: die); // 아직 던지기 전: 보이지 않는다
     final p = ((_anim.value - t.start) / (t.span - t.start)).clamp(0.0, 1.0);
     final ease = 1 - pow(1 - p, 3).toDouble(); // 처음엔 빠르고 끝에서 느려진다
     final left = 1 - ease;
     final hop = (sin(p * pi * 2.5).abs() * pow(1 - p, 1.5)).toDouble().clamp(0.0, 1.0); // 튀어 오른 높이 (0~1)
-    final slotX = i * (die + gap) + die / 2;
     final from = Offset((width / 2 - slotX) * 0.85 + t.side * die, t.depth * die);
     final scale = 1 + 0.32 * hop;
     return Transform.translate(

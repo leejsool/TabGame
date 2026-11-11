@@ -79,6 +79,28 @@ void main() {
       expect(sawFly, isTrue);
     });
 
+    test('줄마다 같은 흐름: 먼저 빛나고 → 내려오고 → 합계가 올라간다 (모든 자리가 같은 순간에)', () {
+      final game = playedGame(3);
+      final tally = YachtTally(game, scale: (d) => d);
+      // 점수가 있는 첫 줄을 찾아 그 줄 안의 순간들을 살핀다
+      final first = tally.steps.indexWhere((s) => s.any);
+      var start = tally.lead;
+      for (var i = 0; i < first; i++) {
+        start += YachtTally.emptyStep;
+      }
+      Duration at(double t) => start + Duration(microseconds: (YachtTally.valueStep.inMicroseconds * t).round());
+      final lit = tally.frameAt(at(0.1));
+      expect(lit.step, first);
+      expect(lit.fly, isNull, reason: '처음엔 줄만 빛난다');
+      expect(lit.shown, [0, 0, 0]);
+      final falling = tally.frameAt(at((YachtTally.litPart + YachtTally.flyPart) / 2));
+      expect(falling.fly, isNotNull, reason: '그다음 점수가 내려온다 (모든 자리가 같은 순간에: 줄 하나에 프레임 하나)');
+      expect(falling.shown, [0, 0, 0], reason: '내려오는 동안은 아직 안 더해졌다');
+      final landed = tally.frameAt(at(0.99));
+      expect(landed.fly, isNull);
+      expect(landed.shown, tally.steps[first].values, reason: '마지막에 합계가 올라간다');
+    });
+
     test('점수가 없는 줄은 빨리 지나간다', () {
       final game = playedGame(2);
       final tally = YachtTally(game);
@@ -129,7 +151,7 @@ void main() {
     var sawFly = false;
     var prev = 0;
     var steps = 0;
-    for (var i = 0; i < 400; i++) {
+    for (var i = 0; i < 1500; i++) {
       await tester.pump(const Duration(milliseconds: 20));
       if (find.byKey(const ValueKey('yacht-fly-0')).evaluate().isNotEmpty || find.byKey(const ValueKey('yacht-fly-1')).evaluate().isNotEmpty) sawFly = true;
       final now = shown(0);

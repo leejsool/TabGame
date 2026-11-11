@@ -237,16 +237,19 @@ class _YachtScreenState extends State<YachtScreen> {
       builder: (context, _) {
         final game = c.game;
         final color = game.over ? Theme.of(context).colorScheme.outline : kYachtSeatColors[game.turn];
+        // 핸드폰 가로 모드: 옆 칸을 좁히고(주사위는 두 줄), 점수판은 가운데에서 둘로 잘라 가로로 놓는다
+        final screen = MediaQuery.sizeOf(context);
+        final phoneLandscape = screen.width > screen.height * 1.2 && screen.shortestSide < kTabletMinSide;
         return _guard(
           child: VsGameScaffold(
             light: const [Color(0xFFEAF5EE), Color(0xFFD3E9DC)],
             dark: const [Color(0xFF14211B), Color(0xFF0E1713)],
-            sideWidth: 420,
+            sideWidth: phoneLandscape ? 214 : 420,
             topBar: VsTopBar(title: c.online ? '야추 · 같은 Wi‑Fi' : (c.cpuSeats.isNotEmpty ? '야추 · CPU ${c.level.label}' : '야추'), gameId: 'yacht', onRules: _showRules),
             chips: const SizedBox.shrink(),
             banner: const SizedBox.shrink(),
             board: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4), child: YachtScoreTable(c: c)),
-            extras: [_tray(color)],
+            extras: [_tray(color, compact: phoneLandscape)],
             bottom: VsBottomBar(children: [
               if (game.over)
                 FilledButton.icon(
@@ -284,20 +287,37 @@ class _YachtScreenState extends State<YachtScreen> {
   }
 
   /// 주사위 줄 + "굴리기" · "적기" 단추.
-  Widget _tray(Color color) {
+  Widget _tray(Color color, {bool compact = false}) {
     final game = c.game;
     final human = c.humanTurn && !c.rolling;
     final pick = human ? c.pick : null;
     final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
     final style = FilledButton.styleFrom(
-      minimumSize: Size(0, tablet ? 60 : 50),
+      minimumSize: Size(0, compact ? 42 : (tablet ? 60 : 50)),
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      textStyle: TextStyle(fontFamily: 'NanumGothic', fontSize: tablet ? 18 : 15.5, fontWeight: FontWeight.w800),
+      textStyle: TextStyle(fontFamily: 'NanumGothic', fontSize: compact ? 14 : (tablet ? 18 : 15.5), fontWeight: FontWeight.w800),
+    );
+    final roll = FilledButton.icon(
+      key: const ValueKey('yacht-roll'),
+      style: style.copyWith(backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.disabled) ? null : kYachtColor)),
+      onPressed: human && game.canRoll ? c.roll : null,
+      icon: const Icon(Icons.casino_rounded, size: 22),
+      label: FittedBox(fit: BoxFit.scaleDown, child: Text(game.over ? '굴리기' : '굴리기 (${game.rollsLeft}번 남음)')),
+    );
+    final confirm = FilledButton.icon(
+      key: const ValueKey('yacht-confirm'),
+      style: style,
+      onPressed: pick == null ? null : c.confirm,
+      icon: const Icon(Icons.edit_rounded, size: 20),
+      label: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(pick == null ? '적을 칸을 눌러요' : '${pick.title} · ${yachtScore(pick, yachtCounts(game.dice))}점 적기'),
+      ),
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      padding: EdgeInsets.fromLTRB(compact ? 8 : 16, 4, compact ? 8 : 16, 4),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: tablet ? 600 : 460),
+        constraints: BoxConstraints(maxWidth: compact ? 220 : (tablet ? 600 : 460)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -308,37 +328,25 @@ class _YachtScreenState extends State<YachtScreen> {
               target: c.rollTarget,
               rollTime: GameSpeed.scale(const Duration(milliseconds: kYachtRollMs)),
               accent: color,
-              maxDie: tablet ? 92 : 64,
+              maxDie: compact ? 54 : (tablet ? 92 : 64),
+              twoRows: compact,
               launchDelays: _launchDelays,
               onTap: human && game.canHold ? c.toggleHold : null,
             ),
             const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const ValueKey('yacht-roll'),
-                    style: style.copyWith(backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.disabled) ? null : kYachtColor)),
-                    onPressed: human && game.canRoll ? c.roll : null,
-                    icon: const Icon(Icons.casino_rounded, size: 22),
-                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(game.over ? '굴리기' : '굴리기 (${game.rollsLeft}번 남음)')),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const ValueKey('yacht-confirm'),
-                    style: style,
-                    onPressed: pick == null ? null : c.confirm,
-                    icon: const Icon(Icons.edit_rounded, size: 20),
-                    label: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(pick == null ? '적을 칸을 눌러요' : '${pick.title} · ${yachtScore(pick, yachtCounts(game.dice))}점 적기'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            // 좁은 옆 칸(핸드폰 가로 모드)에서는 단추를 위아래로 쌓는다
+            if (compact) ...[
+              SizedBox(width: double.infinity, child: roll),
+              const SizedBox(height: 6),
+              SizedBox(width: double.infinity, child: confirm),
+            ] else
+              Row(
+                children: [
+                  Expanded(child: roll),
+                  const SizedBox(width: 8),
+                  Expanded(child: confirm),
+                ],
+              ),
           ],
         ),
       ),

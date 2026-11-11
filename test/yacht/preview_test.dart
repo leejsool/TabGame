@@ -261,4 +261,53 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   }, skip: dir == null);
+
+  testWidgets('야추 핸드폰 가로 모드 미리보기', (tester) async {
+    await loadAppFonts();
+    Directory(dir!).createSync(recursive: true);
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    addTearDown(tester.view.reset);
+    tester.view.physicalSize = const Size(844, 390);
+    tester.view.devicePixelRatio = 1.0;
+
+    Future<void> shot(String name, YachtController c, {List<int> waits = const [400]}) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: SettingsScope(settings: settings, child: MaterialApp(debugShowCheckedModeBanner: false, theme: previewTheme(Brightness.light), home: YachtScreen(mode: c.mode, players: c.players, controller: c))),
+      ));
+      var i = 0;
+      for (final w in waits) {
+        await tester.pump(Duration(milliseconds: w));
+        await savePng(tester, await captureBoundary(tester, key), '$dir/land_${name}_${i++}.png');
+      }
+    }
+
+    await shot('play3', played(PlayMode.local2p, 3, 5));
+    await shot('play4three', played(PlayMode.local2p, 4, 5, three: true));
+    // 끝난 판의 정산: 점수판이 위에서부터 더해지는 중 · 다 끝난 모습
+    final c = played(PlayMode.local2p, 3, 12, rolled: false);
+    c.game.cards.last.scores[YachtCategory.yacht.index] = null;
+    c.game.turn = 2;
+    final key = GlobalKey();
+    await tester.pumpWidget(RepaintBoundary(
+      key: key,
+      child: SettingsScope(settings: settings, child: MaterialApp(debugShowCheckedModeBanner: false, theme: previewTheme(Brightness.light), home: YachtScreen(mode: c.mode, players: c.players, controller: c))),
+    ));
+    await tester.pump(const Duration(milliseconds: 300));
+    c.game.applyRoll([4, 4, 4, 4, 4]);
+    c.pick = YachtCategory.yacht;
+    c.notifyListeners();
+    await tester.pump();
+    c.confirm();
+    var i = 0;
+    for (final ms in [2300, 2700, 6800, 9000]) {
+      await tester.pump(Duration(milliseconds: ms));
+      await savePng(tester, await captureBoundary(tester, key), '$dir/land_tally_${i++}.png');
+    }
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  }, skip: dir == null);
 }

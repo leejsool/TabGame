@@ -62,17 +62,21 @@ class YachtTally {
   }
 
   /// 점수가 있는 줄 · 점수가 없는 줄이 차지하는 시간.
-  static const Duration valueStep = Duration(milliseconds: 420);
-  static const Duration emptyStep = Duration(milliseconds: 130);
+  static const Duration valueStep = Duration(milliseconds: 1000);
+  static const Duration emptyStep = Duration(milliseconds: 520);
 
   /// 시작하기 전에 합계 줄이 나타나기를 기다리는 시간.
-  static const Duration leadTime = Duration(milliseconds: 450);
+  static const Duration leadTime = Duration(milliseconds: 600);
 
   /// 정산이 끝난 뒤 승자를 보여 주기 전에 잠깐 멈추는 시간.
   static const Duration holdTime = Duration(milliseconds: 600);
 
   /// 한 줄의 시간 중 숫자가 내려가는 데 쓰는 비율 (나머지는 합계가 올라가는 시간).
-  static const double flyPart = 0.62;
+  ///
+  /// 한 줄의 흐름: 줄이 먼저 빛나고 (0 ~ [litPart]) → 그 줄의 점수가 합계로 슉 내려오고 ([litPart] ~ [flyPart]) → 합계가 올라간다.
+  /// 모든 자리가 같은 줄에서 같은 순간에 같이 움직인다 (0점인 자리도 "0"이 같이 내려온다).
+  static const double litPart = 0.30;
+  static const double flyPart = 0.72;
 
   final int players;
   late final List<YachtTallyStep> steps;
@@ -108,7 +112,8 @@ class YachtTally {
       sum += (steps[s].values[seat] * _easeOut(up)).round();
       shown[seat] = sum;
     }
-    return YachtTallyFrame(step: s, fly: steps[s].any && t < flyPart ? t / flyPart : null, shown: shown);
+    final fall = t >= litPart && t < flyPart ? (t - litPart) / (flyPart - litPart) : null; // 내려오는 동안만 0~1
+    return YachtTallyFrame(step: s, fly: fall, shown: shown);
   }
 
   static double _easeOut(double x) => 1 - (1 - x) * (1 - x);

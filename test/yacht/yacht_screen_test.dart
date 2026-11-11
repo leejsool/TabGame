@@ -162,6 +162,32 @@ void main() {
     expect(popup, findsNothing);
   });
 
+  testWidgets('핸드폰 가로 모드: 점수판을 숫자 칸 · 족보 칸 두 덩어리로 잘라 가로로 놓고 글자가 잘리지 않는다', (tester) async {
+    for (final players in [2, 4]) {
+      final c = YachtController(mode: PlayMode.local2p, players: players, advisor: advisor, rng: Random(3), threeKind: true);
+      await pumpScreen(tester, c, size: const Size(844, 390));
+      // 숫자 칸은 왼쪽 덩어리, 족보 칸은 오른쪽 덩어리 (같은 높이에서 시작)
+      final ones = tester.getTopLeft(find.byKey(const ValueKey('yacht-help-ones')));
+      final three = tester.getTopLeft(find.byKey(const ValueKey('yacht-help-threeKind')));
+      final four = tester.getTopLeft(find.byKey(const ValueKey('yacht-help-fourKind')));
+      expect(three.dx, greaterThan(ones.dx + 200), reason: '$players명: 족보 칸은 오른쪽 덩어리');
+      expect((three.dy - ones.dy).abs(), lessThan(40), reason: '$players명: 두 덩어리의 첫 줄 높이가 비슷하다');
+      expect(four.dx, three.dx);
+      expect(four.dy, greaterThan(three.dy));
+      // 줄 높이가 넉넉하다 (세로 모드보다 글자가 작아지지 않게)
+      final rowH = tester.getSize(find.byKey(const ValueKey('yacht-help-ones'))).height;
+      expect(rowH, greaterThan(26), reason: '$players명: 줄 높이 $rowH');
+      // 점수판은 화면(390) 안에 다 들어간다
+      expect(tester.getBottomLeft(find.byKey(const ValueKey('yacht-help-yahtzee-bonus'))).dy, lessThan(390));
+      // 옆 칸: 주사위 두 줄 + 단추
+      expect(find.byKey(const ValueKey('yacht-roll')), findsOneWidget);
+      expect(tester.getTopLeft(find.byKey(const ValueKey('yacht-roll'))).dx, greaterThan(600));
+      expect(tester.takeException(), isNull, reason: '$players명 가로 모드');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    }
+  });
+
   testWidgets('굴리기가 끝나면 주사위가 왼쪽부터 눈이 작은 순서로 부드럽게 정렬된다', (tester) async {
     final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(8));
     await pumpScreen(tester, c);

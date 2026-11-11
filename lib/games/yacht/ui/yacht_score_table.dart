@@ -7,6 +7,8 @@ import 'yacht_help.dart';
 import 'yacht_look.dart';
 import 'yacht_tally.dart';
 
+part 'yacht_score_table_split.dart';
+
 /// 야추 점수판: 족보 12줄(쓰리카드를 켜면 13줄) + 보너스 + 야추 보너스, 사람마다 한 칸씩. 스크롤 없이 한 화면에 다 보인다.
 ///
 /// 지금 차례인 사람의 빈 칸에는 "지금 적으면 받는 점수"가 흐리게 보이고, 눌러서 고른다.
@@ -95,8 +97,11 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     return LayoutBuilder(builder: (context, box) {
       // 태블릿에서는 줄과 글자를 키운다
       final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
-      final width = box.maxWidth.clamp(0.0, tablet ? 760.0 : 640.0);
       final cats = c.game.categories;
+      // 폭에 비해 높이가 낮은 화면(핸드폰 가로 모드)에서는 숫자 칸 · 족보 칸을 잘라 가로로 나란히 놓는다
+      final split = box.maxWidth.isFinite && box.maxWidth >= box.maxHeight * 1.5;
+      if (split) return _splitBuild(context, box, cats);
+      final width = box.maxWidth.clamp(0.0, tablet ? 760.0 : 640.0);
       final rows = cats.length + 4; // 이름 줄 + 족보 칸들 + 보너스 + 야추 보너스 + 합계
       // 스크롤 없이 한 화면에 다 들어가도록 줄 높이를 칸 수에 맞춘다 (줄마다 선 1px)
       final rowH = ((box.maxHeight - 8 - rows) / rows).clamp(16.0, tablet ? 60.0 : 46.0);
@@ -130,6 +135,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
 
   Widget _table(_Look look, List<YachtCategory> cats, List<int>? counts, YachtTallyFrame? frame) {
     if (c.isOver && _tally == null) _done = true; // (정산을 못 본 채 끝난 판은 바로 최종 모습)
+    if (look.split) return _splitTable(look, cats, counts, frame);
     final hot = frame?.step ?? -1; // 정산 중에 지금 합계로 내려가는 줄
     var line = 0;
     final rowsList = <Widget>[
@@ -163,20 +169,20 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     final fade = f < 0.82 ? 1.0 : (1 - (f - 0.82) / 0.18).clamp(0.0, 1.0);
     return [
       for (var seat = 0; seat < c.players; seat++)
-        if (step.values[seat] != 0)
-          Positioned(
+        // 0점인 자리도 "0"이 같이 내려온다: 모든 자리가 같은 줄에서 같은 순간에 움직인다
+        Positioned(
             left: look.labelW + seat * look.cellW,
             top: y - look.rowH / 2,
             width: look.cellW,
             height: look.rowH,
             child: IgnorePointer(
               child: Opacity(
-                opacity: fade,
+                opacity: step.values[seat] == 0 ? fade * 0.5 : fade,
                 child: Center(
                   child: Transform.scale(
                     scale: 1.15,
                     child: Text(
-                      '+${step.values[seat]}',
+                      step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
                       key: ValueKey('yacht-fly-$seat'),
                       style: look.number.copyWith(color: kYachtSeatColors[seat], fontWeight: FontWeight.w900),
                     ),
@@ -217,7 +223,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     );
   }
 
-  Widget _header(_Look look) {
+  Widget _header(_Look look, {bool showTitle = true}) {
     final winners = _done ? c.game.winners : const <int>[];
     final String title;
     if (_done) {
@@ -236,7 +242,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
             padding: const EdgeInsets.only(left: 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(title, style: look.small.copyWith(fontWeight: FontWeight.w700)),
+              child: Text(showTitle ? title : '', style: look.small.copyWith(fontWeight: FontWeight.w700)),
             ),
           ),
         ),
@@ -348,10 +354,12 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         child: Row(
           children: [
             Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(look.showRule ? '1~6 칸의 합이 63점 이상이면 +35점' : '63점 이상 +35', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
-            ),
+            if (!look.split) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(look.showRule ? '1~6 칸의 합이 63점 이상이면 +35점' : '63점 이상 +35', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
+              ),
+            ],
           ],
         ),
       ),
@@ -386,10 +394,12 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         child: Row(
           children: [
             Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(look.showRule ? '야추를 또 굴려 적으면 +100점씩' : '+100씩', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
-            ),
+            if (!look.split) ...[
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(look.showRule ? '야추를 또 굴려 적으면 +100점씩' : '+100씩', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
+              ),
+            ],
           ],
         ),
       ),
@@ -451,7 +461,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
 
 /// 점수판의 치수와 글자 모양.
 class _Look {
-  _Look(this.context, {required this.rowH, required this.cellW, required this.labelW, required this.showRule})
+  _Look(this.context, {required this.rowH, required this.cellW, required this.labelW, required this.showRule, this.split = false, this.blockW = 0, this.gap = 0})
       : scheme = Theme.of(context).colorScheme {
     final size = (rowH * 0.42).clamp(12.0, 21.0);
     label = TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w800, color: scheme.onSurface);
@@ -464,6 +474,11 @@ class _Look {
   final double cellW;
   final double labelW;
   final bool showRule;
+
+  /// 숫자 칸과 족보 칸을 두 덩어리로 잘라 가로로 놓는 모드 (핸드폰 가로 모드). 덩어리 하나의 폭 [blockW], 사이 간격 [gap].
+  final bool split;
+  final double blockW;
+  final double gap;
   final ColorScheme scheme;
   late final TextStyle label;
   late final TextStyle number;
