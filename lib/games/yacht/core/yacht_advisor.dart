@@ -5,6 +5,7 @@
 import 'dart:typed_data';
 
 import 'yacht_dice.dart';
+import 'yacht_fraction.dart';
 import 'yacht_rules.dart';
 import 'yacht_values.dart';
 
@@ -55,6 +56,47 @@ class YachtOutlook {
   final List<int> keep;
 }
 
+/// 첫 굴림의 결과를 비슷한 것끼리 묶은 한 줄 ([YachtChanceBreakdown.groups]).
+class YachtBreakdownGroup {
+  const YachtBreakdownGroup({required this.done, required this.prob, required this.next});
+
+  /// 이 결과면 바로 모양이 완성되었는가.
+  final bool done;
+
+  /// 첫 굴림이 이 묶음에 들어갈 확률.
+  final YachtFrac prob;
+
+  /// 이 묶음이 된 뒤 (남은 굴림으로) 끝내 완성될 확률. 바로 완성이면 1.
+  final YachtFrac next;
+
+  /// 이 묶음이 결국 완성에 보태는 확률 (= [prob] x [next]).
+  YachtFrac get gain => prob * next;
+}
+
+/// 모양 족보 하나를 노릴 때 "완성 확률"이 어떻게 나왔는지의 풀이: 가장 좋은 주사위를 고정하고 굴린 첫 결과를
+/// 묶음으로 나누고, 묶음마다 (다음 굴림까지 포함해) 완성될 확률을 곱해 더한 것.
+class YachtChanceBreakdown {
+  const YachtChanceBreakdown({required this.keep, required this.rolled, required this.rerollsLeft, required this.groups, required this.total});
+
+  /// 고정할 주사위 (눈별 개수).
+  final List<int> keep;
+
+  /// 다시 굴리는 주사위 수.
+  final int rolled;
+
+  /// 지금 남은 굴림 횟수.
+  final int rerollsLeft;
+
+  /// 첫 굴림 결과의 묶음들: 바로 완성인 것 → 다음 굴림에서 완성될 가망이 큰 것 순서.
+  final List<YachtBreakdownGroup> groups;
+
+  /// 완성 확률 (정확한 분수).
+  final YachtFrac total;
+
+  /// 첫 굴림 뒤에 한 번 더 굴려서 완성되는 갈래들 (바로 완성이 아니면서 가망이 있는 묶음).
+  List<YachtBreakdownGroup> get later => [for (final g in groups) if (!g.done && g.next.num > 0) g];
+}
+
 class YachtAdvisor {
   YachtAdvisor(this.values);
 
@@ -73,7 +115,7 @@ class YachtAdvisor {
     final upper = card.upperSum > kYachtBonusAt ? kYachtBonusAt : card.upperSum;
     for (final r in _t.rolls) {
       var best = double.negativeInfinity;
-      for (var c = 0; c < 12; c++) {
+      for (var c = 0; c < kYachtSlots; c++) {
         if ((mask >> c) & 1 == 1) continue;
         final g = yachtGain(values, mask, upper, r, c);
         if (g > best) best = g;
@@ -88,7 +130,7 @@ class YachtAdvisor {
     var bestCategory = YachtCategory.ones;
     var stopValue = double.negativeInfinity;
     for (final c in YachtCategory.values) {
-      scoreNow.add(_t.score[roll * 12 + c.index]);
+      scoreNow.add(_t.score[roll * kYachtSlots + c.index]);
       if (!card.isOpen(c)) {
         valueNow.add(null);
         continue;
@@ -142,7 +184,7 @@ class YachtAdvisor {
     return _aims.putIfAbsent(c.index * 2 + kind, () {
       final terminal = Float64List(YachtDiceTables.keepCount);
       for (final r in _t.rolls) {
-        final s = _t.score[r * 12 + c.index];
+        final s = _t.score[r * kYachtSlots + c.index];
         terminal[r] = kind == 0 ? (s > 0 ? 1.0 : 0.0) : s.toDouble();
       }
       return YachtTurn()..solve(terminal);
@@ -163,6 +205,45 @@ class YachtAdvisor {
       expected: byScore.w[rerollsLeft][roll],
       keep: List<int>.of(_t.counts[keep]),
     );
+  }
+
+  /// [c] 모양(포카드~야추 · 쓰리카드)을 노릴 때 완성 확률의 풀이. 굴릴 기회가 없으면 null.
+  ///
+  /// 가장 좋은 고정(이 족보를 가장 잘 노리는 주사위)으로 굴린 첫 결과들을 "바로 완성 / 다음 굴림에서 완성될 확률이 같은 것끼리"
+  /// 묶고, 분수는 모두 정수로 세어 정확하게 계산한다.
+  YachtChanceBreakdown? breakdown(YachtCategory c, List<int> dice, int rerollsLeft) {
+    if (!c.isPattern || rerollsLeft <= 0) return null;
+    const unit = 7776; // 6의 5제곱: 주사위 5개를 굴리는 경우의 수. 모든 확률을 이 분모로 센다
+    final roll = _t.indexOfDice(dice);
+    final guide = _aim(c, 0);
+    final keep = _bestKeep(guide.kv[rerollsLeft - 1], roll, allowAll: true);
+    final n = kYachtDice - _t.size[keep]; // 다시 굴리는 주사위 수
+    var scale = 1; // 6^(5-n)
+    for (var i = n; i < kYachtDice; i++) {
+      scale *= 6;
+    }
+    var pow6n = 1;
+    for (var i = 0; i < n; i++) {
+      pow6n *= 6;
+    }
+    // (완성 여부, 다음 굴림에서 완성될 확률 x 7776) 별로 첫 굴림의 확률(x 7776)을 모은다
+    final sums = <(bool, int), int>{};
+    for (var i = _t.outStart[keep]; i < _t.outStart[keep + 1]; i++) {
+      final o = _t.outTo[i];
+      final p = (_t.outP[i] * pow6n).round() * scale; // 이 결과가 나올 확률 x 7776
+      final done = _t.score[o * kYachtSlots + c.index] > 0;
+      final q = done ? unit : (guide.w[rerollsLeft - 1][o] * unit).round(); // 이 결과 뒤 완성 확률 x 7776
+      sums.update((done, q), (v) => v + p, ifAbsent: () => p);
+    }
+    final groups = [
+      for (final e in sums.entries)
+        YachtBreakdownGroup(done: e.key.$1, prob: YachtFrac(e.value, unit), next: YachtFrac(e.key.$2, unit)),
+    ]..sort((a, b) {
+        if (a.done != b.done) return a.done ? -1 : 1;
+        return b.next.value.compareTo(a.next.value);
+      });
+    final total = groups.fold(YachtFrac.zero, (sum, g) => sum + g.gain);
+    return YachtChanceBreakdown(keep: List<int>.of(_t.counts[keep]), rolled: n, rerollsLeft: rerollsLeft, groups: groups, total: total);
   }
 
   /// 차례를 시작할 때(굴리기 전) [c] 모양이 3번 안에 완성될 확률. 모양 족보만.

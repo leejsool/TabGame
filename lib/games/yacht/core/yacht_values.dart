@@ -1,6 +1,7 @@
+// (야추 보너스 +100은 드물어서 이 표에는 넣지 않았다: 추천은 보너스를 빼고 계산한다.)
 // 야추 "기대 점수 표": 점수판 상태마다, 앞으로 가장 좋게 했을 때 더 얻을 점수의 평균.
 //
-// 상태 = (적은 칸의 비트, 1~6 칸의 합(63에서 멈춤)) → 4096 x 64 칸.
+// 상태 = (적은 칸의 비트, 1~6 칸의 합(63에서 멈춤)) → 8192 x 64 칸 (13칸의 비트. 쓰리카드를 안 쓰는 판은 12번 비트가 처음부터 켜진 상태).
 // 표는 `tool/make_yacht_table.dart`가 미리 계산해 `assets/yacht/values.bin`에 담는다
 // (기기에서 매번 계산하기엔 오래 걸린다). 화면 없이 쓰는 순수 Dart.
 import 'dart:typed_data';
@@ -25,7 +26,7 @@ class YachtValues {
     return YachtValues._(v);
   }
 
-  static const int length = 4096 * 64;
+  static const int length = (1 << kYachtSlots) * 64;
 
   final Float32List _v;
 
@@ -53,7 +54,7 @@ double _gain(
   int roll,
   int c,
 ) {
-  final s = t.score[roll * 12 + c];
+  final s = t.score[roll * kYachtSlots + c];
   final next = mask | (1 << c);
   if (c >= 6) return s + at(next, upper);
   var nu = upper + s;
@@ -77,9 +78,9 @@ Float64List buildYachtValues({int minFilled = 0, void Function(int mask)? onMask
   final turn = YachtTurn();
   final terminal = Float64List(YachtDiceTables.keepCount);
 
-  for (var mask = 4094; mask >= 0; mask--) {
+  for (var mask = (1 << kYachtSlots) - 2; mask >= 0; mask--) {
     var filled = 0;
-    for (var i = 0; i < 12; i++) {
+    for (var i = 0; i < kYachtSlots; i++) {
       filled += (mask >> i) & 1;
     }
     if (filled < minFilled) continue;
@@ -95,7 +96,7 @@ Float64List buildYachtValues({int minFilled = 0, void Function(int mask)? onMask
       }
       for (final r in t.rolls) {
         var best = double.negativeInfinity;
-        for (var c = 0; c < 12; c++) {
+        for (var c = 0; c < kYachtSlots; c++) {
           if ((mask >> c) & 1 == 1) continue;
           final g = _gain(t, at, mask, u, r, c);
           if (g > best) best = g;

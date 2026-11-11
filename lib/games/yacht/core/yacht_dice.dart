@@ -40,8 +40,8 @@ class YachtDiceTables {
   final Int32List subStart = Int32List(keepCount + 1);
   late final Int16List subKeep;
 
-  /// 굴린 결과 r을 c 칸에 적을 때의 점수: score[r * 12 + c.index].
-  final Int16List score = Int16List(keepCount * 12);
+  /// 굴린 결과 r을 c 칸에 적을 때의 점수: score[r * kYachtSlots + c.index].
+  final Int16List score = Int16List(keepCount * kYachtSlots);
 
   final Int16List _byKey = Int16List(46656);
 
@@ -118,7 +118,7 @@ class YachtDiceTables {
         if (inside) subs.add(k);
       }
       for (final c in YachtCategory.values) {
-        score[r * 12 + c.index] = yachtScore(c, counts[r]);
+        score[r * kYachtSlots + c.index] = yachtScore(c, counts[r]);
       }
     }
     subStart[keepCount] = subs.length;

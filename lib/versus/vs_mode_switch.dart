@@ -33,13 +33,6 @@ class VsModeSwitch extends StatelessWidget {
     return null;
   }
 
-  static String _short(PlayMode m) => switch (m) {
-        PlayMode.solo => '혼자',
-        PlayMode.local2p => '둘이서',
-        PlayMode.vsCpu => 'CPU',
-        PlayMode.wifi => 'Wi‑Fi',
-      };
-
   void _go(BuildContext context, GameInfo game, PlayMode mode) {
     final via = context.getInheritedWidgetOfExactType<_ViaSwitch>() != null;
     final route = MaterialPageRoute<void>(builder: (ctx) => _ViaSwitch(child: game.builder!(ctx, mode)));
@@ -59,7 +52,7 @@ class VsModeSwitch extends StatelessWidget {
           ButtonSegment(
             value: m,
             icon: Icon(m.icon, size: 18),
-            label: Text(_short(m), maxLines: 1, softWrap: false, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w800)),
+            label: Text(game.modeSwitchName(m), maxLines: 1, softWrap: false, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w800)),
           ),
       ],
       selected: {current},

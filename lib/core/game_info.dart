@@ -44,6 +44,7 @@ class GameInfo {
     this.hasLesson = false,
     this.beta = false,
     this.devOnly = false,
+    this.localMulti = false,
     this.lanGame,
     this.lanResume,
   });
@@ -85,6 +86,31 @@ class GameInfo {
   /// 허브 카드를 10번 연달아 누르면 열린다 ([DevUnlock]).
   final bool devOnly;
 
+  /// 한 기기로 3~4명까지 함께 할 수 있는 게임이면 true. "둘이서" 대신 "로컬 플레이"로 보여 준다.
+  final bool localMulti;
+
+  /// 허브의 모드 고르기 목록에 보일 이름·설명 (게임에 따라 "둘이서"가 "로컬 플레이"로 바뀐다).
+  String modeLabel(PlayMode m) => localMulti && m == PlayMode.local2p ? '로컬 플레이 (한 기기)' : m.label;
+  String modeDescription(PlayMode m) => localMulti && m == PlayMode.local2p
+      ? (modes.contains(PlayMode.vsCpu) ? '태블릿 하나를 돌려 가며 함께 해요' : '사람과 봇(CPU)을 원하는 만큼 섞어 한 기기로 해요')
+      : m.description;
+
+  /// 허브 카드의 작은 칩에 보일 짧은 이름.
+  String modeChip(PlayMode m) => switch (m) {
+        PlayMode.solo => '혼자',
+        PlayMode.local2p => localMulti ? '로컬' : '2인',
+        PlayMode.vsCpu => 'CPU',
+        PlayMode.wifi => 'Wi‑Fi',
+      };
+
+  /// 시작 전 화면 맨 위 전환 칩에 보일 짧은 이름.
+  String modeSwitchName(PlayMode m) => switch (m) {
+        PlayMode.solo => '혼자',
+        PlayMode.local2p => localMulti ? '로컬' : '둘이서',
+        PlayMode.vsCpu => 'CPU',
+        PlayMode.wifi => 'Wi‑Fi',
+      };
+
   /// 지금 닫혀 있는지 ("준비 중"처럼 흐리게 보이고 눌러도 들어가지 않는다).
   bool get locked => devOnly && !DevUnlock.isOpen(id);
 
@@ -98,6 +124,10 @@ class GameInfo {
   bool get hasRecords => recordsTab != null;
   bool get isReady => builder != null;
   bool get hasSolo => modes.contains(PlayMode.solo);
+
+  /// 허브의 "혼자 놀기" 묶음에 들어가는가. 혼자 놀기와 함께 놀기(한 기기 · CPU · Wi‑Fi)를 둘 다 가진 게임(건반 톡톡)은
+  /// 두 묶음에 중복으로 나오지 않고 "함께 놀기"에만 있다 (게임을 열면 모드 선택에 혼자 하기도 나온다).
+  bool get inSoloSection => hasSolo && !hasMulti;
 
   /// 같은 Wi‑Fi로 함께 할 수 있는 게임이면 true. 허브 카드에 Wi‑Fi 표시가 붙는다.
   bool get hasWifi => modes.contains(PlayMode.wifi);

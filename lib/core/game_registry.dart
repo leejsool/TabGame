@@ -240,11 +240,15 @@ const List<GameInfo> _registeredGames = [
     tagline: '주사위 다섯 개로 족보를 만들어요',
     icon: Icons.casino_rounded,
     color: Color(0xFF2D7D5A),
-    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    // 한 기기에서 사람과 봇(CPU)을 섞어 정하니 "CPU와 대결"은 따로 두지 않는다
+    modes: [PlayMode.local2p, PlayMode.wifi],
     builder: buildYacht,
+    lanGame: kYachtLanGame,
+    lanResume: yachtResume,
     tutorial: yachtTutorial,
     iconPainter: paintYachtIcon,
     recordsTab: YachtRecordsTab.new,
+    localMulti: true,
     beta: true,
   ),
   GameInfo(
@@ -332,6 +336,7 @@ const List<GameInfo> _registeredGames = [
   ),
   GameInfo(
     id: 'quoridor',
+    localMulti: true,
     title: '쿼리도',
     tagline: '말을 달리고 벽으로 길을 막아요',
     icon: Icons.border_all_rounded,

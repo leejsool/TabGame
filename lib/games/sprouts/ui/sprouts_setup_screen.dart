@@ -89,7 +89,6 @@ class _SproutsSetupScreenState extends State<SproutsSetupScreen> {
             selected: _level,
             onChanged: (l) => setState(() => _level = l),
             label: (l) => l.label,
-            description: (l) => l.description,
           ),
         ],
       ],

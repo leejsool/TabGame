@@ -75,7 +75,11 @@ class VsRecordsBoard<R, L> extends StatefulWidget {
     required this.tile,
     this.hasDraws = false,
     this.onRetry,
+    this.localTitle = '둘이서 (한 기기)',
   });
+
+  /// 한 기기로 함께 한 판들의 칸 제목 (3~4명 게임은 "로컬 플레이 (한 기기)").
+  final String localTitle;
 
   /// 최신 순 기록 목록.
   final Future<List<R>> Function() load;
@@ -138,7 +142,7 @@ class _VsRecordsBoardState<R, L> extends State<VsRecordsBoard<R, L>> {
             results: [for (final r in cpu) if (widget.levelOf(r) == level) widget.humanWon(r)],
             hasDraws: widget.hasDraws,
           ),
-        const SectionTitle('둘이서 (한 기기)'),
+        SectionTitle(widget.localTitle),
         _TwoPlayerCard(
           tallies: [...widget.twoPlayerTallies(two, scheme), VsTally('총 판 수', two.length, scheme.onSurface)],
           empty: two.isEmpty,

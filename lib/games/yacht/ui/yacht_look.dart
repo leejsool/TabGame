@@ -71,3 +71,11 @@ class _DiePainter extends CustomPainter {
   @override
   bool shouldRepaint(_DiePainter old) => old.value != value || old.held != held || old.accent != accent;
 }
+
+/// 주사위를 눈이 작은 것부터 왼쪽에서 오른쪽으로 놓는 순서 (눈이 같으면 원래 순서). 게임 화면의 주사위 줄 · 힌트 창이 똑같이 쓴다.
+List<int> yachtSortedOrder(List<int> dice) {
+  return [for (var i = 0; i < dice.length; i++) i]..sort((a, b) {
+      final c = dice[a].compareTo(dice[b]);
+      return c != 0 ? c : a.compareTo(b);
+    });
+}

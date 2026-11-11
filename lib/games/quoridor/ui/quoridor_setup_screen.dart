@@ -76,7 +76,6 @@ class _QuoridorSetupScreenState extends State<QuoridorSetupScreen> {
             selected: _level,
             onChanged: (l) => setState(() => _level = l),
             label: (l) => l.label,
-            description: (l) => l.description,
           ),
           const VsSectionTitle('내 순서', topGap: 24),
           Wrap(
@@ -115,7 +114,6 @@ class _QuoridorSetupScreenState extends State<QuoridorSetupScreen> {
               selected: _level,
               onChanged: (l) => setState(() => _level = l),
               label: (l) => l.label,
-              description: (l) => l.description,
             ),
           ],
         ],

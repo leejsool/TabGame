@@ -160,7 +160,7 @@ class _GameCardState extends State<GameCard> {
                             for (final mode in game.modes)
                               if (!(mode == PlayMode.wifi && kIsWeb)) ...[
                                 if (mode != game.modes.first) const SizedBox(width: 6),
-                                _ModeChip(mode: mode),
+                                _ModeChip(mode: mode, text: game.modeChip(mode)),
                               ],
                           ],
                         ),
@@ -237,16 +237,10 @@ class _SoonBadge extends StatelessWidget {
 }
 
 class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.mode});
+  const _ModeChip({required this.mode, required this.text});
 
   final PlayMode mode;
-
-  String get _short => switch (mode) {
-        PlayMode.solo => '혼자',
-        PlayMode.local2p => '2인',
-        PlayMode.vsCpu => 'CPU',
-        PlayMode.wifi => 'Wi‑Fi',
-      };
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +255,7 @@ class _ModeChip extends StatelessWidget {
         children: [
           Icon(mode.icon, size: 14, color: Colors.white),
           const SizedBox(width: 4),
-          Text(_short, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
       ),
     );

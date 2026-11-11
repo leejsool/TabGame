@@ -33,7 +33,7 @@ enum GameFilter {
 
   bool matches(GameInfo g) => switch (this) {
         GameFilter.all => true,
-        GameFilter.solo => g.hasSolo,
+        GameFilter.solo => g.inSoloSection,
         GameFilter.multi => g.hasMulti,
         GameFilter.wifi => g.hasWifi,
         GameFilter.lesson => g.hasLesson,

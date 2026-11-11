@@ -60,7 +60,6 @@ class _GobbletSetupScreenState extends State<GobbletSetupScreen> {
           selected: _level,
           onChanged: (l) => setState(() => _level = l),
           label: (l) => l.label,
-          description: (l) => l.description,
         ),
       ],
     );

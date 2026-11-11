@@ -14,6 +14,8 @@ import 'package:tabgame/games/yacht/core/yacht_game.dart';
 import 'package:tabgame/games/yacht/core/yacht_rules.dart';
 import 'package:tabgame/games/yacht/core/yacht_values.dart';
 import 'package:tabgame/games/yacht/game/yacht_controller.dart';
+import 'package:tabgame/games/yacht/ui/yacht_glow_border.dart';
+import 'package:tabgame/games/yacht/ui/yacht_look.dart';
 import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
 
 import '../support/preview_kit.dart';
@@ -38,7 +40,9 @@ void main() {
   testWidgets('굴리고 · 잡고 · 칸을 골라 적으면 다음 사람 차례', (tester) async {
     final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(3));
     await pumpScreen(tester, c);
-    expect(find.textContaining('플레이어 1 차례'), findsOneWidget);
+    expect(c.game.turn, 0);
+    expect(find.text('잡음'), findsNothing, reason: '"잡음" 대신 "고정"');
+    expect(find.text('고정'), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('yacht-roll')));
     await tester.pump(const Duration(milliseconds: 100));
@@ -66,13 +70,90 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('yacht-cell-0-choice')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(c.pick, YachtCategory.choice);
-    expect(find.text('초이스 · $sum점 적기'), findsOneWidget);
+    expect(find.text('찬스 · $sum점 적기'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('yacht-confirm')));
     await tester.pump(const Duration(milliseconds: 200));
     expect(c.game.cards[0].scores[YachtCategory.choice.index], sum);
     expect(c.game.turn, 1);
-    expect(find.textContaining('플레이어 2 차례'), findsOneWidget);
+    expect(find.textContaining('적을까요'), findsNothing, reason: '점수판 위의 안내 박스는 없앴다');
     expect(await GameSave.load('yacht'), isNotNull, reason: '하던 판은 이어하기용으로 보관된다');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('족보 이름을 누르면 설명이 팝업으로 뜬다 (점수 칸은 따로 눌러서 고른다)', (tester) async {
+    final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(3), threeKind: true);
+    await pumpScreen(tester, c);
+
+    Future<void> expectHelp(String key, String body) async {
+      await tester.tap(find.byKey(ValueKey(key)));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const ValueKey('yacht-help-body')), findsOneWidget, reason: key);
+      expect(find.text(body), findsOneWidget, reason: key);
+      await tester.tap(find.text('확인'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byKey(const ValueKey('yacht-help-body')), findsNothing);
+    }
+
+    await expectHelp('yacht-help-ones', '1이 나온 주사위 눈의 총합 (최대 5점)');
+    await expectHelp('yacht-help-sixes', '6이 나온 주사위 눈의 총합 (최대 30점)');
+    await expectHelp('yacht-help-threeKind', '같은 눈이 3개 이상일 때 주사위 눈 5개의 총합 (최대 30점)');
+    await expectHelp('yacht-help-fullHouse', '같은 눈 3개와 같은 눈 2개로 묶을 수 있을 때 고정 25점');
+    await expectHelp('yacht-help-largeStraight', '이어지는 눈이 5개일 때 고정 40점 (1-2-3-4-5 또는 2-3-4-5-6)');
+    await expectHelp('yacht-help-bonus', '에이스~식스 여섯 칸의 합이 63점 이상이면 보너스 35점! 숫자마다 3개씩 모으면 딱 63점이에요.');
+    await expectHelp('yacht-help-yahtzee-bonus', '야추 칸에 50점을 적은 뒤, 야추(같은 눈 5개)를 또 굴려서 아무 칸에나 적으면 그때마다 100점을 더 받아요.');
+    expect(c.pick, isNull, reason: '이름을 눌러도 칸이 골라지지는 않는다');
+
+    // 굴린 뒤에도 이름은 설명, 점수 칸은 고르기
+    await tester.tap(find.byKey(const ValueKey('yacht-roll')));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.tap(find.byKey(const ValueKey('yacht-help-choice')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('주사위 눈 5개의 총합 (최대 30점). 모양이 필요 없어서 애매한 주사위를 버리기 좋아요.'), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(c.pick, isNull);
+    await tester.tap(find.byKey(const ValueKey('yacht-cell-0-choice')));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(c.pick, YachtCategory.choice);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('굴리기가 끝나면 주사위가 왼쪽부터 눈이 작은 순서로 부드럽게 정렬된다', (tester) async {
+    final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(8));
+    await pumpScreen(tester, c);
+
+    List<int> leftToRight() {
+      final order = [0, 1, 2, 3, 4]..sort((a, b) => tester.getTopLeft(find.byKey(ValueKey('yacht-die-$a'))).dx.compareTo(tester.getTopLeft(find.byKey(ValueKey('yacht-die-$b'))).dx));
+      return [for (final i in order) c.game.dice[i]];
+    }
+
+    Future<void> rollAndSettle() async {
+      await tester.tap(find.byKey(const ValueKey('yacht-roll')));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(c.rolling, isFalse);
+      await tester.pump(const Duration(milliseconds: 50)); // 정렬이 막 시작된 때
+      final x0 = [for (var i = 0; i < 5; i++) tester.getTopLeft(find.byKey(ValueKey('yacht-die-$i'))).dx];
+      await tester.pump(const Duration(milliseconds: 200)); // 가는 중
+      final xMid = [for (var i = 0; i < 5; i++) tester.getTopLeft(find.byKey(ValueKey('yacht-die-$i'))).dx];
+      await tester.pump(const Duration(milliseconds: 600)); // 도착
+      final sorted = leftToRight();
+      expect([...sorted]..sort(), sorted, reason: '왼쪽부터 오름차순: $sorted');
+      // 자리가 바뀌는 주사위가 있었다면 중간에 움직이고 있었어야 한다 (순간이동이 아니라 미끄러짐)
+      final xEnd = [for (var i = 0; i < 5; i++) tester.getTopLeft(find.byKey(ValueKey('yacht-die-$i'))).dx];
+      for (var i = 0; i < 5; i++) {
+        if ((x0[i] - xEnd[i]).abs() > 1) {
+          expect(xMid[i] != x0[i] && xMid[i] != xEnd[i], isTrue, reason: '$i번 주사위는 부드럽게 움직여야 해요');
+        }
+      }
+    }
+
+    await rollAndSettle();
+    // 하나를 고정하고 다시 굴려도 다시 정렬된다
+    await tester.tap(find.byKey(const ValueKey('yacht-die-2')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await rollAndSettle();
     expect(tester.takeException(), isNull);
   });
 
@@ -87,8 +168,40 @@ void main() {
     await tester.tap(find.text('힌트'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('추천: 표시한 주사위를 잡고 다시 굴리기'), findsOneWidget);
+    expect(find.text('추천: 표시한 주사위를 고정하고 다시 굴리기'), findsOneWidget);
+    // 힌트의 주사위도 게임 화면처럼 왼쪽부터 눈이 작은 순서로 놓인다
+    final shownDice = tester.widgetList<YachtDie>(find.descendant(of: find.byType(BottomSheet), matching: find.byType(YachtDie))).take(5).map((d) => d.value).toList();
+    expect(shownDice, [1, 3, 3, 3, 6]);
+    expect(find.byType(YachtGlowBorder), findsNothing, reason: '칸을 추천하지 않고 주사위를 고정하라는 추천일 때는 띠가 없다');
     expect(find.textContaining('완성'), findsWidgets);
+    expect(find.text('121/1296'), findsNothing, reason: '줄에는 퍼센트만 보이고, 분수는 눌러서 여는 계산 과정에서 나온다');
+    expect(find.text('완성 9.3%'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('yacht-hint-row-yacht')));
+    await tester.tap(find.byKey(const ValueKey('yacht-hint-row-yacht')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('yacht-chance-popup')), findsOneWidget);
+    expect(find.byKey(const ValueKey('yacht-chance-intro')), findsOneWidget);
+    expect(find.textContaining('3개를 굴려'), findsNothing);
+    expect(find.text('121'), findsWidgets, reason: '분자');
+    expect(find.text('1296'), findsWidgets, reason: '분모 (가로줄 위아래로 나뉘어 그려진다)');
+    expect(find.text('121/1296'), findsNothing, reason: '/ 글자가 아니라 진짜 분수 모양');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('yacht-chance-total'))).data, '≈ 9.3%');
+    await tester.tap(find.text('확인'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('yacht-chance-popup')), findsNothing);
+    // 에이스~식스 줄은 점수만 보이고, 누르면 자세한 확률 창이 뜬다
+    expect(find.byKey(const ValueKey('yacht-hint-row-threes')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('yacht-hint-row-threes')));
+    await tester.tap(find.byKey(const ValueKey('yacht-hint-row-threes')));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('yacht-odds-intro')), findsOneWidget);
+    expect(find.textContaining('트레이 확률'), findsOneWidget);
+    expect(find.textContaining('3이 3개예요'), findsOneWidget);
+    expect(find.byKey(const ValueKey('yacht-odds-row-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('yacht-odds-average')), findsOneWidget);
+    await tester.tap(find.text('확인'));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('yacht-odds-intro')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('yacht-hint-apply')));
     await tester.pump(const Duration(milliseconds: 500));
     expect(c.game.held, [true, false, true, false, true]);
@@ -100,6 +213,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('추천: ‘야추’ 칸에 50점 적기'), findsOneWidget);
+    expect(find.byKey(const ValueKey('yacht-hint-glow-yacht')), findsOneWidget, reason: '추천하는 족보 테두리에는 빛나는 띠가 돈다');
+    expect(find.byKey(const ValueKey('yacht-hint-glow-choice')), findsNothing, reason: '추천이 아닌 줄에는 없다');
     await tester.tap(find.byKey(const ValueKey('yacht-hint-apply')));
     await tester.pump(const Duration(milliseconds: 500));
     expect(c.pick, YachtCategory.yacht);

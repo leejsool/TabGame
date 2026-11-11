@@ -47,7 +47,7 @@ class _HubScreenState extends State<HubScreen> {
         // 멘토링 전용 게임은 다른 묶음에서 빼고 맨 밑에 작은 아이콘으로 따로 보여 준다
         final shown = [for (final g in visible) if (!GameFilter.mentoringOnlyGames.contains(g.id)) g];
         final mentoring = [for (final g in visible) if (GameFilter.mentoringOnlyGames.contains(g.id) && _filter.matches(g)) g];
-        final solo = shown.where((g) => g.hasSolo).toList();
+        final solo = shown.where((g) => g.inSoloSection).toList();
         final multi = shown.where((g) => g.hasMulti).toList();
         return Scaffold(
           body: SafeArea(

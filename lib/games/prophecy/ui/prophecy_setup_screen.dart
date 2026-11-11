@@ -111,7 +111,6 @@ class _ProphecySetupScreenState extends State<ProphecySetupScreen> {
             selected: _level,
             onChanged: (l) => setState(() => _level = l),
             label: (l) => l.label,
-            description: (l) => l.description,
           ),
         ],
       ],

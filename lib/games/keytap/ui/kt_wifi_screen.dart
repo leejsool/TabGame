@@ -70,7 +70,6 @@ class _KtRaceSetupScreenState extends State<KtRaceSetupScreen> {
           selected: _level,
           onChanged: (l) => setState(() => _level = l),
           label: (l) => l.label,
-          description: (l) => '블록 100개 중 ${(l.accuracy * 100).round()}개쯤 맞혀요',
         ),
         const VsHint('모이는 대로 시작해요 (2~4명). 방장이 "CPU 넣고 시작"으로 빈자리를 채울 수 있어요.'),
       ],

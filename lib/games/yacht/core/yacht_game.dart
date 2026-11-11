@@ -4,17 +4,24 @@ import 'dart:math';
 import 'yacht_rules.dart';
 
 class YachtGame {
-  /// [first]: 먼저 시작하는 사람.
-  YachtGame({required this.playerCount, int first = 0})
+  /// [first]: 먼저 시작하는 사람. [threeKind]: 쓰리카드 칸을 넣고 하는 판.
+  YachtGame({required this.playerCount, int first = 0, this.threeKind = false})
       : assert(playerCount >= 1 && playerCount <= 4),
-        cards = [for (var i = 0; i < playerCount; i++) YachtCard()],
+        cards = [for (var i = 0; i < playerCount; i++) YachtCard(threeKind: threeKind)],
         turn = first % playerCount;
 
   YachtGame.fromJson(Map<String, dynamic> json)
       : playerCount = (json['cards'] as List).length,
+        threeKind = json['three'] == true,
         cards = [
-          for (final c in json['cards'] as List) YachtCard.fromJson(c as List),
+          for (final c in json['cards'] as List) YachtCard.fromJson(c as List, threeKind: json['three'] == true),
         ] {
+    final yb = json['yb'];
+    if (yb is List) {
+      for (var i = 0; i < cards.length && i < yb.length; i++) {
+        cards[i].yahtzeeBonuses = yb[i] as int;
+      }
+    }
     turn = json['turn'] as int;
     rollsUsed = json['rolls'] as int;
     dice.setAll(0, (json['dice'] as List).cast<int>());
@@ -22,6 +29,12 @@ class YachtGame {
   }
 
   final int playerCount;
+
+  /// 쓰리카드 칸을 넣고 하는 판인가 (시작 전에 정한다).
+  final bool threeKind;
+
+  /// 이 판에서 쓰는 칸들 (점수판 줄 순서).
+  List<YachtCategory> get categories => cards.first.categories;
 
   /// 사람별 점수판.
   final List<YachtCard> cards;
@@ -43,14 +56,14 @@ class YachtGame {
   /// 다시 굴릴 수 있는 남은 횟수.
   int get rollsLeft => kYachtRolls - rollsUsed;
 
-  /// 모든 사람이 12칸을 다 적었는가.
+  /// 모든 사람이 쓰는 칸을 다 적었는가.
   bool get over => cards.every((c) => c.full);
 
-  /// 몇 번째 라운드인가 (1~12).
-  int get round {
-    final filled = card.scores.where((s) => s != null).length;
-    return min(filled + 1, YachtCategory.values.length);
-  }
+  /// 라운드 수 (= 쓰는 칸 수: 12 또는 13).
+  int get rounds => card.slotCount;
+
+  /// 몇 번째 라운드인가 (1~[rounds]).
+  int get round => min(card.filledCount + 1, rounds);
 
   bool get canRoll => !over && rollsLeft > 0 && !(rollsUsed > 0 && held.every((h) => h));
 
@@ -92,7 +105,10 @@ class YachtGame {
   /// [c] 칸에 지금 주사위의 점수를 적고 다음 사람에게 넘긴다. 적은 점수를 돌려준다.
   int score(YachtCategory c) {
     if (!canScore(c)) throw StateError('이 칸에는 적을 수 없다');
-    final s = yachtScore(c, yachtCounts(dice));
+    final counts = yachtCounts(dice);
+    final s = yachtScore(c, counts);
+    // 야추 칸에 50점을 적어 둔 사람이 야추를 또 굴려 어느 칸에든 적으면 보너스 100점
+    if (counts.contains(kYachtDice) && card.scores[YachtCategory.yacht.index] == kYachtYacht) card.yahtzeeBonuses++;
     card.scores[c.index] = s;
     dice.fillRange(0, kYachtDice, 0);
     held.fillRange(0, kYachtDice, false);
@@ -112,6 +128,8 @@ class YachtGame {
 
   Map<String, dynamic> toJson() => {
         'cards': [for (final c in cards) c.toJson()],
+        if (threeKind) 'three': true,
+        if (cards.any((c) => c.yahtzeeBonuses > 0)) 'yb': [for (final c in cards) c.yahtzeeBonuses],
         'turn': turn,
         'rolls': rollsUsed,
         'dice': List<int>.of(dice),

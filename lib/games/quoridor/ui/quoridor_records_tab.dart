@@ -20,6 +20,7 @@ class QuoridorRecordsTab extends StatelessWidget {
       levelOf: (r) => r.level,
       isCpu: (r) => r.vsCpu,
       humanWon: (r) => r.humanWon,
+      localTitle: '로컬 플레이 (한 기기)',
       twoPlayerTallies: (two, scheme) {
         final local = [for (final r in two) if (!r.online) r];
         final online = [for (final r in two) if (r.online) r];

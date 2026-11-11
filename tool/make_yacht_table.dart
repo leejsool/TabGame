@@ -9,7 +9,7 @@ void main() {
   var seen = 0;
   final raw = buildYachtValues(onMask: (_) {
     seen++;
-    if (seen % 512 == 0) stdout.writeln('  $seen / 4095 ...');
+    if (seen % 1024 == 0) stdout.writeln('  $seen / 8191 ...');
   });
   final values = YachtValues.fromDoubles(raw);
   final file = File('assets/yacht/values.bin')..createSync(recursive: true);

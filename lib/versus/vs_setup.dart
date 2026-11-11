@@ -266,7 +266,7 @@ class VsChoiceRow extends StatelessWidget {
   }
 }
 
-/// "CPU 난이도" 고르기: 난이도마다 이름과 설명이 있는 라디오 타일 목록.
+/// "CPU 난이도" 고르기: 난이도 이름이 한 줄(좌·중·우)로 나란히 놓인 칩들.
 class VsLevelPicker<T> extends StatelessWidget {
   const VsLevelPicker({
     super.key,
@@ -274,52 +274,53 @@ class VsLevelPicker<T> extends StatelessWidget {
     required this.selected,
     required this.onChanged,
     required this.label,
-    required this.description,
   });
 
   final List<T> levels;
   final T selected;
   final ValueChanged<T> onChanged;
   final String Function(T level) label;
-  final String Function(T level) description;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Column(
+    return Row(
       children: [
-        for (final l in levels) ...[
-          Material(
-            color: l == selected ? scheme.primaryContainer : scheme.surface,
-            elevation: l == selected ? 0 : 1,
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
+        for (var i = 0; i < levels.length; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: Material(
+              color: levels[i] == selected ? scheme.primaryContainer : scheme.surface,
+              elevation: levels[i] == selected ? 0 : 1,
               borderRadius: BorderRadius.circular(16),
-              onTap: () => onChanged(l),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(
-                  children: [
-                    Icon(
-                      l == selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-                      color: l == selected ? scheme.primary : scheme.outline,
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(label(l), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                          Text(description(l), style: const TextStyle(fontSize: 13)),
-                        ],
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => onChanged(levels[i]),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        levels[i] == selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                        size: 20,
+                        color: levels[i] == selected ? scheme.primary : scheme.outline,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          label(levels[i]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
         ],
       ],
     );

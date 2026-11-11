@@ -3,12 +3,24 @@ import '../core/yacht_cpu.dart';
 
 /// 끝난 야추 한 판의 결과.
 class YachtRecord {
-  const YachtRecord({required this.at, required this.vsCpu, required this.scores, this.level});
+  const YachtRecord({required this.at, required this.vsCpu, required this.scores, this.level, this.online = false, this.seat = 0, this.bots = 0});
 
   final int at;
 
-  /// CPU와 한 판인가 (그러면 0번 자리가 나다).
+  /// 사람 한 명이 CPU(봇)들과 한 판인가 (그러면 0번 자리가 나다).
   final bool vsCpu;
+
+  /// 한 기기 판에서 봇이 앉은 자리 수 (뒤쪽 자리들이 봇이다). 같은 Wi‑Fi 판은 0.
+  final int bots;
+
+  /// 한 기기 판에서 사람이 앉은 자리 수.
+  int get humans => scores.length - bots;
+
+  /// 같은 Wi‑Fi로 함께 한 판인가 (그러면 [seat]번 자리가 나다).
+  final bool online;
+
+  /// CPU 대결 · 같은 Wi‑Fi 판에서 내 자리.
+  final int seat;
 
   /// 자리별 최종 점수.
   final List<int> scores;
@@ -25,16 +37,19 @@ class YachtRecord {
           if (scores[i] == best) i,
       ];
 
-  /// CPU 대결에서 내가 이겼는가 (공동 1등이면 null = 무승부).
-  bool? get humanWon => !winners.contains(0) ? false : (winners.length == 1 ? true : null);
+  /// CPU 대결 · 같은 Wi‑Fi 판에서 내가 이겼는가 (공동 1등이면 null = 무승부).
+  bool? get humanWon => !winners.contains(seat) ? false : (winners.length == 1 ? true : null);
 
-  Map<String, dynamic> toJson() => {'at': at, 'cpu': vsCpu, 's': scores, 'lv': level?.name};
+  Map<String, dynamic> toJson() => {'at': at, 'cpu': vsCpu, 's': scores, 'lv': level?.name, if (online) 'on': true, if (seat != 0) 'me': seat, if (bots > 0) 'bots': bots};
 
   static YachtRecord fromJson(Map<String, dynamic> j) => YachtRecord(
         at: j['at'] as int,
         vsCpu: j['cpu'] as bool,
         scores: (j['s'] as List).cast<int>(),
         level: j['lv'] == null ? null : YachtLevel.values.byName(j['lv'] as String),
+        online: j['on'] == true,
+        seat: j['me'] as int? ?? 0,
+        bots: j['bots'] as int? ?? 0,
       );
 }
 

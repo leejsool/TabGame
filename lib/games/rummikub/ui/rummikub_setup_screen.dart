@@ -79,7 +79,6 @@ class _RummikubSetupScreenState extends State<RummikubSetupScreen> {
             selected: _level,
             onChanged: (l) => setState(() => _level = l),
             label: (l) => l.label,
-            description: (l) => l.description,
           ),
         ] else ...[
           const VsHint('"모이는 대로 시작" 방이에요. 인원수를 미리 정하지 않아도 돼요. 한 명이라도 들어오면 "이대로 시작하기", "CPU 1명 넣고 시작하기", "CPU 2명 넣고 시작하기" 중에서 골라 시작해요. (모두 4명까지, 4명이 모이면 저절로 시작해요) 사람과는 각자 자기 기기로 해서 서로의 것은 보이지 않아요.'),
@@ -89,7 +88,6 @@ class _RummikubSetupScreenState extends State<RummikubSetupScreen> {
             selected: _level,
             onChanged: (l) => setState(() => _level = l),
             label: (l) => l.label,
-            description: (l) => l.description,
           ),
           const VsSectionTitle('내 순서', topGap: 24),
           Wrap(

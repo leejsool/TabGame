@@ -3,17 +3,92 @@ import 'package:flutter/material.dart';
 import '../../../core/tablet_scale.dart';
 import '../core/yacht_rules.dart';
 import '../game/yacht_controller.dart';
+import 'yacht_help.dart';
 import 'yacht_look.dart';
+import 'yacht_tally.dart';
 
-/// 야추 점수판: 족보 12줄 + 보너스 + 합계, 사람마다 한 칸씩.
+/// 야추 점수판: 족보 12줄(쓰리카드를 켜면 13줄) + 보너스 + 야추 보너스, 사람마다 한 칸씩. 스크롤 없이 한 화면에 다 보인다.
 ///
 /// 지금 차례인 사람의 빈 칸에는 "지금 적으면 받는 점수"가 흐리게 보이고, 눌러서 고른다.
-class YachtScoreTable extends StatelessWidget {
+/// 합계는 게임이 끝난 뒤에야 나타난다: 맨 윗줄(에이스)부터 차례로 그 줄의 점수가 합계로 내려와 더해지고,
+/// 다 더해지면 이긴 사람이 표시된다 ([YachtTally]).
+class YachtScoreTable extends StatefulWidget {
   const YachtScoreTable({super.key, required this.c});
 
   final YachtController c;
 
-  static const int _rows = 15; // 이름 줄 + 족보 12 + 보너스 + 합계
+  @override
+  State<YachtScoreTable> createState() => _YachtScoreTableState();
+}
+
+class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProviderStateMixin {
+  YachtController get c => widget.c;
+
+  late final AnimationController _ctl = AnimationController(vsync: this);
+  YachtTally? _tally;
+
+  /// 직전에 판이 끝나 있었는가 (끝나는 순간을 알아채려고).
+  bool _wasOver = false;
+
+  /// 정산이 다 끝났는가 (이미 끝난 판을 열었을 때도 true).
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _wasOver = c.isOver;
+    _done = c.isOver;
+    c.addListener(_onGame);
+  }
+
+  @override
+  void didUpdateWidget(YachtScoreTable old) {
+    super.didUpdateWidget(old);
+    if (old.c != c) {
+      old.c.removeListener(_onGame);
+      c.addListener(_onGame);
+    }
+  }
+
+  @override
+  void dispose() {
+    c.removeListener(_onGame);
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  void _onGame() {
+    final over = c.isOver;
+    if (over && !_wasOver) {
+      _startTally();
+    } else if (!over && _wasOver) {
+      _ctl.stop(); // 한 판 더: 정산을 멈추고 합계를 다시 숨긴다
+      _tally = null;
+      _done = false;
+    }
+    _wasOver = over;
+  }
+
+  void _startTally() {
+    final tally = YachtTally(c.game);
+    _tally = tally;
+    _done = false;
+    _ctl
+      ..duration = tally.duration + YachtTally.holdTime
+      ..forward(from: 0).whenComplete(() {
+        if (mounted && c.isOver) setState(() => _done = true);
+      });
+  }
+
+  /// 정산 중인가.
+  bool get _tallying => c.isOver && !_done && _tally != null;
+
+  YachtTallyFrame? _frame() {
+    final tally = _tally;
+    if (!_tallying || tally == null) return null;
+    final total = _ctl.duration!.inMicroseconds;
+    return tally.frameAt(Duration(microseconds: (_ctl.value * total).round()));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +96,10 @@ class YachtScoreTable extends StatelessWidget {
       // 태블릿에서는 줄과 글자를 키운다
       final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
       final width = box.maxWidth.clamp(0.0, tablet ? 760.0 : 640.0);
-      final rowH = ((box.maxHeight - 8) / _rows).clamp(24.0, tablet ? 60.0 : 46.0);
+      final cats = c.game.categories;
+      final rows = cats.length + 4; // 이름 줄 + 족보 칸들 + 보너스 + 야추 보너스 + 합계
+      // 스크롤 없이 한 화면에 다 들어가도록 줄 높이를 칸 수에 맞춘다 (줄마다 선 1px)
+      final rowH = ((box.maxHeight - 8 - rows) / rows).clamp(16.0, tablet ? 60.0 : 46.0);
       final n = c.players;
       final cellW = (width * 0.52 / n).clamp(50.0, tablet ? 124.0 : 100.0);
       final labelW = width - cellW * n;
@@ -31,32 +109,83 @@ class YachtScoreTable extends StatelessWidget {
       return Center(
         child: SizedBox(
           width: width,
-          child: SingleChildScrollView(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: look.scheme.surface.withValues(alpha: 0.82),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: look.scheme.outlineVariant),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _header(look),
-                    for (final cat in YachtCategory.values) ...[
-                      if (cat == YachtCategory.choice) _bonusRow(look),
-                      _categoryRow(look, cat, counts),
-                    ],
-                    _totalRow(look),
-                  ],
-                ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: look.scheme.surface.withValues(alpha: 0.82),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: look.scheme.outlineVariant),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AnimatedBuilder(
+                animation: _ctl,
+                builder: (context, _) => _table(look, cats, counts, _frame()),
               ),
             ),
           ),
         ),
       );
     });
+  }
+
+  Widget _table(_Look look, List<YachtCategory> cats, List<int>? counts, YachtTallyFrame? frame) {
+    if (c.isOver && _tally == null) _done = true; // (정산을 못 본 채 끝난 판은 바로 최종 모습)
+    final hot = frame?.step ?? -1; // 정산 중에 지금 합계로 내려가는 줄
+    var line = 0;
+    final rowsList = <Widget>[
+      _header(look),
+      for (var i = 0; i < cats.length; i++) ...[
+        _categoryRow(look, cats[i], counts, shaded: i.isOdd, hot: hot == line++),
+        if (cats[i] == YachtCategory.sixes) _bonusRow(look, hot: hot == line++), // 숫자 칸 6개 바로 아래 (진짜 점수표처럼)
+      ],
+      _yahtzeeBonusRow(look, hot: hot == line++),
+      // 합계는 게임이 끝나야 나타난다
+      AnimatedSize(
+        duration: const Duration(milliseconds: 300),
+        alignment: Alignment.topCenter,
+        child: c.isOver ? _totalRow(look, frame) : const SizedBox.shrink(),
+      ),
+    ];
+    return Stack(
+      children: [
+        Column(mainAxisSize: MainAxisSize.min, children: rowsList),
+        if (frame != null && frame.fly != null) ..._flying(look, frame, line),
+      ],
+    );
+  }
+
+  /// 정산 중 한 줄의 점수들이 합계 줄까지 내려가는 숫자 (자리마다 하나씩).
+  List<Widget> _flying(_Look look, YachtTallyFrame frame, int totalLine) {
+    final step = _tally!.steps[frame.step];
+    final f = Curves.easeInCubic.transform(frame.fly!);
+    double centerY(int ln) => look.rowH + ln * (look.rowH + 1) + 1 + look.rowH / 2;
+    final y = centerY(frame.step) + (centerY(totalLine) - centerY(frame.step)) * f;
+    final fade = f < 0.82 ? 1.0 : (1 - (f - 0.82) / 0.18).clamp(0.0, 1.0);
+    return [
+      for (var seat = 0; seat < c.players; seat++)
+        if (step.values[seat] != 0)
+          Positioned(
+            left: look.labelW + seat * look.cellW,
+            top: y - look.rowH / 2,
+            width: look.cellW,
+            height: look.rowH,
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: fade,
+                child: Center(
+                  child: Transform.scale(
+                    scale: 1.15,
+                    child: Text(
+                      '+${step.values[seat]}',
+                      key: ValueKey('yacht-fly-$seat'),
+                      style: look.number.copyWith(color: kYachtSeatColors[seat], fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+    ];
   }
 
   bool _active(int seat) => !c.isOver && c.game.turn == seat;
@@ -73,15 +202,31 @@ class YachtScoreTable extends StatelessWidget {
     );
   }
 
-  Widget _line(_Look look, Widget label, List<Widget> cells, {Color? color}) {
+  /// 한 줄. [onLabelTap]이 있으면 이름 쪽을 눌러 설명 창을 띄운다 (점수 칸은 따로 눌러서 고른다).
+  Widget _line(_Look look, Widget label, List<Widget> cells, {Color? color, VoidCallback? onLabelTap, Key? labelKey, bool hot = false}) {
+    final name = SizedBox(width: look.labelW, height: look.rowH, child: label);
     return Container(
-      decoration: BoxDecoration(color: color, border: Border(top: BorderSide(color: look.scheme.outlineVariant.withValues(alpha: 0.6)))),
-      child: Row(children: [SizedBox(width: look.labelW, height: look.rowH, child: label), ...cells]),
+      decoration: BoxDecoration(
+        color: hot ? look.scheme.primary.withValues(alpha: 0.16) : color,
+        border: Border(top: BorderSide(color: look.scheme.outlineVariant.withValues(alpha: 0.6))),
+      ),
+      child: Row(children: [
+        if (onLabelTap == null) name else GestureDetector(key: labelKey, behavior: HitTestBehavior.opaque, onTap: onLabelTap, child: name),
+        ...cells,
+      ]),
     );
   }
 
   Widget _header(_Look look) {
-    final winners = c.isOver ? c.game.winners : const <int>[];
+    final winners = _done ? c.game.winners : const <int>[];
+    final String title;
+    if (_done) {
+      title = '끝!';
+    } else if (c.isOver) {
+      title = '점수 계산!';
+    } else {
+      title = '${c.game.round} / ${c.game.rounds} 라운드';
+    }
     return Row(
       children: [
         SizedBox(
@@ -91,7 +236,7 @@ class YachtScoreTable extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(c.isOver ? '끝!' : '${c.game.round} / 12 라운드', style: look.small.copyWith(fontWeight: FontWeight.w700)),
+              child: Text(title, style: look.small.copyWith(fontWeight: FontWeight.w700)),
             ),
           ),
         ),
@@ -132,7 +277,7 @@ class YachtScoreTable extends StatelessWidget {
     );
   }
 
-  Widget _categoryRow(_Look look, YachtCategory cat, List<int>? counts) {
+  Widget _categoryRow(_Look look, YachtCategory cat, List<int>? counts, {required bool shaded, required bool hot}) {
     final game = c.game;
     return _line(
       look,
@@ -156,7 +301,10 @@ class YachtScoreTable extends StatelessWidget {
         for (var seat = 0; seat < c.players; seat++)
           _seatBox(look, seat, _cell(look, seat, cat, counts), key: ValueKey('yacht-cell-$seat-${cat.name}')),
       ],
-      color: game.over || cat.index.isEven ? null : look.scheme.onSurface.withValues(alpha: 0.025),
+      color: game.over || !shaded ? null : look.scheme.onSurface.withValues(alpha: 0.025),
+      onLabelTap: () => showYachtCategoryHelp(look.context, cat),
+      labelKey: ValueKey('yacht-help-${cat.name}'),
+      hot: hot,
     );
   }
 
@@ -178,7 +326,7 @@ class YachtScoreTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(9),
         border: picked || preview != null
             ? Border.all(color: color.withValues(alpha: picked ? 1 : 0.45), width: 1.4)
-            : (last ? Border.all(color: color, width: 1.6) : null),
+            : (last && !c.isOver ? Border.all(color: color, width: 1.6) : null),
       ),
       child: Text(
         '${written ?? preview}',
@@ -192,7 +340,7 @@ class YachtScoreTable extends StatelessWidget {
     return GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => c.choose(cat), child: box);
   }
 
-  Widget _bonusRow(_Look look) {
+  Widget _bonusRow(_Look look, {required bool hot}) {
     return _line(
       look,
       Padding(
@@ -223,10 +371,53 @@ class YachtScoreTable extends StatelessWidget {
           ),
       ],
       color: kYachtColor.withValues(alpha: 0.08),
+      onLabelTap: () => showYachtUpperBonusHelp(look.context),
+      labelKey: const ValueKey('yacht-help-bonus'),
+      hot: hot,
     );
   }
 
-  Widget _totalRow(_Look look) {
+  /// 야추 칸에 50점을 적은 뒤 야추를 또 굴려 적을 때마다 +100 (진짜 점수표의 "YAHTZEE BONUS" 줄).
+  Widget _yahtzeeBonusRow(_Look look, {required bool hot}) {
+    return _line(
+      look,
+      Padding(
+        padding: const EdgeInsets.only(left: 12, right: 4),
+        child: Row(
+          children: [
+            Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(look.showRule ? '야추를 또 굴려 적으면 +100점씩' : '+100씩', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
+            ),
+          ],
+        ),
+      ),
+      [
+        for (var seat = 0; seat < c.players; seat++)
+          _seatBox(
+            look,
+            seat,
+            () {
+              final n = c.game.cards[seat].yahtzeeBonuses;
+              return Text(
+                n > 0 ? '+${n * kYachtYahtzeeBonus}' : '–',
+                key: ValueKey('yacht-ybonus-$seat'),
+                style: n > 0 ? look.number.copyWith(color: kYachtColor, fontWeight: FontWeight.w800) : look.small,
+              );
+            }(),
+          ),
+      ],
+      color: kYachtColor.withValues(alpha: 0.08),
+      onLabelTap: () => showYachtYahtzeeBonusHelp(look.context),
+      labelKey: const ValueKey('yacht-help-yahtzee-bonus'),
+      hot: hot,
+    );
+  }
+
+  /// 합계 줄 (게임이 끝난 뒤에만). 정산 중에는 [frame]의 점수가, 끝나면 최종 점수가 보이고 이긴 사람이 표시된다.
+  Widget _totalRow(_Look look, YachtTallyFrame? frame) {
+    final winners = _done ? c.game.winners : const <int>[];
     return _line(
       look,
       Padding(
@@ -235,10 +426,22 @@ class YachtScoreTable extends StatelessWidget {
       ),
       [
         for (var seat = 0; seat < c.players; seat++)
-          _seatBox(
-            look,
-            seat,
-            Text('${c.game.cards[seat].total}', key: ValueKey('yacht-total-$seat'), style: look.number.copyWith(fontSize: look.number.fontSize! + 2, fontWeight: FontWeight.w900, color: kYachtSeatColors[seat])),
+          SizedBox(
+            width: look.cellW,
+            height: look.rowH,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: winners.contains(seat) ? const Color(0xFFF2A900).withValues(alpha: 0.28) : null,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Text(
+                '${frame?.shown[seat] ?? c.game.cards[seat].total}',
+                key: ValueKey('yacht-total-$seat'),
+                style: look.number.copyWith(fontSize: look.number.fontSize! + 2, fontWeight: FontWeight.w900, color: kYachtSeatColors[seat]),
+              ),
+            ),
           ),
       ],
       color: look.scheme.onSurface.withValues(alpha: 0.05),
@@ -248,7 +451,7 @@ class YachtScoreTable extends StatelessWidget {
 
 /// 점수판의 치수와 글자 모양.
 class _Look {
-  _Look(BuildContext context, {required this.rowH, required this.cellW, required this.labelW, required this.showRule})
+  _Look(this.context, {required this.rowH, required this.cellW, required this.labelW, required this.showRule})
       : scheme = Theme.of(context).colorScheme {
     final size = (rowH * 0.42).clamp(12.0, 21.0);
     label = TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w800, color: scheme.onSurface);
@@ -256,6 +459,7 @@ class _Look {
     small = TextStyle(fontFamily: 'NanumGothic', fontSize: (size - 2.5).clamp(10.5, 15.0), color: scheme.onSurfaceVariant);
   }
 
+  final BuildContext context;
   final double rowH;
   final double cellW;
   final double labelW;

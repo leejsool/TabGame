@@ -26,10 +26,20 @@ List<String> shownGames(WidgetTester tester) =>
 void main() {
   test('같은 Wi‑Fi로 할 수 있는 게임은 Wi‑Fi 모드를 가진다', () {
     final wifi = {for (final g in allGames) if (g.hasWifi) g.id};
-    expect(wifi, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy', 'rummikub', 'quoridor', 'goblet_gobblers', 'davinci_code', 'snake', 'keytap'});
+    expect(wifi, {'ultimate_tictactoe', 'sprouts', 'dandelion', 'prophecy', 'rummikub', 'quoridor', 'goblet_gobblers', 'davinci_code', 'snake', 'keytap', 'yacht'});
     // 루미큐브는 남의 패가 보이면 안 되니 한 기기에서 둘이 하는 모드가 없다
     final rummikub = allGames.firstWhere((g) => g.id == 'rummikub');
     expect(rummikub.modes, [PlayMode.vsCpu, PlayMode.wifi]);
+  });
+
+  test('혼자 놀기와 함께 놀기를 둘 다 가진 게임(건반 톡톡)은 "함께 놀기"에만 나온다', () {
+    final keytap = allGames.firstWhere((g) => g.id == 'keytap');
+    expect(keytap.modes, [PlayMode.solo, PlayMode.wifi]);
+    expect(GameFilter.solo.matches(keytap), isFalse);
+    expect(GameFilter.multi.matches(keytap), isTrue);
+    for (final g in allGames) {
+      expect(GameFilter.solo.matches(g) && GameFilter.multi.matches(g), isFalse, reason: '${g.title}가 두 묶음에 모두 있다');
+    }
   });
 
   for (final size in const [Size(360, 780), Size(1000, 700)]) {

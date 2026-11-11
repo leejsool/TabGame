@@ -12,6 +12,8 @@ import '../core/yacht_game.dart';
 import '../core/yacht_rules.dart';
 import '../core/yacht_values.dart';
 
+part 'yacht_controller_rejoin.dart';
+
 /// 주사위가 구르는 시간 (밀리초. "빠른 진행"이면 더 짧아진다).
 const int kYachtRollMs = 950;
 
@@ -29,10 +31,17 @@ class YachtController extends ChangeNotifier {
     this.players = 2,
     this.level = YachtLevel.normal,
     this.first = 0,
+    this.humanSeat = 0,
+    Iterable<int>? cpuSeats,
+    this.cpuHost = false,
+    this.names,
     this.advisor,
+    this.threeKind = false,
     Random? rng,
   })  : _rng = rng ?? Random(),
-        game = YachtGame(playerCount: players, first: first);
+        // CPU와 대결(옛 방식)은 내 자리 빼고 모두 CPU. 한 기기로 함께 · 같은 Wi‑Fi는 알려 준 자리들이 CPU(봇)다.
+        cpuSeats = mode == PlayMode.vsCpu ? {for (var i = 0; i < players; i++) if (i != humanSeat) i} : {...?cpuSeats},
+        game = YachtGame(playerCount: players, first: first, threeKind: threeKind);
 
   /// 이어하기용으로 보관한 모습에서 되살린다. 맞지 않는 내용이면 null.
   static YachtController? fromJson(Map<String, dynamic> j) {
@@ -43,6 +52,8 @@ class YachtController extends ChangeNotifier {
         players: game.playerCount,
         level: YachtLevel.values.byName(j['level'] as String),
         first: j['first'] as int? ?? 0,
+        threeKind: game.threeKind,
+        cpuSeats: [for (final s in (j['cpu'] as List?) ?? const []) if (s is int && s >= 0 && s < game.playerCount) s],
       );
       c.game = game;
       c.actions = j['actions'] as int? ?? 1;
@@ -57,6 +68,9 @@ class YachtController extends ChangeNotifier {
   /// 앉은 사람 수 (2~4, CPU 포함).
   final int players;
   final YachtLevel level;
+
+  /// 쓰리카드 칸을 넣고 하는 판인가 (시작 전에 정한다. "한 판 더"에서도 그대로).
+  final bool threeKind;
 
   /// 이번 판을 먼저 시작한 자리 (한 판 더 할 때마다 한 칸씩 돈다).
   int first;
@@ -82,7 +96,7 @@ class YachtController extends ChangeNotifier {
   /// 이번 판에서 한 행동 수 (굴리기 + 적기). 0이면 아직 시작 전이다.
   int actions = 0;
 
-  /// 화면에 알리는 일: 'roll' 굴리기 시작, 'land' 주사위가 멈춤, 'hold' 잡기, 'score' 적음, 'zero' 0점을 적음, 'end' 판이 끝남.
+  /// 화면에 알리는 일: 'roll' 굴리기 시작, 'land' 주사위가 멈춤, 'hold' 잡기, 'score' 적음, 'zero' 0점을 적음, 'yahtzee' 야추 성공(50점 · 보너스), 'end' 판이 끝남.
   void Function(String kind)? onFeedback;
 
   final Random _rng;
@@ -91,29 +105,73 @@ class YachtController extends ChangeNotifier {
   bool _disposed = false;
   bool _cpuBusy = false;
 
-  bool get vsCpu => mode == PlayMode.vsCpu;
+  /// 사람 한 명이 CPU(봇)들과 하는 판인가 (옛 "CPU와 대결"이거나, 한 기기 설정에서 사람 1명 + 봇).
+  bool get vsCpu => mode == PlayMode.vsCpu || (!online && cpuSeats.isNotEmpty && cpuSeats.length == players - 1);
 
-  /// CPU 대결에서 내 자리.
-  int get humanSeat => 0;
+  /// 같은 Wi‑Fi로 함께 하는 판인가.
+  bool get online => mode == PlayMode.wifi;
 
-  bool isCpu(int seat) => vsCpu && seat != humanSeat;
+  /// 이 기기에서 한 자리만 맡는가 (CPU 대결 · 같은 Wi‑Fi).
+  bool get oneSeat => vsCpu || online;
+
+  /// CPU 대결 · 같은 Wi‑Fi 판에서 내 자리.
+  final int humanSeat;
+
+  /// 같은 Wi‑Fi 판에서 CPU가 앉은 자리들 (처음부터 CPU였거나, 나간 사람 대신 맡았거나).
+  final Set<int> cpuSeats;
+
+  /// 같은 Wi‑Fi 판에서 이 기기가 CPU의 차례를 진행하는가 (방을 연 기기만).
+  final bool cpuHost;
+
+  /// 같은 Wi‑Fi 판의 자리별 이름.
+  final List<String>? names;
+
+  /// 같은 Wi‑Fi 판에서 이 기기가 한 일(내 입력 · 방장 기기의 CPU)을 다른 기기에 알린다.
+  /// `{'t': 'roll', 'd': 눈 5개}` · `{'t': 'hold', 'h': 잡은 주사위}` · `{'t': 'score', 'c': 칸 번호}`, 모두 `i`(그때까지의 행동 수)가 붙는다.
+  void Function(Map<String, dynamic> action)? onLocalAction;
+
+  bool isCpu(int seat) => cpuSeats.contains(seat);
   bool get isOver => game.over;
   bool get thinking => _cpu.thinking;
 
-  /// 지금 사람이 누를 수 있는 차례인가.
-  bool get humanTurn => !game.over && !isCpu(game.turn);
+  /// 이 기기가 CPU의 차례를 진행하는가.
+  bool get runsCpu => cpuSeats.isNotEmpty && (!online || cpuHost);
 
-  /// 이어하기용으로 보관할 만한 판인가 (시작했고 아직 안 끝났다).
-  bool get savable => !game.over && actions > 0;
+  /// 같은 Wi‑Fi 판에 있는 사람 수.
+  int get humans => players - cpuSeats.length;
+
+  /// 지금 (이 기기의) 사람이 누를 수 있는 차례인가.
+  bool get humanTurn => !game.over && !isCpu(game.turn) && (!online || game.turn == humanSeat);
+
+  /// 이어하기용으로 보관할 만한 판인가 (시작했고 아직 안 끝났다. 같은 Wi‑Fi 판은 보관하지 않는다).
+  bool get savable => !online && !game.over && actions > 0;
 
   String name(int seat) {
-    if (!vsCpu) return '플레이어 ${seat + 1}';
-    if (seat == humanSeat) return '나';
-    return players == 2 ? 'CPU' : 'CPU $seat';
+    if (online) {
+      if (seat == humanSeat) return '나';
+      final given = names;
+      return given != null && given.length == players ? given[seat] : '상대';
+    }
+    if (vsCpu) {
+      if (seat == humanSeat) return '나';
+      return players == 2 ? 'CPU' : 'CPU $seat';
+    }
+    if (isCpu(seat)) return cpuSeats.length == 1 ? 'CPU' : 'CPU ${cpuSeats.where((s) => s < seat).length + 1}';
+    return '플레이어 ${seat + 1}';
   }
 
   /// 좁은 칸에 쓰는 짧은 이름.
-  String shortName(int seat) => vsCpu ? name(seat) : '${seat + 1}번';
+  String shortName(int seat) {
+    if (!online) return vsCpu || isCpu(seat) ? name(seat) : '${seat + 1}번';
+    final n = name(seat);
+    return n.runes.length <= 4 ? n : String.fromCharCodes(n.runes.take(4));
+  }
+
+  void _notify() => notifyListeners();
+
+  void _emit(Map<String, dynamic> action) {
+    if (online) onLocalAction?.call({...action, 'i': actions});
+  }
 
   /// 화면이 뜬 뒤 한 번 부른다: 확률 계산을 준비하고, CPU 차례면 CPU가 시작한다.
   Future<void> start() async {
@@ -133,6 +191,7 @@ class YachtController extends ChangeNotifier {
   void toggleHold(int i) {
     if (rolling || !humanTurn || !game.canHold) return;
     game.toggleHold(i);
+    _emit({'t': 'hold', 'h': List<bool>.of(game.held)});
     onFeedback?.call('hold');
     notifyListeners();
   }
@@ -150,6 +209,7 @@ class YachtController extends ChangeNotifier {
     if (rolling || !humanTurn) return;
     if (holds != null && game.canHold) {
       game.setHolds(holds);
+      _emit({'t': 'hold', 'h': List<bool>.of(game.held)});
       pick = null;
     } else if (category != null && game.canScore(category)) {
       pick = category;
@@ -175,12 +235,13 @@ class YachtController extends ChangeNotifier {
     _cpu.cancel();
     _cpuBusy = false;
     rolling = false;
+    _pendingRoll = null;
     pick = null;
     lastSeat = null;
     lastCategory = null;
     actions = 0;
     if (rotate) first = (first + 1) % players;
-    game = YachtGame(playerCount: players, first: first);
+    game = YachtGame(playerCount: players, first: first, threeKind: threeKind);
     notifyListeners();
     _runCpu();
   }
@@ -193,37 +254,100 @@ class YachtController extends ChangeNotifier {
     return !_disposed && epoch == _epoch;
   }
 
+  /// 구르는 중인 주사위가 멈출 눈 (아직 판에 적용하지 않았다).
+  List<int>? _pendingRoll;
+
   /// 주사위를 굴린다 (구르는 동안 잠깐 기다린다). 그 사이에 새 판이 시작됐으면 false.
-  Future<bool> _roll() async {
+  Future<bool> _roll() {
     final target = game.nextRoll(_rng);
+    _emit({'t': 'roll', 'd': target});
+    return _showRoll(target);
+  }
+
+  /// [target]으로 멈추는 주사위를 굴려 보인 뒤 판에 적용한다 (내가 굴렸거나, 다른 기기가 굴린 결과를 받았거나).
+  Future<bool> _showRoll(List<int> target) async {
     rollTarget = target;
+    _pendingRoll = target;
     rolling = true;
     pick = null;
     onFeedback?.call('roll');
     notifyListeners();
-    if (!await _wait(kYachtRollMs)) return false;
+    final alive = await _wait(kYachtRollMs);
+    if (_disposed) return false;
+    if (identical(_pendingRoll, target)) _settleRoll();
+    return alive;
+  }
+
+  /// 구르는 중인 주사위를 바로 멈춰 판에 적용한다 (다음 소식이 먼저 왔거나, 자리 주인이 바뀔 때).
+  void _settleRoll() {
+    final target = _pendingRoll;
+    if (target == null) return;
+    _pendingRoll = null;
     game.applyRoll(target);
     rolling = false;
     actions++;
     onFeedback?.call('land');
     notifyListeners();
-    return true;
   }
 
-  void _score(YachtCategory c) {
+  void _score(YachtCategory c, {bool local = true}) {
+    if (local) _emit({'t': 'score', 'c': c.index});
     lastSeat = game.turn;
     lastCategory = c;
+    final card = game.card;
+    final bonusesBefore = card.yahtzeeBonuses;
     final s = game.score(c);
     pick = null;
     actions++;
-    onFeedback?.call(game.over ? 'end' : (s > 0 ? 'score' : 'zero'));
+    // 야추 성공: 야추 칸에 50점을 적었거나, 야추를 또 굴려 보너스 100점을 받았을 때 (누가 해도 같다)
+    final yahtzee = (c == YachtCategory.yacht && s == kYachtYacht) || card.yahtzeeBonuses > bonusesBefore;
+    onFeedback?.call(yahtzee ? 'yahtzee' : (game.over ? 'end' : (s > 0 ? 'score' : 'zero')));
+    if (yahtzee && game.over) onFeedback?.call('end');
     notifyListeners();
+  }
+
+  /// 다른 기기가 한 일을 받아 그대로 따라 한다. 지금 판과 맞지 않으면 false (판이 어긋났다).
+  bool receive(Map<String, dynamic> m) {
+    if (!online || game.over || game.turn == humanSeat) return false;
+    _settleRoll();
+    final i = m['i'];
+    if (i is int && i != actions) return false;
+    switch (m['t']) {
+      case 'roll':
+        final d = m['d'];
+        if (d is! List || d.length != kYachtDice || !game.canRoll) return false;
+        final target = <int>[];
+        for (var k = 0; k < kYachtDice; k++) {
+          final v = d[k];
+          if (v is! int || v < 1 || v > 6) return false;
+          if (game.rollsUsed > 0 && game.held[k] && v != game.dice[k]) return false;
+          target.add(v);
+        }
+        _showRoll(target);
+        return true;
+      case 'hold':
+        final h = m['h'];
+        if (h is! List || h.length != kYachtDice || h.any((x) => x is! bool) || !game.canHold) return false;
+        game.setHolds(h.cast<bool>());
+        onFeedback?.call('hold');
+        notifyListeners();
+        return true;
+      case 'score':
+        final k = m['c'];
+        if (k is! int || k < 0 || k >= YachtCategory.values.length) return false;
+        final c = YachtCategory.values[k];
+        if (!game.canScore(c)) return false;
+        _score(c, local: false);
+        _runCpu();
+        return true;
+    }
+    return false;
   }
 
   /// CPU 차례가 이어지는 동안 CPU가 굴리고 · 잡고 · 적는다.
   Future<void> _runCpu() async {
     final brain = advisor;
-    if (_cpuBusy || brain == null) return;
+    if (_cpuBusy || brain == null || (online && !cpuHost)) return;
     final epoch = _epoch;
     _cpuBusy = true;
     try {
@@ -246,6 +370,7 @@ class YachtController extends ChangeNotifier {
           _score(category);
         } else {
           game.setHolds(move.holds!);
+          _emit({'t': 'hold', 'h': List<bool>.of(game.held)});
           onFeedback?.call('hold');
           notifyListeners();
           if (!await _wait(650) || !await _roll()) return;
@@ -262,6 +387,7 @@ class YachtController extends ChangeNotifier {
         'first': first,
         'actions': actions,
         'game': game.toJson(),
+        if (cpuSeats.isNotEmpty && !online) 'cpu': [...cpuSeats],
       };
 
   @override

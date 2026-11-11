@@ -62,7 +62,6 @@ class _DandelionSetupScreenState extends State<DandelionSetupScreen> {
           selected: _level,
           onChanged: (l) => setState(() => _level = l),
           label: (l) => l.label,
-          description: (l) => l.description,
         ),
       ],
     );
