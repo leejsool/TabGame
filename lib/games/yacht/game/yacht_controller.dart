@@ -145,6 +145,22 @@ class YachtController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 힌트대로 해 준다: [holds]대로 주사위를 잡거나, [category] 칸을 고른다 (굴리기·적기는 사람이 누른다).
+  void applyHint({List<bool>? holds, YachtCategory? category}) {
+    if (rolling || !humanTurn) return;
+    if (holds != null && game.canHold) {
+      game.setHolds(holds);
+      pick = null;
+    } else if (category != null && game.canScore(category)) {
+      pick = category;
+    }
+    onFeedback?.call('hold');
+    notifyListeners();
+  }
+
+  /// 지금 힌트를 볼 수 있는가 (내 차례에 한 번은 굴린 뒤).
+  bool get canHint => advisor != null && humanTurn && !rolling && game.rollsUsed > 0;
+
   /// 고른 칸에 적는다.
   void confirm() {
     final c = pick;

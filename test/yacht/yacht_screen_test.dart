@@ -76,6 +76,36 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('힌트: 추천을 보여 주고, 누르면 그대로 잡거나 칸을 골라 준다', (tester) async {
+    final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(3));
+    await pumpScreen(tester, c);
+    expect(c.canHint, isFalse, reason: '굴리기 전에는 힌트가 없다');
+    c.game.applyRoll([3, 1, 3, 6, 3]);
+    c.actions = 1;
+    c.notifyListeners();
+    await tester.pump();
+    await tester.tap(find.text('힌트'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('추천: 표시한 주사위를 잡고 다시 굴리기'), findsOneWidget);
+    expect(find.textContaining('완성'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('yacht-hint-apply')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(c.game.held, [true, false, true, false, true]);
+
+    c.game.applyRoll([4, 4, 4, 4, 4]);
+    c.notifyListeners();
+    await tester.pump();
+    await tester.tap(find.text('힌트'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('추천: ‘야추’ 칸에 50점 적기'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('yacht-hint-apply')));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(c.pick, YachtCategory.yacht);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('CPU는 자기 차례를 스스로 끝내고 내 차례로 넘긴다', (tester) async {
     for (final level in YachtLevel.values) {
       final c = YachtController(mode: PlayMode.vsCpu, players: 3, level: level, advisor: advisor, rng: Random(11), first: 1);

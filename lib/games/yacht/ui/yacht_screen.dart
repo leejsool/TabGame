@@ -14,6 +14,7 @@ import '../data/yacht_history.dart';
 import '../game/yacht_controller.dart';
 import '../tutorial/yacht_tutorial.dart';
 import 'yacht_dice_tray.dart';
+import 'yacht_hint_sheet.dart';
 import 'yacht_look.dart';
 import 'yacht_score_table.dart';
 
@@ -174,8 +175,10 @@ class _YachtScreenState extends State<YachtScreen> {
                   icon: const Icon(Icons.refresh_rounded, size: 22),
                   label: const Text('한 판 더'),
                 )
-              else
+              else ...[
+                VsButton(icon: Icons.lightbulb_outline_rounded, label: '힌트', onPressed: c.canHint ? () => showYachtHint(context, c) : null),
                 VsButton(icon: Icons.refresh_rounded, label: '새 판', onPressed: _newGame),
+              ],
             ]),
           ),
         );

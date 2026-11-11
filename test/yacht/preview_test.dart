@@ -56,7 +56,7 @@ void main() {
     final settings = await Settings.load();
     addTearDown(tester.view.reset);
 
-    Future<void> shoot(String name, Widget Function() home, {bool dark = false, int wait = 600}) async {
+    Future<void> shoot(String name, Widget Function() home, {bool dark = false, int wait = 600, bool hint = false}) async {
       final shots = <ui.Image>[];
       for (final e in kPreviewSizes.entries) {
         if (dark && e.key != 'phone') continue;
@@ -78,6 +78,11 @@ void main() {
           ),
         ));
         await tester.pump(Duration(milliseconds: wait));
+        if (hint) {
+          await tester.tap(find.text('힌트'));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 600));
+        }
         final image = await captureBoundary(tester, key);
         await savePng(tester, image, '$dir/${name}_${e.key}${dark ? '_dark' : ''}.png');
         shots.add(image);
@@ -110,7 +115,15 @@ void main() {
     await shoot('rolling', () => screen(rollingNow()), wait: 380);
     await shoot('local4', () => screen(four()));
     await shoot('local4', () => screen(four()), dark: true);
-    await shoot('cpu2', () => screen(played(PlayMode.vsCpu, 2, 8)));
+    await shoot('hint_roll', () => screen(played(PlayMode.local2p, 2, 3)), hint: true);
+    await shoot('hint_score', () {
+      final c = played(PlayMode.vsCpu, 2, 6, rolled: false);
+      c.game.applyRoll([2, 3, 4, 5, 6]);
+      c.game.applyRoll([2, 3, 4, 5, 6]);
+      c.game.applyRoll([2, 3, 4, 5, 6]);
+      return screen(c);
+    }, hint: true);
+    await shoot('cpu2',() => screen(played(PlayMode.vsCpu, 2, 8)));
     await shoot('start', () => screen(played(PlayMode.local2p, 2, 0, rolled: false)));
     await shoot('over3', () => screen(played(PlayMode.local2p, 3, 12)));
     await shoot('setup', () => const YachtSetupScreen(mode: PlayMode.vsCpu));
