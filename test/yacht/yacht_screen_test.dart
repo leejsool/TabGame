@@ -17,6 +17,7 @@ import 'package:tabgame/games/yacht/game/yacht_controller.dart';
 import 'package:tabgame/games/yacht/ui/yacht_glow_border.dart';
 import 'package:tabgame/games/yacht/ui/yacht_fraction_view.dart';
 import 'package:tabgame/games/yacht/ui/yacht_look.dart';
+import 'package:tabgame/games/yacht/ui/yacht_scale.dart';
 import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
 
 import '../support/preview_kit.dart';
@@ -160,6 +161,48 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(seconds: 1));
     expect(popup, findsNothing);
+  });
+
+  testWidgets('태블릿: 족보 설명 글이 모든 줄에서 같은 자리에서 시작한다 (스몰 스트레이트 설명에 맞춰)', (tester) async {
+    final c = YachtController(mode: PlayMode.local2p, players: 3, advisor: advisor, rng: Random(3), threeKind: true);
+    await pumpScreen(tester, c, size: const Size(800, 1280));
+    final texts = [
+      '1만 모두 더해요', // 에이스 (주사위 그림이 있는 줄)
+      '6만 모두 더해요',
+      '1~6 칸의 합이 63점 이상이면 +35점', // 보너스
+      '같은 눈 3개 이상 → 눈 5개의 합', // 쓰리카드
+      '같은 눈 4개 이상 → 눈 5개의 합', // 포카드
+      '이어진 눈 4개 → 30점', // 스몰 스트레이트 (가장 긴 이름)
+      '이어진 눈 5개 → 40점',
+      '같은 눈 5개 → 50점', // 야추
+      '눈 5개의 합', // 찬스
+      '야추를 또 굴려 적으면 +100점씩', // 야추 보너스
+    ];
+    final xs = [for (final t in texts) tester.getTopLeft(find.text(t)).dx];
+    for (var i = 0; i < xs.length; i++) {
+      expect(xs[i], closeTo(xs[5], 0.6), reason: '${texts[i]}의 시작 위치 ${xs[i]} (스몰 스트레이트 설명 ${xs[5]})');
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  test('전자칠판처럼 큰 화면만 통째로 키운다 (폰 · 일반 태블릿은 그대로)', () {
+    expect(YachtScaled.factor(const Size(400, 860)), 1);
+    expect(YachtScaled.factor(const Size(844, 390)), 1, reason: '폰 가로');
+    expect(YachtScaled.factor(const Size(800, 1280)), 1, reason: '태블릿 세로');
+    expect(YachtScaled.factor(const Size(1280, 800)), 1, reason: '태블릿 가로');
+    expect(YachtScaled.factor(const Size(1920, 1080)), closeTo(1.35, 1e-9), reason: '전자칠판: 세로가 빠듯한 쪽에 맞춘다');
+    expect(YachtScaled.factor(const Size(3840, 2160)), closeTo(2.4, 1e-9), reason: '4K는 2.4배까지');
+    expect(YachtScaled.factor(const Size(1080, 1920)), closeTo(1.35, 1e-9), reason: '세로로 세운 칠판');
+  });
+
+  testWidgets('전자칠판 크기에서도 같은 화면이 한 화면 안에 들어가고 글자가 커진다', (tester) async {
+    final c = YachtController(mode: PlayMode.local2p, players: 3, advisor: advisor, rng: Random(3));
+    await pumpScreen(tester, c, size: const Size(1920, 1080));
+    final size = tester.getSize(find.byKey(const ValueKey('yacht-help-ones')));
+    expect(size.height, greaterThan(40), reason: '칸 높이가 칠판에서 커졌다 (태블릿 가로는 약 45)');
+    expect(tester.getBottomRight(find.byKey(const ValueKey('yacht-help-yahtzee-bonus'))).dy, lessThan(1080));
+    expect(tester.getBottomRight(find.byKey(const ValueKey('yacht-roll'))).dx, lessThan(1920));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('핸드폰 가로 모드: 점수판을 숫자 칸 · 족보 칸 두 덩어리로 잘라 가로로 놓고 글자가 잘리지 않는다', (tester) async {

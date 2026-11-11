@@ -23,6 +23,7 @@ import 'yacht_dice_sound.dart';
 import 'yacht_dice_tray.dart';
 import 'yacht_hint_sheet.dart';
 import 'yacht_look.dart';
+import 'yacht_scale.dart';
 import 'yacht_score_table.dart';
 import 'yacht_tally.dart';
 
@@ -240,7 +241,8 @@ class _YachtScreenState extends State<YachtScreen> {
         // 핸드폰 가로 모드: 옆 칸을 좁히고(주사위는 두 줄), 점수판은 가운데에서 둘로 잘라 가로로 놓는다
         final screen = MediaQuery.sizeOf(context);
         final phoneLandscape = screen.width > screen.height * 1.2 && screen.shortestSide < kTabletMinSide;
-        return _guard(
+        return YachtScaled(
+          child: _guard(
           child: VsGameScaffold(
             light: const [Color(0xFFEAF5EE), Color(0xFFD3E9DC)],
             dark: const [Color(0xFF14211B), Color(0xFF0E1713)],
@@ -267,7 +269,7 @@ class _YachtScreenState extends State<YachtScreen> {
               ],
             ]),
           ),
-        );
+        ));
       },
     );
   }

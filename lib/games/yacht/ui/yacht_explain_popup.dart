@@ -5,6 +5,7 @@ import '../core/yacht_fraction.dart';
 import '../core/yacht_rules.dart';
 import 'yacht_fraction_view.dart';
 import 'yacht_look.dart';
+import 'yacht_scale.dart';
 
 const List<String> _letters = ['A', 'B', 'C', 'D', 'E'];
 
@@ -145,7 +146,8 @@ Future<void> showYachtGroupExplain(
           ? '“${cat.label}”이(가) 바로 완성되는 경우'
           : (group.next.num > 0 ? '아직 완성은 아니지만, 다음 굴림에서 완성될 확률이 ${group.next}인 경우' : '“${cat.label}”을(를) 더 이상 완성할 수 없는 경우');
 
-      return AlertDialog(
+      return YachtScaled(
+        child: AlertDialog(
         key: const ValueKey('yacht-explain-popup'),
         insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
         contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
@@ -305,7 +307,7 @@ Future<void> showYachtGroupExplain(
           ),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인'))],
-      );
+      ));
     },
   );
 }

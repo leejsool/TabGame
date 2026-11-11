@@ -310,4 +310,38 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   }, skip: dir == null);
+
+  testWidgets('야추 태블릿 · 전자칠판 화면 미리보기', (tester) async {
+    await loadAppFonts();
+    Directory(dir!).createSync(recursive: true);
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    addTearDown(tester.view.reset);
+    const sizes = {'tabP': Size(800, 1280), 'tabL': Size(1280, 800), 'board': Size(1920, 1080)};
+
+    Future<void> shoot(String name, Size size, YachtController c, {bool hint = false}) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      final key = GlobalKey();
+      await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: SettingsScope(settings: settings, child: MaterialApp(key: UniqueKey(), debugShowCheckedModeBanner: false, theme: previewTheme(Brightness.light), home: YachtScreen(mode: c.mode, players: c.players, controller: c))),
+      ));
+      await tester.pump(const Duration(milliseconds: 600));
+      if (hint) {
+        await tester.tap(find.text('힌트'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 900));
+      }
+      await savePng(tester, await captureBoundary(tester, key), '$dir/big_$name.png');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    for (final e in sizes.entries) {
+      await shoot('play_${e.key}', e.value, played(PlayMode.local2p, 3, 5));
+    }
+    await shoot('over_board', sizes['board']!, played(PlayMode.local2p, 4, 12, three: true));
+    await shoot('hint_board', sizes['board']!, played(PlayMode.local2p, 3, 3), hint: true);
+  }, skip: dir == null);
 }

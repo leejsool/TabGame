@@ -1,3 +1,5 @@
+import 'dart:math' show max;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/tablet_scale.dart';
@@ -101,7 +103,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       // 폭에 비해 높이가 낮은 화면(핸드폰 가로 모드)에서는 숫자 칸 · 족보 칸을 잘라 가로로 나란히 놓는다
       final split = box.maxWidth.isFinite && box.maxWidth >= box.maxHeight * 1.5;
       if (split) return _splitBuild(context, box, cats);
-      final width = box.maxWidth.clamp(0.0, tablet ? 760.0 : 640.0);
+      final width = box.maxWidth.clamp(0.0, tablet ? 900.0 : 640.0);
       final rows = cats.length + 4; // 이름 줄 + 족보 칸들 + 보너스 + 야추 보너스 + 합계
       // 스크롤 없이 한 화면에 다 들어가도록 줄 높이를 칸 수에 맞춘다 (줄마다 선 1px)
       final rowH = ((box.maxHeight - 8 - rows) / rows).clamp(16.0, tablet ? 60.0 : 46.0);
@@ -295,7 +297,11 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
               YachtDie(value: cat.index + 1, size: look.rowH * 0.66),
               const SizedBox(width: 6),
             ],
-            Text(cat.label, maxLines: 1, style: look.label),
+            // 설명 글이 모든 줄에서 같은 자리에서 시작하도록, 이름 칸을 가장 긴 이름 폭에 맞춘다
+            if (look.showRule)
+              SizedBox(width: look.nameW - (cat.isUpper ? look.rowH * 0.66 + 6 : 0), child: Text(cat.label, maxLines: 1, style: look.label))
+            else
+              Text(cat.label, maxLines: 1, style: look.label),
             if (look.showRule) ...[
               const SizedBox(width: 10),
               Expanded(child: Text(cat.rule, maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small)),
@@ -353,9 +359,12 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         padding: const EdgeInsets.only(left: 12, right: 4),
         child: Row(
           children: [
-            Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
+            if (look.showRule)
+              SizedBox(width: look.nameW, child: Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)))
+            else
+              Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
             if (!look.split) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: look.showRule ? 10 : 8),
               Expanded(
                 child: Text(look.showRule ? '1~6 칸의 합이 63점 이상이면 +35점' : '63점 이상 +35', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
               ),
@@ -378,7 +387,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
             }(),
           ),
       ],
-      color: kYachtColor.withValues(alpha: 0.08),
+      color: kYachtColor.withValues(alpha: 0.16), // 보너스 줄은 특수한 줄이라 다른 줄보다 진하게
       onLabelTap: () => showYachtUpperBonusHelp(look.context),
       labelKey: const ValueKey('yacht-help-bonus'),
       hot: hot,
@@ -393,9 +402,12 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         padding: const EdgeInsets.only(left: 12, right: 4),
         child: Row(
           children: [
-            Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
+            if (look.showRule)
+              SizedBox(width: look.nameW, child: Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)))
+            else
+              Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
             if (!look.split) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: look.showRule ? 10 : 8),
               Expanded(
                 child: Text(look.showRule ? '야추를 또 굴려 적으면 +100점씩' : '+100씩', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
               ),
@@ -418,7 +430,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
             }(),
           ),
       ],
-      color: kYachtColor.withValues(alpha: 0.08),
+      color: kYachtColor.withValues(alpha: 0.16), // 보너스 줄은 특수한 줄이라 다른 줄보다 진하게
       onLabelTap: () => showYachtYahtzeeBonusHelp(look.context),
       labelKey: const ValueKey('yacht-help-yahtzee-bonus'),
       hot: hot,
@@ -480,6 +492,22 @@ class _Look {
   final double blockW;
   final double gap;
   final ColorScheme scheme;
+
+  /// 이름 칸의 폭: 가장 긴 족보 이름("스몰 스트레이트")에 맞춘다 (숫자 칸은 주사위 그림 폭까지 더해서).
+  /// 설명 글이 모든 줄에서 같은 자리에서 시작하게 한다.
+  late final double nameW = () {
+    double textW(String t) {
+      final p = TextPainter(text: TextSpan(text: t, style: label), textDirection: TextDirection.ltr, textScaler: MediaQuery.textScalerOf(context), maxLines: 1)..layout();
+      return p.width;
+    }
+
+    final die = rowH * 0.66 + 6;
+    var w = max(textW('보너스'), textW('야추 보너스'));
+    for (final c in YachtCategory.values) {
+      w = max(w, textW(c.label) + (c.isUpper ? die : 0));
+    }
+    return w + 2;
+  }();
   late final TextStyle label;
   late final TextStyle number;
   late final TextStyle small;

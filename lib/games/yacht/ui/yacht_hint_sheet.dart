@@ -8,6 +8,7 @@ import 'yacht_fraction_view.dart';
 import 'yacht_glow_border.dart';
 import 'yacht_look.dart';
 import 'yacht_odds_popup.dart';
+import 'yacht_scale.dart';
 
 /// 힌트 창: 지금 상황에서 추천하는 행동과, 빈 칸마다의 "지금 점수 · 더 굴렸을 때의 확률".
 ///
@@ -28,12 +29,7 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
   final outlooks = {for (final cat in open) cat: advisor.outlook(cat, dice, left)};
   final color = kYachtSeatColors[game.turn];
 
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    constraints: const BoxConstraints(maxWidth: 560),
-    builder: (ctx) {
+  Widget content(BuildContext ctx) {
       final scheme = Theme.of(ctx).colorScheme;
       final head = Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800);
       final small = TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant);
@@ -149,7 +145,27 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
           ),
         ),
       );
-    },
+  }
+
+  // 큰 화면(전자칠판)에서는 아래에서 올라오는 창 대신 가운데 창으로 띄워 통째로 키운다
+  if (YachtScaled.factor(MediaQuery.sizeOf(context)) > 1.05) {
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => YachtScaled(
+        child: Dialog(
+          insetPadding: const EdgeInsets.all(12),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: Padding(padding: const EdgeInsets.only(top: 14), child: content(ctx))),
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    constraints: const BoxConstraints(maxWidth: 560),
+    builder: content,
   );
 }
 

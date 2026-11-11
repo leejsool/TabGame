@@ -5,6 +5,7 @@ import '../core/yacht_rules.dart';
 import 'yacht_explain_popup.dart';
 import 'yacht_fraction_view.dart';
 import 'yacht_look.dart';
+import 'yacht_scale.dart';
 
 /// 힌트에서 모양 족보(포카드 · 풀하우스 · 스트레이트 · 야추 · 쓰리카드)의 "완성 확률"을 눌렀을 때 뜨는 계산 과정 창.
 ///
@@ -103,7 +104,8 @@ Future<void> showYachtChanceDetail(
 
       final terms = [for (final g in bd.groups) if (g.gain.num > 0) g.gain];
 
-      return AlertDialog(
+      return YachtScaled(
+        child: AlertDialog(
         key: const ValueKey('yacht-chance-popup'),
         insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
         contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -175,7 +177,7 @@ Future<void> showYachtChanceDetail(
           ),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인'))],
-      );
+      ));
     },
   );
 }

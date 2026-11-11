@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../core/yacht_rules.dart';
 import 'yacht_look.dart';
+import 'yacht_scale.dart';
 
 /// 점수판에서 족보 이름을 눌렀을 때 뜨는 설명 창 (예: 에이스 → "1이 나온 주사위 눈의 총합 (최대 5점)").
 Future<void> showYachtHelp(BuildContext context, {required String title, required String body, int? dieFace}) {
   return showDialog<void>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => YachtScaled(
+      child: AlertDialog(
       title: Row(
         children: [
           if (dieFace != null) ...[YachtDie(value: dieFace, size: 34), const SizedBox(width: 10)],
@@ -16,7 +18,7 @@ Future<void> showYachtHelp(BuildContext context, {required String title, require
       ),
       content: Text(body, key: const ValueKey('yacht-help-body'), style: const TextStyle(fontSize: 16, height: 1.45)),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인'))],
-    ),
+    )),
   );
 }
 

@@ -4,6 +4,7 @@ import '../core/yacht_fraction.dart';
 import 'yacht_fraction_view.dart';
 import '../core/yacht_rules.dart';
 import 'yacht_look.dart';
+import 'yacht_scale.dart';
 
 /// 에이스~식스 칸을 눌렀을 때 뜨는 자세한 확률 창: 앞으로 그 눈이 몇 개 나올지, 그러면 몇 점인지, 확률은 퍼센트와 분수로.
 ///
@@ -91,7 +92,8 @@ Future<void> showYachtUpperOdds(
         );
       }
 
-      return AlertDialog(
+      return YachtScaled(
+        child: AlertDialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
         contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         title: Row(
@@ -160,7 +162,7 @@ Future<void> showYachtUpperOdds(
             child: const Text('확인'),
           ),
         ],
-      );
+      ));
     },
   );
 }
