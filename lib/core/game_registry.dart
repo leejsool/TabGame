@@ -17,6 +17,9 @@ import '../games/goblet/goblet_entry.dart';
 import '../games/goblet/tutorial/goblet_tutorial.dart';
 import '../games/uttt/tutorial/uttt_tutorial.dart';
 import '../games/uttt/uttt_entry.dart';
+import '../games/yacht/tutorial/yacht_tutorial.dart';
+import '../games/yacht/ui/yacht_records_tab.dart';
+import '../games/yacht/yacht_entry.dart';
 import '../games/jigsaw/jigsaw_entry.dart';
 import '../games/jigsaw/tutorial/jigsaw_tutorial.dart';
 import '../games/minesweeper/minesweeper_entry.dart';
@@ -230,6 +233,19 @@ const List<GameInfo> _registeredGames = [
     iconPainter: paintGobletIcon,
     recordsTab: GobbletRecordsTab.new,
     recordsTitle: '고블렛',
+  ),
+  GameInfo(
+    id: 'yacht',
+    title: '야추',
+    tagline: '주사위 다섯 개로 족보를 만들어요',
+    icon: Icons.casino_rounded,
+    color: Color(0xFF2D7D5A),
+    modes: [PlayMode.local2p, PlayMode.vsCpu],
+    builder: buildYacht,
+    tutorial: yachtTutorial,
+    iconPainter: paintYachtIcon,
+    recordsTab: YachtRecordsTab.new,
+    beta: true,
   ),
   GameInfo(
     id: 'sprouts',

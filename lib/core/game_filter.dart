@@ -26,7 +26,7 @@ enum GameFilter {
   String get shortLabel => this == GameFilter.lesson ? '학습' : label;
 
   /// 멘토링 수업용 웹판([kMentoringOnly])에 들어가는 게임들. 앱 허브의 분류와는 상관없다.
-  static const mentoringGames = {'stones', 'dandelion', 'park', 'goblet_gobblers'};
+  static const mentoringGames = {'stones', 'dandelion', 'park', 'goblet_gobblers', 'yacht'};
 
   /// 멘토링 전용 게임: 허브에서 다른 게임과 따로 맨 밑에 작은 아이콘으로 모아 보여 준다.
   static const mentoringOnlyGames = {'stones', 'park'};

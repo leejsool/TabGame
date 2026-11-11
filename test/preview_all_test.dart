@@ -46,6 +46,7 @@ import 'package:tabgame/games/sudoku/core/generator.dart';
 import 'package:tabgame/games/sudoku/game/sudoku_game.dart';
 import 'package:tabgame/games/sudoku/ui/game_screen.dart';
 import 'package:tabgame/games/uttt/ui/uttt_screen.dart';
+import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
 import 'package:tabgame/hub/hub_screen.dart';
 import 'package:tabgame/hub/settings_screen.dart';
 import 'package:tabgame/records/records_screen.dart';
@@ -139,6 +140,7 @@ void main() {
     'sprouts': () => const SproutsScreen(mode: PlayMode.local2p, dotCount: 4),
     'davinci': () => DavinciScreen(players: 3, controller: DavinciController(mode: PlayMode.vsCpu, players: 3, seed: 8)..cpuStepDelay = Duration.zero),
     'keytap': () => KtPlayScreen(song: KtSong.all.first, seed: 3),
+    'yacht': () => const YachtScreen(mode: PlayMode.local2p, players: 3),
     'snake': () => SnakeScreen(controller: SnakeController.host(nick: '나', rng: Random(5)), showHint: false),
     'rummikub': () => RummikubScreen(controller: RummikubController(animate: false, mode: PlayMode.vsCpu, players: 3, seed: 12)),
   };
