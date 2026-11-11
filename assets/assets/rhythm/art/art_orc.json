@@ -12,15 +12,21 @@
     "baseY": 611
   },
   "orc_attack.png": {
-    "w": 605,
-    "h": 534,
-    "baseX": 302.5,
-    "baseY": 515
+    "w": 554,
+    "h": 646,
+    "baseX": 206.5,
+    "baseY": 627
   },
   "orc_hit.png": {
     "w": 526,
     "h": 595,
     "baseX": 263.0,
+    "baseY": 576
+  },
+  "orc_defeated.png": {
+    "w": 605,
+    "h": 595,
+    "baseX": 302.5,
     "baseY": 576
   }
 }
