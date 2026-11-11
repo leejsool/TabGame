@@ -17,6 +17,7 @@ import 'package:tabgame/games/yacht/core/yacht_values.dart';
 import 'package:tabgame/games/yacht/game/yacht_controller.dart';
 import 'package:tabgame/games/yacht/tutorial/yacht_tutorial.dart';
 import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
+import 'package:tabgame/games/yacht/ui/yacht_fraction_view.dart';
 import 'package:tabgame/games/yacht/ui/yacht_setup_screen.dart';
 
 import '../support/preview_kit.dart';
@@ -214,6 +215,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
     await savePng(tester, await captureBoundary(tester, key), '$dir/chance_popup_fullhouse.png');
+    await tester.tap(find.text('확인'));
+    await tester.pump(const Duration(seconds: 1));
+    // 포카드를 노리는 1 세 개 + 2, 3 (한 번 남음): 분수를 눌러 설명을 한 번 더 띄운다
+    c.game.dice.setAll(0, [1, 1, 1, 2, 3]);
+    c.game.rollsUsed = 2;
+    c.notifyListeners();
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('yacht-hint-row-fourKind')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await savePng(tester, await captureBoundary(tester, key), '$dir/chance_popup_fourkind.png');
+    await tester.tap(find.byType(YachtTapFraction).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await savePng(tester, await captureBoundary(tester, key), '$dir/explain_popup.png');
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   }, skip: dir == null);

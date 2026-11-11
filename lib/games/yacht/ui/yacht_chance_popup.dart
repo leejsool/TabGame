@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/yacht_advisor.dart';
 import '../core/yacht_rules.dart';
+import 'yacht_explain_popup.dart';
 import 'yacht_fraction_view.dart';
 import 'yacht_look.dart';
 
@@ -29,6 +30,9 @@ Future<void> showYachtChanceDetail(
       final done = bd.groups.where((g) => g.done).toList();
       final later = bd.later;
       final lastRoll = bd.rerollsLeft <= 1;
+      // 밑줄 친 분수를 누르면 한 번 더 팝업으로 "왜 이 값인지" 설명한다
+      void explain(YachtBreakdownGroup g) => showYachtGroupExplain(ctx, advisor: advisor, cat: cat, dice: dice, bd: bd, group: g);
+      void explainNext(YachtBreakdownGroup g) => showYachtNextChanceExplain(ctx, advisor: advisor, cat: cat, bd: bd, group: g);
 
       Widget section(String text) => Padding(
             padding: const EdgeInsets.only(top: 12, bottom: 4),
@@ -69,13 +73,13 @@ Future<void> showYachtChanceDetail(
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text('다음 굴림에서 완성될 확률 ', style: small),
-                          YachtFractionView(g.next, size: 13, color: scheme.onSurfaceVariant),
+                          YachtTapFraction(onTap: () => explainNext(g), child: YachtFractionView(g.next, size: 13)),
                         ],
                       ),
                   ],
                 ),
               ),
-              YachtFractionView(g.prob, size: 15),
+              YachtTapFraction(onTap: () => explain(g), child: YachtFractionView(g.prob, size: 15)),
             ],
           ),
           color: g.done ? kYachtColor.withValues(alpha: 0.12) : null,
@@ -88,9 +92,9 @@ Future<void> showYachtChanceDetail(
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 6,
               children: [
-                YachtFractionView(g.prob, size: 14),
+                YachtTapFraction(onTap: () => explain(g), child: YachtFractionView(g.prob, size: 14)),
                 const Text('×', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                YachtFractionView(g.next, size: 14),
+                YachtTapFraction(onTap: () => explainNext(g), child: YachtFractionView(g.next, size: 14)),
                 const Text('=', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 YachtFractionView(g.gain, size: 14, bold: true),
               ],
@@ -101,7 +105,8 @@ Future<void> showYachtChanceDetail(
 
       return AlertDialog(
         key: const ValueKey('yacht-chance-popup'),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 24),
+        contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         title: Row(
           children: [
             const Icon(Icons.calculate_rounded, color: kYachtColor),
@@ -110,7 +115,7 @@ Future<void> showYachtChanceDetail(
           ],
         ),
         content: SizedBox(
-          width: 360,
+          width: double.maxFinite,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -133,6 +138,7 @@ Future<void> showYachtChanceDetail(
                   key: const ValueKey('yacht-chance-intro'),
                   style: const TextStyle(fontSize: 13.5, height: 1.4),
                 ),
+                if (bd.rolled > 0) Text('초록색 밑줄 분수를 누르면 왜 그런 값인지 설명이 나와요.', style: small),
                 section(bd.rolled == 0 ? '지금 모습' : '1번째 굴림 (주사위 ${bd.rolled}개)'),
                 for (final g in bd.groups) groupRow(g),
                 if (!lastRoll && later.isNotEmpty) ...[

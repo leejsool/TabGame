@@ -93,6 +93,12 @@ class YachtChanceBreakdown {
   /// 완성 확률 (정확한 분수).
   final YachtFrac total;
 
+  /// 고정한 주사위의 눈들 (작은 것부터).
+  List<int> get keptValues => [
+        for (var f = 0; f < 6; f++)
+          for (var k = 0; k < keep[f]; k++) f + 1,
+      ];
+
   /// 첫 굴림 뒤에 한 번 더 굴려서 완성되는 갈래들 (바로 완성이 아니면서 가망이 있는 묶음).
   List<YachtBreakdownGroup> get later => [for (final g in groups) if (!g.done && g.next.num > 0) g];
 }
@@ -244,6 +250,40 @@ class YachtAdvisor {
       });
     final total = groups.fold(YachtFrac.zero, (sum, g) => sum + g.gain);
     return YachtChanceBreakdown(keep: List<int>.of(_t.counts[keep]), rolled: n, rerollsLeft: rerollsLeft, groups: groups, total: total);
+  }
+
+  /// 풀이 [bd]의 첫 굴림 결과 중 묶음 [g]에 들어가는 것들을 모두 센다: 다시 굴린 주사위 [YachtChanceBreakdown.rolled]개의 눈을
+  /// 순서대로 적은 목록이다 (주사위마다 6가지이니 전체는 6의 n제곱 가지를 하나씩 살펴 고른다). 개수는 확률의 분자가 된다.
+  List<List<int>> outcomesOf(YachtCategory c, YachtChanceBreakdown bd, YachtBreakdownGroup g) {
+    const unit = 7776;
+    final guide = _aim(c, 0);
+    final n = bd.rolled;
+    final wantQ = g.next.num * (unit ~/ g.next.den);
+    var total = 1;
+    for (var i = 0; i < n; i++) {
+      total *= 6;
+    }
+    final found = <List<int>>[];
+    final counts = List<int>.of(bd.keep);
+    for (var t = 0; t < total; t++) {
+      final tuple = List<int>.filled(n, 0);
+      var rest = t;
+      for (var i = n - 1; i >= 0; i--) {
+        tuple[i] = rest % 6 + 1;
+        rest ~/= 6;
+      }
+      for (final v in tuple) {
+        counts[v - 1]++;
+      }
+      final o = _t.indexOf(counts);
+      for (final v in tuple) {
+        counts[v - 1]--;
+      }
+      final done = _t.score[o * kYachtSlots + c.index] > 0;
+      final q = done ? unit : (guide.w[bd.rerollsLeft - 1][o] * unit).round();
+      if (done == g.done && q == wantQ) found.add(tuple);
+    }
+    return found;
   }
 
   /// 차례를 시작할 때(굴리기 전) [c] 모양이 3번 안에 완성될 확률. 모양 족보만.

@@ -7,6 +7,7 @@ import 'package:tabgame/games/yacht/core/yacht_dice.dart';
 import 'package:tabgame/games/yacht/core/yacht_fraction.dart';
 import 'package:tabgame/games/yacht/core/yacht_rules.dart';
 import 'package:tabgame/games/yacht/core/yacht_values.dart';
+import 'package:tabgame/games/yacht/ui/yacht_explain_popup.dart';
 
 /// [open] 칸만 비어 있는 점수판 (나머지는 0점으로 채움).
 YachtCard cardWithOpen(List<YachtCategory> open) {
@@ -84,6 +85,57 @@ void main() {
     expect(exact.fold(YachtFrac.zero, (a, b) => a + b), YachtFrac.one);
     expect(yachtUpperOddsFrac(0, 2).fold(YachtFrac.zero, (a, b) => a + b), YachtFrac.one);
     expect(yachtUpperOddsFrac(1, 2)[1].toString(), '390625/1679616', reason: '두 번 다 4개를 굴려 하나도 안 늘 확률 (625/1296)의 제곱');
+  });
+
+  group('분수 설명: 경우의 수 세기', () {
+    test('1 세 개 + 2, 3에서 한 번 더 굴려 포카드: 36가지 중 11가지 (11/36), 못 만드는 건 25가지', () {
+      final bd = advisor.breakdown(YachtCategory.fourKind, [1, 1, 1, 2, 3], 1)!;
+      expect(bd.keptValues, [1, 1, 1]);
+      expect(bd.rolled, 2);
+      final done = bd.groups.firstWhere((g) => g.done);
+      final fail = bd.groups.firstWhere((g) => !g.done);
+      expect(done.prob.toString(), '11/36');
+      expect(fail.prob.toString(), '25/36');
+      final yes = advisor.outcomesOf(YachtCategory.fourKind, bd, done);
+      final no = advisor.outcomesOf(YachtCategory.fourKind, bd, fail);
+      expect(yes.length, 11);
+      expect(no.length, 25);
+      expect(yes.every((t) => t.contains(1)), isTrue, reason: '1이 하나라도 나오면 포카드');
+      expect(no.every((t) => !t.contains(1)), isTrue);
+      expect({...yes.map((t) => t.join()), ...no.map((t) => t.join())}.length, 36, reason: '서로 겹치지 않고 36가지를 모두 덮는다');
+      // 줄 글: A가 1이면 B는 1~6 (6가지), A가 2~6이면 B는 1 (1가지씩)
+      expect(yachtCaseLines(yes, 2), [
+        'A가 1일 때, B가 1~6 → 6가지',
+        'A가 2일 때, B가 1 → 1가지',
+        'A가 3일 때, B가 1 → 1가지',
+        'A가 4일 때, B가 1 → 1가지',
+        'A가 5일 때, B가 1 → 1가지',
+        'A가 6일 때, B가 1 → 1가지',
+      ]);
+    });
+
+    test('묶음마다 세어 낸 경우의 수가 곧 분자다 (모든 모양 칸 · 여러 주사위)', () {
+      for (final cat in YachtCategory.values.where((c) => c.isPattern)) {
+        for (final dice in [
+          [1, 2, 3, 4, 6],
+          [2, 2, 5, 5, 6],
+          [6, 6, 6, 6, 1],
+          [1, 1, 2, 5, 6],
+        ]) {
+          for (final left in [1, 2]) {
+            final bd = advisor.breakdown(cat, dice, left)!;
+            var total = 1;
+            for (var i = 0; i < bd.rolled; i++) {
+              total *= 6;
+            }
+            for (final g in bd.groups) {
+              final n = advisor.outcomesOf(cat, bd, g).length;
+              expect(YachtFrac(n, total), g.prob, reason: '${cat.label} $dice $left번');
+            }
+          }
+        }
+      }
+    });
   });
 
   group('모양 확률의 풀이', () {

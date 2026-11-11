@@ -96,7 +96,7 @@ class YachtController extends ChangeNotifier {
   /// 이번 판에서 한 행동 수 (굴리기 + 적기). 0이면 아직 시작 전이다.
   int actions = 0;
 
-  /// 화면에 알리는 일: 'roll' 굴리기 시작, 'land' 주사위가 멈춤, 'hold' 잡기, 'score' 적음, 'zero' 0점을 적음, 'yahtzee' 야추 성공(50점 · 보너스), 'end' 판이 끝남.
+  /// 화면에 알리는 일: 'roll' 굴리기 시작, 'land' 주사위가 멈춤, 'hold' 잡기, 'score' 적음, 'zero' 0점을 적음, 'yahtzee' 주사위 5개가 모두 같은 눈으로 멈춤(야추 성공), 'end' 판이 끝남.
   void Function(String kind)? onFeedback;
 
   final Random _rng;
@@ -286,7 +286,8 @@ class YachtController extends ChangeNotifier {
     game.applyRoll(target);
     rolling = false;
     actions++;
-    onFeedback?.call('land');
+    // 야추 성공: 굴린 주사위 5개가 모두 같은 눈으로 멈췄을 때 (점수를 적는 때가 아니라, 눈이 완성된 그 순간. 누가 굴려도 같다)
+    onFeedback?.call(game.dice.every((d) => d == game.dice.first) ? 'yahtzee' : 'land');
     notifyListeners();
   }
 
@@ -294,15 +295,10 @@ class YachtController extends ChangeNotifier {
     if (local) _emit({'t': 'score', 'c': c.index});
     lastSeat = game.turn;
     lastCategory = c;
-    final card = game.card;
-    final bonusesBefore = card.yahtzeeBonuses;
     final s = game.score(c);
     pick = null;
     actions++;
-    // 야추 성공: 야추 칸에 50점을 적었거나, 야추를 또 굴려 보너스 100점을 받았을 때 (누가 해도 같다)
-    final yahtzee = (c == YachtCategory.yacht && s == kYachtYacht) || card.yahtzeeBonuses > bonusesBefore;
-    onFeedback?.call(yahtzee ? 'yahtzee' : (game.over ? 'end' : (s > 0 ? 'score' : 'zero')));
-    if (yahtzee && game.over) onFeedback?.call('end');
+    onFeedback?.call(game.over ? 'end' : (s > 0 ? 'score' : 'zero'));
     notifyListeners();
   }
 

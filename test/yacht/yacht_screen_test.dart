@@ -15,6 +15,7 @@ import 'package:tabgame/games/yacht/core/yacht_rules.dart';
 import 'package:tabgame/games/yacht/core/yacht_values.dart';
 import 'package:tabgame/games/yacht/game/yacht_controller.dart';
 import 'package:tabgame/games/yacht/ui/yacht_glow_border.dart';
+import 'package:tabgame/games/yacht/ui/yacht_fraction_view.dart';
 import 'package:tabgame/games/yacht/ui/yacht_look.dart';
 import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
 
@@ -117,6 +118,48 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     expect(c.pick, YachtCategory.choice);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('힌트 팝업은 폭이 넓고, 분수를 누르면 왜 그 확률인지 한 번 더 팝업으로 설명한다', (tester) async {
+    final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(3));
+    await pumpScreen(tester, c);
+    c.game.applyRoll([1, 1, 1, 2, 3]);
+    c.game.applyRoll([1, 1, 1, 2, 3]); // 굴림이 한 번 남았다
+    c.actions = 1;
+    c.notifyListeners();
+    await tester.pump();
+    await tester.tap(find.text('힌트'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.ensureVisible(find.byKey(const ValueKey('yacht-hint-row-fourKind')));
+    await tester.tap(find.byKey(const ValueKey('yacht-hint-row-fourKind')));
+    await tester.pump(const Duration(milliseconds: 500));
+    final popup = find.byKey(const ValueKey('yacht-chance-popup'));
+    expect(popup, findsOneWidget);
+    expect(tester.getSize(popup).width, greaterThan(370), reason: '좌우 폭을 넓혀서 한 줄에 다 보인다 (화면 400)');
+    expect(find.textContaining('왜 그런 값인지'), findsOneWidget);
+
+    // 11/36 (바로 완성)을 누르면 설명이 한 번 더 뜬다
+    final fractions = find.descendant(of: popup, matching: find.byType(YachtTapFraction));
+    expect(fractions, findsWidgets);
+    await tester.tap(fractions.first);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('yacht-explain-popup')), findsOneWidget);
+    expect(find.text('6 × 6 = 36가지예요.', findRichText: false), findsNothing);
+    expect(tester.widget<Text>(find.byKey(const ValueKey('yacht-explain-total'))).data, '주사위 하나마다 6가지씩이라 6 × 6 = 36가지예요.');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('yacht-explain-ways'))).data, '합쳐서 11가지');
+    expect(find.text('A가 1일 때, B가 1~6 → 6가지'), findsOneWidget);
+    expect(find.textContaining('반대로 세기'), findsOneWidget);
+    expect(find.textContaining('겹치는 것 빼기'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('확인').last);
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const ValueKey('yacht-explain-popup')), findsNothing);
+    expect(popup, findsOneWidget, reason: '설명만 닫히고 아래 팝업은 그대로');
+    await tester.tap(find.text('확인').last);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(seconds: 1));
+    expect(popup, findsNothing);
   });
 
   testWidgets('굴리기가 끝나면 주사위가 왼쪽부터 눈이 작은 순서로 부드럽게 정렬된다', (tester) async {
