@@ -236,6 +236,7 @@ const List<GameInfo> _registeredGames = [
   ),
   GameInfo(
     id: 'yacht',
+    hasLesson: true,
     title: '야추',
     tagline: '주사위 다섯 개로 족보를 만들어요',
     icon: Icons.casino_rounded,

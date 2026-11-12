@@ -4,6 +4,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/widgets.dart';
 
 import 'sfx_restarter.dart';
+import 'web_sfx.dart';
 
 /// 짧은 효과음 하나를 빠르게 여러 번 틀 수 있게 해 주는 재생기 (게임마다 자기 소리를 하나씩 쓴다).
 ///
@@ -39,6 +40,12 @@ class SfxPool {
   /// 소리를 미리 불러 둔다 (첫 소리가 늦지 않게). 여러 번 불러도 한 번만 한다.
   Future<void> load() async {
     if (_ready || _loading || _disposed || _inTest) return;
+    if (WebSfx.supported) {
+      // 웹: 재생기를 만들지 않고 오디오 엔진 하나를 같이 쓴다 (web_sfx.dart)
+      await WebSfx.load(asset);
+      _ready = true;
+      return;
+    }
     _loading = true;
     try {
       for (var i = 0; i < voices; i++) {
@@ -65,6 +72,10 @@ class SfxPool {
   /// 소리 한 번. 아직 못 불러왔으면 지금 불러 두기만 한다.
   void play() {
     if (_disposed || _inTest) return;
+    if (WebSfx.supported) {
+      WebSfx.play(asset, volume: volume);
+      return;
+    }
     if (!_ready) {
       unawaited(load());
       return;

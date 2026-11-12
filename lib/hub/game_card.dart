@@ -115,6 +115,11 @@ class _GameCardState extends State<GameCard> {
                         // (Wi‑Fi는 아래 모드 칩에 이미 있어서 위에는 교과학습 표시만 단다)
                         if (!game.isReady || game.locked)
                           const _SoonBadge()
+                        else if (game.beta && game.hasLesson)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [const _SoonBadge(label: 'beta'), const SizedBox(height: 4), _LessonBadge(compact: widget.compact)],
+                          )
                         else if (game.beta)
                           const _SoonBadge(label: 'beta')
                         else if (game.hasLesson)

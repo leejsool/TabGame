@@ -96,43 +96,45 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, box) {
-      // 태블릿에서는 줄과 글자를 키운다
-      final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
-      final cats = c.game.categories;
-      // 폭에 비해 높이가 낮은 화면(핸드폰 가로 모드)에서는 숫자 칸 · 족보 칸을 잘라 가로로 나란히 놓는다
-      final split = box.maxWidth.isFinite && box.maxWidth >= box.maxHeight * 1.5;
-      if (split) return _splitBuild(context, box, cats);
-      final width = box.maxWidth.clamp(0.0, tablet ? 900.0 : 640.0);
-      final rows = cats.length + 4; // 이름 줄 + 족보 칸들 + 보너스 + 야추 보너스 + 합계
-      // 스크롤 없이 한 화면에 다 들어가도록 줄 높이를 칸 수에 맞춘다 (줄마다 선 1px)
-      final rowH = ((box.maxHeight - 8 - rows) / rows).clamp(16.0, tablet ? 60.0 : 46.0);
-      final n = c.players;
-      final cellW = (width * 0.52 / n).clamp(50.0, tablet ? 124.0 : 100.0);
-      final labelW = width - cellW * n;
-      final look = _Look(context, rowH: rowH, cellW: cellW, labelW: labelW, showRule: labelW >= 250);
-      final game = c.game;
-      final counts = game.rollsUsed > 0 && !c.rolling ? yachtCounts(game.dice) : null;
-      return Center(
-        child: SizedBox(
-          width: width,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: look.scheme.surface.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: look.scheme.outlineVariant),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: AnimatedBuilder(
-                animation: _ctl,
-                builder: (context, _) => _table(look, cats, counts, _frame()),
+    return LayoutBuilder(
+      builder: (context, box) {
+        // 태블릿에서는 줄과 글자를 키운다
+        final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
+        final cats = c.game.categories;
+        // 폭에 비해 높이가 낮은 화면(핸드폰 가로 모드)에서는 숫자 칸 · 족보 칸을 잘라 가로로 나란히 놓는다
+        // (넓기만 하고 높이가 넉넉한 PC 화면에서는 나누지 않는다: 한 줄로 세워도 줄 높이가 충분하면 그대로)
+      final fullRows = c.game.categories.length + 4;
+      final fullRowH = (box.maxHeight - 8 - fullRows) / fullRows;
+      final split = box.maxWidth.isFinite && box.maxWidth >= box.maxHeight * 1.5 && fullRowH < 30;
+        if (split) return _splitBuild(context, box, cats);
+        final width = box.maxWidth.clamp(0.0, tablet ? 900.0 : 640.0);
+        final rows = cats.length + 4; // 이름 줄 + 족보 칸들 + 보너스 + 야추 보너스 + 합계
+        // 스크롤 없이 한 화면에 다 들어가도록 줄 높이를 칸 수에 맞춘다 (줄마다 선 1px)
+        final rowH = ((box.maxHeight - 8 - rows) / rows).clamp(16.0, tablet ? 60.0 : 46.0);
+        final n = c.players;
+        final cellW = (width * 0.52 / n).clamp(50.0, tablet ? 124.0 : 100.0);
+        final labelW = width - cellW * n;
+        final look = _Look(context, rowH: rowH, cellW: cellW, labelW: labelW, showRule: labelW >= 250);
+        final game = c.game;
+        final counts = game.rollsUsed > 0 && !c.rolling ? yachtCounts(game.dice) : null;
+        return Center(
+          child: SizedBox(
+            width: width,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: look.scheme.surface.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: look.scheme.outlineVariant),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: AnimatedBuilder(animation: _ctl, builder: (context, _) => _table(look, cats, counts, _frame())),
               ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _table(_Look look, List<YachtCategory> cats, List<int>? counts, YachtTallyFrame? frame) {
@@ -173,26 +175,26 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       for (var seat = 0; seat < c.players; seat++)
         // 0점인 자리도 "0"이 같이 내려온다: 모든 자리가 같은 줄에서 같은 순간에 움직인다
         Positioned(
-            left: look.labelW + seat * look.cellW,
-            top: y - look.rowH / 2,
-            width: look.cellW,
-            height: look.rowH,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: step.values[seat] == 0 ? fade * 0.5 : fade,
-                child: Center(
-                  child: Transform.scale(
-                    scale: 1.15,
-                    child: Text(
-                      step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
-                      key: ValueKey('yacht-fly-$seat'),
-                      style: look.number.copyWith(color: kYachtSeatColors[seat], fontWeight: FontWeight.w900),
-                    ),
+          left: look.labelW + seat * look.cellW,
+          top: y - look.rowH / 2,
+          width: look.cellW,
+          height: look.rowH,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: step.values[seat] == 0 ? fade * 0.5 : fade,
+              child: Center(
+                child: Transform.scale(
+                  scale: 1.15,
+                  child: Text(
+                    step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
+                    key: ValueKey('yacht-fly-$seat'),
+                    style: look.number.copyWith(color: kYachtSeatColors[seat], fontWeight: FontWeight.w900),
                   ),
                 ),
               ),
             ),
           ),
+        ),
     ];
   }
 
@@ -218,10 +220,12 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         color: hot ? look.scheme.primary.withValues(alpha: 0.16) : color,
         border: Border(top: BorderSide(color: look.scheme.outlineVariant.withValues(alpha: 0.6))),
       ),
-      child: Row(children: [
-        if (onLabelTap == null) name else GestureDetector(key: labelKey, behavior: HitTestBehavior.opaque, onTap: onLabelTap, child: name),
-        ...cells,
-      ]),
+      child: Row(
+        children: [
+          if (onLabelTap == null) name else GestureDetector(key: labelKey, behavior: HitTestBehavior.opaque, onTap: onLabelTap, child: name),
+          ...cells,
+        ],
+      ),
     );
   }
 
@@ -235,6 +239,51 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     } else {
       title = '${c.game.round} / ${c.game.rounds} 라운드';
     }
+    // 시간 제한이 있는 판: 이름 줄 바로 밑(에이스 위)에 남은 시간만큼의 가로줄이 줄어든다
+    final total = c.turnSeconds;
+    final row = _headerRow(look, title, winners, showTitle);
+    // (나뉜 점수판에서는 앞 덩어리에만 막대를 단다)
+    if (total == null || c.isOver || !showTitle) return row;
+    final seat = kYachtSeatColors[c.game.turn];
+    return Stack(
+      children: [
+        row,
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 5,
+          // 1초마다 이 막대만 다시 그린다 (점수판 전체는 그대로)
+          child: RepaintBoundary(
+            child: ValueListenableBuilder<int?>(
+              valueListenable: c.clock,
+              builder: (context, left, _) {
+                if (left == null) return const SizedBox.shrink();
+                final color = left <= 10 ? const Color(0xFFD1373F) : seat;
+                return TweenAnimationBuilder<double>(
+                  key: const ValueKey('yacht-clock'),
+                  tween: Tween(end: left / total),
+                  duration: const Duration(milliseconds: 1000),
+                  builder: (context, v, _) => Align(
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: v.clamp(0.0, 1.0),
+                      heightFactor: 1,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _headerRow(_Look look, String title, List<int> winners, bool showTitle) {
     return Row(
       children: [
         SizedBox(
@@ -293,26 +342,25 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         padding: const EdgeInsets.only(left: 12, right: 4),
         child: Row(
           children: [
-            if (cat.isUpper) ...[
-              YachtDie(value: cat.index + 1, size: look.rowH * 0.66),
-              const SizedBox(width: 6),
-            ],
+            if (cat.isUpper) ...[YachtDie(value: cat.index + 1, size: look.rowH * 0.66), const SizedBox(width: 6)],
             // 설명 글이 모든 줄에서 같은 자리에서 시작하도록, 이름 칸을 가장 긴 이름 폭에 맞춘다
             if (look.showRule)
-              SizedBox(width: look.nameW - (cat.isUpper ? look.rowH * 0.66 + 6 : 0), child: Text(cat.label, maxLines: 1, style: look.label))
+              SizedBox(
+                width: look.nameW - (cat.isUpper ? look.rowH * 0.66 + 6 : 0),
+                child: Text(cat.label, maxLines: 1, style: look.label),
+              )
             else
               Text(cat.label, maxLines: 1, style: look.label),
             if (look.showRule) ...[
               const SizedBox(width: 10),
-              Expanded(child: Text(cat.rule, maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small)),
+              Expanded(
+                child: Text(cat.rule, maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
+              ),
             ],
           ],
         ),
       ),
-      [
-        for (var seat = 0; seat < c.players; seat++)
-          _seatBox(look, seat, _cell(look, seat, cat, counts), key: ValueKey('yacht-cell-$seat-${cat.name}')),
-      ],
+      [for (var seat = 0; seat < c.players; seat++) _seatBox(look, seat, _cell(look, seat, cat, counts), key: ValueKey('yacht-cell-$seat-${cat.name}'))],
       color: game.over || !shaded ? null : look.scheme.onSurface.withValues(alpha: 0.025),
       onLabelTap: () => showYachtCategoryHelp(look.context, cat),
       labelKey: ValueKey('yacht-help-${cat.name}'),
@@ -360,7 +408,10 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         child: Row(
           children: [
             if (look.showRule)
-              SizedBox(width: look.nameW, child: Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)))
+              SizedBox(
+                width: look.nameW,
+                child: Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
+              )
             else
               Text('보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
             if (!look.split) ...[
@@ -374,18 +425,14 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       ),
       [
         for (var seat = 0; seat < c.players; seat++)
-          _seatBox(
-            look,
-            seat,
-            () {
-              final card = c.game.cards[seat];
-              final got = card.bonus > 0;
-              return Text(
-                got ? '+$kYachtBonus' : '${card.upperSum}/$kYachtBonusAt',
-                style: got ? look.number.copyWith(color: kYachtColor, fontWeight: FontWeight.w800) : look.small,
-              );
-            }(),
-          ),
+          _seatBox(look, seat, () {
+            final card = c.game.cards[seat];
+            final got = card.bonus > 0;
+            return Text(
+              got ? '+$kYachtBonus' : '${card.upperSum}/$kYachtBonusAt',
+              style: got ? look.number.copyWith(color: kYachtColor, fontWeight: FontWeight.w800) : look.small,
+            );
+          }()),
       ],
       color: kYachtColor.withValues(alpha: 0.16), // 보너스 줄은 특수한 줄이라 다른 줄보다 진하게
       onLabelTap: () => showYachtUpperBonusHelp(look.context),
@@ -403,7 +450,10 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         child: Row(
           children: [
             if (look.showRule)
-              SizedBox(width: look.nameW, child: Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)))
+              SizedBox(
+                width: look.nameW,
+                child: Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
+              )
             else
               Text('야추 보너스', maxLines: 1, style: look.label.copyWith(color: kYachtColor)),
             if (!look.split) ...[
@@ -417,18 +467,14 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       ),
       [
         for (var seat = 0; seat < c.players; seat++)
-          _seatBox(
-            look,
-            seat,
-            () {
-              final n = c.game.cards[seat].yahtzeeBonuses;
-              return Text(
-                n > 0 ? '+${n * kYachtYahtzeeBonus}' : '–',
-                key: ValueKey('yacht-ybonus-$seat'),
-                style: n > 0 ? look.number.copyWith(color: kYachtColor, fontWeight: FontWeight.w800) : look.small,
-              );
-            }(),
-          ),
+          _seatBox(look, seat, () {
+            final n = c.game.cards[seat].yahtzeeBonuses;
+            return Text(
+              n > 0 ? '+${n * kYachtYahtzeeBonus}' : '–',
+              key: ValueKey('yacht-ybonus-$seat'),
+              style: n > 0 ? look.number.copyWith(color: kYachtColor, fontWeight: FontWeight.w800) : look.small,
+            );
+          }()),
       ],
       color: kYachtColor.withValues(alpha: 0.16), // 보너스 줄은 특수한 줄이라 다른 줄보다 진하게
       onLabelTap: () => showYachtYahtzeeBonusHelp(look.context),
@@ -444,7 +490,10 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       look,
       Padding(
         padding: const EdgeInsets.only(left: 12),
-        child: Align(alignment: Alignment.centerLeft, child: Text('합계', style: look.label)),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text('합계', style: look.label),
+        ),
       ),
       [
         for (var seat = 0; seat < c.players; seat++)
@@ -473,8 +522,16 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
 
 /// 점수판의 치수와 글자 모양.
 class _Look {
-  _Look(this.context, {required this.rowH, required this.cellW, required this.labelW, required this.showRule, this.split = false, this.blockW = 0, this.gap = 0})
-      : scheme = Theme.of(context).colorScheme {
+  _Look(
+    this.context, {
+    required this.rowH,
+    required this.cellW,
+    required this.labelW,
+    required this.showRule,
+    this.split = false,
+    this.blockW = 0,
+    this.gap = 0,
+  }) : scheme = Theme.of(context).colorScheme {
     final size = (rowH * 0.42).clamp(12.0, 21.0);
     label = TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w800, color: scheme.onSurface);
     number = TextStyle(fontFamily: 'NanumGothic', fontSize: size + 1, color: scheme.onSurface);
@@ -495,19 +552,32 @@ class _Look {
 
   /// 이름 칸의 폭: 가장 긴 족보 이름("스몰 스트레이트")에 맞춘다 (숫자 칸은 주사위 그림 폭까지 더해서).
   /// 설명 글이 모든 줄에서 같은 자리에서 시작하게 한다.
-  late final double nameW = () {
-    double textW(String t) {
-      final p = TextPainter(text: TextSpan(text: t, style: label), textDirection: TextDirection.ltr, textScaler: MediaQuery.textScalerOf(context), maxLines: 1)..layout();
-      return p.width;
-    }
+  late final double nameW = _nameWCache.putIfAbsent((label.fontSize!, rowH, MediaQuery.textScalerOf(context).scale(100)), _measureNameW);
 
-    final die = rowH * 0.66 + 6;
-    var w = max(textW('보너스'), textW('야추 보너스'));
-    for (final c in YachtCategory.values) {
-      w = max(w, textW(c.label) + (c.isUpper ? die : 0));
+  /// 글자 크기 · 줄 높이가 같으면 이름 칸 폭도 같으니 한 번만 잰다 (점수판은 굴릴 때마다 다시 그려진다).
+  static final Map<(double, double, double), double> _nameWCache = {};
+
+  double _measureNameW() {
+    {
+      double textW(String t) {
+        final p = TextPainter(
+          text: TextSpan(text: t, style: label),
+          textDirection: TextDirection.ltr,
+          textScaler: MediaQuery.textScalerOf(context),
+          maxLines: 1,
+        )..layout();
+        return p.width;
+      }
+
+      final die = rowH * 0.66 + 6;
+      var w = max(textW('보너스'), textW('야추 보너스'));
+      for (final c in YachtCategory.values) {
+        w = max(w, textW(c.label) + (c.isUpper ? die : 0));
+      }
+      return w + 2;
     }
-    return w + 2;
-  }();
+  }
+
   late final TextStyle label;
   late final TextStyle number;
   late final TextStyle small;

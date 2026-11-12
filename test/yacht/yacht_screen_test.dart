@@ -137,7 +137,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     final popup = find.byKey(const ValueKey('yacht-chance-popup'));
     expect(popup, findsOneWidget);
-    expect(tester.getSize(popup).width, greaterThan(370), reason: '좌우 폭을 넓혀서 한 줄에 다 보인다 (화면 400)');
+    expect(tester.getSize(find.descendant(of: popup, matching: find.byType(Material)).first).width, greaterThan(370), reason: '좌우 폭을 넓혀서 한 줄에 다 보인다 (화면 400)');
     expect(find.textContaining('왜 그런 값인지'), findsOneWidget);
 
     // 11/36 (바로 완성)을 누르면 설명이 한 번 더 뜬다
@@ -294,10 +294,14 @@ void main() {
     expect(find.byKey(const ValueKey('yacht-chance-popup')), findsOneWidget);
     expect(find.byKey(const ValueKey('yacht-chance-intro')), findsOneWidget);
     expect(find.textContaining('3개를 굴려'), findsNothing);
+    // 고정하는 3 세 개는 노란 테두리 + "고정", 나머지 둘은 "다시"
+    expect(find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('yacht-keep-') && (w.key! as ValueKey<String>).value.endsWith('-hold')), findsNWidgets(3));
+    expect(find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('yacht-keep-') && (w.key! as ValueKey<String>).value.endsWith('-roll')), findsNWidgets(2));
+    expect(find.textContaining('노란 테두리 주사위 3개'), findsOneWidget);
     expect(find.text('121'), findsWidgets, reason: '분자');
     expect(find.text('1296'), findsWidgets, reason: '분모 (가로줄 위아래로 나뉘어 그려진다)');
     expect(find.text('121/1296'), findsNothing, reason: '/ 글자가 아니라 진짜 분수 모양');
-    expect(tester.widget<Text>(find.byKey(const ValueKey('yacht-chance-total'))).data, '≈ 9.3%');
+    expect(tester.widget<Text>(find.byKey(const ValueKey('yacht-chance-total'))).data, '약 9.3%');
     await tester.tap(find.text('확인'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byKey(const ValueKey('yacht-chance-popup')), findsNothing);

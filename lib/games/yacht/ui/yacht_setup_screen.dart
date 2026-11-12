@@ -5,6 +5,7 @@ import '../../../versus/vs_setup.dart';
 import '../core/yacht_cpu.dart';
 import '../game/yacht_controller.dart';
 import '../tutorial/yacht_tutorial.dart';
+import 'yacht_lesson_screen.dart';
 import 'yacht_party_picker.dart';
 import 'yacht_screen.dart';
 
@@ -26,11 +27,17 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
   YachtLevel _level = YachtLevel.normal;
   bool _threeKind = false;
 
+  /// 시간 무제한인가 (끄면 한 턴에 [kYachtTurnSeconds]초).
+  bool _unlimited = false;
+
   void _start() {
     final humans = _humans, players = _humans + _bots, level = _level, three = _threeKind;
+    final secs = _unlimited ? null : kYachtTurnSeconds;
     final bots = [for (var s = humans; s < players; s++) s];
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => YachtScreen(mode: PlayMode.local2p, players: players, level: level, threeKind: three, cpuSeats: bots)),
+      MaterialPageRoute<void>(
+        builder: (_) => YachtScreen(mode: PlayMode.local2p, players: players, level: level, threeKind: three, cpuSeats: bots, turnSeconds: secs),
+      ),
     );
   }
 
@@ -51,6 +58,7 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
       onStart: _start,
       resume: VsResume(gameName: '야추', describe: yachtSavedLabel, onResume: _resume),
       tutorial: yachtTutorial,
+      onLesson: () => openYachtLesson(context),
       children: [
         YachtPartyPicker(humans: _humans, bots: _bots, onChanged: (h, b) => setState(() {
               _humans = h;
@@ -72,6 +80,26 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
             subtitle: const Text('같은 눈 3개 이상이면 눈 5개의 합. 칸이 13개, 라운드도 13번이 돼요.', style: TextStyle(fontSize: 13)),
             value: _threeKind,
             onChanged: (v) => setState(() => _threeKind = v),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Material(
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 1,
+          borderRadius: BorderRadius.circular(16),
+          child: SwitchListTile(
+            key: const ValueKey('yacht-unlimited'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            title: const Text('시간 무제한', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            subtitle: Text(
+              _unlimited
+                  ? '시간 제한 없이 천천히 해요.'
+                  : '한 턴에 $kYachtTurnSeconds초의 제한 시간이 주어지며, 이 시간을 넘기면 자동으로 가장 높은 점수 칸에 기록됩니다.',
+              style: const TextStyle(fontSize: 13),
+            ),
+            value: _unlimited,
+            onChanged: (v) => setState(() => _unlimited = v),
           ),
         ),
         if (_bots > 0) ...[

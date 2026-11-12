@@ -2,6 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 
+/// 힌트 · 확률 풀이 창의 가장 넓은 폭. PC처럼 가로로 긴 화면에서 창이 끝까지 늘어나 글과 분수가 양쪽 끝으로
+/// 흩어지지 않게 한다 (분수가 설명 바로 옆에 붙어 보이게).
+const double kYachtPopupMaxWidth = 600;
+
+/// 팝업 내용의 폭: 화면이 좁으면 화면에 맞추고, 넓으면 [kYachtPopupMaxWidth]까지만.
+double yachtPopupWidth(BuildContext context) => min(MediaQuery.sizeOf(context).width - 16, kYachtPopupMaxWidth);
+
 /// 전자칠판처럼 아주 큰 화면에서 야추 화면(과 팝업)을 통째로 키워 보여 준다.
 ///
 /// 화면을 태블릿 크기(가로 1280×800, 세로 800×1280)에서 짠 모습 그대로 두고, 실제 칸에 맞게 같은 비율로 키운다.

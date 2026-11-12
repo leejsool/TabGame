@@ -175,7 +175,7 @@ class _HubScreenState extends State<HubScreen> {
               ),
             ],
           ),
-          // 멘토링 웹판은 게임이 4개뿐이라 분류 막대가 필요 없다
+          // 멘토링 웹판은 게임이 몇 개뿐이라 분류 막대가 필요 없다
           if (!kMentoringOnly) ...[
             const SizedBox(height: 20),
             GameFilterBar(

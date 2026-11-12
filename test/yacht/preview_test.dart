@@ -18,6 +18,10 @@ import 'package:tabgame/games/yacht/game/yacht_controller.dart';
 import 'package:tabgame/games/yacht/tutorial/yacht_tutorial.dart';
 import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
 import 'package:tabgame/games/yacht/ui/yacht_fraction_view.dart';
+import 'package:tabgame/games/yacht/ui/yacht_lesson_screen.dart';
+import 'package:tabgame/games/yacht/ui/yacht_look.dart';
+import 'package:tabgame/tutorial/lesson_kit.dart';
+import 'package:tabgame/tutorial/tutorial.dart';
 import 'package:tabgame/games/yacht/ui/yacht_setup_screen.dart';
 
 import '../support/preview_kit.dart';
@@ -139,7 +143,53 @@ void main() {
     // 사람 2 + 봇 1(한 기기): 점수판에 "CPU" 이름이 들어가는 모습
     await shoot('mixed3', () => screen(played(PlayMode.local2p, 3, 4, cpus: [2])));
     await shoot('tutorial', () => Builder(builder: (context) => yachtTutorial().screen(context, firstTime: false)));
+    await shoot('lesson', () => const YachtLessonScreen());
+    // 시간 제한 판: 이름 줄 밑의 줄어드는 막대 (40초 남음)
+    await shoot('clock', () {
+      final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, turnSeconds: 60, cpuSeats: const [1]);
+      c.game.roll(Random(2));
+      c.actions = 1;
+      return screen(c);
+    });
+    // 게임 방법의 각 화면 (첫 화면은 위의 'tutorial')
+    for (var i = 1; i < yachtTutorial().steps.length; i++) {
+      // 그 화면부터 시작하는 게임 방법을 만들어 찍는다
+      final t = yachtTutorial();
+      await shoot('tutorial_${i + 1}', () => Builder(
+            builder: (ctx) => GameTutorial(title: t.title, color: t.color, steps: t.steps.sublist(i)).screen(ctx, firstTime: false),
+          ));
+    }
     expect(tester.takeException(), isNull);
+  }, skip: dir == null);
+
+  testWidgets('야추 교과학습 단원 미리보기 (단원 전체 길이)', (tester) async {
+    await loadAppFonts();
+    Directory(dir!).createSync(recursive: true);
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    addTearDown(tester.view.reset);
+    for (final width in const [400.0, 800.0]) {
+      for (var i = 0; i < YachtLessonScreen.units.length; i++) {
+        tester.view.physicalSize = Size(width, 3600);
+        tester.view.devicePixelRatio = 1.0;
+        final key = GlobalKey();
+        await tester.pumpWidget(RepaintBoundary(
+          key: key,
+          child: SettingsScope(
+            settings: settings,
+            child: MaterialApp(
+              key: UniqueKey(),
+              debugShowCheckedModeBanner: false,
+              theme: previewTheme(Brightness.light),
+              home: LessonUnitScreen(index: i, units: YachtLessonScreen.units, accent: kYachtColor),
+            ),
+          ),
+        ));
+        await tester.pump(const Duration(milliseconds: 400));
+        await savePng(tester, await captureBoundary(tester, key), '$dir/lesson_${i + 1}_${width.round()}.png');
+        expect(tester.takeException(), isNull, reason: '단원 ${i + 1} · $width');
+      }
+    }
   }, skip: dir == null);
 
   testWidgets('야추 정산 애니메이션 미리보기', (tester) async {

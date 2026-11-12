@@ -93,7 +93,8 @@ void main() {
     await pumpSetup(tester);
     await tap(tester, 'yacht-humans-plus'); // 사람 2 + 봇 1
     await tap(tester, 'yacht-three-kind');
-    await tester.ensureVisible(find.text('시작하기'));
+    await tester.scrollUntilVisible(find.text('시작하기'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.pump();
     await tester.tap(find.text('시작하기'));
     for (var i = 0; i < 6; i++) {
       // (이어하던 판이 있는지 보관함을 읽는다)
@@ -105,6 +106,7 @@ void main() {
     expect(screen.cpuSeats, [2]);
     expect(screen.threeKind, isTrue);
     expect(screen.mode, PlayMode.local2p);
+    expect(screen.turnSeconds, kYachtTurnSeconds, reason: '시간 무제한을 켜지 않으면 한 턴 60초');
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   });

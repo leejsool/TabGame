@@ -14,7 +14,16 @@ extension _YachtSplitTable on _YachtScoreTableState {
     final rows = lower + 3; // 이름 줄 + 족보 칸들 + 야추 보너스 + 합계 (오른쪽 덩어리가 더 길다)
     final rowH = ((box.maxHeight - 8 - rows) / rows).clamp(16.0, 46.0);
     final n = c.players;
-    final labelW = (blockW * 0.40).clamp(86.0, 124.0);
+    // 이름 칸은 가장 긴 이름("라지 스트레이트", "야추 보너스")이 다 들어가는 폭 이상 (글자가 점수 칸으로 삐져나오지 않게)
+    final fontSize = (rowH * 0.42).clamp(12.0, 21.0);
+    final style = TextStyle(fontFamily: 'NanumGothic', fontSize: fontSize, fontWeight: FontWeight.w800);
+    var longest = 0.0;
+    for (final t in [YachtCategory.largeStraight.label, YachtCategory.smallStraight.label, '야추 보너스']) {
+      final p = TextPainter(text: TextSpan(text: t, style: style), textDirection: TextDirection.ltr, textScaler: MediaQuery.textScalerOf(context), maxLines: 1)
+        ..layout();
+      longest = max(longest, p.width);
+    }
+    final labelW = max((blockW * 0.40).clamp(86.0, 124.0), longest + 12 + 8);
     final cellW = (blockW - labelW) / n;
     final look = _Look(context, rowH: rowH, cellW: cellW, labelW: labelW, showRule: false, split: true, blockW: blockW, gap: gap);
     final counts = c.game.rollsUsed > 0 && !c.rolling ? yachtCounts(c.game.dice) : null;

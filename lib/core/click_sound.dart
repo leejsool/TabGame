@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
+import 'web_sfx.dart';
+
 /// 버튼을 누를 때 나는 "딸깍" 소리 (assets/sfx/click.wav).
 ///
 /// 앱 테마의 물결(splash) 효과를 이 소리가 나는 것으로 바꿔 두면, 머티리얼 버튼·아이콘 버튼·목록 항목 등
@@ -41,6 +43,11 @@ class ClickSound {
   /// 소리를 미리 불러 둔다 (첫 클릭이 늦지 않게). 여러 번 불러도 한 번만 한다.
   static Future<void> load() async {
     if (_ready || _loading || !enabled || _inTest) return;
+    if (WebSfx.supported) {
+      await WebSfx.load(_asset); // 웹: 오디오 엔진 하나를 같이 쓴다 (web_sfx.dart)
+      _ready = true;
+      return;
+    }
     _loading = true;
     try {
       for (var i = 0; i < _voiceCount; i++) {
@@ -62,6 +69,10 @@ class ClickSound {
   /// "딸깍" 한 번.
   static void play() {
     if (!soundOn || !enabled || _inTest) return;
+    if (WebSfx.supported) {
+      WebSfx.play(_asset);
+      return;
+    }
     if (!_ready) {
       unawaited(load());
       return;

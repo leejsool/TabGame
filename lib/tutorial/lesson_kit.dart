@@ -350,6 +350,7 @@ class LessonQuiz extends StatefulWidget {
     required this.answer,
     required this.explain,
     this.figure,
+    this.textBuilder,
   });
 
   /// 문제를 이해하는 데 도움이 되는 그림 (문제 글 아래에 가운데로 놓인다).
@@ -358,6 +359,11 @@ class LessonQuiz extends StatefulWidget {
   final List<String> options;
   final int answer;
   final String explain;
+
+  /// 문제 · 보기 · 풀이 글을 그리는 방법을 바꾼다 (예: "3/36"을 진짜 분수 모양으로). 없으면 보통 글.
+  final Widget Function(String text, TextStyle style)? textBuilder;
+
+  Widget _text(String text, TextStyle style) => textBuilder?.call(text, style) ?? Text(text, style: style);
 
   @override
   State<LessonQuiz> createState() => LessonQuizState();
@@ -384,7 +390,7 @@ class LessonQuizState extends State<LessonQuiz> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.question, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.4)),
+            widget._text(widget.question, const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.4, color: Color(0xFF222222))),
             if (widget.figure != null) Padding(padding: const EdgeInsets.only(top: 10), child: Center(child: widget.figure)),
             const SizedBox(height: 8),
             for (var i = 0; i < widget.options.length; i++)
@@ -416,10 +422,7 @@ class LessonQuizState extends State<LessonQuiz> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          widget.options[i],
-                          style: TextStyle(fontSize: 15, height: 1.35, color: scheme.onSurface),
-                        ),
+                        child: widget._text(widget.options[i], TextStyle(fontSize: 15, height: 1.35, color: scheme.onSurface)),
                       ),
                       if (done && i == widget.answer) const Icon(Icons.check_circle_rounded, color: Color(0xFF2E9E5B)),
                       if (done && i == _picked && i != widget.answer) const Icon(Icons.cancel_rounded, color: Color(0xFFE5484D)),
@@ -429,12 +432,12 @@ class LessonQuizState extends State<LessonQuiz> {
               ),
             if (done) ...[
               const SizedBox(height: 8),
-              Text(
+              widget._text(
                 correct ? '정답! 🎉' : '아쉬워요. 정답은 "${widget.options[widget.answer]}"예요.',
-                style: TextStyle(fontWeight: FontWeight.w800, color: correct ? const Color(0xFF2E9E5B) : const Color(0xFFE5484D)),
+                TextStyle(fontWeight: FontWeight.w800, color: correct ? const Color(0xFF2E9E5B) : const Color(0xFFE5484D)),
               ),
               const SizedBox(height: 4),
-              Text(widget.explain, style: const TextStyle(fontSize: 14.5, height: 1.5)),
+              widget._text(widget.explain, const TextStyle(fontSize: 14.5, height: 1.5, color: Color(0xFF222222))),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(onPressed: () => setState(() => _picked = null), child: const Text('다시 풀기')),

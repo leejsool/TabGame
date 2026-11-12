@@ -159,7 +159,7 @@ Future<void> showYachtGroupExplain(
           ],
         ),
         content: SizedBox(
-          width: double.maxFinite,
+          width: yachtPopupWidth(ctx),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -222,7 +222,7 @@ Future<void> showYachtGroupExplain(
                         const Text('=', style: op),
                         YachtFractionView(YachtFrac(ways, total), size: 16, color: kYachtColor, bold: true),
                       ],
-                      Text('≈ ${yachtPercent(ways / total)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: kYachtColor)),
+                      Text('약 ${yachtPercent(ways / total)}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: kYachtColor)),
                     ],
                   ),
                 ),

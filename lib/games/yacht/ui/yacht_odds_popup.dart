@@ -109,7 +109,7 @@ Future<void> showYachtUpperOdds(
           ],
         ),
         content: SizedBox(
-          width: double.maxFinite,
+          width: yachtPopupWidth(ctx),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -22,6 +22,7 @@ import '../tutorial/yacht_tutorial.dart';
 import 'yacht_dice_sound.dart';
 import 'yacht_dice_tray.dart';
 import 'yacht_hint_sheet.dart';
+import 'yacht_lesson_screen.dart';
 import 'yacht_look.dart';
 import 'yacht_scale.dart';
 import 'yacht_score_table.dart';
@@ -44,10 +45,14 @@ class YachtScreen extends StatefulWidget {
     this.cpuSeats,
     this.rejoinDesk,
     this.threeKind = false,
+    this.turnSeconds,
   });
 
   /// 쓰리카드 칸을 넣고 하는 판인가 (이어하던 판은 컨트롤러가 알고 있다).
   final bool threeKind;
+
+  /// 사람의 한 차례 제한 시간(초). null이면 시간 무제한.
+  final int? turnSeconds;
 
   final PlayMode mode;
 
@@ -92,6 +97,7 @@ class _YachtScreenState extends State<YachtScreen> {
         cpuHost: widget.linkSeats != null, // (방을 연 기기가 CPU의 차례를 진행한다)
         names: widget.names,
         threeKind: widget.threeKind,
+        turnSeconds: widget.turnSeconds,
       );
   bool _resultHandled = false;
 
@@ -219,7 +225,7 @@ class _YachtScreenState extends State<YachtScreen> {
   void _showRules() => showVsRules(
         context,
         title: '야추 규칙',
-        lines: const [
+        lines: [
           '한 차례에 주사위 5개를 3번까지 굴려요. 남기고 싶은 주사위는 눌러서 고정해요.',
           '점수판의 빈 칸 하나를 골라 점수를 적어요. 한 칸에는 한 번만 적을 수 있어요.',
           '맞는 족보가 없으면 아무 칸에나 0점을 적어야 해요.',
@@ -227,6 +233,8 @@ class _YachtScreenState extends State<YachtScreen> {
           '풀하우스 25점 · 스몰 스트레이트 30점 · 라지 스트레이트 40점 · 야추 50점은 점수가 정해져 있어요.',
           '야추 칸에 50점을 적은 뒤 야추를 또 굴려 적으면 그때마다 보너스 100점!',
           '쓰는 칸(12칸, 쓰리카드를 넣으면 13칸)을 모두 채우면 끝나고, 합계가 가장 높은 사람이 이겨요.',
+          '"힌트"를 누르면 추천하는 행동과 족보마다 완성될 확률을 볼 수 있어요.',
+          if (c.turnSeconds != null) '한 턴에 ${c.turnSeconds}초의 제한 시간이 주어지며, 이 시간을 넘기면 자동으로 가장 높은 점수 칸에 기록됩니다.',
         ],
         openTutorial: () => yachtTutorial().open(context),
       );
@@ -247,7 +255,7 @@ class _YachtScreenState extends State<YachtScreen> {
             light: const [Color(0xFFEAF5EE), Color(0xFFD3E9DC)],
             dark: const [Color(0xFF14211B), Color(0xFF0E1713)],
             sideWidth: phoneLandscape ? 214 : 420,
-            topBar: VsTopBar(title: c.online ? '야추 · 같은 Wi‑Fi' : (c.cpuSeats.isNotEmpty ? '야추 · CPU ${c.level.label}' : '야추'), gameId: 'yacht', onRules: _showRules),
+            topBar: VsTopBar(title: c.online ? '야추 · 같은 Wi‑Fi' : (c.cpuSeats.isNotEmpty ? '야추 · CPU ${c.level.label}' : '야추'), gameId: 'yacht', onRules: _showRules, onLesson: () => openYachtLesson(context)),
             chips: const SizedBox.shrink(),
             banner: const SizedBox.shrink(),
             board: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4), child: YachtScoreTable(c: c)),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -12,7 +13,11 @@ import '../core/yacht_game.dart';
 import '../core/yacht_rules.dart';
 import '../core/yacht_values.dart';
 
+part 'yacht_controller_clock.dart';
 part 'yacht_controller_rejoin.dart';
+
+/// "시간 제한"을 켠 판에서 사람의 한 차례에 주어지는 시간 (초).
+const int kYachtTurnSeconds = 60;
 
 /// 주사위가 구르는 시간 (밀리초. "빠른 진행"이면 더 짧아진다).
 const int kYachtRollMs = 950;
@@ -37,6 +42,7 @@ class YachtController extends ChangeNotifier {
     this.names,
     this.advisor,
     this.threeKind = false,
+    this.turnSeconds,
     Random? rng,
   })  : _rng = rng ?? Random(),
         // CPU와 대결(옛 방식)은 내 자리 빼고 모두 CPU. 한 기기로 함께 · 같은 Wi‑Fi는 알려 준 자리들이 CPU(봇)다.
@@ -53,6 +59,7 @@ class YachtController extends ChangeNotifier {
         level: YachtLevel.values.byName(j['level'] as String),
         first: j['first'] as int? ?? 0,
         threeKind: game.threeKind,
+        turnSeconds: j['sec'] as int?,
         cpuSeats: [for (final s in (j['cpu'] as List?) ?? const []) if (s is int && s >= 0 && s < game.playerCount) s],
       );
       c.game = game;
@@ -71,6 +78,32 @@ class YachtController extends ChangeNotifier {
 
   /// 쓰리카드 칸을 넣고 하는 판인가 (시작 전에 정한다. "한 판 더"에서도 그대로).
   final bool threeKind;
+
+  /// 사람의 한 차례 제한 시간(초). null이면 시간 무제한. 같은 Wi‑Fi 판에서는 쓰지 않는다.
+  final int? turnSeconds;
+
+  /// 지금 차례에 남은 시간(초). 시계가 돌지 않으면 null (yacht_controller_clock.dart).
+  /// 1초마다 바뀌니 화면 전체가 아니라 남은 시간 막대만 다시 그리도록 따로 알린다.
+  final ValueNotifier<int?> clock = ValueNotifier<int?>(null);
+  int? get secondsLeft => clock.value;
+  set secondsLeft(int? v) => clock.value = v;
+  Timer? _clock;
+  String? _clockFor;
+
+  /// 시간이 다 돼서 저절로 적는 중인가 (그동안 사람은 누를 수 없다).
+  bool _timeUp = false;
+
+  /// 시간이 다 돼서 저절로 적는 중인가.
+  bool get timeUp => _timeUp;
+
+  /// 화면에 알리기 전에 시계를 지금 상황에 맞춘다.
+  @override
+  void notifyListeners() {
+    _syncClock();
+    super.notifyListeners();
+  }
+
+  void _rawNotify() => super.notifyListeners();
 
   /// 이번 판을 먼저 시작한 자리 (한 판 더 할 때마다 한 칸씩 돈다).
   int first;
@@ -184,12 +217,12 @@ class YachtController extends ChangeNotifier {
   // ── 사람의 입력 ──
 
   Future<void> roll() async {
-    if (rolling || !humanTurn || !game.canRoll) return;
+    if (rolling || _timeUp || !humanTurn || !game.canRoll) return;
     await _roll();
   }
 
   void toggleHold(int i) {
-    if (rolling || !humanTurn || !game.canHold) return;
+    if (rolling || _timeUp || !humanTurn || !game.canHold) return;
     game.toggleHold(i);
     _emit({'t': 'hold', 'h': List<bool>.of(game.held)});
     onFeedback?.call('hold');
@@ -198,7 +231,7 @@ class YachtController extends ChangeNotifier {
 
   /// 적을 칸을 고른다 (같은 칸을 다시 누르면 취소).
   void choose(YachtCategory c) {
-    if (rolling || !humanTurn || !game.canScore(c)) return;
+    if (rolling || _timeUp || !humanTurn || !game.canScore(c)) return;
     pick = pick == c ? null : c;
     onFeedback?.call('hold');
     notifyListeners();
@@ -206,7 +239,7 @@ class YachtController extends ChangeNotifier {
 
   /// 힌트대로 해 준다: [holds]대로 주사위를 잡거나, [category] 칸을 고른다 (굴리기·적기는 사람이 누른다).
   void applyHint({List<bool>? holds, YachtCategory? category}) {
-    if (rolling || !humanTurn) return;
+    if (rolling || _timeUp || !humanTurn) return;
     if (holds != null && game.canHold) {
       game.setHolds(holds);
       _emit({'t': 'hold', 'h': List<bool>.of(game.held)});
@@ -219,12 +252,12 @@ class YachtController extends ChangeNotifier {
   }
 
   /// 지금 힌트를 볼 수 있는가 (내 차례에 한 번은 굴린 뒤).
-  bool get canHint => advisor != null && humanTurn && !rolling && game.rollsUsed > 0;
+  bool get canHint => advisor != null && !_timeUp && humanTurn && !rolling && game.rollsUsed > 0;
 
   /// 고른 칸에 적는다.
   void confirm() {
     final c = pick;
-    if (c == null || rolling || !humanTurn || !game.canScore(c)) return;
+    if (c == null || rolling || _timeUp || !humanTurn || !game.canScore(c)) return;
     _score(c);
     _runCpu();
   }
@@ -234,6 +267,7 @@ class YachtController extends ChangeNotifier {
     _epoch++;
     _cpu.cancel();
     _cpuBusy = false;
+    _timeUp = false;
     rolling = false;
     _pendingRoll = null;
     pick = null;
@@ -384,12 +418,15 @@ class YachtController extends ChangeNotifier {
         'actions': actions,
         'game': game.toJson(),
         if (cpuSeats.isNotEmpty && !online) 'cpu': [...cpuSeats],
+        if (turnSeconds != null) 'sec': turnSeconds,
       };
 
   @override
   void dispose() {
     _disposed = true;
     _epoch++;
+    _clock?.cancel();
+    clock.dispose();
     _cpu.dispose();
     super.dispose();
   }

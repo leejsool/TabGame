@@ -7,6 +7,60 @@ import 'yacht_fraction_view.dart';
 import 'yacht_look.dart';
 import 'yacht_scale.dart';
 
+/// 지금 주사위 줄: 고정하는 주사위는 노란 테두리 + "고정", 다시 굴리는 주사위는 흐리게 + "다시".
+class YachtKeepRow extends StatelessWidget {
+  const YachtKeepRow({super.key, required this.dice, required this.holds, this.size = 36});
+
+  final List<int> dice;
+  final List<bool> holds;
+  final double size;
+
+  static const Color _keep = Color(0xFFF2A900);
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Widget tag(String text, IconData icon, Color fg, Color bg) => Container(
+          margin: const EdgeInsets.only(top: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 12, color: fg),
+            const SizedBox(width: 2),
+            Text(text, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: fg)),
+          ]),
+        );
+    return Wrap(
+      spacing: 6,
+      runSpacing: 4,
+      children: [
+        for (final i in yachtSortedOrder(dice)) // (게임 화면처럼 왼쪽부터 눈이 작은 순서)
+          Column(
+            key: ValueKey('yacht-keep-$i-${holds[i] ? 'hold' : 'roll'}'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (holds[i])
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(size * 0.26),
+                    border: Border.all(color: _keep, width: 3),
+                    boxShadow: const [BoxShadow(color: Color(0x80FFC83D), blurRadius: 8)],
+                  ),
+                  child: YachtDie(value: dice[i], size: size),
+                )
+              else
+                Padding(padding: const EdgeInsets.all(5), child: Opacity(opacity: 0.4, child: YachtDie(value: dice[i], size: size))),
+              holds[i]
+                  ? tag('고정', Icons.push_pin_rounded, const Color(0xFF7A5200), const Color(0xFFFFE9A8))
+                  : tag('다시', Icons.refresh_rounded, scheme.onSurfaceVariant, scheme.surfaceContainerHighest),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
 /// 힌트에서 모양 족보(포카드 · 풀하우스 · 스트레이트 · 야추 · 쓰리카드)의 "완성 확률"을 눌렀을 때 뜨는 계산 과정 창.
 ///
 /// 가장 좋게 고정한 주사위를 보이고, 첫 굴림 결과를 묶음으로 나눠 묶음마다 확률을 보인 뒤(1번째 굴림),
@@ -117,26 +171,20 @@ Future<void> showYachtChanceDetail(
           ],
         ),
         content: SizedBox(
-          width: double.maxFinite,
+          width: yachtPopupWidth(ctx),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    for (final i in yachtSortedOrder(dice)) // (게임 화면처럼 왼쪽부터 눈이 작은 순서)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 5),
-                        child: Opacity(opacity: holds[i] ? 1 : 0.5, child: YachtDie(value: dice[i], size: 34, held: holds[i], accent: kYachtColor)),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
+                YachtKeepRow(dice: dice, holds: holds),
+                const SizedBox(height: 8),
                 Text(
                   bd.rolled == 0
                       ? '이미 ${cat.label}이(가) 완성되어 있어요.'
-                      : '밝게 표시한 주사위를 고정하고 나머지 ${bd.rolled}개를 굴려요. ${bd.rerollsLeft}번 더 굴릴 수 있어요.',
+                      : bd.rolled == kYachtDice
+                          ? '남겨 둘 주사위가 없어요. 주사위 5개를 모두 다시 굴려요. ${bd.rerollsLeft}번 더 굴릴 수 있어요.'
+                          : '노란 테두리 주사위 ${kYachtDice - bd.rolled}개는 그대로 두고(고정), 나머지 ${bd.rolled}개를 다시 굴려요. ${bd.rerollsLeft}번 더 굴릴 수 있어요.',
                   key: const ValueKey('yacht-chance-intro'),
                   style: const TextStyle(fontSize: 13.5, height: 1.4),
                 ),
@@ -164,7 +212,7 @@ Future<void> showYachtChanceDetail(
                             const Text('=', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                             YachtFractionView(bd.total, size: 17, color: kYachtColor, bold: true),
                           ],
-                          Text('≈ ${yachtPercent(bd.total.value)}', key: const ValueKey('yacht-chance-total'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: kYachtColor)),
+                          Text('약 ${yachtPercent(bd.total.value)}', key: const ValueKey('yacht-chance-total'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: kYachtColor)),
                         ],
                       ),
                       if (done.isNotEmpty && later.isNotEmpty) Text('바로 완성될 확률 + 나중에 완성될 확률', style: small),
