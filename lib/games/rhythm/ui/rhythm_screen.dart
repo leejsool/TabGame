@@ -256,8 +256,9 @@ class _RhythmScreenState extends State<RhythmScreen>
       return;
     }
     final j = c.judge;
-    if (j.stars >= RhythmCourse.passStars)
+    if (j.stars >= RhythmCourse.passStars) {
       WinSound.play(context); // 합격했을 때 "짜잔"
+    }
     final best = await RhythmStorage.record(
       RhythmResult(
         stars: j.stars,
@@ -324,11 +325,12 @@ class _RhythmScreenState extends State<RhythmScreen>
               AnimatedBuilder(
                 animation: c,
                 builder: (context, _) {
-                  if (c.status == RhythmStatus.ready)
+                  if (c.status == RhythmStatus.ready) {
                     return _ReadyCard(
                       course: widget.course,
                       onStart: _audioReady && _art != null ? _begin : null,
                     );
+                  }
                   if (c.status == RhythmStatus.finished && c.gameOver) {
                     return _GameOverCard(
                       foe: RhythmCourse.all[widget.course].foe,
@@ -346,13 +348,14 @@ class _RhythmScreenState extends State<RhythmScreen>
                       onExit: () => Navigator.of(context).pop(),
                     );
                   }
-                  if (_paused)
+                  if (_paused) {
                     return _PauseCard(
                       quitLabel: _course.foe == Foe.dummy ? '훈련 그만두기' : '그만두기',
                       onResume: _resume,
                       onRestart: _restart,
                       onExit: () => Navigator.of(context).pop(),
                     );
+                  }
                   return const SizedBox.shrink();
                 },
               ),

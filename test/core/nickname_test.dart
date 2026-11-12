@@ -152,7 +152,7 @@ void main() {
             color: Colors.indigo,
             roomTitle: (_) => '',
             roomSubtitle: (_) => '',
-            buildGame: (_, __) => null,
+            buildGame: (_, _) => null,
             discoveryPort: 45977,
           ),
         ),

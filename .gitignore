@@ -46,3 +46,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Gradle가 만드는 폴더 (올리지 않는다)
+/android/build/
+
+# 그림 작업 중 확인용 임시 파일
+tool/art_src/_check_*.png

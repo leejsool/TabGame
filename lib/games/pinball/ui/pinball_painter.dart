@@ -84,11 +84,12 @@ class PinballPainter extends CustomPainter {
     _shield(canvas);
     if (debug) _debugWalls(canvas);
     _popups(canvas);
-    if (run.tilted)
+    if (run.tilted) {
       canvas.drawRect(
         const Rect.fromLTWH(0, 0, kTableW, kTableH),
         Paint()..color = const Color(0x33FF1744),
       );
+    }
     if (run.phase == RunPhase.countdown) _spotlightBalls(canvas);
     canvas.restore();
     _banners(canvas, size);

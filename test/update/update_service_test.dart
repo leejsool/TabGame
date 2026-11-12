@@ -27,7 +27,7 @@ Map<String, dynamic> _release(String tag, {String? digest, int size = 5, String 
           'browser_download_url': url,
           'size': size,
           'state': 'uploaded',
-          if (digest != null) 'digest': digest,
+          'digest': ?digest,
         },
       ],
     };

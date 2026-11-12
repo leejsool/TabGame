@@ -91,7 +91,7 @@ void main() {
       expect(l.where((m) => m['t'] == 'move').single, {'t': 'move', 'i': 0, 'mv': [0, 0]});
     }
     // 방장이 틀리게 맞혀서 차례를 1번 자리로 넘긴다
-    final target = c.state.rows[1] as List<int>;
+    final target = c.state.rows[1];
     final actual = dvNumber(target[0]);
     c.selectTarget(1, 0);
     expect(c.guess(dvIsJoker(target[0]) ? 0 : (actual == 11 ? 10 : actual + 1)), isTrue);
@@ -152,14 +152,14 @@ void main() {
     }
 
     // 방장이 틀리게 맞혀 차례가 1번 자리로 넘어간 뒤, 그 손님의 선택은 방장 화면에 보이고 나머지 손님들에게 전해진다
-    final target = c.state.rows[1] as List<int>;
+    final target = c.state.rows[1];
     final actual = dvNumber(target[0]);
     c.selectTarget(1, 0);
     expect(c.guess(dvIsJoker(target[0]) ? 0 : (actual == 11 ? 10 : actual + 1)), isTrue);
     await settle(tester, rounds: 3);
     expect(c.turn, 1);
     final g1 = guestOfSeat[1]!;
-    final mine = c.state.rows[0] as List<int>;
+    final mine = c.state.rows[0];
     final hiddenIdx = [for (var i = 0; i < mine.length; i++) if (!c.state.isRevealed(mine[i])) i].first;
     guests[g1].send({'t': 'sel', 'a': 1, 's': 0, 'n': hiddenIdx});
     await settle(tester, rounds: 4);

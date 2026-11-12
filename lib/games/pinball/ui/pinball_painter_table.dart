@@ -9,12 +9,13 @@ extension _PinballTableLayers on PinballPainter {
       final d = _table.bumpers[i];
       final g = run.glow['b$i'] ?? 0;
       final o = Offset(d.x, d.y);
-      if (g > 0)
+      if (g > 0) {
         canvas.drawCircle(
           o,
           d.r + 14 + 12 * g,
           Paint()..color = Color.fromRGBO(255, 235, 130, 0.5 * g),
         );
+      }
       if (a != null && i < _domes.length) {
         final size = (d.r * 2 + 10) * (1 + 0.12 * g);
         canvas.drawImageRect(

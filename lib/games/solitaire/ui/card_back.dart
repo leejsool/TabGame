@@ -9,7 +9,6 @@ import '../../../core/card_look.dart';
 void drawCardBack(Canvas canvas, Size size, {CardBackStyle? style}) {
   final selected = style ?? CardLook.backStyle;
   final w = size.width;
-  final h = size.height;
   final rect = Offset.zero & size;
   final radius = w * 0.12;
   final card = RRect.fromRectAndRadius(rect, Radius.circular(radius));
@@ -67,7 +66,7 @@ void _classic(Canvas c, Size s, RRect card) {
 
 void _floral(Canvas c, Size s, RRect card) {
   final w = s.width, h = s.height;
-  const red = Color(0xFFB51F32), ink = Color(0xFF172D62), paper = Color(0xFFFFF8EC);
+  const red = Color(0xFFB51F32), ink = Color(0xFF172D62);
   _base(c, s, card, const [Color(0xFFF5EBDC), Color(0xFFE6D4B9)]);
   _frame(c, s, red, second: ink);
   c.save();
@@ -97,7 +96,7 @@ void _floral(Canvas c, Size s, RRect card) {
 
 void _ornate(Canvas c, Size s, RRect card) {
   final w = s.width, h = s.height;
-  const ink = Color(0xFF172D62), paper = Color(0xFFFFFDF5);
+  const paper = Color(0xFFFFFDF5);
   _base(c, s, card, const [Color(0xFF263D70), Color(0xFF101F49)]);
   _frame(c, s, paper, second: const Color(0xFF91A8D4));
   c.save();
