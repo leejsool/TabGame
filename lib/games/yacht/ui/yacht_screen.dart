@@ -15,6 +15,7 @@ import '../../../net/lan_rejoin.dart';
 import '../../../net/lan_rejoin_flow.dart';
 import '../../../versus/vs_screen_parts.dart';
 import '../core/yacht_cpu.dart';
+import '../core/yacht_daesung.dart';
 import '../core/yacht_rules.dart';
 import '../data/yacht_history.dart';
 import '../game/yacht_controller.dart';
@@ -45,11 +46,15 @@ class YachtScreen extends StatefulWidget {
     this.cpuSeats,
     this.rejoinDesk,
     this.threeKind = false,
+    this.daesung = false,
     this.turnSeconds,
   });
 
   /// 쓰리카드 칸을 넣고 하는 판인가 (이어하던 판은 컨트롤러가 알고 있다).
   final bool threeKind;
+
+  /// 대성One Rule 판인가 (이어하던 판은 컨트롤러가 알고 있다).
+  final bool daesung;
 
   /// 사람의 한 차례 제한 시간(초). null이면 시간 무제한.
   final int? turnSeconds;
@@ -97,6 +102,7 @@ class _YachtScreenState extends State<YachtScreen> {
         cpuHost: widget.linkSeats != null, // (방을 연 기기가 CPU의 차례를 진행한다)
         names: widget.names,
         threeKind: widget.threeKind,
+        daesung: widget.daesung,
         turnSeconds: widget.turnSeconds,
       );
   bool _resultHandled = false;
@@ -164,6 +170,7 @@ class _YachtScreenState extends State<YachtScreen> {
     } else {
       _saver.attach();
     }
+    if (c.daesung) DaesungLogo.load(); // 구르는 대성One 주사위에 그릴 로고
     WidgetsBinding.instance.addPostFrameCallback((_) => c.start());
   }
 
@@ -321,7 +328,7 @@ class _YachtScreenState extends State<YachtScreen> {
       icon: const Icon(Icons.edit_rounded, size: 20),
       label: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Text(pick == null ? '적을 칸을 눌러요' : '${pick.title} · ${yachtScore(pick, yachtCounts(game.dice))}점 적기'),
+        child: Text(pick == null ? '적을 칸을 눌러요' : '${game.card.labelOf(pick)} · ${game.card.scoreOf(pick, game.dice)}점 적기'),
       ),
     );
     return Padding(
@@ -342,6 +349,7 @@ class _YachtScreenState extends State<YachtScreen> {
               twoRows: compact,
               launchDelays: _launchDelays,
               onTap: human && game.canHold ? c.toggleHold : null,
+              daesungIndex: game.daesung ? kDaesungDie : null,
             ),
             const SizedBox(height: 6),
             // 좁은 옆 칸(핸드폰 가로 모드)에서는 단추를 위아래로 쌓는다

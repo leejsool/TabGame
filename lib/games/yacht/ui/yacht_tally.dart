@@ -48,7 +48,7 @@ class YachtTally {
         list.add(YachtTallyStep(YachtTallyKind.upperBonus, [for (final c in game.cards) c.bonus])); // 숫자 칸 바로 아래
       }
     }
-    list.add(YachtTallyStep(YachtTallyKind.yahtzeeBonus, [for (final c in game.cards) c.yahtzeeBonusTotal]));
+    if (!game.daesung) list.add(YachtTallyStep(YachtTallyKind.yahtzeeBonus, [for (final c in game.cards) c.yahtzeeBonusTotal])); // (대성One Rule엔 그 줄이 없다)
     steps = list;
     lead = s(leadTime);
     _stepTime = [for (final st in list) s(st.any ? valueStep : emptyStep)];

@@ -64,6 +64,7 @@ extension YachtControllerRejoin on YachtController {
         level: YachtLevel.values[levelIndex],
         first: j['first'] as int,
         threeKind: game.threeKind,
+        daesung: game.daesung,
         humanSeat: humanSeat,
         cpuSeats: [for (final s in j['cpu'] as List) if (s is int && s >= 0 && s < players && s != humanSeat) s],
         names: rawNames is List && rawNames.length == players ? [for (final n in rawNames) '$n'] : null,

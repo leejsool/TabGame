@@ -20,6 +20,30 @@ class YachtPartyPicker extends StatelessWidget {
 
   int get _total => humans + bots;
 
+  /// +/− 를 눌렀을 때의 (사람, 봇). 누를 수 없으면 null.
+  /// 자리가 꽉 찼을 때(4명) 늘리거나, 최소(2명)일 때 줄이면 다른 쪽과 한 자리를 맞바꾼다:
+  /// 봇1·로컬3에서 로컬+ → 봇0·로컬4, 봇1·로컬1에서 봇− → 봇0·로컬2, 봇0·로컬2에서 로컬− → 봇1·로컬1.
+  static (int, int)? step(int humans, int bots, {int humanDelta = 0, int botDelta = 0}) {
+    final total = humans + bots;
+    if (humanDelta > 0) {
+      if (total < maxPlayers) return (humans + 1, bots);
+      return bots > 0 ? (humans + 1, bots - 1) : null;
+    }
+    if (humanDelta < 0) {
+      if (humans <= 1) return null; // 사람은 적어도 한 명
+      return total > minPlayers ? (humans - 1, bots) : (humans - 1, bots + 1);
+    }
+    if (botDelta > 0) {
+      if (total < maxPlayers) return (humans, bots + 1);
+      return humans > 1 ? (humans - 1, bots + 1) : null;
+    }
+    if (botDelta < 0) {
+      if (bots <= 0) return null;
+      return total > minPlayers ? (humans, bots - 1) : (humans + 1, bots - 1);
+    }
+    return null;
+  }
+
   /// 자리 [seat]의 이름 (사람이 한 명이면 "나", 봇이 한 명이면 "CPU").
   static String seatName(int seat, int humans, int bots) {
     if (seat < humans) return humans == 1 ? '나' : '플레이어 ${seat + 1}';
@@ -30,8 +54,11 @@ class YachtPartyPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final line = scheme.outlineVariant;
-    final canAdd = _total < maxPlayers;
-    final canRemove = _total > minPlayers;
+    VoidCallback? press({int h = 0, int b = 0}) {
+      final next = step(humans, bots, humanDelta: h, botDelta: b);
+      return next == null ? null : () => onChanged(next.$1, next.$2);
+    }
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -62,10 +89,8 @@ class YachtPartyPicker extends StatelessWidget {
               label: '봇',
               info: '컴퓨터(CPU)가 대신 굴려요',
               count: bots,
-              canPlus: canAdd,
-              canMinus: canRemove && bots > 0,
-              onPlus: () => onChanged(humans, bots + 1),
-              onMinus: () => onChanged(humans, bots - 1),
+              onPlus: press(b: 1),
+              onMinus: press(b: -1),
             ),
             _stepRow(
               context,
@@ -73,10 +98,8 @@ class YachtPartyPicker extends StatelessWidget {
               label: '로컬 플레이어',
               info: '이 기기를 돌려 가며 하는 사람이에요',
               count: humans,
-              canPlus: canAdd,
-              canMinus: canRemove && humans > 1,
-              onPlus: () => onChanged(humans + 1, bots),
-              onMinus: () => onChanged(humans - 1, bots),
+              onPlus: press(h: 1),
+              onMinus: press(h: -1),
             ),
             Divider(height: 1, color: line),
             for (var seat = 0; seat < _total; seat++) _seatRow(context, seat),
@@ -92,10 +115,8 @@ class YachtPartyPicker extends StatelessWidget {
     required String label,
     required String info,
     required int count,
-    required bool canPlus,
-    required bool canMinus,
-    required VoidCallback onPlus,
-    required VoidCallback onMinus,
+    required VoidCallback? onPlus,
+    required VoidCallback? onMinus,
   }) {
     final scheme = Theme.of(context).colorScheme;
     final line = scheme.outlineVariant;
@@ -122,8 +143,8 @@ class YachtPartyPicker extends StatelessWidget {
               ),
             ),
           ),
-          _stepButton(context, ValueKey('yacht-$id-plus'), Icons.add_rounded, canPlus ? onPlus : null),
-          _stepButton(context, ValueKey('yacht-$id-minus'), Icons.remove_rounded, canMinus ? onMinus : null),
+          _stepButton(context, ValueKey('yacht-$id-plus'), Icons.add_rounded, onPlus),
+          _stepButton(context, ValueKey('yacht-$id-minus'), Icons.remove_rounded, onMinus),
         ],
       ),
     );

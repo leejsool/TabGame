@@ -5,7 +5,9 @@ import '../../../versus/vs_setup.dart';
 import '../core/yacht_cpu.dart';
 import '../game/yacht_controller.dart';
 import '../tutorial/yacht_tutorial.dart';
+import 'yacht_help.dart';
 import 'yacht_lesson_screen.dart';
+import 'yacht_look.dart';
 import 'yacht_party_picker.dart';
 import 'yacht_screen.dart';
 
@@ -27,16 +29,19 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
   YachtLevel _level = YachtLevel.normal;
   bool _threeKind = false;
 
+  /// 대성One Rule (만능 초록 주사위가 있는 변형 규칙. yacht_daesung.dart).
+  bool _daesung = false;
+
   /// 시간 무제한인가 (끄면 한 턴에 [kYachtTurnSeconds]초).
   bool _unlimited = false;
 
   void _start() {
-    final humans = _humans, players = _humans + _bots, level = _level, three = _threeKind;
+    final humans = _humans, players = _humans + _bots, level = _level, three = _threeKind && !_daesung, ds = _daesung;
     final secs = _unlimited ? null : kYachtTurnSeconds;
     final bots = [for (var s = humans; s < players; s++) s];
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => YachtScreen(mode: PlayMode.local2p, players: players, level: level, threeKind: three, cpuSeats: bots, turnSeconds: secs),
+        builder: (_) => YachtScreen(mode: PlayMode.local2p, players: players, level: level, threeKind: three, daesung: ds, cpuSeats: bots, turnSeconds: secs),
       ),
     );
   }
@@ -45,7 +50,9 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
     final controller = YachtController.fromJson(saved);
     if (controller == null) return;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => YachtScreen(mode: controller.mode, players: controller.players, controller: controller)),
+      MaterialPageRoute<void>(
+        builder: (_) => YachtScreen(mode: controller.mode, players: controller.players, controller: controller),
+      ),
     );
   }
 
@@ -60,28 +67,33 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
       tutorial: yachtTutorial,
       onLesson: () => openYachtLesson(context),
       children: [
-        YachtPartyPicker(humans: _humans, bots: _bots, onChanged: (h, b) => setState(() {
-              _humans = h;
-              _bots = b;
-            })),
-        VsHint(_bots > 0
-            ? '봇은 CPU가 대신 굴려요. 사람이 여럿이면 기기를 돌려 가며 해요. 다음 판부터는 시작하는 순서가 돌아가요.'
-            : '기기 하나를 돌려 가며 해요. 다음 판부터는 시작하는 순서가 돌아가요.'),
-        const VsSectionTitle('옵션', topGap: 16),
-        Material(
-          color: Theme.of(context).colorScheme.surface,
-          elevation: 1,
-          borderRadius: BorderRadius.circular(16),
-          child: SwitchListTile(
-            key: const ValueKey('yacht-three-kind'),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-            title: const Text('쓰리카드 칸 넣기', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            subtitle: const Text('같은 눈 3개 이상이면 눈 5개의 합. 칸이 13개, 라운드도 13번이 돼요.', style: TextStyle(fontSize: 13)),
-            value: _threeKind,
-            onChanged: (v) => setState(() => _threeKind = v),
-          ),
+        YachtPartyPicker(
+          humans: _humans,
+          bots: _bots,
+          onChanged: (h, b) => setState(() {
+            _humans = h;
+            _bots = b;
+          }),
         ),
+        const VsSectionTitle('옵션', topGap: 16),
+        YachtDaesungSwitch(value: _daesung, onChanged: (v) => setState(() => _daesung = v)),
+        if (!_daesung) ...[
+          const SizedBox(height: 10),
+          Material(
+            color: Theme.of(context).colorScheme.surface,
+            elevation: 1,
+            borderRadius: BorderRadius.circular(16),
+            child: SwitchListTile(
+              key: const ValueKey('yacht-three-kind'),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              title: const Text('쓰리카드 칸 넣기', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              subtitle: const Text('같은 눈 3개 이상이면 눈 5개의 합. 칸이 13개, 라운드도 13번이 돼요.', style: TextStyle(fontSize: 13)),
+              value: _threeKind,
+              onChanged: (v) => setState(() => _threeKind = v),
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         Material(
           color: Theme.of(context).colorScheme.surface,
@@ -93,9 +105,7 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
             title: const Text('시간 무제한', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             subtitle: Text(
-              _unlimited
-                  ? '시간 제한 없이 천천히 해요.'
-                  : '한 턴에 $kYachtTurnSeconds초의 제한 시간이 주어지며, 이 시간을 넘기면 자동으로 가장 높은 점수 칸에 기록됩니다.',
+              _unlimited ? '시간 제한 없이 천천히 해요.' : '한 턴에 $kYachtTurnSeconds초의 제한 시간이 주어지며, 이 시간을 넘기면 자동으로 가장 높은 점수 칸에 기록됩니다.',
               style: const TextStyle(fontSize: 13),
             ),
             value: _unlimited,
@@ -104,12 +114,7 @@ class _YachtSetupScreenState extends State<YachtSetupScreen> {
         ),
         if (_bots > 0) ...[
           const VsSectionTitle('봇 난이도', topGap: 16),
-          VsLevelPicker<YachtLevel>(
-            levels: YachtLevel.values,
-            selected: _level,
-            onChanged: (l) => setState(() => _level = l),
-            label: (l) => l.label,
-          ),
+          VsLevelPicker<YachtLevel>(levels: YachtLevel.values, selected: _level, onChanged: (l) => setState(() => _level = l), label: (l) => l.label),
         ],
       ],
     );
@@ -121,8 +126,48 @@ String yachtSavedLabel(Map<String, dynamic> j) {
   final cards = (j['game'] as Map?)?['cards'] as List?;
   final players = cards?.length ?? 2;
   final cpus = j['mode'] == PlayMode.vsCpu.name ? players - 1 : ((j['cpu'] as List?)?.length ?? 0);
-  final rounds = (j['game'] as Map?)?['three'] == true ? 13 : 12;
+  final game = j['game'] as Map?;
+  final rounds = game?['ds'] == true ? 10 : (game?['three'] == true ? 13 : 12);
   final filled = cards == null || cards.isEmpty ? 0 : (cards.last as List).where((s) => s != null).length;
   final who = cpus == 0 ? '한 기기로 함께 · $players명' : (cpus == players - 1 ? 'CPU 대결 · $players명' : '사람 ${players - cpus} + 봇 $cpus');
-  return '$who · ${filled < rounds ? filled + 1 : rounds}/$rounds 라운드';
+  return '${game?['ds'] == true ? '대성One · ' : ''}$who · ${filled < rounds ? filled + 1 : rounds}/$rounds 라운드';
+}
+
+/// "대성One Rule" 켜고 끄기 (설정 화면 · Wi‑Fi 방 만들기 화면이 같이 쓴다). 물음표를 누르면 규칙 설명 창이 뜬다.
+class YachtDaesungSwitch extends StatelessWidget {
+  const YachtDaesungSwitch({super.key, required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 1,
+      borderRadius: BorderRadius.circular(16),
+      child: SwitchListTile(
+        key: const ValueKey('yacht-daesung'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        secondary: const YachtDie(value: 1, size: 34, daesung: true),
+        title: Row(
+          children: [
+            const Flexible(child: Text('대성One Rule', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
+            const SizedBox(width: 2),
+            IconButton(
+              key: const ValueKey('yacht-daesung-help'),
+              tooltip: '대성One Rule 설명',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.help_outline_rounded, size: 22),
+              onPressed: () => showDaesungRuleHelp(context),
+            ),
+          ],
+        ),
+        subtitle: const Text('초록 대성One 주사위의 로고는 만능! 원즈 · 보너스 55점 → +40', style: TextStyle(fontSize: 13)),
+        value: value,
+        onChanged: onChanged,
+      ),
+    );
+  }
 }

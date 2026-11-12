@@ -62,7 +62,7 @@ extension _YachtSplitTable on _YachtScoreTableState {
     final lower = <Widget>[
       _header(look, showTitle: false),
       for (var i = 0; i < lowerCats.length; i++) _categoryRow(look, lowerCats[i], counts, shaded: i.isOdd, hot: hot == step++),
-      _yahtzeeBonusRow(look, hot: hot == step++),
+      if (!c.game.daesung) _yahtzeeBonusRow(look, hot: hot == step++),
       // 합계는 게임이 끝나야 나타난다
       AnimatedSize(
         duration: const Duration(milliseconds: 300),

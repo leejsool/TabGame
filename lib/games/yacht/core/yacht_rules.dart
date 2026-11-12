@@ -2,6 +2,8 @@
 // 점수는 진짜 야추 점수표대로: 풀하우스 25 · 스몰 30 · 라지 40 · 야추 50, 야추를 또 굴리면 +100.
 //
 // 주사위 5개의 눈은 "눈별 개수"(길이 6, counts[0] = 1의 개수)로 다룬다.
+// 대성One Rule(만능 주사위가 있는 변형)은 yacht_daesung.dart.
+import 'yacht_daesung.dart';
 
 /// 주사위 개수.
 const int kYachtDice = 5;
@@ -137,33 +139,59 @@ int yachtScore(YachtCategory c, List<int> counts) {
 /// 한 사람의 점수판.
 class YachtCard {
   /// [threeKind]: 쓰리카드 칸을 쓰는 판인가. 안 쓰면 그 칸은 처음부터 닫혀 있다.
-  YachtCard({this.threeKind = false}) : scores = List<int?>.filled(kYachtSlots, null);
+  /// [daesung]: 대성One Rule 판인가 (yacht_daesung.dart). 그러면 쓰리카드는 없다.
+  YachtCard({bool threeKind = false, this.daesung = false})
+      : threeKind = threeKind && !daesung,
+        scores = List<int?>.filled(kYachtSlots, null);
 
   /// 보관한 점수에서. 쓰리카드가 없던 옛 보관본(12칸)도 읽는다.
-  YachtCard.fromJson(List<dynamic> json, {this.threeKind = false})
-      : scores = [for (final v in json) v as int?, for (var i = json.length; i < kYachtSlots; i++) null];
+  YachtCard.fromJson(List<dynamic> json, {bool threeKind = false, this.daesung = false})
+      : threeKind = threeKind && !daesung,
+        scores = [for (final v in json) v as int?, for (var i = json.length; i < kYachtSlots; i++) null];
 
   final bool threeKind;
+
+  /// 대성One Rule 판인가.
+  final bool daesung;
+
+  /// 이 판에서 쓰는 칸인가.
+  bool uses(YachtCategory c) => daesung ? daesungUses(c) : (threeKind || c != YachtCategory.threeKind);
+
+  /// 숫자 칸 보너스를 받는 합과 보너스 점수.
+  int get bonusAt => daesung ? kDaesungBonusAt : kYachtBonusAt;
+  int get bonusPoints => daesung ? kDaesungBonus : kYachtBonus;
+
+  /// 이 판의 점수 계산: 주사위 눈 [dice]를 [c] 칸에 적으면 받는 점수.
+  int scoreOf(YachtCategory c, List<int> dice) => daesung ? daesungScore(c, dice) : yachtScore(c, yachtCounts(dice));
+
+  /// 칸 이름 (대성One Rule이면 1 칸은 "원즈").
+  String labelOf(YachtCategory c) => daesung ? daesungLabel(c) : c.label;
+
+  /// 칸의 한 줄 설명.
+  String ruleOf(YachtCategory c) => daesung ? daesungRule(c) : c.rule;
+
+  /// 칸 이름을 눌렀을 때의 설명.
+  String helpOf(YachtCategory c) => daesung ? daesungHelp(c) : c.help;
 
   /// 야추 보너스를 받은 횟수 (야추 칸에 50점을 적은 뒤 야추를 또 굴려 적을 때마다 +100).
   int yahtzeeBonuses = 0;
 
   /// 야추 보너스 점수 합.
-  int get yahtzeeBonusTotal => yahtzeeBonuses * kYachtYahtzeeBonus;
+  int get yahtzeeBonusTotal => daesung ? 0 : yahtzeeBonuses * kYachtYahtzeeBonus;
 
   /// 칸별 점수 (칸 번호 순서). 아직 안 적은 칸 · 안 쓰는 칸은 null.
   final List<int?> scores;
 
   /// 이 판에서 쓰는 칸 수 (12 또는 13).
-  int get slotCount => threeKind ? kYachtSlots : kYachtSlots - 1;
+  int get slotCount => daesung ? kDaesungCategories.length : (threeKind ? kYachtSlots : kYachtSlots - 1);
 
   /// 점수판에 보이는 칸들 (줄 순서대로).
   List<YachtCategory> get categories => [
         for (final c in YachtCategory.sheetOrder)
-          if (threeKind || c != YachtCategory.threeKind) c,
+          if (uses(c)) c,
       ];
 
-  bool isOpen(YachtCategory c) => scores[c.index] == null && (threeKind || c != YachtCategory.threeKind);
+  bool isOpen(YachtCategory c) => scores[c.index] == null && uses(c);
 
   /// 1~6 칸에 적은 점수의 합.
   int get upperSum {
@@ -175,7 +203,7 @@ class YachtCard {
   }
 
   /// 받은 보너스 (없으면 0).
-  int get bonus => upperSum >= kYachtBonusAt ? kYachtBonus : 0;
+  int get bonus => upperSum >= bonusAt ? bonusPoints : 0;
 
   /// 지금까지의 총점 (보너스 포함).
   int get total {
@@ -188,9 +216,9 @@ class YachtCard {
 
   /// 적은 칸을 비트로 나타낸 값 (c.index 번째 비트). 안 쓰는 칸은 "이미 찬 칸"으로 센다 (확률 표가 그렇게 짜여 있다).
   int get filledMask {
-    var mask = threeKind ? 0 : 1 << YachtCategory.threeKind.index;
+    var mask = 0;
     for (var i = 0; i < scores.length; i++) {
-      if (scores[i] != null) mask |= 1 << i;
+      if (scores[i] != null || !uses(YachtCategory.values[i])) mask |= 1 << i;
     }
     return mask;
   }

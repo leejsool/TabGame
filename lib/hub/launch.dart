@@ -17,7 +17,7 @@ Future<void> launchGame(BuildContext context, GameInfo game) async {
     return;
   }
   final PlayMode? mode;
-  if (game.modes.length == 1) {
+  if (game.modes.length == 1 || game.modeInSetup) {
     mode = game.modes.first;
   } else {
     mode = await showModalBottomSheet<PlayMode>(

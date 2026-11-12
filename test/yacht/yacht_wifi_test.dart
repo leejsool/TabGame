@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tabgame/core/game_info.dart';
 import 'package:tabgame/games/yacht/core/yacht_advisor.dart';
 import 'package:tabgame/games/yacht/core/yacht_cpu.dart';
+import 'package:tabgame/games/yacht/core/yacht_daesung.dart';
+import 'package:tabgame/games/yacht/core/yacht_daesung_advisor.dart';
+import 'package:tabgame/games/yacht/core/yacht_daesung_values.dart';
 import 'package:tabgame/games/yacht/core/yacht_rules.dart';
 import 'package:tabgame/games/yacht/core/yacht_values.dart';
 import 'package:tabgame/games/yacht/game/yacht_controller.dart';
@@ -67,6 +70,31 @@ void main() {
     expect(a.actions, b.actions);
     a.dispose();
     b.dispose();
+  });
+
+  test('대성One Rule 방: 두 기기 모두 대성One 판이고, 적은 점수가 만능 규칙대로 같다', () async {
+    final dsAdvisor = YachtDaesungAdvisor(YachtDaesungValues.fromBytes(File('assets/yacht/values_ds.bin').readAsBytesSync()));
+    YachtController ds(int me, {bool host = false}) =>
+        YachtController(mode: PlayMode.wifi, players: 2, humanSeat: me, cpuHost: host, level: YachtLevel.easy, advisor: dsAdvisor, daesung: true, rng: Random(5));
+    final a = ds(0, host: true), b = ds(1);
+    a.onLocalAction = (m) => expect(b.receive(m), isTrue, reason: '$m');
+    b.onLocalAction = (m) => expect(a.receive(m), isTrue, reason: '$m');
+    expect(a.game.daesung && b.game.daesung, isTrue);
+    a.roll();
+    await until(() => !a.rolling && !b.rolling);
+    expect(b.game.dice, a.game.dice);
+    final want = daesungScore(YachtCategory.choice, a.game.dice);
+    a.choose(YachtCategory.choice);
+    a.confirm();
+    expect(a.game.cards[0].scores[YachtCategory.choice.index], want);
+    expect(b.game.cards[0].scores[YachtCategory.choice.index], want);
+    // 나갔다 들어올 때 받는 판의 모습에도 대성One Rule이 남는다
+    final back = YachtControllerRejoin.fromWifiSnapshot(a.wifiSnapshot(), humanSeat: 1)!;
+    expect(back.daesung, isTrue);
+    expect(back.game.daesung, isTrue);
+    a.dispose();
+    b.dispose();
+    back.dispose();
   });
 
   test('구르는 도중에 다음 소식이 와도 판이 어긋나지 않는다', () {

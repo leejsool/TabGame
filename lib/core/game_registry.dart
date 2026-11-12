@@ -250,6 +250,7 @@ const List<GameInfo> _registeredGames = [
     iconPainter: paintYachtIcon,
     recordsTab: YachtRecordsTab.new,
     localMulti: true,
+    modeInSetup: true, // 로컬 설정 화면으로 바로 (Wi‑Fi는 그 화면 맨 위 칩에서)
     beta: true,
   ),
   GameInfo(

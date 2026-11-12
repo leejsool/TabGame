@@ -13,6 +13,7 @@ import 'package:tabgame/games/yacht/core/yacht_cpu.dart';
 import 'package:tabgame/games/yacht/core/yacht_values.dart';
 import 'package:tabgame/games/yacht/data/yacht_history.dart';
 import 'package:tabgame/games/yacht/game/yacht_controller.dart';
+import 'package:tabgame/games/yacht/ui/yacht_party_picker.dart';
 import 'package:tabgame/games/yacht/ui/yacht_screen.dart';
 import 'package:tabgame/games/yacht/ui/yacht_setup_screen.dart';
 
@@ -48,47 +49,56 @@ void main() {
     expect(yacht.modes, [PlayMode.local2p, PlayMode.wifi]);
     expect(yacht.modeLabel(PlayMode.local2p), '로컬 플레이 (한 기기)');
     expect(yacht.modeChip(PlayMode.local2p), '로컬');
+    expect(yacht.modeInSetup, isTrue, reason: '허브에서 로컬/Wi‑Fi를 묻지 않고 설정 화면으로 바로 (Wi‑Fi는 설정 화면 칩에서)');
   });
 
-  testWidgets('설정: 봇과 로컬 플레이어를 + / − 로 정한다 (합쳐서 2~4명)', (tester) async {
+  test('+/− 규칙: 꽉 찼을 때 늘리거나 최소일 때 줄이면 봇과 로컬이 한 자리를 맞바꾼다', () {
+    (int, int)? s(int h, int b, {int hd = 0, int bd = 0}) => YachtPartyPicker.step(h, b, humanDelta: hd, botDelta: bd);
+    // (사람, 봇)
+    expect(s(1, 1, hd: 1), (2, 1));
+    expect(s(3, 1, hd: 1), (4, 0), reason: '봇1 로컬3에서 로컬+ → 봇0 로컬4');
+    expect(s(4, 0, hd: 1), isNull, reason: '사람만 4명이면 더 못 늘린다');
+    expect(s(1, 1, bd: -1), (2, 0), reason: '봇1 로컬1에서 봇− → 봇0 로컬2');
+    expect(s(2, 0, hd: -1), (1, 1), reason: '봇0 로컬2에서 로컬− → 봇1 로컬1');
+    expect(s(1, 1, hd: -1), isNull, reason: '사람은 적어도 한 명');
+    expect(s(2, 0, bd: -1), isNull, reason: '봇이 없으면 봇−는 없다');
+    expect(s(2, 2, bd: 1), (1, 3), reason: '꽉 찼을 때 봇+ → 사람 한 명이 봇으로');
+    expect(s(1, 3, bd: 1), isNull, reason: '사람 1 + 봇 3이면 더 못 바꾼다');
+    expect(s(2, 2, bd: -1), (2, 1));
+    expect(s(3, 1, hd: -1), (2, 1));
+  });
+
+  testWidgets('설정: 봇과 로컬 플레이어를 + / − 로 정한다 (합쳐서 2~4명, 끝에서는 맞바꾼다)', (tester) async {
     await pumpSetup(tester);
     expect(total(tester), '2/4');
     expect(count(tester, 'bots'), '1');
     expect(count(tester, 'humans'), '1');
     expect(find.text('나'), findsOneWidget);
     expect(find.text('CPU'), findsOneWidget);
+    expect(find.textContaining('봇은 CPU가 대신 굴려요'), findsNothing, reason: '안내 문구는 없앴다');
 
     await tap(tester, 'yacht-humans-plus');
-    expect(total(tester), '3/4');
-    expect(find.text('플레이어 1'), findsOneWidget);
-    expect(find.text('플레이어 2'), findsOneWidget);
-    await tap(tester, 'yacht-bots-plus');
-    expect(total(tester), '4/4');
-    expect(find.text('CPU 1'), findsOneWidget);
-    expect(find.text('CPU 2'), findsOneWidget);
-
-    // 4명이면 더 못 늘린다
-    await tap(tester, 'yacht-bots-plus');
     await tap(tester, 'yacht-humans-plus');
-    expect(total(tester), '4/4');
-
-    // 줄이기: 사람은 1명 밑으로, 전체는 2명 밑으로 못 간다
-    await tap(tester, 'yacht-humans-minus');
-    await tap(tester, 'yacht-humans-minus');
-    expect(count(tester, 'humans'), '1');
-    await tap(tester, 'yacht-bots-minus');
-    expect(total(tester), '2/4');
-    expect(count(tester, 'bots'), '1');
-    await tap(tester, 'yacht-bots-minus');
-    expect(count(tester, 'bots'), '1', reason: '사람 1 + 봇 1 밑으로는 못 줄인다');
+    expect((count(tester, 'humans'), count(tester, 'bots'), total(tester)), ('3', '1', '4/4'));
+    // 꽉 찬 채로 로컬+ → 봇이 빠지고 로컬 4명
     await tap(tester, 'yacht-humans-plus');
-    await tap(tester, 'yacht-bots-minus');
-    expect(count(tester, 'bots'), '0');
-    expect(total(tester), '2/4');
+    expect((count(tester, 'humans'), count(tester, 'bots'), total(tester)), ('4', '0', '4/4'));
+    expect(find.text('플레이어 4'), findsOneWidget);
     expect(find.text('봇 난이도'), findsNothing, reason: '봇이 없으면 난이도 고르기도 없다');
+
+    // 로컬을 2명까지 줄인 뒤 로컬− → 봇1 로컬1
+    await tap(tester, 'yacht-humans-minus');
+    await tap(tester, 'yacht-humans-minus');
+    expect((count(tester, 'humans'), count(tester, 'bots')), ('2', '0'));
+    await tap(tester, 'yacht-humans-minus');
+    expect((count(tester, 'humans'), count(tester, 'bots'), total(tester)), ('1', '1', '2/4'));
+    expect(find.text('나'), findsOneWidget);
+
+    // 봇1 로컬1에서 봇− → 봇0 로컬2
+    await tap(tester, 'yacht-bots-minus');
+    expect((count(tester, 'humans'), count(tester, 'bots'), total(tester)), ('2', '0', '2/4'));
     expect(tester.takeException(), isNull);
   });
-
   testWidgets('설정: 시작하면 사람은 앞자리, 봇은 뒷자리에 앉고 쓰리카드 옵션이 따라간다', (tester) async {
     await pumpSetup(tester);
     await tap(tester, 'yacht-humans-plus'); // 사람 2 + 봇 1

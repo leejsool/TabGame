@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/yacht_advisor.dart';
+import '../core/yacht_daesung.dart';
 import '../core/yacht_rules.dart';
 import '../game/yacht_controller.dart';
 import 'yacht_chance_popup.dart';
@@ -21,7 +22,7 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
   final left = game.rollsLeft;
   final advice = advisor.advise(card: game.card, dice: dice, rerollsLeft: left);
   final keep = advice.keep;
-  final holds = keep == null ? null : yachtHoldsFor(dice, keep, prefer: game.held);
+  final holds = keep == null ? null : advisor.holdsFor(dice, keep, prefer: game.held);
   final open = [
     for (final cat in game.categories)
       if (game.card.isOpen(cat)) cat,
@@ -64,7 +65,7 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
                                 Flexible(
                                   child: Text(
                                     holds == null
-                                        ? '추천: ‘${advice.bestCategory.title}’ 칸에 ${advice.scoreNow[advice.bestCategory.index]}점 적기'
+                                        ? '추천: ‘${game.card.labelOf(advice.bestCategory)}’ 칸에 ${advice.scoreNow[advice.bestCategory.index]}점 적기'
                                         : (holds.contains(true) ? '추천: 표시한 주사위를 고정하고 다시 굴리기' : '추천: 5개 모두 다시 굴리기'),
                                     style: head,
                                     textAlign: TextAlign.center,
@@ -81,7 +82,7 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
                                     padding: const EdgeInsets.symmetric(horizontal: 3),
                                     child: Opacity(
                                       opacity: holds == null || holds[i] ? 1 : 0.45,
-                                      child: YachtDie(value: dice[i], size: 44, held: holds != null && holds[i], accent: color),
+                                      child: YachtDie(value: dice[i], size: 44, held: holds != null && holds[i], accent: color, daesung: game.daesung && i == kDaesungDie),
                                     ),
                                   ),
                               ],
@@ -113,9 +114,9 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      for (final cat in open) _row(ctx, cat, advice, outlooks[cat]!, left, best: holds == null && cat == advice.bestCategory, dice: dice, held: List<bool>.of(game.held), advisor: advisor),
+                      for (final cat in open) _row(ctx, cat, advice, outlooks[cat]!, left, best: holds == null && cat == advice.bestCategory, dice: dice, held: List<bool>.of(game.held), advisor: advisor, label: game.card.labelOf(cat)),
                       const SizedBox(height: 6),
-                      Text(left > 0 ? '확률은 그 족보 하나만 노리고 가장 잘 굴렸을 때 완성될 확률이에요. 모양이 없는 칸은 받을 점수의 평균을 보여 줘요. 줄을 누르면 자세한 계산 과정이 나와요.' : '굴릴 기회를 다 썼어요. 빈 칸 하나를 골라 적어야 해요.', style: small),
+                      Text(left > 0 ? '확률은 그 족보 하나만 노리고 가장 잘 굴렸을 때 완성될 확률이에요. 모양이 없는 칸은 받을 점수의 평균을 보여 줘요.${advisor.explains ? ' 줄을 누르면 자세한 계산 과정이 나와요.' : ''}' : '굴릴 기회를 다 썼어요. 빈 칸 하나를 골라 적어야 해요.', style: small),
                     ],
                   ),
                 ),
@@ -170,7 +171,7 @@ Future<void> showYachtHint(BuildContext context, YachtController c) {
 }
 
 Widget _row(BuildContext context, YachtCategory cat, YachtAdvice advice, YachtOutlook o, int left,
-    {required bool best, required List<int> dice, required List<bool> held, required YachtAdvisor advisor}) {
+    {required bool best, required List<int> dice, required List<bool> held, required YachtBrain advisor, required String label}) {
   final scheme = Theme.of(context).colorScheme;
   final chance = o.chance;
   final box = Container(
@@ -187,7 +188,7 @@ Widget _row(BuildContext context, YachtCategory cat, YachtAdvice advice, YachtOu
               if (cat.isUpper) ...[YachtDie(value: cat.index + 1, size: 22), const SizedBox(width: 6)],
               Flexible(
                 child: Text(
-                  cat.title,
+                  label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800),
@@ -227,7 +228,8 @@ Widget _row(BuildContext context, YachtCategory cat, YachtAdvice advice, YachtOu
     padding: const EdgeInsets.symmetric(vertical: 2),
     child: best ? YachtGlowBorder(key: ValueKey('yacht-hint-glow-${cat.name}'), color: kYachtColor, child: box) : box,
   );
-  // 보이는 모습은 그대로 두고(퍼센트나 평균만), 누르면 자세한 계산 과정 창이 뜬다
+  // 보이는 모습은 그대로 두고(퍼센트나 평균만), 누르면 자세한 계산 과정 창이 뜬다 (기본 규칙만: 대성One Rule은 계산 과정 창이 없다)
+  if (advisor is! YachtAdvisor) return row;
   if (cat.isUpper) {
     return GestureDetector(
       key: ValueKey('yacht-hint-row-${cat.name}'),

@@ -6,12 +6,11 @@ part of 'yacht_controller.dart';
 
 /// 시간이 다 됐을 때 적을 칸: 지금 주사위로 점수가 가장 높은 빈 칸. 같으면 점수판 위쪽 칸.
 YachtCategory yachtTimeoutCategory(YachtCard card, List<int> dice) {
-  final counts = yachtCounts(dice);
   YachtCategory? best;
   var bestScore = -1;
   for (final c in card.categories) {
     if (!card.isOpen(c)) continue;
-    final s = yachtScore(c, counts);
+    final s = card.scoreOf(c, dice);
     if (s > bestScore) {
       best = c;
       bestScore = s;

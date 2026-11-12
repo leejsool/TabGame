@@ -9,6 +9,8 @@ import '../../../core/game_speed.dart';
 import '../../../versus/cpu_turn.dart';
 import '../core/yacht_advisor.dart';
 import '../core/yacht_cpu.dart';
+import '../core/yacht_daesung_advisor.dart';
+import '../core/yacht_daesung_values.dart';
 import '../core/yacht_game.dart';
 import '../core/yacht_rules.dart';
 import '../core/yacht_values.dart';
@@ -23,11 +25,17 @@ const int kYachtTurnSeconds = 60;
 const int kYachtRollMs = 950;
 
 Future<YachtAdvisor>? _advisor;
+Future<YachtDaesungAdvisor>? _daesungAdvisor;
 
 /// 기대 점수 표를 읽어 길잡이(확률 계산)를 만든다. 한 번만 읽는다.
 Future<YachtAdvisor> loadYachtAdvisor() => _advisor ??= rootBundle
     .load('assets/yacht/values.bin')
     .then((data) => YachtAdvisor(YachtValues.fromBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes))));
+
+/// 대성One Rule의 길잡이 (표: assets/yacht/values_ds.bin). 한 번만 읽는다.
+Future<YachtDaesungAdvisor> loadYachtDaesungAdvisor() => _daesungAdvisor ??= rootBundle
+    .load('assets/yacht/values_ds.bin')
+    .then((data) => YachtDaesungAdvisor(YachtDaesungValues.fromBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes))));
 
 /// 야추 한 판의 진행: 사람의 입력(굴리기 · 잡기 · 칸 고르기 · 적기)과 CPU의 차례.
 class YachtController extends ChangeNotifier {
@@ -42,12 +50,13 @@ class YachtController extends ChangeNotifier {
     this.names,
     this.advisor,
     this.threeKind = false,
+    this.daesung = false,
     this.turnSeconds,
     Random? rng,
   })  : _rng = rng ?? Random(),
         // CPU와 대결(옛 방식)은 내 자리 빼고 모두 CPU. 한 기기로 함께 · 같은 Wi‑Fi는 알려 준 자리들이 CPU(봇)다.
         cpuSeats = mode == PlayMode.vsCpu ? {for (var i = 0; i < players; i++) if (i != humanSeat) i} : {...?cpuSeats},
-        game = YachtGame(playerCount: players, first: first, threeKind: threeKind);
+        game = YachtGame(playerCount: players, first: first, threeKind: threeKind, daesung: daesung);
 
   /// 이어하기용으로 보관한 모습에서 되살린다. 맞지 않는 내용이면 null.
   static YachtController? fromJson(Map<String, dynamic> j) {
@@ -59,6 +68,7 @@ class YachtController extends ChangeNotifier {
         level: YachtLevel.values.byName(j['level'] as String),
         first: j['first'] as int? ?? 0,
         threeKind: game.threeKind,
+        daesung: game.daesung,
         turnSeconds: j['sec'] as int?,
         cpuSeats: [for (final s in (j['cpu'] as List?) ?? const []) if (s is int && s >= 0 && s < game.playerCount) s],
       );
@@ -78,6 +88,9 @@ class YachtController extends ChangeNotifier {
 
   /// 쓰리카드 칸을 넣고 하는 판인가 (시작 전에 정한다. "한 판 더"에서도 그대로).
   final bool threeKind;
+
+  /// 대성One Rule 판인가 (시작 전에 정한다. 0번 주사위가 만능 대성One).
+  final bool daesung;
 
   /// 사람의 한 차례 제한 시간(초). null이면 시간 무제한. 같은 Wi‑Fi 판에서는 쓰지 않는다.
   final int? turnSeconds;
@@ -111,7 +124,7 @@ class YachtController extends ChangeNotifier {
   YachtGame game;
 
   /// 확률 계산. [start]에서 읽는다 (시험에서는 미리 넣어 준다).
-  YachtAdvisor? advisor;
+  YachtBrain? advisor;
 
   /// 주사위가 구르는 중인가.
   bool rolling = false;
@@ -208,7 +221,7 @@ class YachtController extends ChangeNotifier {
 
   /// 화면이 뜬 뒤 한 번 부른다: 확률 계산을 준비하고, CPU 차례면 CPU가 시작한다.
   Future<void> start() async {
-    advisor ??= await loadYachtAdvisor();
+    advisor ??= daesung ? await loadYachtDaesungAdvisor() : await loadYachtAdvisor();
     if (_disposed) return;
     notifyListeners();
     _runCpu();
@@ -275,7 +288,7 @@ class YachtController extends ChangeNotifier {
     lastCategory = null;
     actions = 0;
     if (rotate) first = (first + 1) % players;
-    game = YachtGame(playerCount: players, first: first, threeKind: threeKind);
+    game = YachtGame(playerCount: players, first: first, threeKind: threeKind, daesung: daesung);
     notifyListeners();
     _runCpu();
   }

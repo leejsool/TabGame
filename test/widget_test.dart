@@ -103,6 +103,22 @@ void main() {
     expect(find.text('CPU 난이도'), findsOneWidget);
   });
 
+  testWidgets('야추는 모드(로컬 / Wi‑Fi)를 묻지 않고 설정 화면으로 바로 들어가고, Wi‑Fi는 설정 화면 맨 위 칩에서 고른다', (tester) async {
+    tester.view.physicalSize = const Size(1600, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    final settings = await Settings.load();
+    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
+    await tester.scrollUntilVisible(find.text('야추'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.text('야추'));
+    await tester.pumpAndSettle();
+    expect(find.text('어떻게 할까요?'), findsNothing);
+    await tester.tap(find.text('건너뛰기')); // 처음 여는 게임이라 게임 방법이 먼저 나온다
+    await tester.pumpAndSettle();
+    expect(find.text('야추 · 로컬 플레이'), findsOneWidget);
+    expect(find.text('Wi‑Fi'), findsWidgets, reason: '설정 화면 맨 위의 전환 칩');
+  });
+
   testWidgets('다듬는 중인 게임(핀볼·리듬 검사단)은 허브 카드에 beta 표시가 붙는다', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 2.0;

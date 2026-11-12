@@ -8,9 +8,12 @@ import 'yacht_look.dart';
 ///
 /// [ax]·[ay]·[az]만큼 돌아간 모습이고, 셋 다 0이면 [value] 눈이 정면을 보는 (멈춘 주사위와 같은) 모습이다.
 class YachtCubePainter extends CustomPainter {
-  YachtCubePainter({required this.value, required this.ax, required this.ay, required this.az, this.lift = 0});
+  YachtCubePainter({required this.value, required this.ax, required this.ay, required this.az, this.lift = 0, this.daesung = false});
 
   final int value;
+
+  /// 대성One 주사위 (초록 몸통, 흰 눈, 1 면에는 흰 동그라미 + 학교 로고).
+  final bool daesung;
   final double ax, ay, az;
 
   /// 바닥에서 떠오른 정도 (0~1). 클수록 그림자가 멀어지고 옅어진다.
@@ -77,7 +80,9 @@ class YachtCubePainter extends CustomPainter {
       const inset = 0.74;
       final quad = Path()..addPolygon([at(-inset, -inset), at(inset, -inset), at(inset, inset), at(-inset, inset)], true);
       final shade = (0.62 + 0.38 * n[2]).clamp(0.0, 1.0);
-      final color = Color.lerp(const Color(0xFF8D8778), kYachtDieBody, shade)!;
+      final color = daesung
+          ? Color.lerp(kDaesungEdge, kDaesungBody, shade)!
+          : Color.lerp(const Color(0xFF8D8778), kYachtDieBody, shade)!;
       canvas.drawPath(quad, Paint()..color = color);
       canvas.drawPath(
         quad,
@@ -88,10 +93,18 @@ class YachtCubePainter extends CustomPainter {
           ..strokeWidth = h * 0.52 * d / (d - h * n[2]),
       );
 
+      if (daesung && face.$4 == 1) {
+        _logoFace(canvas, at, shade);
+        continue;
+      }
+
       // 눈
       final pips = kYachtPips[face.$4];
       final r = face.$4 == 1 ? 0.283 : 0.185;
-      final paint = Paint()..color = Color.lerp(Colors.black, face.$4 == 1 ? kYachtDieOne : kYachtDiePip, 0.55 + 0.45 * shade)!;
+      final paint = Paint()
+        ..color = daesung
+            ? Color.lerp(kDaesungEdge, Colors.white, 0.5 + 0.5 * shade)!
+            : Color.lerp(Colors.black, face.$4 == 1 ? kYachtDieOne : kYachtDiePip, 0.55 + 0.45 * shade)!;
       for (final i in pips) {
         final gx = (i % 3 - 1) * 0.5, gy = (i ~/ 3 - 1) * 0.5;
         canvas.drawPath(
@@ -102,6 +115,29 @@ class YachtCubePainter extends CustomPainter {
     }
   }
 
+  /// 대성One 주사위의 1 면: 흰 동그라미 위에 로고 (면의 기울기를 따라 비스듬히).
+  void _logoFace(Canvas canvas, Offset Function(double a, double b) at, double shade) {
+    final disc = Path()..addPolygon([for (var k = 0; k < 28; k++) at(0.66 * cos(k * pi / 14), 0.66 * sin(k * pi / 14))], true);
+    canvas.drawPath(disc, Paint()..color = Color.lerp(const Color(0xFFB8C8BC), Colors.white, shade)!);
+    final logo = DaesungLogo.image;
+    if (logo == null) return;
+    // 그림의 (0,0) · (w,0) · (0,h)를 면 위의 세 점으로 옮기는 기울인 변환
+    final o = at(-0.5, -0.5), x = at(0.5, -0.5), y = at(-0.5, 0.5);
+    final w = logo.width.toDouble(), h = logo.height.toDouble();
+    final m = Matrix4.identity()
+      ..setEntry(0, 0, (x.dx - o.dx) / w)
+      ..setEntry(1, 0, (x.dy - o.dy) / w)
+      ..setEntry(0, 1, (y.dx - o.dx) / h)
+      ..setEntry(1, 1, (y.dy - o.dy) / h)
+      ..setEntry(0, 3, o.dx)
+      ..setEntry(1, 3, o.dy);
+    canvas.save();
+    canvas.transform(m.storage);
+    canvas.drawImage(logo, Offset.zero, Paint()..filterQuality = FilterQuality.medium);
+    canvas.restore();
+  }
+
   @override
-  bool shouldRepaint(YachtCubePainter old) => old.value != value || old.ax != ax || old.ay != ay || old.az != az || old.lift != lift;
+  bool shouldRepaint(YachtCubePainter old) =>
+      old.value != value || old.ax != ax || old.ay != ay || old.az != az || old.lift != lift || old.daesung != daesung;
 }

@@ -148,7 +148,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
         _categoryRow(look, cats[i], counts, shaded: i.isOdd, hot: hot == line++),
         if (cats[i] == YachtCategory.sixes) _bonusRow(look, hot: hot == line++), // 숫자 칸 6개 바로 아래 (진짜 점수표처럼)
       ],
-      _yahtzeeBonusRow(look, hot: hot == line++),
+      if (!c.game.daesung) _yahtzeeBonusRow(look, hot: hot == line++), // (대성One Rule에는 야추 보너스가 없다)
       // 합계는 게임이 끝나야 나타난다
       AnimatedSize(
         duration: const Duration(milliseconds: 300),
@@ -347,14 +347,14 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
             if (look.showRule)
               SizedBox(
                 width: look.nameW - (cat.isUpper ? look.rowH * 0.66 + 6 : 0),
-                child: Text(cat.label, maxLines: 1, style: look.label),
+                child: Text(c.game.card.labelOf(cat), maxLines: 1, style: look.label),
               )
             else
-              Text(cat.label, maxLines: 1, style: look.label),
+              Text(c.game.card.labelOf(cat), maxLines: 1, style: look.label),
             if (look.showRule) ...[
               const SizedBox(width: 10),
               Expanded(
-                child: Text(cat.rule, maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
+                child: Text(c.game.card.ruleOf(cat), maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
               ),
             ],
           ],
@@ -362,7 +362,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       ),
       [for (var seat = 0; seat < c.players; seat++) _seatBox(look, seat, _cell(look, seat, cat, counts), key: ValueKey('yacht-cell-$seat-${cat.name}'))],
       color: game.over || !shaded ? null : look.scheme.onSurface.withValues(alpha: 0.025),
-      onLabelTap: () => showYachtCategoryHelp(look.context, cat),
+      onLabelTap: () => showYachtCategoryHelp(look.context, cat, card: c.game.card),
       labelKey: ValueKey('yacht-help-${cat.name}'),
       hot: hot,
     );
@@ -373,7 +373,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     final written = c.game.cards[seat].scores[cat.index];
     final mine = _active(seat);
     final picked = mine && c.pick == cat;
-    final preview = mine && written == null && counts != null ? yachtScore(cat, counts) : null;
+    final preview = mine && written == null && counts != null ? c.game.cards[seat].scoreOf(cat, c.game.dice) : null;
     final canPick = preview != null && c.humanTurn && c.game.canScore(cat);
     final last = c.lastSeat == seat && c.lastCategory == cat;
     if (written == null && preview == null) return const SizedBox.shrink();
@@ -417,7 +417,14 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
             if (!look.split) ...[
               SizedBox(width: look.showRule ? 10 : 8),
               Expanded(
-                child: Text(look.showRule ? '1~6 칸의 합이 63점 이상이면 +35점' : '63점 이상 +35', maxLines: 1, overflow: TextOverflow.ellipsis, style: look.small),
+                child: Text(
+                  look.showRule
+                      ? '${c.game.daesung ? '원즈~식스' : '1~6 칸'}의 합이 ${c.game.card.bonusAt}점 이상이면 +${c.game.card.bonusPoints}점'
+                      : '${c.game.card.bonusAt}점 이상 +${c.game.card.bonusPoints}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: look.small,
+                ),
               ),
             ],
           ],
@@ -429,13 +436,13 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
             final card = c.game.cards[seat];
             final got = card.bonus > 0;
             return Text(
-              got ? '+$kYachtBonus' : '${card.upperSum}/$kYachtBonusAt',
+              got ? '+${card.bonusPoints}' : '${card.upperSum}/${card.bonusAt}',
               style: got ? look.number.copyWith(color: kYachtColor, fontWeight: FontWeight.w800) : look.small,
             );
           }()),
       ],
       color: kYachtColor.withValues(alpha: 0.16), // 보너스 줄은 특수한 줄이라 다른 줄보다 진하게
-      onLabelTap: () => showYachtUpperBonusHelp(look.context),
+      onLabelTap: () => showYachtUpperBonusHelp(look.context, card: c.game.card),
       labelKey: const ValueKey('yacht-help-bonus'),
       hot: hot,
     );

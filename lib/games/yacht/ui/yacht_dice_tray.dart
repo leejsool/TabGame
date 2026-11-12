@@ -20,6 +20,7 @@ class YachtDiceTray extends StatefulWidget {
     this.maxDie = 64,
     this.launchDelays,
     this.twoRows = false,
+    this.daesungIndex,
   });
 
   /// 지금 놓인 눈 (0이면 아직 안 굴린 빈 주사위).
@@ -42,6 +43,9 @@ class YachtDiceTray extends StatefulWidget {
 
   /// 주사위를 두 줄(위 3개 · 아래 2개, 가운데 맞춤)로 놓는다. 폭이 좁은 핸드폰 가로 모드에서 주사위를 크게 보이려고 쓴다.
   final bool twoRows;
+
+  /// 대성One Rule 판에서 대성One(초록 · 로고) 주사위의 번호. 기본 규칙이면 null.
+  final int? daesungIndex;
 
   @override
   State<YachtDiceTray> createState() => _YachtDiceTrayState();
@@ -205,7 +209,7 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
               duration: const Duration(milliseconds: 140),
               top: held ? 0 : 8,
               left: 0,
-              child: YachtDie(value: widget.dice[i], size: die, held: held, accent: widget.accent),
+              child: YachtDie(value: widget.dice[i], size: die, held: held, accent: widget.accent, daesung: i == widget.daesungIndex),
             ),
             Positioned(
               bottom: 0,
@@ -239,7 +243,7 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
         scale: scale,
         child: CustomPaint(
           size: Size.square(die),
-          painter: YachtCubePainter(value: widget.target[i], ax: t.spinX * left, ay: t.spinY * left, az: t.spinZ * left, lift: hop),
+          painter: YachtCubePainter(value: widget.target[i], ax: t.spinX * left, ay: t.spinY * left, az: t.spinZ * left, lift: hop, daesung: i == widget.daesungIndex),
         ),
       ),
     );

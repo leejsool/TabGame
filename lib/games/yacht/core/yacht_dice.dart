@@ -7,7 +7,21 @@ import 'dart:typed_data';
 
 import 'yacht_rules.dart';
 
-class YachtDiceTables {
+/// 한 차례 계산([YachtTurn])이 쓰는 주사위 경우들: 남긴 주사위(번호), 굴린 결과, 굴렸을 때 나오는 결과와 확률, 남길 수 있는 경우.
+/// 기본 규칙은 같은 주사위 5개([YachtDiceTables]), 대성One Rule은 보통 주사위 4개 + 대성One 1개([YachtDaesungTables]).
+abstract class YachtDiceSpace {
+  /// 남긴 주사위의 가짓수.
+  int get keeps;
+  List<int> get rolls;
+  int get empty;
+  Int32List get outStart;
+  Int16List get outTo;
+  Float64List get outP;
+  Int32List get subStart;
+  Int16List get subKeep;
+}
+
+class YachtDiceTables implements YachtDiceSpace {
   YachtDiceTables._() {
     _build();
   }
@@ -17,6 +31,9 @@ class YachtDiceTables {
   /// 남긴 주사위의 가짓수 (0~5개).
   static const int keepCount = 462;
 
+  @override
+  int get keeps => keepCount;
+
   /// 번호 → 눈별 개수.
   final List<List<int>> counts = [];
 
@@ -24,20 +41,27 @@ class YachtDiceTables {
   final Uint8List size = Uint8List(keepCount);
 
   /// 굴린 결과(주사위 5개)인 번호들. 252개.
+  @override
   final List<int> rolls = [];
 
   /// 하나도 안 남긴 경우의 번호.
+  @override
   int empty = 0;
 
   /// 번호 k를 남기고 나머지를 굴렸을 때 나오는 결과들:
   /// outTo[i], outP[i] (i = outStart[k] .. outStart[k + 1] - 1).
+  @override
   final Int32List outStart = Int32List(keepCount + 1);
+  @override
   late final Int16List outTo;
+  @override
   late final Float64List outP;
 
   /// 굴린 결과 r에서 남길 수 있는 경우들:
   /// subKeep[i] (i = subStart[r] .. subStart[r + 1] - 1). r 자신(모두 남김)도 들어 있다.
+  @override
   final Int32List subStart = Int32List(keepCount + 1);
+  @override
   late final Int16List subKeep;
 
   /// 굴린 결과 r을 c 칸에 적을 때의 점수: score[r * kYachtSlots + c.index].
@@ -133,16 +157,19 @@ class YachtDiceTables {
 /// - `kv[n][k]`: k를 남기고 나머지를 굴리는 선택의 값. 굴린 뒤에 기회가 n번 남는다 (n = 0, 1)
 /// - [start]: 아직 한 번도 안 굴렸을 때의 값
 class YachtTurn {
-  final List<Float64List> w = [
-    for (var i = 0; i < 3; i++) Float64List(YachtDiceTables.keepCount),
-  ];
-  final List<Float64List> kv = [
-    for (var i = 0; i < 2; i++) Float64List(YachtDiceTables.keepCount),
-  ];
+  /// [space]를 주지 않으면 기본 규칙의 주사위 5개.
+  YachtTurn([YachtDiceSpace? space])
+      : space = space ?? YachtDiceTables.instance,
+        w = [for (var i = 0; i < 3; i++) Float64List((space ?? YachtDiceTables.instance).keeps)],
+        kv = [for (var i = 0; i < 2; i++) Float64List((space ?? YachtDiceTables.instance).keeps)];
+
+  final YachtDiceSpace space;
+  final List<Float64List> w;
+  final List<Float64List> kv;
   double start = 0;
 
   void solve(Float64List terminal) {
-    final t = YachtDiceTables.instance;
+    final t = space;
     final outStart = t.outStart;
     final outTo = t.outTo;
     final outP = t.outP;
@@ -153,7 +180,7 @@ class YachtTurn {
     for (var n = 0; n < 2; n++) {
       final src = w[n];
       final keepValue = kv[n];
-      for (var k = 0; k < YachtDiceTables.keepCount; k++) {
+      for (var k = 0; k < t.keeps; k++) {
         var sum = 0.0;
         final end = outStart[k + 1];
         for (var i = outStart[k]; i < end; i++) {

@@ -5,16 +5,18 @@ import 'yacht_rules.dart';
 
 class YachtGame {
   /// [first]: 먼저 시작하는 사람. [threeKind]: 쓰리카드 칸을 넣고 하는 판.
-  YachtGame({required this.playerCount, int first = 0, this.threeKind = false})
+  YachtGame({required this.playerCount, int first = 0, bool threeKind = false, this.daesung = false})
       : assert(playerCount >= 1 && playerCount <= 4),
-        cards = [for (var i = 0; i < playerCount; i++) YachtCard(threeKind: threeKind)],
+        threeKind = threeKind && !daesung,
+        cards = [for (var i = 0; i < playerCount; i++) YachtCard(threeKind: threeKind, daesung: daesung)],
         turn = first % playerCount;
 
   YachtGame.fromJson(Map<String, dynamic> json)
       : playerCount = (json['cards'] as List).length,
-        threeKind = json['three'] == true,
+        threeKind = json['three'] == true && json['ds'] != true,
+        daesung = json['ds'] == true,
         cards = [
-          for (final c in json['cards'] as List) YachtCard.fromJson(c as List, threeKind: json['three'] == true),
+          for (final c in json['cards'] as List) YachtCard.fromJson(c as List, threeKind: json['three'] == true, daesung: json['ds'] == true),
         ] {
     final yb = json['yb'];
     if (yb is List) {
@@ -32,6 +34,9 @@ class YachtGame {
 
   /// 쓰리카드 칸을 넣고 하는 판인가 (시작 전에 정한다).
   final bool threeKind;
+
+  /// 대성One Rule 판인가 (0번 주사위가 만능 대성One. yacht_daesung.dart).
+  final bool daesung;
 
   /// 이 판에서 쓰는 칸들 (점수판 줄 순서).
   List<YachtCategory> get categories => cards.first.categories;
@@ -106,9 +111,9 @@ class YachtGame {
   int score(YachtCategory c) {
     if (!canScore(c)) throw StateError('이 칸에는 적을 수 없다');
     final counts = yachtCounts(dice);
-    final s = yachtScore(c, counts);
-    // 야추 칸에 50점을 적어 둔 사람이 야추를 또 굴려 어느 칸에든 적으면 보너스 100점
-    if (counts.contains(kYachtDice) && card.scores[YachtCategory.yacht.index] == kYachtYacht) card.yahtzeeBonuses++;
+    final s = card.scoreOf(c, dice);
+    // 야추 칸에 50점을 적어 둔 사람이 야추를 또 굴려 어느 칸에든 적으면 보너스 100점 (대성One Rule에는 없다)
+    if (!daesung && counts.contains(kYachtDice) && card.scores[YachtCategory.yacht.index] == kYachtYacht) card.yahtzeeBonuses++;
     card.scores[c.index] = s;
     dice.fillRange(0, kYachtDice, 0);
     held.fillRange(0, kYachtDice, false);
@@ -129,6 +134,7 @@ class YachtGame {
   Map<String, dynamic> toJson() => {
         'cards': [for (final c in cards) c.toJson()],
         if (threeKind) 'three': true,
+        if (daesung) 'ds': true,
         if (cards.any((c) => c.yahtzeeBonuses > 0)) 'yb': [for (final c in cards) c.yahtzeeBonuses],
         'turn': turn,
         'rolls': rollsUsed,

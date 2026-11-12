@@ -45,6 +45,7 @@ class GameInfo {
     this.beta = false,
     this.devOnly = false,
     this.localMulti = false,
+    this.modeInSetup = false,
     this.lanGame,
     this.lanResume,
   });
@@ -88,6 +89,10 @@ class GameInfo {
 
   /// 한 기기로 3~4명까지 함께 할 수 있는 게임이면 true. "둘이서" 대신 "로컬 플레이"로 보여 준다.
   final bool localMulti;
+
+  /// 허브에서 모드(로컬 / 같은 Wi‑Fi)를 묻지 않고 첫 모드의 설정 화면으로 바로 들어간다.
+  /// 설정 화면 맨 위의 전환 칩으로 Wi‑Fi를 고를 수 있는 게임만 켠다 (웹에서는 어차피 로컬뿐이다).
+  final bool modeInSetup;
 
   /// 허브의 모드 고르기 목록에 보일 이름·설명 (게임에 따라 "둘이서"가 "로컬 플레이"로 바뀐다).
   String modeLabel(PlayMode m) => localMulti && m == PlayMode.local2p ? '로컬 플레이 (한 기기)' : m.label;

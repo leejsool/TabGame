@@ -103,15 +103,45 @@ class YachtChanceBreakdown {
   List<YachtBreakdownGroup> get later => [for (final g in groups) if (!g.done && g.next.num > 0) g];
 }
 
-class YachtAdvisor {
+/// 힌트 · CPU가 쓰는 길잡이의 공통 모양. 기본 규칙은 [YachtAdvisor], 대성One Rule은 YachtDaesungAdvisor.
+abstract class YachtBrain {
+  /// 점수판 [card], 주사위 [dice](눈 5개), 다시 굴릴 기회 [rerollsLeft](0~2)에서의 추천.
+  YachtAdvice advise({required YachtCard card, required List<int> dice, required int rerollsLeft});
+
+  /// [c] 족보만 노렸을 때의 전망.
+  YachtOutlook outlook(YachtCategory c, List<int> dice, int rerollsLeft);
+
+  /// 차례를 시작할 때 [c] 칸만 노리면 받을 점수의 평균.
+  double expectedFromStart(YachtCategory c);
+
+  /// 남길 주사위 [keep](이 길잡이가 준 모양)을 주사위 [dice]의 어느 것을 잡을지로 바꾼다.
+  List<bool> holdsFor(List<int> dice, List<int> keep, {List<bool>? prefer});
+
+  /// 완성 확률의 분수 풀이(계산 과정 창)를 보여 줄 수 있는가.
+  bool get explains;
+
+  /// 이 길잡이에서 [c] 칸이 "모양을 맞춰야 점수가 나는 칸"(완성 확률이 있는 칸)인가.
+  bool isPattern(YachtCategory c);
+}
+
+class YachtAdvisor implements YachtBrain {
   YachtAdvisor(this.values);
+
+  @override
+  bool get explains => true;
+
+  @override
+  bool isPattern(YachtCategory c) => c.isPattern;
+
+  @override
+  List<bool> holdsFor(List<int> dice, List<int> keep, {List<bool>? prefer}) => yachtHoldsFor(dice, keep, prefer: prefer);
 
   final YachtValues values;
   final YachtDiceTables _t = YachtDiceTables.instance;
   final YachtTurn _turn = YachtTurn();
   final Float64List _terminal = Float64List(YachtDiceTables.keepCount);
 
-  /// 점수판 [card], 주사위 [dice](눈 5개), 다시 굴릴 기회 [rerollsLeft](0~2)에서의 추천.
+  @override
   YachtAdvice advise({
     required YachtCard card,
     required List<int> dice,
@@ -198,6 +228,7 @@ class YachtAdvisor {
   }
 
   /// [c] 족보만 노렸을 때의 전망.
+  @override
   YachtOutlook outlook(YachtCategory c, List<int> dice, int rerollsLeft) {
     final roll = _t.indexOfDice(dice);
     final byScore = _aim(c, 1);
@@ -290,6 +321,7 @@ class YachtAdvisor {
   double chanceFromStart(YachtCategory c) => _aim(c, 0).start;
 
   /// 차례를 시작할 때 [c] 칸만 노리면 받을 점수의 평균.
+  @override
   double expectedFromStart(YachtCategory c) => _aim(c, 1).start;
 }
 
