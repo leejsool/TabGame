@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'settings_scope.dart';
 import 'web_sfx.dart';
 
-/// 이겼을 때(또는 퍼즐을 풀었을 때) 모든 게임이 같이 쓰는 "짜잔" 소리 (assets/sfx/win.mp3).
+/// 이겼을 때(또는 퍼즐을 풀었을 때) 모든 게임이 같이 쓰는 "짜잔" 소리 (assets/sfx/common/win.mp3).
 ///
 /// 설정의 "효과음"이 꺼져 있으면 나지 않는다. 소리가 안 나는 기기여도 게임은 계속 돌아가도록 오류는 삼킨다.
 class WinSound {
@@ -27,8 +27,8 @@ class WinSound {
     _last = now;
     if (WebSfx.supported) {
       // 웹: 재생기를 새로 만들면 그 순간 화면이 멈추니 공용 오디오 엔진으로 튼다 (처음엔 푸는 대로 바로)
-      await WebSfx.load('sfx/win.mp3');
-      WebSfx.play('sfx/win.mp3');
+      await WebSfx.load('sfx/common/win.mp3');
+      WebSfx.play('sfx/common/win.mp3');
       return;
     }
     try {
@@ -43,7 +43,7 @@ class WinSound {
       ));
       await p.setReleaseMode(ReleaseMode.stop);
       await p.stop();
-      await p.play(AssetSource('sfx/win.mp3'));
+      await p.play(AssetSource('sfx/common/win.mp3'));
     } catch (_) {}
   }
 }

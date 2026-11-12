@@ -61,7 +61,7 @@ class _GobbletScreenState extends State<GobbletScreen> with VsTwoPlayer {
   /// 소리: 말을 놓을 때 (내 수도, 상대·CPU의 수도) "탁".
   final GameFx _fx = GameFx({
     'pick': const Fx(haptic: Haptic.select),
-    'drop': const Fx(haptic: Haptic.light, sound: 'goblet/clack.wav'),
+    'drop': const Fx(haptic: Haptic.light, sound: 'sfx/goblet/clack.wav'),
     'win': const Fx(haptic: Haptic.heavy),
   });
 

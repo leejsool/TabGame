@@ -1,4 +1,4 @@
-// 건반 톡톡의 피아노 음(n55.wav ~ n84.wav)과 틀렸을 때 소리를 코드로 합성해 assets/keytap/ 에 저장한다.
+// 건반 톡톡의 피아노 음(n55.wav ~ n84.wav)과 틀렸을 때 소리를 코드로 합성해 assets/sfx/keytap/ 에 저장한다.
 //   dart run tool/make_keytap_sounds.dart
 import 'dart:io';
 import 'dart:math';
@@ -34,7 +34,7 @@ void save(String name, Float64List data, {double gain = 0.85}) {
   for (var i = 0; i < data.length; i++) {
     pcm.setInt16(44 + i * 2, (data[i] * k * 32767).round().clamp(-32767, 32767), Endian.little);
   }
-  final f = File('assets/keytap/$name.wav');
+  final f = File('assets/sfx/keytap/$name.wav');
   f.parent.createSync(recursive: true);
   f.writeAsBytesSync(pcm.buffer.asUint8List());
   stdout.writeln('$name  ${(data.length / sr).toStringAsFixed(2)}s  ${f.lengthSync()} bytes');

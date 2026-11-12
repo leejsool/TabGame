@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'web_sfx.dart';
 
-/// 버튼을 누를 때 나는 "딸깍" 소리 (assets/sfx/click.wav).
+/// 버튼을 누를 때 나는 "딸깍" 소리 (assets/sfx/common/click.wav).
 ///
 /// 앱 테마의 물결(splash) 효과를 이 소리가 나는 것으로 바꿔 두면, 머티리얼 버튼·아이콘 버튼·목록 항목 등
 /// 눌러서 쓰는 거의 모든 단추가 따로 손대지 않아도 눌리는 순간 소리를 낸다.
@@ -22,7 +22,7 @@ class ClickSound {
   static bool enabled = true;
 
   static const int _voiceCount = 3;
-  static const String _asset = 'sfx/click.wav';
+  static const String _asset = 'sfx/common/click.wav';
 
   static final List<AudioPlayer> _voices = [];
   static int _next = 0;

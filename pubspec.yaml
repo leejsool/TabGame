@@ -68,20 +68,18 @@ flutter:
   # 프리셀 판별 난이도 점수 (tool/rate_freecell_deals.dart 로 만든 32000바이트)
   assets:
     - assets/freecell_difficulty.bin
-    # 리듬 검사단 효과음 (tool/make_rhythm_sounds.dart 로 합성)
-    - assets/rhythm/
+    # 리듬 검사단 그림 (효과음은 assets/sfx/rhythm/)
     - assets/rhythm/art/
-    # 루미큐브 타일 소리 (패를 뽑고 놓고 옮길 때)
-    - assets/rummikub/
-    # 고블렛 말을 놓는 소리
-    - assets/goblet/
     - assets/pinball/
-    - assets/keytap/
     - assets/yacht/
-    # 바둑돌 옮기기 돌 소리(탁)
-    - assets/stones/
-    # 모든 게임 공통 효과음 (이겼을 때 "짜잔")
-    - assets/sfx/
+    # 효과음: 공통은 common, 나머지는 게임별 폴더 (폴더마다 한 줄씩 있어야 앱에 들어간다)
+    - assets/sfx/common/
+    - assets/sfx/goblet/
+    - assets/sfx/keytap/
+    - assets/sfx/rhythm/
+    - assets/sfx/rummikub/
+    - assets/sfx/stones/
+    - assets/sfx/yacht/
     # 게임 배경음악 (사용자가 고른 곡만)
     - assets/bgm/
 

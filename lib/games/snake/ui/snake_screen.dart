@@ -43,11 +43,11 @@ class _SnakeScreenState extends State<SnakeScreen> with SingleTickerProviderStat
     'kill': Fx(haptic: Haptic.medium),
     'die': Fx(haptic: Haptic.heavy),
     // 1등이 됐을 때 짧은 "짜잔" (놀라지 않게 작게)
-    'first': Fx(sound: 'sfx/tada_short.mp3', volume: 0.35),
+    'first': Fx(sound: 'sfx/common/tada_short.mp3', volume: 0.35),
     // 내가 큰 먹이를 먹을 때 "꿀꺽" (잇달아 먹어도 소리가 겹쳐 탁해지지 않게 조금 띄운다)
-    'gulp': Fx(sound: 'sfx/gulp.wav', volume: 0.7, minGap: Duration(milliseconds: 140)),
+    'gulp': Fx(sound: 'sfx/common/gulp.wav', volume: 0.7, minGap: Duration(milliseconds: 140)),
     // 화면 근처에서 다른 뱀이 죽을 때 "탁" (여럿이 한꺼번에 죽어도 시끄럽지 않게)
-    'pop': Fx(sound: 'sfx/pop.mp3', volume: 0.5, minGap: Duration(milliseconds: 120)),
+    'pop': Fx(sound: 'sfx/common/pop.mp3', volume: 0.5, minGap: Duration(milliseconds: 120)),
   });
   Duration _last = Duration.zero;
   double _clock = 0;

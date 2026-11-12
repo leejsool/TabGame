@@ -14,7 +14,7 @@ class WebSfx {
 
   static web.AudioContext get _context => _ctx ??= web.AudioContext();
 
-  /// [asset](assets/ 아래 경로, 예: `sfx/click.wav`)을 미리 풀어 둔다. 여러 번 불러도 한 번만 한다.
+  /// [asset](assets/ 아래 경로, 예: `sfx/common/click.wav`)을 미리 풀어 둔다. 여러 번 불러도 한 번만 한다.
   static Future<void> load(String asset) => _loading.putIfAbsent(asset, () async {
         try {
           final data = await rootBundle.load('assets/$asset');

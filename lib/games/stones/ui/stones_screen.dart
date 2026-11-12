@@ -61,7 +61,7 @@ class _StonesScreenState extends State<StonesScreen> {
   bool get _cpuTurn => !_s.isOver && !_autoRunning && _s.turn == _cpuSide;
 
   /// 돌을 옮길 때 나는 "탁" 소리 (내가 옮겨도, 컴퓨터·자동 진행이 옮겨도).
-  final GameFx _fx = GameFx({'move': const Fx(sound: 'stones/clack.mp3')});
+  final GameFx _fx = GameFx({'move': const Fx(sound: 'sfx/stones/clack.mp3')});
 
   @override
   void initState() {

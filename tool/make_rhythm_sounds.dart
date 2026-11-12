@@ -1,4 +1,4 @@
-// 리듬 검사단의 효과음을 코드로 합성해 assets/rhythm/*.wav 로 저장한다.
+// 리듬 검사단의 효과음을 코드로 합성해 assets/sfx/rhythm/*.wav 로 저장한다.
 //   dart run tool/make_rhythm_sounds.dart
 import 'dart:io';
 import 'dart:math';
@@ -26,7 +26,12 @@ Float64List render(double seconds, double Function(double t) f) {
   return out;
 }
 
+/// 앱에서 더 이상 쓰지 않는 소리 (칼 소리는 사용자가 고른 slash_*.wav 로 바뀌었다).
+/// 난수 순서가 바뀌지 않도록 만들기는 하되 파일로는 저장하지 않는다.
+const _unused = {'hit_left', 'hit_right', 'npc_left', 'npc_right', 'swipe_left', 'swipe_right', 'npc_swipe_left', 'npc_swipe_right'};
+
 void save(String name, Float64List data, {double gain = 0.9}) {
+  if (_unused.contains(name)) return;
   var peak = 0.0;
   for (final v in data) {
     peak = max(peak, v.abs());
@@ -54,7 +59,7 @@ void save(String name, Float64List data, {double gain = 0.9}) {
   for (var i = 0; i < data.length; i++) {
     pcm.setInt16(44 + i * 2, (data[i] * k * 32767).round().clamp(-32767, 32767), Endian.little);
   }
-  final f = File('assets/rhythm/$name.wav');
+  final f = File('assets/sfx/rhythm/$name.wav');
   f.parent.createSync(recursive: true);
   f.writeAsBytesSync(pcm.buffer.asUint8List());
   stdout.writeln('$name  ${(data.length / sr).toStringAsFixed(2)}s  ${f.lengthSync()} bytes');

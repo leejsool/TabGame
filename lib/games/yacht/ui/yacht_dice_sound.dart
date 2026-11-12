@@ -33,7 +33,7 @@ class YachtDiceSound {
     }
   }
 
-  /// 한 개 소리의 가짓수 (assets/sfx/dice_one_1.wav ~ dice_one_9.wav).
+  /// 한 개 소리의 가짓수 (assets/sfx/yacht/dice_one_1.wav ~ dice_one_9.wav).
   static const int singleVariants = 9;
 
   /// 한 개 소리들을 겹쳐 틀 때 소리마다 조금씩 어긋나게 하는 최대 간격(밀리초, 3개 이하). 완전히 같은 순간에 시작하면 한 덩어리로 들린다.
@@ -45,7 +45,7 @@ class YachtDiceSound {
   final Random _rng;
   final List<SfxPool> _singles = [
     // (웹은 재생기 하나씩: 한 번 굴릴 때 같은 소리를 두 번 쓰지 않으니 충분하다)
-    for (var i = 1; i <= singleVariants; i++) SfxPool('sfx/dice_one_$i.wav', voices: kIsWeb ? 1 : 2),
+    for (var i = 1; i <= singleVariants; i++) SfxPool('sfx/yacht/dice_one_$i.wav', voices: kIsWeb ? 1 : 2),
   ];
   final List<Timer> _timers = [];
   bool _disposed = false;

@@ -13,7 +13,7 @@ class Fx {
 
   final Haptic? haptic;
 
-  /// assets/ 아래 소리 파일 (예: `sfx/boom.wav`). 사용자가 고른 소리만 넣는다.
+  /// assets/ 아래 소리 파일 (예: `sfx/common/boom.wav`). 사용자가 고른 소리만 넣는다.
   final String? sound;
   final double volume;
 

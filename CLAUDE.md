@@ -6,6 +6,7 @@ Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: N
 
 ## Folder map
 - `lib/core/game_registry.dart` — `allGames`: one `GameInfo` per game (hub card, modes, tutorial, icon, records). New games register here.
+- `assets/sfx/` — all sound effects: `common/` (shared by many games) + one folder per game (`yacht/`, `rhythm/`, `keytap/`, …). Paths in code start with `sfx/`. A new folder needs its own line in `pubspec.yaml` (Flutter does not look into sub-folders). Pictures stay in `assets/<game>/`.
 - `lib/hub/` — hub screen, game cards, settings screen. `game_icons.dart` is only the `GameIcon` widget; each game's drawn icon lives in `lib/games/<game>/ui/<game>_icon.dart` (`paint<Game>Icon`, exported by `<game>_entry.dart`; pinball: `lib/games/pinball/`). Shared drawing helpers: `lib/hub/icon_kit.dart`.
 - `lib/games/<game>/` — `core/` rules (pure Dart, tested without UI) → `game/` controller → `ui/` → `data/` history → `tutorial/`. Entry: `<game>_entry.dart`.
 - `lib/versus/` — versus-game shared parts: `cpu_turn.dart` (`CpuTurnRunner`, CPU in an isolate), `vs_setup.dart` (setup screen kit).

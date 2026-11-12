@@ -14,7 +14,7 @@ import 'web_sfx.dart';
 class SfxPool {
   SfxPool(this.asset, {this.voices = 3, this.volume = 1.0});
 
-  /// assets/ 아래 파일 경로 (예: `goblet/clack.wav`). 앞부분 무음은 미리 잘라 둔 파일을 쓴다.
+  /// assets/ 아래 파일 경로 (예: `sfx/goblet/clack.wav`). 앞부분 무음은 미리 잘라 둔 파일을 쓴다.
   final String asset;
   final int voices;
   final double volume;

@@ -9,7 +9,7 @@ void main() {
 
   test('한 개 소리 파일 9가지가 모두 있다 (여러 개 소리 파일은 더 쓰지 않는다)', () {
     for (var i = 1; i <= YachtDiceSound.singleVariants; i++) {
-      expect(File('assets/sfx/dice_one_$i.wav').existsSync(), isTrue, reason: 'dice_one_$i.wav');
+      expect(File('assets/sfx/yacht/dice_one_$i.wav').existsSync(), isTrue, reason: 'dice_one_$i.wav');
     }
     expect(File('assets/sfx/dice_multi.wav').existsSync(), isFalse);
   });

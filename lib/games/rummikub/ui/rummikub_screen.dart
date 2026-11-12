@@ -139,7 +139,7 @@ class _RummikubScreenState extends State<RummikubScreen> {
 
 
   /// 타일 소리 (패를 뽑거나, 놓거나, 옮길 때의 "딸깍"). 시험에서는 끈다 ([RummikubScreen.playSounds]).
-  static String? get _tileSound => RummikubScreen.playSounds ? 'rummikub/tile.wav' : null;
+  static String? get _tileSound => RummikubScreen.playSounds ? 'sfx/rummikub/tile.wav' : null;
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
   /// 소리: 패를 뽑거나(draw) 놓거나 옮길 때(place), 상대가 패를 옮길 때(step) "딸깍".

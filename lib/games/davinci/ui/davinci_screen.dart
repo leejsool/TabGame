@@ -160,13 +160,13 @@ class _DavinciScreenState extends State<DavinciScreen> {
   final GameFx _fx = GameFx({
     'draw': const Fx(haptic: Haptic.select),
     // 추측이 맞았을 때 "번뜩" (내가 맞혀도, 컴퓨터·상대가 맞혀도)
-    'right': const Fx(haptic: Haptic.medium, sound: 'sfx/idea.wav'),
+    'right': const Fx(haptic: Haptic.medium, sound: 'sfx/common/idea.wav'),
     // 차례에 상대 타일을 눌러 숫자를 고민할 때 "흐음" (세 가지 중 하나, 내가 눌러도 CPU·상대가 눌러도)
-    'think0': const Fx(sound: 'sfx/hmm1.wav', volume: 0.8),
-    'think1': const Fx(sound: 'sfx/hmm2.wav', volume: 0.8),
-    'think2': const Fx(sound: 'sfx/hmm3.wav', volume: 0.8),
+    'think0': const Fx(sound: 'sfx/common/hmm1.wav', volume: 0.8),
+    'think1': const Fx(sound: 'sfx/common/hmm2.wav', volume: 0.8),
+    'think2': const Fx(sound: 'sfx/common/hmm3.wav', volume: 0.8),
     // 추측이 틀렸을 때 "삐-" (✕와 같은 순간)
-    'wrong': const Fx(haptic: Haptic.vibrate, sound: 'sfx/beep.wav', volume: 0.7),
+    'wrong': const Fx(haptic: Haptic.vibrate, sound: 'sfx/common/beep.wav', volume: 0.7),
     'bad': const Fx(haptic: Haptic.vibrate),
     'win': const Fx(haptic: Haptic.heavy),
   });

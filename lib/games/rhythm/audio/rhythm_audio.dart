@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/sfx_restarter.dart';
 
-/// 리듬 검사단에서 쓰는 효과음 (tool/make_rhythm_sounds.dart 로 만든 assets/rhythm/*.wav).
+/// 리듬 검사단에서 쓰는 효과음 (tool/make_rhythm_sounds.dart 로 만든 assets/sfx/rhythm/*.wav).
 enum Sfx {
   // 좌우 공격음: 직접 고른 검 베기 소리 (왼쪽 = 퐉, 오른쪽 = 쉭). 앞사람(NPC)은 같은 소리를 작게.
   hitLeft('slash_left'),
@@ -35,7 +35,7 @@ enum Sfx {
   /// 틀 때 소리 크기 (0~1). 합성한 wav는 크기가 이미 반영돼 있어 1이다.
   final double volume;
 
-  String get asset => 'rhythm/$file.wav';
+  String get asset => 'sfx/rhythm/$file.wav';
 }
 
 /// 소리를 내는 쪽. 테스트나 소리 끔 상태에서는 [SilentSfx]를 쓴다.

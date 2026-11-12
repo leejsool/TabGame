@@ -46,13 +46,13 @@ class _MinesScreenState extends State<MinesScreen> with WidgetsBindingObserver {
   /// 소리: 사용자가 고른 것만 쓴다 (칸 열기 페타, 깃발 털컥, 물음표 흐음, 지뢰 쾅).
   final GameFx _fx = GameFx({
     // 칸을 열 때 "페타", 깃발을 꽂을 때 "털컥", 물음표를 달 때 "흐음" (세 가지 중 하나)
-    'reveal': const Fx(haptic: Haptic.select, sound: 'sfx/peta.wav'),
-    'flag': const Fx(haptic: Haptic.light, sound: 'sfx/thunk.wav'),
-    'question0': const Fx(haptic: Haptic.light, sound: 'sfx/hmm1.wav', volume: 0.8),
-    'question1': const Fx(haptic: Haptic.light, sound: 'sfx/hmm2.wav', volume: 0.8),
-    'question2': const Fx(haptic: Haptic.light, sound: 'sfx/hmm3.wav', volume: 0.8),
+    'reveal': const Fx(haptic: Haptic.select, sound: 'sfx/common/peta.wav'),
+    'flag': const Fx(haptic: Haptic.light, sound: 'sfx/common/thunk.wav'),
+    'question0': const Fx(haptic: Haptic.light, sound: 'sfx/common/hmm1.wav', volume: 0.8),
+    'question1': const Fx(haptic: Haptic.light, sound: 'sfx/common/hmm2.wav', volume: 0.8),
+    'question2': const Fx(haptic: Haptic.light, sound: 'sfx/common/hmm3.wav', volume: 0.8),
     'unmark': const Fx(haptic: Haptic.light),
-    'boom': const Fx(haptic: Haptic.heavy, sound: 'sfx/boom.wav'),
+    'boom': const Fx(haptic: Haptic.heavy, sound: 'sfx/common/boom.wav'),
     'win': const Fx(haptic: Haptic.heavy),
   });
 
