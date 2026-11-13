@@ -49,7 +49,7 @@ void main() {
     await tester.pumpWidget(SettingsScope(
       settings: settings,
       child: MaterialApp(
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         home: QuoridorHostScreen(hostSide: hostSide, players: 4, gamePort: port, discoveryPort: discovery),
       ),
     ));
@@ -313,7 +313,7 @@ void hybridTests() {
       await tester.pumpWidget(SettingsScope(
         settings: settings,
         child: MaterialApp(
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: const QuoridorHostScreen(hostSide: 0, players: 4, cpus: 1, gamePort: 46072, discoveryPort: 46063),
         ),
       ));

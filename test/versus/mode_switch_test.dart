@@ -16,7 +16,7 @@ Future<Widget> _app(Widget home) async {
   final settings = await Settings.load();
   return SettingsScope(
     settings: settings,
-    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: home),
   );
 }
 

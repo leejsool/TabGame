@@ -53,7 +53,7 @@ class _PinballMenuScreenState extends State<PinballMenuScreen> {
         const TutorialButton(tutorial: pinballTutorial),
         const SizedBox(height: 10),
         OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800)),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 16, fontWeight: FontWeight.w800)),
           onPressed: () => PinballScoringScreen.open(context),
           icon: const Icon(Icons.calculate_rounded),
           label: const Text('점수 계산법'),

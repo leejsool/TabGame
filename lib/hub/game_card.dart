@@ -1,16 +1,29 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../core/app_fonts.dart';
 import '../core/dev_unlock.dart';
 import '../core/game_info.dart';
 import 'game_icons.dart';
 
 /// 허브에 나오는 게임 카드. 누르면 살짝 눌리는 애니메이션이 있다.
 class GameCard extends StatefulWidget {
-  const GameCard({super.key, required this.game, required this.onTap, this.compact = false});
+  const GameCard({super.key, required this.game, required this.onTap, this.compact = false, this.favorite = false, this.onFavorite, this.lifted = false, this.dense = false});
 
   final GameInfo game;
   final VoidCallback onTap;
+
+  /// 즐겨찾기한 게임인가 (별표가 채워진다).
+  final bool favorite;
+
+  /// 별표를 눌렀을 때. null이면 별표를 보이지 않는다.
+  final VoidCallback? onFavorite;
+
+  /// 폰에서 한 줄에 세 장씩 놓는 아주 작은 카드 (방식 칩은 글자 없이 그림만).
+  final bool dense;
+
+  /// 끌어 옮기는 중에 손가락을 따라다니는 모습인가 (공중에 뜬 것처럼 그림자가 깊어진다).
+  final bool lifted;
 
   /// 좁은 폰 화면에서 한 줄에 두 장씩 놓을 때의 작은 카드.
   final bool compact;
@@ -52,6 +65,9 @@ class _GameCardState extends State<GameCard> {
     final scrim = _scrimFor(game.color, dark);
     // 혼자 놀기 카드는 이미 "혼자 놀기" 묶음 안에 있으니 "혼자" 칩을 따로 달지 않는다
     final soloOnly = game.modes.length == 1 && game.modes.first == PlayMode.solo;
+    final showBeta = game.beta && game.isReady && !game.locked;
+    final lifted = widget.lifted;
+    final dense = widget.dense;
 
     final card = AnimatedScale(
       scale: _pressed ? 0.96 : 1.0,
@@ -60,7 +76,7 @@ class _GameCardState extends State<GameCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -68,16 +84,16 @@ class _GameCardState extends State<GameCard> {
           ),
           boxShadow: [
             BoxShadow(
-              color: game.color.withValues(alpha: _pressed ? 0.15 : 0.35),
-              blurRadius: _pressed ? 6 : 16,
-              offset: Offset(0, _pressed ? 2 : 8),
+              color: lifted ? Colors.black.withValues(alpha: 0.35) : game.color.withValues(alpha: _pressed ? 0.15 : 0.3),
+              blurRadius: lifted ? 26 : (_pressed ? 5 : 10),
+              offset: Offset(0, lifted ? 16 : (_pressed ? 2 : 5)),
             ),
           ],
         ),
         // 글씨 자리(아래쪽)만 살짝 어둡게 깐다 (밝은 카드에서만, [_scrimFor])
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             gradient: scrim == 0
                 ? null
                 : LinearGradient(
@@ -90,40 +106,36 @@ class _GameCardState extends State<GameCard> {
           child: Material(
             type: MaterialType.transparency,
             child: InkWell(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
               onTap: widget.onTap,
               onTapDown: (_) => _setPressed(true),
               onTapUp: (_) => _setPressed(false),
               onTapCancel: () => _setPressed(false),
               child: Padding(
-                padding: EdgeInsets.all(widget.compact ? 12 : 18),
+                padding: dense ? const EdgeInsets.fromLTRB(8, 8, 8, 7) : EdgeInsets.fromLTRB(widget.compact ? 10 : 12, widget.compact ? 10 : 12, widget.compact ? 10 : 12, widget.compact ? 9 : 11),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: EdgeInsets.all(widget.compact ? 6 : 8),
+                          padding: EdgeInsets.all(dense ? 4 : 5),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: GameIcon(game: game, size: widget.compact ? 48 : 54),
+                          child: GameIcon(game: game, size: dense ? 38 : (widget.compact ? 44 : 50)),
                         ),
-                        // (Wi‑Fi는 아래 모드 칩에 이미 있어서 위에는 교과학습 표시만 단다)
-                        if (!game.isReady || game.locked)
-                          const _SoonBadge()
-                        else if (game.beta && game.hasLesson)
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [const _SoonBadge(label: 'beta'), const SizedBox(height: 4), _LessonBadge(compact: widget.compact)],
-                          )
-                        else if (game.beta)
-                          const _SoonBadge(label: 'beta')
-                        else if (game.hasLesson)
-                          _LessonBadge(compact: widget.compact),
+                        // (좁은 카드에서는 "준비 중" 표시가 넘치지 않게 조금 줄인다)
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: (!game.isReady || game.locked)
+                                ? const FittedBox(fit: BoxFit.scaleDown, child: _SoonBadge())
+                                : (widget.onFavorite != null ? _FavoriteStar(on: widget.favorite, onTap: widget.onFavorite!, title: game.title, size: dense ? 26 : 30) : null),
+                          ),
+                        ),
                       ],
                     ),
                     const Spacer(),
@@ -135,38 +147,39 @@ class _GameCardState extends State<GameCard> {
                         maxLines: 1,
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: widget.compact ? 18 : 22,
+                          fontSize: dense ? 15 : (widget.compact ? 17 : 19),
+                          fontFamily: kTitleFont,
+                          fontFamilyFallback: kTitleFontFallback,
                           fontWeight: FontWeight.w800,
                           shadows: _textShadow,
                         ),
                       ),
                     ),
-                    SizedBox(height: widget.compact ? 2 : 4),
-                    Text(
-                      game.tagline,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        fontSize: widget.compact ? 12.5 : 14,
-                        height: widget.compact ? 1.25 : null,
-                        shadows: _textShadow,
-                      ),
-                    ),
-                    if (!soloOnly) ...[
-                      SizedBox(height: widget.compact ? 8 : 12),
-                      // 모드가 셋이어도 한 줄로 두고, 모자라면 칩을 조금 줄인다 (두 줄이 되어 카드 높이를 넘지 않게).
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
+                    // (칩이 없는 카드도 아래 한 줄 자리는 비워 둬서, 게임 이름이 모든 카드에서 같은 높이에 온다)
+                    ...[
+                      SizedBox(height: dense ? 4 : 5),
+                      // 아래 한 줄: 할 수 있는 방식 칩(+ beta), 오른쪽 끝에 교과학습 표시. 모자라면 칩을 조금 줄인다.
+                      SizedBox(
+                        height: 22,
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            for (final mode in game.modes)
-                              if (!(mode == PlayMode.wifi && kIsWeb)) ...[
-                                if (mode != game.modes.first) const SizedBox(width: 6),
-                                _ModeChip(mode: mode, text: game.modeChip(mode)),
-                              ],
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (!soloOnly)
+                                      for (final mode in game.modes)
+                                        if (!(mode == PlayMode.wifi && kIsWeb))
+                                          Padding(padding: const EdgeInsets.only(right: 5), child: _ModeChip(mode: mode, text: dense ? null : game.modeChip(mode))),
+                                    if (showBeta) const _SoonBadge(label: 'beta'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (game.hasLesson) const Padding(padding: EdgeInsets.only(left: 4), child: _LessonBadge()),
                           ],
                         ),
                       ),
@@ -200,9 +213,7 @@ class _GameCardState extends State<GameCard> {
 
 /// 교과학습이 있는 게임 카드의 학사모 표시.
 class _LessonBadge extends StatelessWidget {
-  const _LessonBadge({required this.compact});
-
-  final bool compact;
+  const _LessonBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -211,9 +222,49 @@ class _LessonBadge extends StatelessWidget {
       child: Semantics(
         label: '교과학습이 있어요',
         child: Container(
-          padding: EdgeInsets.all(compact ? 6 : 8),
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
           decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), shape: BoxShape.circle),
-          child: Icon(Icons.school_rounded, size: compact ? 18 : 22, color: Colors.black.withValues(alpha: 0.72)),
+          child: Icon(Icons.school_rounded, size: 15, color: Colors.black.withValues(alpha: 0.72)),
+        ),
+      ),
+    );
+  }
+}
+
+/// 카드 오른쪽 위의 즐겨찾기 별표: 빈 별을 누르면 채워지고 그 게임이 메인 화면 맨 위로 올라간다.
+class _FavoriteStar extends StatelessWidget {
+  const _FavoriteStar({required this.on, required this.onTap, required this.title, this.size = 30});
+
+  final double size;
+
+  final bool on;
+  final VoidCallback onTap;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: on ? '$title 즐겨찾기 빼기' : '$title 즐겨찾기에 넣기',
+      child: InkResponse(
+        onTap: onTap,
+        radius: 24,
+        // (별은 작게 보여도 누르는 자리는 넉넉하게)
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 0, 10),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, a) => ScaleTransition(scale: a, child: child),
+            child: Icon(
+              on ? Icons.star_rounded : Icons.star_border_rounded,
+              key: ValueKey(on),
+              size: size,
+              color: on ? const Color(0xFFFFD54F) : Colors.white.withValues(alpha: 0.9),
+              shadows: const [Shadow(color: Color(0x59000000), blurRadius: 4, offset: Offset(0, 1))],
+            ),
+          ),
         ),
       ),
     );
@@ -228,7 +279,7 @@ class _SoonBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(12),
@@ -245,12 +296,14 @@ class _ModeChip extends StatelessWidget {
   const _ModeChip({required this.mode, required this.text});
 
   final PlayMode mode;
-  final String text;
+
+  /// 칩의 글자 (null이면 그림만).
+  final String? text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: text == null ? 6 : 8, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.22),
         borderRadius: BorderRadius.circular(10),
@@ -259,8 +312,10 @@ class _ModeChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(mode.icon, size: 14, color: Colors.white),
-          const SizedBox(width: 4),
-          Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          if (text != null) ...[
+            const SizedBox(width: 4),
+            Text(text!, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          ],
         ],
       ),
     );

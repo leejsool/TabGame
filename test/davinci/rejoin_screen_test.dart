@@ -43,7 +43,7 @@ void main() {
     await tester.pumpWidget(SettingsScope(
       settings: settings,
       child: MaterialApp(
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         builder: (context, child) => LanStallOverlay(decisionAfter: Duration.zero, child: child!),
         home: const DavinciHostScreen(hostSide: 0, players: 3, gamePort: port, discoveryPort: discovery),
       ),
@@ -101,7 +101,7 @@ void main() {
     await tester.pumpWidget(const SizedBox()); // 방장 화면을 닫고 (곧 연결이 끊긴다는 소식이 온다)
     await tester.pumpWidget(SettingsScope(
       settings: settings,
-      child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: restored!),
+      child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: restored!),
     ));
     await tester.pump(); // (그 소식이 오기 전에 확인한다)
     expect(find.byType(DavinciScreen), findsOneWidget);

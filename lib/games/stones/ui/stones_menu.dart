@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/game_info.dart';
 import '../../../core/game_widgets.dart';
 import '../../../tutorial/lesson_kit.dart';
+import '../../../versus/vs_mode_switch.dart';
 import '../core/stones_rules.dart';
 import 'stones_board.dart';
 import 'stones_lesson_screen.dart';
@@ -59,6 +60,8 @@ class StonesMenuScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
+                VsModeSwitch(gameId: 'stones', current: mode),
+                const SizedBox(height: 14),
                 free,
                 const SizedBox(height: 18),
                 Padding(

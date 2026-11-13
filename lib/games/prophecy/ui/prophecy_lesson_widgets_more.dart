@@ -236,7 +236,7 @@ class _VonNeumannExplorerState extends State<VonNeumannExplorer> {
         margin: const EdgeInsets.only(top: 4),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: const Color(0xFFF4F1EA), borderRadius: BorderRadius.circular(10)),
-        child: SelectableText(vonNeumann(n), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, height: 1.5, fontFamily: 'NanumGothic')),
+        child: SelectableText(vonNeumann(n), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, height: 1.5, fontFamily: 'Pretendard')),
       ),
       const SizedBox(height: 8),
       Text('원소는 $n개, 중괄호 한 쌍은 모두 ${braceCount(n)}개 (= 2를 $n번 곱한 수)예요.', style: const TextStyle(fontSize: 14, height: 1.5)),
@@ -285,7 +285,7 @@ class _TowerPainter extends CustomPainter {
           ..color = cracks ? _bad : accent,
       );
       final tp = TextPainter(
-        text: TextSpan(text: _layers[i], style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF333333))),
+        text: TextSpan(text: _layers[i], style: const TextStyle(fontFamily: 'Pretendard', fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF333333))),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: width - 8);
       tp.paint(canvas, r.center - Offset(tp.width / 2, tp.height / 2));

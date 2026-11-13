@@ -87,9 +87,6 @@ class RummikubScreen extends StatefulWidget {
   /// (테스트용) 미리 만든 컨트롤러.
   final RummikubController? controller;
 
-  /// 처음 내 차례에 "처음 내려놓을 때" 팝업을 띄우는가 (시험에서는 끈다).
-  static bool showFirstHint = true;
-
   /// 타일 소리를 내는가 (시험에서는 끈다). 설정의 "효과음"이 꺼져 있으면 이게 켜져 있어도 소리가 나지 않는다.
   static bool playSounds = true;
 
@@ -186,7 +183,6 @@ class _RummikubScreenState extends State<RummikubScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       c.start();
-      _maybeFirstHint();
     });
   }
 
@@ -213,8 +209,6 @@ class _RummikubScreenState extends State<RummikubScreen> {
     c.dispose();
     super.dispose();
   }
-
-  bool _hintShown = false;
 
 
   // ── 내 차례 알림 ──

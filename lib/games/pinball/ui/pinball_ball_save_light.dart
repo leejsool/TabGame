@@ -27,7 +27,7 @@ void paintBallSaveLights(Canvas canvas, PinballRun run) {
       text: TextSpan(
         text: '세이브',
         style: TextStyle(
-          fontFamily: 'NanumGothic',
+          fontFamily: 'Pretendard',
           fontSize: 13,
           fontWeight: FontWeight.w900,
           color: Colors.white.withValues(alpha: pulse),

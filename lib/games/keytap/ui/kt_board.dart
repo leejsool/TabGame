@@ -127,7 +127,7 @@ class KtBoardPainter extends CustomPainter {
 
   void _label(Canvas canvas, Rect rect, String text) {
     final tp = TextPainter(
-      text: TextSpan(text: text, style: TextStyle(fontFamily: 'NanumGothic', color: Colors.white, fontSize: min(rect.width * 0.24, 30), fontWeight: FontWeight.w800)),
+      text: TextSpan(text: text, style: TextStyle(fontFamily: 'Pretendard', color: Colors.white, fontSize: min(rect.width * 0.24, 30), fontWeight: FontWeight.w800)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, rect.center - Offset(tp.width / 2, tp.height / 2));

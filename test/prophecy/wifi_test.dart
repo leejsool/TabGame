@@ -25,7 +25,7 @@ Future<Widget> app(Widget home) async {
   final settings = await Settings.load();
   return SettingsScope(
     settings: settings,
-    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: home),
   );
 }
 
@@ -156,7 +156,7 @@ void main() {
       final settings = await Settings.load();
       await tester.pumpWidget(SettingsScope(
         settings: settings,
-        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: const Scaffold(body: ProphecyRecordsTab())),
+        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: const Scaffold(body: ProphecyRecordsTab())),
       ));
       await settle(tester, rounds: 4);
       expect(find.text('이겼어요 · Wi‑Fi 대결'), findsOneWidget);
@@ -363,7 +363,7 @@ void main() {
         settings: settings,
         child: MaterialApp(
           navigatorKey: navKey,
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: const Scaffold(body: SizedBox()),
         ),
       ));

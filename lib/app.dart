@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/app_fonts.dart';
 import 'core/click_sound.dart';
 import 'core/game_filter.dart';
 import 'core/settings.dart';
@@ -20,16 +21,16 @@ class TabGameApp extends StatelessWidget {
       seedColor: const Color(0xFF3F7CAC),
       brightness: brightness,
     );
-    return ThemeData(
+    return withAppFonts(ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      fontFamily: 'NanumGothic',
+      fontFamily: 'Pretendard',
       // 버튼을 누를 때마다 딸깍 소리 (설정의 "효과음"을 끄면 나지 않는다)
       splashFactory: const ClickSplashFactory(),
       scaffoldBackgroundColor: brightness == Brightness.light
           ? const Color(0xFFF6F3EE)
           : const Color(0xFF15181C),
-    );
+    ));
   }
 
   @override

@@ -12,7 +12,7 @@ class _ViaSwitch extends InheritedWidget {
   bool updateShouldNotify(_ViaSwitch old) => false;
 }
 
-/// 시작 전 화면 맨 위의 "CPU / 둘이서 / Wi‑Fi" 전환 칩. 허브까지 나가지 않고 그 자리에서 다른 방식으로 바꾼다.
+/// 시작 전 화면 맨 위의 "CPU / 둘이서 / Wi‑Fi" (혼자 하는 방식이 있는 게임은 "혼자"도) 전환 칩. 허브까지 나가지 않고 그 자리에서 다른 방식으로 바꾼다.
 ///
 /// 허브에서 연 화면에서 처음 바꿀 때는 새 화면을 위에 쌓아서, 뒤로 가면 원래 설정 화면으로 돌아온다
 /// (게임 화면만 있는 "한 기기로 둘이서"에서 다시 CPU로 돌아올 길이 된다).
@@ -44,7 +44,7 @@ class VsModeSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     final game = _find(gameId);
     if (game == null || game.builder == null) return const SizedBox.shrink();
-    final modes = [for (final m in game.modes) if (m != PlayMode.solo && !(kIsWeb && m == PlayMode.wifi)) m];
+    final modes = [for (final m in game.modes) if (!(kIsWeb && m == PlayMode.wifi)) m];
     if (modes.length < 2 || !modes.contains(current)) return const SizedBox.shrink();
     return SegmentedButton<PlayMode>(
       segments: [
@@ -52,7 +52,7 @@ class VsModeSwitch extends StatelessWidget {
           ButtonSegment(
             value: m,
             icon: Icon(m.icon, size: 18),
-            label: Text(game.modeSwitchName(m), maxLines: 1, softWrap: false, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w800)),
+            label: Text(game.modeSwitchName(m), maxLines: 1, softWrap: false, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 14, fontWeight: FontWeight.w800)),
           ),
       ],
       selected: {current},

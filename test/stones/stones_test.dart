@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tabgame/core/game_info.dart';
+import 'package:tabgame/core/game_speed.dart';
 import 'package:tabgame/core/settings.dart';
 import 'package:tabgame/core/settings_scope.dart';
 import 'package:tabgame/games/stones/core/stones_rules.dart';
@@ -115,6 +116,24 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       await tester.pump(const Duration(seconds: 1));
       expect(find.text('갑의 승리!'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('설정에서 "자동 진행"을 끄면 승부가 정해져도 자동으로 두지 않고 직접 둔다', (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const p = StonesPuzzle(title: '시험', question: '', white: [1, 1, 1], black: [3, 2, 2], turn: Side.white);
+      await pumpScreen(tester, StonesScreen(mode: PlayMode.local2p, puzzle: p));
+      GameSpeed.stonesAuto = false; // (화면을 띄울 때 설정을 읽어 오니, 그 뒤에 끈다)
+      addTearDown(() => GameSpeed.stonesAuto = true);
+      final board = tester.getRect(find.descendant(of: find.byType(StonesBoard), matching: find.byType(CustomPaint)).first);
+      final cell = board.height / 4;
+      await tester.tapAt(board.topLeft + Offset(cell * 2.5, cell * 1.5));
+      await tester.pump();
+      expect(find.textContaining('자동으로 둬요'), findsNothing);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('갑의 승리!'), findsNothing, reason: '저절로 끝나지 않는다');
       expect(tester.takeException(), isNull);
     });
 

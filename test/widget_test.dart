@@ -64,23 +64,13 @@ void main() {
     addTearDown(tester.view.reset);
   });
 
-  testWidgets('아주 낮은 화면에서도 모드 선택창이 넘치지 않는다', (tester) async {
-    tester.view.physicalSize = const Size(533, 333);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    final settings = await Settings.load();
-    await tester.pumpWidget(TabGameApp(settings: settings, hubFilter: GameFilter.all));
-    await tester.tap(find.byTooltip('함께')); // 화면이 낮아 "함께 놀기" 카드만 보이게 한다
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('궁극 틱택토'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('궁극 틱택토'));
-    await tester.pumpAndSettle();
-    expect(find.text('CPU와 대결'), findsOneWidget);
-    expect(tester.takeException(), isNull);
+  test('방식이 여러 개인 게임은 모두 허브에서 묻지 않고 바로 들어간다 (첫 화면 맨 위 전환 칩에서 바꾼다)', () {
+    for (final g in allGames.where((g) => g.modes.length > 1)) {
+      expect(g.modeInSetup, isTrue, reason: '${g.title}: 첫 화면에 VsModeSwitch를 넣고 modeInSetup을 켜 주세요');
+    }
   });
 
-  testWidgets('2인 게임은 모드 선택 후 설정 화면으로 간다', (tester) async {
+  testWidgets('2인 게임은 모드를 묻지 않고 설정 화면으로 바로 간다 (다른 방식은 설정 화면 맨 위 칩에서)', (tester) async {
     tester.view.physicalSize = const Size(1600, 2400);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(tester.view.reset);
@@ -91,10 +81,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('궁극 틱택토'), 300, scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('궁극 틱택토'));
     await tester.pumpAndSettle();
-    expect(find.text('CPU와 대결'), findsOneWidget);
-
-    await tester.tap(find.text('CPU와 대결'));
-    await tester.pumpAndSettle();
+    expect(find.text('어떻게 할까요?'), findsNothing);
     // 처음 여는 게임이라 게임 방법 안내가 먼저 나오고, 건너뛸 수 있다 (자세한 건 tutorial/first_run_test.dart)
     expect(find.text('궁극 틱택토 게임 방법'), findsOneWidget);
     await tester.tap(find.text('건너뛰기'));

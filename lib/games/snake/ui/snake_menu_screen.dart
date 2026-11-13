@@ -50,7 +50,7 @@ class _SnakeMenuScreenState extends State<SnakeMenuScreen> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    const big = TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800);
+    const big = TextStyle(fontFamily: 'Pretendard', fontSize: 18, fontWeight: FontWeight.w800);
     return Scaffold(
       appBar: AppBar(
         title: const Text('지렁이의 모험', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -131,7 +131,7 @@ class _HandPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontFamily: 'NanumGothic', fontSize: 13.5, fontWeight: FontWeight.w800);
+    const style = TextStyle(fontFamily: 'Pretendard', fontSize: 13.5, fontWeight: FontWeight.w800);
     return ValueListenableBuilder<bool>(
       valueListenable: SnakePrefs.boostLeft,
       builder: (context, left, _) => Column(

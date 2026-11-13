@@ -18,7 +18,7 @@ class TextCache {
         text: TextSpan(
           text: s,
           style: TextStyle(
-            fontFamily: 'NanumGothic',
+            fontFamily: 'Pretendard',
             fontSize: size,
             color: color,
             fontWeight: weight,

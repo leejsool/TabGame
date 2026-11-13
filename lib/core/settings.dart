@@ -23,11 +23,15 @@ class Settings extends ChangeNotifier {
         _suitPalette = _readSuitPalette(_prefs),
         _autoUpdateCheck = _prefs.getBool(_kAutoUpdateCheck) ?? true,
         _hiddenGames = {...?_prefs.getStringList(_kHiddenGames)},
+        _favoriteGames = [...?_prefs.getStringList(_kFavoriteGames)],
+        _gameOrder = [...?_prefs.getStringList(_kGameOrder)],
         _showTutorials = _prefs.getBool(_kShowTutorials) ?? true,
         _fastPace = _prefs.getBool(_kFastPace) ?? false,
-        _yachtQuick = _prefs.getBool(_kYachtQuick) ?? false {
+        _yachtQuick = _prefs.getBool(_kYachtQuick) ?? false,
+        _stonesAuto = _prefs.getBool(_kStonesAuto) ?? true {
     GameSpeed.factor = _fastPace ? GameSpeed.fastFactor : 1;
     GameSpeed.yachtQuick = _yachtQuick;
+    GameSpeed.stonesAuto = _stonesAuto;
     CardLook.style = _cardStyle;
     CardLook.backStyle = _cardBackStyle;
     CardLook.layout = _cardLayout;
@@ -73,6 +77,7 @@ class Settings extends ChangeNotifier {
   static const _kHaptics = 'haptics';
   static const _kFastPace = 'fastPace';
   static const _kYachtQuick = 'yachtQuick';
+  static const _kStonesAuto = 'stonesAuto';
   static const _kTheme = 'themeMode';
   static const _kAutoComplete = 'autoComplete';
   static const _kFreecellAutoMove = 'freecellAutoMove';
@@ -87,6 +92,8 @@ class Settings extends ChangeNotifier {
   static const _kShowTutorials = 'showTutorials';
   static const _kNickname = 'nickname';
   static const _kHiddenGames = 'hiddenGames';
+  static const _kFavoriteGames = 'favoriteGames';
+  static const _kGameOrder = 'gameOrder';
 
   final SharedPreferences _prefs;
   bool _sound;
@@ -94,6 +101,7 @@ class Settings extends ChangeNotifier {
   bool _haptics;
   bool _fastPace;
   bool _yachtQuick;
+  bool _stonesAuto;
   bool _autoComplete;
   bool _freecellAutoMove;
   bool _solitaireAutoMove;
@@ -104,6 +112,8 @@ class Settings extends ChangeNotifier {
   SuitPalette _suitPalette;
   bool _autoUpdateCheck;
   final Set<String> _hiddenGames;
+  final List<String> _favoriteGames;
+  final List<String> _gameOrder;
   bool _showTutorials;
   late String _nickname;
 
@@ -126,6 +136,16 @@ class Settings extends ChangeNotifier {
     _yachtQuick = v;
     GameSpeed.yachtQuick = v;
     _prefs.setBool(_kYachtQuick, v);
+    notifyListeners();
+  }
+
+  /// 바둑돌 옮기기 자동 진행 ([GameSpeed.stonesAuto]). 처음에는 켜져 있다.
+  bool get stonesAuto => _stonesAuto;
+
+  set stonesAuto(bool v) {
+    _stonesAuto = v;
+    GameSpeed.stonesAuto = v;
+    _prefs.setBool(_kStonesAuto, v);
     notifyListeners();
   }
 
@@ -235,6 +255,51 @@ class Settings extends ChangeNotifier {
     _hiddenGames.clear();
     _prefs.remove(_kHiddenGames);
     notifyListeners();
+  }
+
+  /// 즐겨찾기한 게임들의 이름표 (`GameInfo.id`), 메인 화면 맨 위에 보일 순서대로.
+  List<String> get favoriteGames => List.unmodifiable(_favoriteGames);
+
+  bool isFavorite(String id) => _favoriteGames.contains(id);
+
+  /// 별표를 눌렀을 때: 즐겨찾기에 넣거나(맨 뒤에) 뺀다.
+  void toggleFavorite(String id) {
+    if (!_favoriteGames.remove(id)) _favoriteGames.add(id);
+    _prefs.setStringList(_kFavoriteGames, _favoriteGames);
+    notifyListeners();
+  }
+
+  /// 즐겨찾기 안에서 [id]를 [targetId]가 있던 자리로 옮긴다 (끌어서 순서 바꾸기).
+  void moveFavorite(String id, String targetId) {
+    if (!_moveTo(_favoriteGames, id, targetId)) return;
+    _prefs.setStringList(_kFavoriteGames, _favoriteGames);
+    notifyListeners();
+  }
+
+  /// [ids]를 내가 정해 둔 순서로 늘어놓는다. 순서를 정한 적 없는 게임(새로 생긴 게임 등)은 원래 순서대로 뒤에 온다.
+  List<String> inGameOrder(List<String> ids) {
+    if (_gameOrder.isEmpty) return ids;
+    final rank = {for (var i = 0; i < _gameOrder.length; i++) _gameOrder[i]: i};
+    final at = {for (var i = 0; i < ids.length; i++) ids[i]: i};
+    return [...ids]..sort((a, b) => (rank[a] ?? 100000 + at[a]!).compareTo(rank[b] ?? 100000 + at[b]!));
+  }
+
+  /// 메인 화면에서 게임 [id]를 [targetId]가 있던 자리로 옮긴다 (끌어서 순서 바꾸기). [allIds]는 모든 게임의 원래 순서.
+  void moveGame(String id, String targetId, List<String> allIds) {
+    final order = inGameOrder(allIds);
+    if (!_moveTo(order, id, targetId)) return;
+    _gameOrder
+      ..clear()
+      ..addAll(order);
+    _prefs.setStringList(_kGameOrder, _gameOrder);
+    notifyListeners();
+  }
+
+  static bool _moveTo(List<String> list, String id, String targetId) {
+    final to = list.indexOf(targetId);
+    if (id == targetId || to < 0 || !list.remove(id)) return false;
+    list.insert(to, id);
+    return true;
   }
 
   /// 게임을 처음 열 때 게임 방법 안내를 자동으로 보여준다 (건너뛸 수 있다).

@@ -47,10 +47,10 @@ void main() {
       await pumpHub(tester, size);
       for (final g in allGames.where((g) => g.isReady)) {
         await tester.pumpWidget(MaterialApp(
-          home: Scaffold(body: Center(child: SizedBox(width: size.width < 600 ? 165 : 300, height: 220, child: GameCard(game: g, compact: size.width < 600, onTap: () {})))),
+          home: Scaffold(body: Center(child: SizedBox(width: size.width < 600 ? 106 : 176, height: size.width < 600 ? 110 : 140, child: GameCard(game: g, compact: size.width < 600, dense: size.width < 600, onFavorite: () {}, onTap: () {})))),
         ));
-        // Wi‑Fi는 카드 아래 모드 칩으로 한 번만 보인다 (위쪽 동그라미 표시는 없앴다)
-        final chip = find.descendant(of: find.byType(GameCard), matching: find.text('Wi‑Fi'));
+        // Wi‑Fi는 카드 아래 모드 칩으로 한 번만 보인다 (폰의 작은 카드는 글자 없이 그림만)
+        final chip = find.descendant(of: find.byType(GameCard), matching: find.byIcon(PlayMode.wifi.icon));
         expect(chip, g.hasWifi ? findsOneWidget : findsNothing, reason: g.title);
         expect(tester.takeException(), isNull, reason: g.title);
       }

@@ -6,7 +6,7 @@ import '../core/game_registry.dart';
 import '../core/settings.dart';
 import '../core/update/update_ui.dart';
 import '../records/records_screen.dart';
-import 'game_card.dart';
+import 'hub_grid.dart';
 import 'game_icons.dart';
 import 'launch.dart';
 import 'rejoin_cards.dart';
@@ -27,6 +27,13 @@ class HubScreen extends StatefulWidget {
 
 class _HubScreenState extends State<HubScreen> {
   late GameFilter _filter = widget.initialFilter;
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -45,24 +52,41 @@ class _HubScreenState extends State<HubScreen> {
       builder: (context, _) {
         final visible = [for (final g in allGames) if (widget.settings.isGameVisible(g.id)) g];
         // 멘토링 전용 게임은 다른 묶음에서 빼고 맨 밑에 작은 아이콘으로 따로 보여 준다
-        final shown = [for (final g in visible) if (!GameFilter.mentoringOnlyGames.contains(g.id)) g];
+        final settings = widget.settings;
+        final allIds = [for (final g in allGames) g.id];
+        final byId = {for (final g in visible) g.id: g};
+        // (내가 끌어서 정해 둔 순서대로)
+        final shown = [
+          for (final id in settings.inGameOrder(allIds))
+            if (byId[id] case final g? when !GameFilter.mentoringOnlyGames.contains(id)) g,
+        ];
         final mentoring = [for (final g in visible) if (GameFilter.mentoringOnlyGames.contains(g.id) && _filter.matches(g)) g];
-        final solo = shown.where((g) => g.inSoloSection).toList();
-        final multi = shown.where((g) => g.hasMulti).toList();
+        // 즐겨찾기한 게임은 맨 위 묶음에 모으고, 아래 묶음에서는 뺀다 (같은 게임이 두 번 나오지 않게)
+        final shownIds = {for (final g in shown) g.id};
+        final favorites = [
+          for (final id in settings.favoriteGames)
+            if (shownIds.contains(id) && (_filter == GameFilter.all || _filter.matches(byId[id]!))) byId[id]!,
+        ];
+        final rest = [for (final g in shown) if (!settings.isFavorite(g.id)) g];
+        final solo = rest.where((g) => g.inSoloSection).toList();
+        final multi = rest.where((g) => g.hasMulti).toList();
+        void moveGame(String id, String targetId) => settings.moveGame(id, targetId, allIds);
         return Scaffold(
           body: SafeArea(
             child: CustomScrollView(
+              controller: _scroll,
               slivers: [
                 SliverToBoxAdapter(child: _buildHeader(context)),
                 const SliverToBoxAdapter(child: RejoinCards()),
                 if (visible.isEmpty) SliverToBoxAdapter(child: _allHidden(context)),
+                ..._section(context, 'fav', '즐겨찾기', Icons.star_rounded, favorites, settings.moveFavorite),
                 if (_filter == GameFilter.all || _filter == GameFilter.solo)
-                  ..._section(context, '혼자 놀기', Icons.person_rounded, solo),
+                  ..._section(context, 'solo', '혼자 놀기', Icons.person_rounded, solo, moveGame),
                 if (_filter == GameFilter.all || _filter == GameFilter.multi)
-                  ..._section(context, '함께 놀기', Icons.groups_rounded, multi),
+                  ..._section(context, 'multi', '함께 놀기', Icons.groups_rounded, multi, moveGame),
                 // Wi‑Fi·교과학습처럼 등록 정보로 정해지는 분류는 해당 게임만 한 묶음으로 모아 보여 준다
                 if (_filter != GameFilter.all && _filter != GameFilter.solo && _filter != GameFilter.multi)
-                  ..._section(context, _filterTitle(_filter), _filter.icon, [for (final g in shown) if (_filter.matches(g)) g]),
+                  ..._section(context, 'filter', _filterTitle(_filter), _filter.icon, [for (final g in rest) if (_filter.matches(g)) g], moveGame),
                 if (mentoring.isNotEmpty) SliverToBoxAdapter(child: _mentoringShelf(context, mentoring)),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
               ],
@@ -131,7 +155,7 @@ class _HubScreenState extends State<HubScreen> {
   Widget _buildHeader(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 24, 20, 8),
+      padding: const EdgeInsets.fromLTRB(28, 16, 20, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -177,7 +201,7 @@ class _HubScreenState extends State<HubScreen> {
           ),
           // 멘토링 웹판은 게임이 몇 개뿐이라 분류 막대가 필요 없다
           if (!kMentoringOnly) ...[
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             GameFilterBar(
               selected: _filter,
               onChanged: (f) => setState(() => _filter = f),
@@ -190,53 +214,36 @@ class _HubScreenState extends State<HubScreen> {
 
   List<Widget> _section(
     BuildContext context,
+    String id,
     String title,
     IconData icon,
     List<GameInfo> games,
+    void Function(String id, String targetId) onMove,
   ) {
     if (games.isEmpty) return const []; // (모두 숨긴 묶음은 제목도 보이지 않는다)
     final compact = MediaQuery.sizeOf(context).width < 600;
     return [
       SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
+          padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
           child: Row(
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
+              Icon(icon, size: 22, color: id == 'fav' ? const Color(0xFFF2A900) : Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
             ],
           ),
         ),
       ),
-      // 폰처럼 좁은 화면에서는 카드 폭을 절반으로 줄여 한 줄에 두 장씩 놓는다 (스크롤을 줄이려고)
-      SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24),
-        sliver: SliverGrid.builder(
-          gridDelegate: compact
-              ? const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  mainAxisExtent: 212,
-                )
-              : const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 300,
-                  mainAxisSpacing: 18,
-                  crossAxisSpacing: 18,
-                  mainAxisExtent: 220,
-                ),
-          itemCount: games.length,
-          itemBuilder: (context, i) => GameCard(
-            game: games[i],
-            compact: compact,
-            onTap: () => launchGame(context, games[i]),
-          ),
-        ),
+      HubGameGrid(
+        key: ValueKey('hub-grid-$id'),
+        section: id,
+        games: games,
+        settings: widget.settings,
+        compact: compact,
+        scroll: _scroll,
+        onOpen: (g) => launchGame(context, g),
+        onMove: onMove,
       ),
     ];
   }

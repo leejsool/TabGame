@@ -29,7 +29,7 @@ Future<Widget> app(Widget home, {Key? key}) async {
     key: key,
     child: SettingsScope(
       settings: settings,
-      child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+      child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: home),
     ),
   );
 }

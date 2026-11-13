@@ -65,7 +65,7 @@ void main() {
       await tester.pumpWidget(SettingsScope(
         settings: settings,
         child: MaterialApp(
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           builder: (context, child) => LanStallOverlay(decisionAfter: Duration.zero, child: child!),
           home: g.host(port, discovery),
         ),
@@ -124,7 +124,7 @@ void main() {
       await tester.pumpWidget(const SizedBox()); // 방장 화면을 닫는다 (곧 연결이 끊긴다는 소식이 온다)
       await tester.pumpWidget(SettingsScope(
         settings: settings,
-        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: restored!),
+        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: restored!),
       ));
       await tester.pump();
       expect(find.byType(g.screen), findsOneWidget);

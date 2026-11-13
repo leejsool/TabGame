@@ -253,7 +253,7 @@ class PathCountPainter extends CustomPainter {
           text: TextSpan(
             text: '${ways[r][c]}',
             style: TextStyle(
-              fontFamily: 'NanumGothic',
+              fontFamily: 'Pretendard',
               fontSize: radius * 0.9,
               fontWeight: FontWeight.w800,
               color: goal ? Colors.white : ink,
@@ -268,7 +268,7 @@ class PathCountPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text: label,
-          style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w900, color: ink),
+          style: const TextStyle(fontFamily: 'Pretendard', fontSize: 18, fontWeight: FontWeight.w900, color: ink),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

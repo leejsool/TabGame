@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'lan_connection.dart';
+import 'lan_discovery.dart';
+import 'lan_screens.dart' show roomNumberOf;
 
 /// 같은 Wi‑Fi 대결에서 상대 기기의 응답이 끊겼을 때 (카톡을 보러 잠깐 나갔을 수도 있다) 화면 위에 띄우는 "기다리는 중" 안내.
 ///
@@ -33,6 +35,9 @@ class LanStallOverlay extends StatefulWidget {
 class _LanStallOverlayState extends State<LanStallOverlay> {
   Timer? _tick;
 
+  /// 이 기기의 방 번호 (방장 기기에서, 나간 사람에게 알려 줄 수 있게 안내에 보인다).
+  String? _roomNumber;
+
   /// CPU가 자리를 맡기 시작한 때 (사람마다). 안내를 잠깐만 보여 주려고 기억한다.
   final Map<LanConnection, DateTime> _coveredAt = {};
 
@@ -56,6 +61,10 @@ class _LanStallOverlayState extends State<LanStallOverlay> {
       _tick = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() {});
       });
+      // 나간 사람이 방 번호로 다시 찾아올 수 있게 이 기기의 방 번호를 알아 둔다
+      localLanAddresses().then((a) {
+        if (mounted) setState(() => _roomNumber = roomNumberOf(a));
+      }).catchError((Object _) {});
     } else if (!any) {
       _tick?.cancel();
       _tick = null;
@@ -161,7 +170,17 @@ class _LanStallOverlayState extends State<LanStallOverlay> {
                   ),
                 ],
               ),
-              if (!decide)
+              // 방장 기기: 나간 사람이 다시 들어오는 길을 알려 준다 (이미 시작한 방은 방 목록에 안 보인다)
+              if (c.suspended && c.canResume != null && _roomNumber != null)
+                Padding(
+                  key: const ValueKey('rejoin-how'),
+                  padding: const EdgeInsets.only(top: 4, left: 30),
+                  child: Text(
+                    '다시 들어오려면: 그 기기에서 이 게임의 같은 Wi‑Fi 화면 → "하던 방 다시 들어가기" (방 번호 $_roomNumber)',
+                    style: TextStyle(color: scheme.onInverseSurface, fontWeight: FontWeight.w700, fontSize: 12.5),
+                  ),
+                )
+              else if (!decide)
                 Padding(
                   padding: const EdgeInsets.only(top: 4, left: 30),
                   child: Text(

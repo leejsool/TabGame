@@ -26,7 +26,7 @@ Future<void> _loadFonts() async {
 
 ThemeData _theme(Brightness b) => ThemeData(
       useMaterial3: true,
-      fontFamily: 'NanumGothic',
+      fontFamily: 'Pretendard',
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3F7CAC), brightness: b),
       scaffoldBackgroundColor:
           b == Brightness.light ? const Color(0xFFF6F3EE) : const Color(0xFF15181C),

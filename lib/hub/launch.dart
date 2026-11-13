@@ -18,7 +18,9 @@ Future<void> launchGame(BuildContext context, GameInfo game) async {
   }
   final PlayMode? mode;
   if (game.modes.length == 1 || game.modeInSetup) {
-    mode = game.modes.first;
+    // 바로 들어갈 때는 맨 위에 전환 칩이 있는 설정 화면으로: CPU 대결이 있는 게임은 그 설정 화면
+    // ("한 기기로 둘이서"는 설정 화면 없이 판이 바로 열리는 게임이 있다)
+    mode = game.modeInSetup && game.modes.contains(PlayMode.vsCpu) ? PlayMode.vsCpu : game.modes.first;
   } else {
     mode = await showModalBottomSheet<PlayMode>(
       context: context,

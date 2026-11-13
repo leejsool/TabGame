@@ -63,7 +63,7 @@ void _devBand(Canvas c) {
   final tp = TextPainter(
     text: const TextSpan(
       text: '개발',
-      style: TextStyle(fontFamily: 'NanumGothic', fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, height: 1.0),
+      style: TextStyle(fontFamily: 'Pretendard', fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white, height: 1.0),
     ),
     textDirection: TextDirection.ltr,
   )..layout();

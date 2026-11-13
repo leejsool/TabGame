@@ -120,7 +120,7 @@ class _PickerPainter extends CustomPainter {
       text: TextSpan(
         text: s,
         style: TextStyle(
-          fontFamily: 'NanumGothic',
+          fontFamily: 'Pretendard',
           fontSize: 12,
           fontWeight: on ? FontWeight.w900 : FontWeight.w600,
           color: on ? kProphColor : scheme.onSurface.withValues(alpha: 0.5),

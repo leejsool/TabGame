@@ -230,7 +230,7 @@ class SnakeFieldPainter extends CustomPainter {
       return TextPainter(
         text: TextSpan(
           text: label,
-          style: TextStyle(fontFamily: 'NanumGothic', fontSize: 13, fontWeight: FontWeight.w800, color: b.human ? Colors.white : Colors.white70),
+          style: TextStyle(fontFamily: 'Pretendard', fontSize: 13, fontWeight: FontWeight.w800, color: b.human ? Colors.white : Colors.white70),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

@@ -25,7 +25,7 @@ class CircleNum extends StatelessWidget {
       height: size * 1.15,
       alignment: Alignment.center,
       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: max(1.2, size * 0.08))),
-      child: Text('$n', style: TextStyle(fontFamily: 'NanumGothic', fontSize: size * 0.72, height: 1.0, fontWeight: FontWeight.w900, color: color)),
+      child: Text('$n', style: TextStyle(fontFamily: 'Pretendard', fontSize: size * 0.72, height: 1.0, fontWeight: FontWeight.w900, color: color)),
     );
   }
 }
@@ -114,7 +114,7 @@ Widget richBullets(BuildContext context, List<String> items) => Padding(
 Widget eventTag(String letter) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(color: letter == 'A' ? kEventA : kEventB, borderRadius: BorderRadius.circular(8)),
-      child: Text('사건 $letter', style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
+      child: Text('사건 $letter', style: const TextStyle(fontFamily: 'Pretendard', fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white)),
     );
 
 /// 식 속의 글: A, B 글자를 사건의 색으로 칠한다.
@@ -131,7 +131,7 @@ TextSpan _abSpan(String text, TextStyle style) {
 }
 
 Widget _ab(String text, double size, {TextAlign align = TextAlign.center, FontWeight weight = FontWeight.w800}) =>
-    Text.rich(_abSpan(text, TextStyle(fontFamily: 'NanumGothic', fontSize: size, height: 1.3, fontWeight: weight, color: const Color(0xFF222222))), textAlign: align);
+    Text.rich(_abSpan(text, TextStyle(fontFamily: 'Pretendard', fontSize: size, height: 1.3, fontWeight: weight, color: const Color(0xFF222222))), textAlign: align);
 
 Widget _frac(Widget top, Widget bottom) => IntrinsicWidth(
       child: Column(
@@ -240,7 +240,7 @@ class FormulaFlipDemoState extends State<FormulaFlipDemo> {
         child: Center(
           child: color == null
               ? _ab(text, size, weight: FontWeight.w900)
-              : Text(text, style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w900, color: color)),
+              : Text(text, style: TextStyle(fontFamily: 'Pretendard', fontSize: size, fontWeight: FontWeight.w900, color: color)),
         ),
       );
 

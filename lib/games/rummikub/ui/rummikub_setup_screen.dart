@@ -123,9 +123,13 @@ class _CountCard extends StatelessWidget {
       onTap: onTap,
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [for (var i = 0; i < count; i++) Icon(Icons.smart_toy_rounded, size: count >= 3 ? 20 : 26, color: kRkWood)],
+          // (3명은 그림이 작아도 줄 높이는 같게 해서, 세 카드의 크기가 똑같다)
+          SizedBox(
+            height: 26,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [for (var i = 0; i < count; i++) Icon(Icons.smart_toy_rounded, size: count >= 3 ? 20 : 26, color: kRkWood)],
+            ),
           ),
           const SizedBox(height: 8),
           Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: kRkWood)),

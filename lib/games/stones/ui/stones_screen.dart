@@ -139,7 +139,7 @@ class _StonesScreenState extends State<StonesScreen> {
     _fx.play(context, 'move');
     if (_s.isOver) {
       _finish();
-    } else if (!_autoRunning && _s.isDecided) {
+    } else if (!_autoRunning && _s.isDecided && GameSpeed.stonesAuto) {
       _startAuto();
     } else if (!_autoRunning) {
       _scheduleCpu();

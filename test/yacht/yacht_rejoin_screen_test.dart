@@ -46,7 +46,7 @@ void main() {
     await tester.pumpWidget(SettingsScope(
       settings: settings,
       child: MaterialApp(
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         builder: (context, child) => LanStallOverlay(decisionAfter: Duration.zero, child: child!),
         home: YachtHostScreen(gamePort: port, discoveryPort: discovery, rng: Random(5)),
       ),

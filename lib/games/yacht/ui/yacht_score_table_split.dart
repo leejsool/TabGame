@@ -16,7 +16,7 @@ extension _YachtSplitTable on _YachtScoreTableState {
     final n = c.players;
     // 이름 칸은 가장 긴 이름("라지 스트레이트", "야추 보너스")이 다 들어가는 폭 이상 (글자가 점수 칸으로 삐져나오지 않게)
     final fontSize = (rowH * 0.42).clamp(12.0, 21.0);
-    final style = TextStyle(fontFamily: 'NanumGothic', fontSize: fontSize, fontWeight: FontWeight.w800);
+    final style = TextStyle(fontFamily: 'Pretendard', fontSize: fontSize, fontWeight: FontWeight.w800);
     var longest = 0.0;
     for (final t in [YachtCategory.largeStraight.label, YachtCategory.smallStraight.label, '야추 보너스']) {
       final p = TextPainter(text: TextSpan(text: t, style: style), textDirection: TextDirection.ltr, textScaler: MediaQuery.textScalerOf(context), maxLines: 1)

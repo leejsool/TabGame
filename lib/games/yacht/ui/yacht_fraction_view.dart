@@ -30,7 +30,7 @@ class YachtFractionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = color ?? Theme.of(context).colorScheme.onSurface;
-    final style = TextStyle(fontFamily: 'NanumGothic', fontSize: size, height: 1.15, fontWeight: bold ? FontWeight.w900 : FontWeight.w700, color: c);
+    final style = TextStyle(fontFamily: 'Pretendard', fontSize: size, height: 1.15, fontWeight: bold ? FontWeight.w900 : FontWeight.w700, color: c);
     if (den == 1) return Text('$num', style: style);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),

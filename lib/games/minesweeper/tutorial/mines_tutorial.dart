@@ -257,7 +257,7 @@ class _MiniMinesPainter extends CustomPainter {
       text: TextSpan(
         text: t,
         style: TextStyle(
-          fontFamily: 'NanumGothic',
+          fontFamily: 'Pretendard',
           fontSize: size,
           fontWeight: FontWeight.w800,
           color: color,

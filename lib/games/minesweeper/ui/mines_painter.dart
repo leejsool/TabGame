@@ -70,7 +70,7 @@ class _TextCache {
       return TextPainter(
         text: TextSpan(
           text: text,
-          style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: weight, color: color, height: 1.0),
+          style: TextStyle(fontFamily: 'Pretendard', fontSize: size, fontWeight: weight, color: color, height: 1.0),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
@@ -84,7 +84,7 @@ class _TextCache {
         text: TextSpan(
           text: '$n',
           style: TextStyle(
-            fontFamily: 'NanumGothic',
+            fontFamily: 'Pretendard',
             fontSize: size,
             fontWeight: FontWeight.w900,
             color: numberColors[n],

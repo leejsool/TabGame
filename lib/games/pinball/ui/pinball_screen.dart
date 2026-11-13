@@ -245,7 +245,7 @@ class _NudgeButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.vibration_rounded, color: Colors.white, size: 26),
-                Text('흔들기', style: TextStyle(fontFamily: 'NanumGothic', color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                Text('흔들기', style: TextStyle(fontFamily: 'Pretendard', color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
               ],
             ),
           ),
@@ -275,7 +275,7 @@ class _Hint extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.65), borderRadius: BorderRadius.circular(20)),
             child: Text(
               controller.charging ? '손을 떼면 쏴요!' : '화면 오른쪽 끝을 꾹 눌렀다 떼면 공이 나가요',
-              style: const TextStyle(fontFamily: 'NanumGothic', color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontFamily: 'Pretendard', color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
         );

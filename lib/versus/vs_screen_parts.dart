@@ -164,7 +164,7 @@ ButtonStyle vsOutlinedStyle(BuildContext context) {
     padding: EdgeInsets.symmetric(horizontal: tablet ? 20 : 12),
     visualDensity: tablet ? VisualDensity.standard : VisualDensity.compact,
     minimumSize: tablet ? const Size(0, 52) : null,
-    textStyle: tablet ? const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w700) : null,
+    textStyle: tablet ? const TextStyle(fontFamily: 'Pretendard', fontSize: 16, fontWeight: FontWeight.w700) : null,
   );
 }
 
@@ -186,7 +186,7 @@ class VsRematchButton extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: tablet ? 20 : 12),
         visualDensity: tablet ? VisualDensity.standard : VisualDensity.compact,
         minimumSize: tablet ? const Size(0, 52) : null,
-        textStyle: tablet ? const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w700) : null,
+        textStyle: tablet ? const TextStyle(fontFamily: 'Pretendard', fontSize: 16, fontWeight: FontWeight.w700) : null,
       ),
       onPressed: asked || opponentGone ? null : onPressed,
       icon: const Icon(Icons.refresh_rounded, size: 20),

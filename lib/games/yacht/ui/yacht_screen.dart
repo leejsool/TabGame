@@ -28,6 +28,7 @@ import 'yacht_look.dart';
 import 'yacht_scale.dart';
 import 'yacht_score_table.dart';
 import 'yacht_tally.dart';
+import 'yacht_tally_link.dart';
 
 part 'yacht_screen_net.dart';
 
@@ -132,6 +133,7 @@ class _YachtScreenState extends State<YachtScreen> {
   int _savedAt = -1;
 
   /// 알림 종류 → 진동·소리 (설정의 진동·효과음 스위치를 따른다).
+  final YachtTallyLink _tallyLink = YachtTallyLink();
   final GameFx _fx = GameFx({
     'roll': const Fx(haptic: Haptic.light),
     'land': const Fx(haptic: Haptic.medium),
@@ -140,6 +142,7 @@ class _YachtScreenState extends State<YachtScreen> {
     'zero': const Fx(haptic: Haptic.vibrate),
     'yahtzee': const Fx(haptic: Haptic.heavy, sound: 'sfx/yacht/achoo2.mp3', volume: 0.85), // 야추 성공 "아츄" (노래에서 5.2초를 잘라 다듬었다: 천천히 커지는 시작 · 천천히 꺼지는 끝 · 낮춘 음량)
     'end': const Fx(haptic: Haptic.heavy),
+    'tally': const Fx(haptic: Haptic.select, sound: 'sfx/common/peta.wav'), // 정산에서 점수가 합계로 내려갈 때
   });
 
   /// 주사위를 굴리는 소리 (4개 이상이면 "여러 개" 소리, 3개 이하면 개수만큼 서로 다른 "한 개" 소리).
@@ -181,6 +184,7 @@ class _YachtScreenState extends State<YachtScreen> {
   @override
   void dispose() {
     _fx.dispose();
+    _tallyLink.dispose();
     _diceSound.dispose();
     _saver.detach();
     _stopNet();
@@ -278,14 +282,14 @@ class _YachtScreenState extends State<YachtScreen> {
             topBar: VsTopBar(title: c.online ? '야추 · 같은 Wi‑Fi' : (c.cpuSeats.isNotEmpty ? '야추 · CPU ${c.level.label}' : '야추'), gameId: 'yacht', onRules: _showRules, onLesson: () => openYachtLesson(context)),
             chips: const SizedBox.shrink(),
             banner: const SizedBox.shrink(),
-            board: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4), child: YachtScoreTable(c: c, onTallyDone: () => _celebrate?.call())),
+            board: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4), child: YachtScoreTable(c: c, link: _tallyLink, onTallyDrop: () => _fx.play(context, 'tally'), onTallyDone: () => _celebrate?.call())),
             extras: [_tray(color, compact: phoneLandscape)],
             bottom: VsBottomBar(children: [
               if (game.over)
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(140, 48),
-                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800),
+                    textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   onPressed: !c.online ? () => c.restart() : (_rematchAsked || _opponentGone ? null : _requestRematch),
                   icon: const Icon(Icons.refresh_rounded, size: 22),
@@ -325,7 +329,7 @@ class _YachtScreenState extends State<YachtScreen> {
     final style = FilledButton.styleFrom(
       minimumSize: Size(0, compact ? 42 : (tablet ? 60 : 50)),
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      textStyle: TextStyle(fontFamily: 'NanumGothic', fontSize: compact ? 14 : (tablet ? 18 : 15.5), fontWeight: FontWeight.w800),
+      textStyle: TextStyle(fontFamily: 'Pretendard', fontSize: compact ? 14 : (tablet ? 18 : 15.5), fontWeight: FontWeight.w800),
     );
     final roll = FilledButton.icon(
       key: const ValueKey('yacht-roll'),
@@ -334,7 +338,15 @@ class _YachtScreenState extends State<YachtScreen> {
       icon: const Icon(Icons.casino_rounded, size: 22),
       label: FittedBox(fit: BoxFit.scaleDown, child: Text(game.over ? '굴리기' : '굴리기 (${game.rollsLeft}번 남음)')),
     );
-    final confirm = FilledButton.icon(
+    // 판이 끝나 점수를 더하는 동안에는 이 단추가 "건너뛰기"가 된다 (누르면 바로 최종 점수)
+    final skip = FilledButton.icon(
+      key: const ValueKey('yacht-skip'),
+      style: style,
+      onPressed: () => _tallyLink.skip?.call(),
+      icon: const Icon(Icons.skip_next_rounded, size: 22),
+      label: const FittedBox(fit: BoxFit.scaleDown, child: Text('건너뛰기')),
+    );
+    final write = FilledButton.icon(
       key: const ValueKey('yacht-confirm'),
       style: style,
       onPressed: pick == null ? null : c.confirm,
@@ -344,6 +356,7 @@ class _YachtScreenState extends State<YachtScreen> {
         child: Text(pick == null ? '적을 칸을 눌러요' : '${game.card.labelOf(pick)} · ${game.card.scoreOf(pick, game.dice)}점 적기'),
       ),
     );
+    final confirm = ValueListenableBuilder<bool>(valueListenable: _tallyLink.running, builder: (context, running, _) => running ? skip : write);
     return Padding(
       padding: EdgeInsets.fromLTRB(compact ? 8 : 16, 4, compact ? 8 : 16, 4),
       child: ConstrainedBox(

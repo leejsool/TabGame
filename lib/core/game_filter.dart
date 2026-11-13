@@ -94,16 +94,10 @@ class _FilterPill extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          // 글자 없이 그림만 (이름은 꾹 누르면 말풍선으로 나온다)
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(color: selected ? scheme.primary : Colors.transparent, borderRadius: BorderRadius.circular(28)),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(filter.icon, size: 24, color: fg),
-              const SizedBox(width: 6),
-              Text(filter.shortLabel, softWrap: false, style: TextStyle(fontSize: 16, fontWeight: selected ? FontWeight.w800 : FontWeight.w600, color: fg)),
-            ],
-          ),
+          child: Icon(filter.icon, size: 22, color: fg, semanticLabel: filter.label),
         ),
       ),
     );

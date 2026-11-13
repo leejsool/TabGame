@@ -10,7 +10,7 @@ void main() {
       for (final id in [dvTile(0, 11), dvTile(1, 10)]) {
         for (final lying in [false, true]) {
           await tester.pumpWidget(MaterialApp(
-            theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+            theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
             home: Scaffold(
               body: Center(child: DvTile(id: id, width: width, faceUp: true, lying: lying)),
             ),

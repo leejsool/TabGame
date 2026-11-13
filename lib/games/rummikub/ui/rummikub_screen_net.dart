@@ -157,26 +157,4 @@ extension _RkNet on _RummikubScreenState {
       resigned: resigned,
     ));
   }
-
-  /// 처음 내 차례가 되면 (아직 처음 내려놓기 전이면) 규칙을 한 번만 팝업으로 알려 준다. 화면에 긴 안내 글을 두지 않으려고.
-  void _maybeFirstHint() {
-    if (!RummikubScreen.showFirstHint || _hintShown || !mounted || !c.myTurn || c.state.melded[c.humanSeat]) return;
-    _hintShown = true;
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.info_outline_rounded),
-        title: const Text('처음 내려놓을 때'),
-        content: const Text(
-          '내 타일로만 묶음을 만들어 숫자 합이 30점 이상이어야 해요.\n\n'
-          '• 타일은 끌어서 녹색 판 아무 데나 놓아요 (한 장씩 먼저 놓아 둬도 돼요)\n'
-          '• 꾹 눌렀다가 끌면 묶음 통째로 옮겨요\n'
-          '• 낼 수 없으면 바닥에서 한 장을 골라 뽑아요',
-          style: TextStyle(height: 1.45),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('알겠어요'))],
-      ),
-    );
-  }
 }

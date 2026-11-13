@@ -40,7 +40,7 @@ void main() {
           key: key,
           child: SettingsScope(
             settings: settings,
-            child: MaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+            child: MaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: home),
           ),
         ),
       );

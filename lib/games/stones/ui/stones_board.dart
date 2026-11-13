@@ -140,7 +140,7 @@ class _StonesBoardState extends State<StonesBoard> {
                           padding: EdgeInsets.symmetric(horizontal: cell * 0.2),
                           visualDensity: VisualDensity.compact,
                           textStyle: TextStyle(
-                            fontFamily: 'NanumGothic',
+                            fontFamily: 'Pretendard',
                             fontSize: (cell * 0.26).clamp(11.0, 16.0),
                             fontWeight: FontWeight.w800,
                           ),
@@ -200,7 +200,7 @@ class _BoardPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: s,
-        style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, color: color, fontWeight: weight, height: 1.1),
+        style: TextStyle(fontFamily: 'Pretendard', fontSize: size, color: color, fontWeight: weight, height: 1.1),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,

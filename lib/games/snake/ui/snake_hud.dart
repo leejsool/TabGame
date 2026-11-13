@@ -25,7 +25,7 @@ class SnakeLeaderboard extends StatelessWidget {
     final myIndex = ranked.indexWhere((s) => s.seat == mySeat);
     final me = myIndex < 0 ? null : ranked[myIndex];
     TextStyle style(bool mine, {double size = 13}) => TextStyle(
-          fontFamily: 'NanumGothic',
+          fontFamily: 'Pretendard',
           fontSize: size,
           fontWeight: mine ? FontWeight.w900 : FontWeight.w700,
           color: mine ? const Color(0xFFFFE04A) : Colors.white,
@@ -111,7 +111,7 @@ class SnakeDeathCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 19, fontWeight: FontWeight.w900, color: Colors.white)),
             if (l != null) ...[
               const SizedBox(height: 14),
               Wrap(
@@ -136,7 +136,7 @@ class SnakeDeathCard extends StatelessWidget {
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white38),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 16, fontWeight: FontWeight.w800),
+                      textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 16, fontWeight: FontWeight.w800),
                     ),
                     child: const Text('나가기'),
                   ),
@@ -152,7 +152,7 @@ class SnakeDeathCard extends StatelessWidget {
                       backgroundColor: const Color(0xFF2ED1A2),
                       foregroundColor: const Color(0xFF0B2A22),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 17, fontWeight: FontWeight.w900),
+                      textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 17, fontWeight: FontWeight.w900),
                     ),
                   ),
                 ),
@@ -167,8 +167,8 @@ class SnakeDeathCard extends StatelessWidget {
   Widget _stat(String label, String value) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFFFE04A))),
-          Text(label, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 12, color: Colors.white70)),
+          Text(value, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFFFE04A))),
+          Text(label, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 12, color: Colors.white70)),
         ],
       );
 }
@@ -231,7 +231,7 @@ class SnakeControlHint extends StatelessWidget {
                 children: [
                   Icon(icon, color: Colors.white, size: 34),
                   const SizedBox(height: 6),
-                  Text(text, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white, height: 1.35)),
+                  Text(text, textAlign: TextAlign.center, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white, height: 1.35)),
                 ],
               ),
             ),

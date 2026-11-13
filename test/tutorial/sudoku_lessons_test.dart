@@ -121,7 +121,7 @@ Future<void> playBasicLesson(WidgetTester tester, Size size, double textScale) a
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,

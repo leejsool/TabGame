@@ -14,4 +14,7 @@ class GameSpeed {
 
   /// 설정의 "야추 빠른 진행": CPU 차례 · 주사위 굴림이 짧아지고, 끝날 때 점수 세기를 눌러 건너뛸 수 있다. 기본은 꺼짐.
   static bool yachtQuick = false;
+
+  /// 설정의 "바둑돌 옮기기 자동 진행": 빈칸이 모두 0이 되어 승부가 정해지면 남은 수를 자동으로 둔다. 기본은 켜짐.
+  static bool stonesAuto = true;
 }

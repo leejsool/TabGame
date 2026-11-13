@@ -33,7 +33,7 @@ void main() {
         final key = GlobalKey();
         await tester.pumpWidget(RepaintBoundary(
           key: key,
-          child: MaterialApp(theme: ThemeData(fontFamily: 'NanumGothic'), home: s.value),
+          child: MaterialApp(theme: ThemeData(fontFamily: 'Pretendard'), home: s.value),
         ));
         await tester.pump(const Duration(milliseconds: 300));
         if (s.key == 'gaps') {

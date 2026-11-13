@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.10.3+35
+version: 1.10.4+36
 
 environment:
   sdk: ^3.13.5
@@ -85,13 +85,28 @@ flutter:
 
   # 나눔고딕 (SIL Open Font License, assets/fonts/OFL.txt 참고)
   fonts:
-    - family: NanumGothic
+    # 프리텐다드 (SIL OFL, assets/fonts/OFL-Pretendard.txt): 앱의 기본 글꼴 (작은 글씨 · 본문)
+    - family: Pretendard
       fonts:
-        - asset: assets/fonts/NanumGothic-Regular.ttf
-        - asset: assets/fonts/NanumGothic-Bold.ttf
+        - asset: assets/fonts/Pretendard-Regular.otf
+        - asset: assets/fonts/Pretendard-Bold.otf
           weight: 700
-        - asset: assets/fonts/NanumGothic-ExtraBold.ttf
+        - asset: assets/fonts/Pretendard-ExtraBold.otf
           weight: 800
+        - asset: assets/fonts/Pretendard-Black.otf
+          weight: 900
+
+    # 빗썸고딕 Original (SIL OFL, assets/fonts/OFL-BithumbGothic.txt): 제목 · 게임 이름 같은 크고 굵은 글씨.
+    # 굵기가 하나뿐이라, 굵게를 달라고 해도 억지로 더 굵게 그리지 않도록 같은 파일을 여러 굵기에 올려 둔다.
+    - family: BithumbGothic
+      fonts:
+        - asset: assets/fonts/BithumbGothic-Original.ttf
+        - asset: assets/fonts/BithumbGothic-Original.ttf
+          weight: 700
+        - asset: assets/fonts/BithumbGothic-Original.ttf
+          weight: 800
+        - asset: assets/fonts/BithumbGothic-Original.ttf
+          weight: 900
 
   # 로라 (SIL Open Font License, assets/fonts/OFL-Lora.txt 참고): 예언 게임의 분홍 숫자용 세리프 글꼴 (가변 굵기)
     - family: Lora

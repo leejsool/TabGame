@@ -117,7 +117,7 @@ extension _PinballOverlayLayers on PinballPainter {
       text: TextSpan(
         text: text,
         style: TextStyle(
-          fontFamily: 'NanumGothic',
+          fontFamily: 'Pretendard',
           fontSize: size,
           fontWeight: FontWeight.w900,
           color: color,

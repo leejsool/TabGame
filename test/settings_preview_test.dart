@@ -26,7 +26,7 @@ void main() {
       key: key,
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         home: SettingsScreen(settings: settings),
       ),
     ));

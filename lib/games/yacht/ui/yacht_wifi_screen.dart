@@ -66,7 +66,7 @@ class _YachtRoomOptionsScreenState extends State<YachtRoomOptionsScreen> {
                   label: const Text('방 만들기'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
+                    textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
               ],

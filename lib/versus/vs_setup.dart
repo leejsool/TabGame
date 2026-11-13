@@ -147,7 +147,7 @@ class _VsSetupScaffoldState extends State<VsSetupScaffold> {
                   label: Text(widget.startLabel),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
+                    textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(height: 10),

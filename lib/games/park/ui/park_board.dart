@@ -146,7 +146,7 @@ class _ParkPainter extends CustomPainter {
 
   void _text(Canvas c, String s, Offset center, double size, Color color) {
     final tp = TextPainter(
-      text: TextSpan(text: s, style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, color: color, fontWeight: FontWeight.w800)),
+      text: TextSpan(text: s, style: TextStyle(fontFamily: 'Pretendard', fontSize: size, color: color, fontWeight: FontWeight.w800)),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(c, center - Offset(tp.width / 2, tp.height / 2));

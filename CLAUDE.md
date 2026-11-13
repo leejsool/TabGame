@@ -2,7 +2,7 @@
 
 Flutter game-hub app for Android tablets (also phones). Solo games + versus games (same device / CPU / same Wi-Fi).
 The user is a non-developer: they give ideas and pick options; the AI does all the coding.
-Talk to the user in plain Korean (no jargon). All UI text is Korean. App font: NanumGothic (`assets/fonts`).
+Talk to the user in plain Korean (no jargon). All UI text is Korean. App fonts (`lib/core/app_fonts.dart`): body `Pretendard`, big bold titles/game names `BithumbGothic` (theme title styles, AppBar/dialog titles; use `titleFont()` elsewhere).
 
 ## Folder map
 - `lib/core/game_registry.dart` — `allGames`: one `GameInfo` per game (hub card, modes, tutorial, icon, records). New games register here.
@@ -46,7 +46,7 @@ bump the version's middle number at release (see Release).
 - Fast tests: `powershell -ExecutionPolicy Bypass -File tool/test.ps1` (~2 min). One game: `... tool/test.ps1 test/<game>`. All incl. slow: `-All`.
 - Direct `flutter test` needs `$env:TEMP=$env:TMP='F:\MyApp\tools\tmp'` first.
 - Screenshots of every screen at 3 sizes (+ phone dark, + `<name>_all.png` side by side): `tool/preview_all.ps1 [-Name "game (sudoku|mines)$"] [-Out <dir>]` (~1 min; add new games to `test/preview_all_test.dart`). Per-game scenario shots: `$env:<GAME>_PREVIEW_DIR='<dir>'` + `tool/test.ps1 test/<game>/preview_test.dart`.
-- In tests call `loadAppFonts()` from `test/support/preview_kit.dart` (NanumGothic + Material icons); don't copy FontLoader code.
+- In tests call `loadAppFonts()` from `test/support/preview_kit.dart` (Pretendard + BithumbGothic + Material icons); don't copy FontLoader code.
 - Check sizes: phone 400x860, tablet portrait 800x1280, tablet landscape 1280x800. Tablet = shortestSide >= 600.
 - Dot cannon stage colors: double-click `tool/도트색합치기.bat` (= `python tool/dot_stage_editor.py --open`, browser tool on :8765, merges ambiguous colors → `stages.json` `merge`, reruns `tool/make_dot_stages.dart`; see `tool/dot_stage_art/README.md`).
 - Dev build to tablet: `tool/build_dev.ps1` (separate "개발" app). Release APK: `flutter build apk --release`.
@@ -65,7 +65,7 @@ The user develops on several PCs; tool/key folders are not the same everywhere. 
 If a new PC has yet another layout, add a line to the list above.
 
 ## Rules
-- A button's `textStyle: TextStyle(...)` replaces the theme style, so it must include `fontFamily: 'NanumGothic'` (or start from `Theme.of(context).textTheme`). Same for `TextPainter`/`RichText` in painters. `test/core/app_font_test.dart` checks buttons.
+- A button's `textStyle: TextStyle(...)` replaces the theme style, so it must include `fontFamily: 'Pretendard'` (or start from `Theme.of(context).textTheme`). Same for `TextPainter`/`RichText` in painters. `test/core/app_font_test.dart` checks buttons.
 - Lay out for both phone and the user's tablet (Galaxy Tab S9 FE, ~800x1280 dp). Check previews at all three sizes after UI changes.
 - Sound effects: the user chooses sounds (`F:\MyApp\sfx`). Wire a sound only when asked.
 - Ask before big or ambiguous changes; offer 2-3 options with a recommendation.

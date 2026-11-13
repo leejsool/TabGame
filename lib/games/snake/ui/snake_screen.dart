@@ -368,7 +368,7 @@ class _SnakeScreenState extends State<SnakeScreen> with SingleTickerProviderStat
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(20)),
-                      child: Text(text, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
+                      child: Text(text, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
                     ),
                 ],
               ),
@@ -392,7 +392,7 @@ class _SnakeScreenState extends State<SnakeScreen> with SingleTickerProviderStat
         children: [
           const Icon(Icons.wifi_rounded, size: 16, color: Colors.white70),
           const SizedBox(width: 6),
-          Text(text, style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+          Text(text, style: const TextStyle(fontFamily: 'Pretendard', fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
         ],
       ),
     );

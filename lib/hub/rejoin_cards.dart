@@ -96,7 +96,7 @@ class _RejoinCardsState extends State<RejoinCards> {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(0, 44),
                   backgroundColor: game.color,
-                  textStyle: const TextStyle(fontFamily: 'NanumGothic', fontWeight: FontWeight.w800),
+                  textStyle: const TextStyle(fontFamily: 'Pretendard', fontWeight: FontWeight.w800),
                 ),
                 child: const Text('다시 들어가기'),
               );

@@ -7,14 +7,15 @@ extension RummikubControllerFix on RummikubController {
   bool _autoSplit() {
     final next = <List<int>>[];
     final fresh = <int>[];
+    final firstMeld = !state.melded[turn];
     for (final set in work) {
-      final plan = analyzeMeld(set) == null ? splitIntoMelds(set) : null;
-      if (plan == null) {
+      final melds = (firstMeld ? _keepOldSets(set) : null) ?? (analyzeMeld(set) == null ? splitIntoMelds(set)?.melds : null);
+      if (melds == null) {
         next.add(set);
         continue;
       }
-      next.addAll(plan.melds);
-      for (final m in plan.melds.skip(1)) {
+      next.addAll(melds);
+      for (final m in melds.skip(1)) {
         fresh.addAll(m);
       }
     }
@@ -24,6 +25,22 @@ extension RummikubControllerFix on RummikubController {
     _recent.clear();
     selected.clear();
     return true;
+  }
+
+  /// 처음 내려놓는 차례에 판에 있던 묶음 옆에 내 타일을 붙여 놓았을 때 (예: 10-11-12 옆에 7-8-9):
+  /// 원래 묶음은 그대로 두고 내 타일끼리만으로 올바른 묶음이 되면 그렇게 갈라 준다 (남의 타일을 쓴 것이 아니니 인정한다).
+  /// 가를 것이 없거나 내 타일끼리 묶음이 안 되면 null.
+  List<List<int>>? _keepOldSets(List<int> set) {
+    final olds = [for (final s in state.table) if (s.isNotEmpty && s.every(set.contains)) s];
+    if (olds.isEmpty) return null;
+    final kept = {for (final s in olds) ...s};
+    final mine = [for (final t in set) if (!kept.contains(t)) t];
+    if (mine.isEmpty) return null; // (손대지 않은 묶음)
+    final onTable = state.tableTiles.toSet();
+    if (mine.any(onTable.contains)) return null; // (다른 묶음에서 떼어 온 타일이 섞였다)
+    final melds = analyzeMeld(mine) != null ? [mine] : splitIntoMelds(mine)?.melds;
+    if (melds == null) return null;
+    return [for (final s in olds) [...s], ...melds];
   }
 
   /// 새로 갈라져 나온 묶음의 타일은 자리를 지우고, 판이 빈자리를 찾아 놓게 한다 (원래 묶음의 자리에 겹쳐 놓이지 않도록).

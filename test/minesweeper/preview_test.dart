@@ -37,7 +37,7 @@ void main() {
             settings: settings,
             child: MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+              theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
               home: MinesScreen(controller: c),
             ),
           ),
@@ -94,7 +94,7 @@ void main() {
             settings: settings,
             child: MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+              theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
               home: MinesScreen(controller: c),
             ),
           ),

@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(SettingsScope(
       settings: settings,
       child: MaterialApp(
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         home: DavinciHostScreen(hostSide: hostSide, players: players, gamePort: port, discoveryPort: discovery, seed: 4242),
       ),
     ));

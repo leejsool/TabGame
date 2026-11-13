@@ -74,7 +74,7 @@ void main() {
         MaterialApp(
           theme: ThemeData(
             useMaterial3: true,
-            fontFamily: 'NanumGothic',
+            fontFamily: 'Pretendard',
             scaffoldBackgroundColor: const Color(0xFFF6F3EE),
           ),
           home: Scaffold(

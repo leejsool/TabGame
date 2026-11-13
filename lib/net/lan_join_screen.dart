@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/game_info.dart';
+import '../core/game_registry.dart' show allGames;
 import '../core/nickname.dart';
 import '../core/settings_scope.dart';
 import '../records/records_screen.dart';
 import '../versus/vs_mode_switch.dart';
 import 'lan_connection.dart';
 import 'lan_discovery.dart';
+import 'lan_join_parts.dart';
 import 'lan_rejoin_flow.dart';
 import 'lan_screens.dart';
 
@@ -59,10 +61,60 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
   bool _cancelled = false;
   final TextEditingController _address = TextEditingController();
 
+  /// 이 게임에서 하다가 나온 방의 "다시 들어오기 표" (있으면 맨 위에 "하던 방" 카드를 보인다).
+  RejoinTicket? _ticket;
+
   @override
   void initState() {
     super.initState();
     _startFinder();
+    RejoinTickets.changes.addListener(_loadTicket);
+    _loadTicket();
+  }
+
+  Future<void> _loadTicket() async {
+    final t = await RejoinTickets.of(widget.game);
+    if (mounted) setState(() => _ticket = t);
+  }
+
+  /// 표로 다시 들어갈 때 판 화면을 만들어 주는 함수 (게임 목록에 등록된 것).
+  Widget? Function(Map<String, dynamic> resume, LanConnection conn)? get _resume {
+    for (final g in allGames) {
+      if (g.lanGame == widget.game) return g.lanResume;
+    }
+    return null;
+  }
+
+  /// 하던 방에 표로 다시 들어간다 (이미 시작한 판이라 방 목록에는 안 보이는 방).
+  Future<void> _rejoin(RejoinTicket ticket) async {
+    final build = _resume;
+    if (_connecting || build == null) return;
+    setState(() {
+      _connecting = true;
+      _message = null;
+    });
+    try {
+      final result = await lanRejoinWithProgress(context, ticket, discoveryPort: widget.discoveryPort, extraTargets: widget.extraTargets);
+      if (!mounted) {
+        result.conn?.close();
+        return;
+      }
+      if (!result.ok) {
+        setState(() => _message = lanRejoinFailText(result.fail!));
+        return;
+      }
+      final screen = build(result.resume!, result.conn!);
+      if (screen == null) {
+        result.conn!.close();
+        setState(() => _message = '판의 모습을 받지 못했어요. 다시 시도해 주세요.');
+        return;
+      }
+      _stopFinder();
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+      if (mounted) _startFinder();
+    } finally {
+      if (mounted) setState(() => _connecting = false);
+    }
   }
 
   /// 방 이름 (옛 버전이 연 방처럼 이름이 없으면 주소 끝 숫자로).
@@ -95,6 +147,7 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
 
   @override
   void dispose() {
+    RejoinTickets.changes.removeListener(_loadTicket);
     _stopFinder();
     _address.dispose();
     super.dispose();
@@ -212,6 +265,12 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
       if (mounted) setState(() => _message = '방 번호나 주소를 다시 확인해 주세요. (예: 37 또는 192.168.0.37)');
       return;
     }
+    // 하던 방의 번호를 넣었으면 표로 제자리에 다시 앉는다 (이미 시작한 방은 새 손님을 받지 않는다)
+    final ticket = _ticket;
+    if (ticket != null && ticket.host == target.host && _resume != null) {
+      _rejoin(ticket);
+      return;
+    }
     _join(target.host, target.port);
   }
 
@@ -277,53 +336,20 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
                             ],
                           ),
                         ),
+                      if (_ticket != null && _resume != null && _lobbyNames == null)
+                        LanRejoinRoomCard(ticket: _ticket!, color: widget.color, onRejoin: _connecting ? null : () => _rejoin(_ticket!)),
                       Text('열려 있는 방', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                       const SizedBox(height: 10),
                       if (_rooms.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: scheme.outlineVariant),
-                          ),
-                          child: Column(
-                            children: [
-                              const SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 3)),
-                              const SizedBox(height: 14),
-                              const Text('같은 Wi‑Fi의 방을 찾는 중…', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 4),
-                              Text(
-                                '다른 기기에서 "방 만들기 → 방 열기"를 먼저 눌러 주세요.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 13, color: scheme.onSurface.withValues(alpha: 0.65)),
-                              ),
-                            ],
-                          ),
-                        )
+                        const LanSearchingBox()
                       else
                         for (final r in _rooms)
-                          Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            elevation: 0,
-                            color: scheme.surface,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: scheme.outlineVariant)),
-                            child: ListTile(
-                              leading: Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(color: widget.color.withValues(alpha: 0.15), shape: BoxShape.circle),
-                                child: Icon(Icons.wifi_rounded, color: widget.color),
-                              ),
-                              title: Text(widget.roomTitle(r), style: const TextStyle(fontWeight: FontWeight.w800)),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('${_nameOf(r)} 방 · ${r.address.split('.').last}번', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: widget.color)),
-                                  Text(widget.roomSubtitle(r), style: const TextStyle(fontSize: 12.5)),
-                                ],
-                              ),
-                              trailing: FilledButton(onPressed: _connecting ? null : () => _join(r.address, r.port), child: const Text('들어가기')),
-                            ),
+                          LanRoomTile(
+                            title: widget.roomTitle(r),
+                            nameLine: '${_nameOf(r)} 방 · ${r.address.split('.').last}번',
+                            subtitle: widget.roomSubtitle(r),
+                            color: widget.color,
+                            onJoin: _connecting ? null : () => _join(r.address, r.port),
                           ),
                       const SizedBox(height: 24),
                       Text('방 번호로 들어가기', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
@@ -367,7 +393,7 @@ class _LanJoinScreenState extends State<LanJoinScreen> {
                         label: const Text('방 만들기'),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 18),
-                          textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 18, fontWeight: FontWeight.w800),
+                          textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 18, fontWeight: FontWeight.w800),
                         ),
                       ),
                     ),

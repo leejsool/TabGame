@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/game_info.dart';
 import '../../../core/solo_menu.dart';
+import '../../../versus/vs_mode_switch.dart';
 import '../core/kt_songs.dart';
 import '../data/kt_history.dart';
 import '../tutorial/kt_tutorial.dart';
@@ -49,6 +51,7 @@ class _KtMenuScreenState extends State<KtMenuScreen> {
         _EndlessCard(best: bests['endless']?.score ?? 0, onTap: () => _play(null)),
       ],
       children: [
+        const Padding(padding: EdgeInsets.only(top: 4), child: VsModeSwitch(gameId: 'keytap', current: PlayMode.solo)),
         const _SectionLabel('곡 완주 · 한 바퀴 돌 때마다 별 하나 (점점 빨라져요)'),
         for (final s in KtSong.all) _SongCard(song: s, best: bests[s.id], onTap: () => _play(s)),
       ],

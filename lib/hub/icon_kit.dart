@@ -19,7 +19,7 @@ void iconText(Canvas c, String s, Offset center, double size, Color color) {
   final tp = TextPainter(
     text: TextSpan(
       text: s,
-      style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w900, color: color, height: 1.0),
+      style: TextStyle(fontFamily: 'Pretendard', fontSize: size, fontWeight: FontWeight.w900, color: color, height: 1.0),
     ),
     textDirection: TextDirection.ltr,
   )..layout();
@@ -33,7 +33,7 @@ void iconCrispText(Canvas c, String s, Offset center, double size, Color color) 
   final tp = TextPainter(
     text: TextSpan(
       text: s,
-      style: TextStyle(fontFamily: 'NanumGothic', fontSize: fontSize, fontWeight: FontWeight.w900, color: color, height: 1.0),
+      style: TextStyle(fontFamily: 'Pretendard', fontSize: fontSize, fontWeight: FontWeight.w900, color: color, height: 1.0),
     ),
     textDirection: TextDirection.ltr,
   )..layout();

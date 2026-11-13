@@ -43,7 +43,7 @@ void main() {
       await tester.pumpWidget(SettingsScope(
         settings: settings,
         child: MaterialApp(
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: Builder(
             builder: (context) => Scaffold(
               body: Center(

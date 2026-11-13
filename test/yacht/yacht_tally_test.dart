@@ -211,4 +211,43 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('정산 중에는 "적기" 단추가 "건너뛰기"로 바뀌고, 누르면 (빠른 진행이 아니어도) 바로 최종 점수가 된다', (tester) async {
+    await loadAppFonts();
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    tester.view.physicalSize = const Size(400, 860);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(3));
+    final game = playedGame(2, leaveLast: true);
+    c.game = game;
+    c.actions = 1;
+    await tester.pumpWidget(SettingsScope(
+      settings: settings,
+      child: MaterialApp(theme: previewTheme(Brightness.light), home: YachtScreen(mode: c.mode, players: c.players, controller: c)),
+    ));
+    await tester.pump(const Duration(milliseconds: 300));
+    game.applyRoll([3, 3, 3, 4, 5]);
+    c.pick = game.categories.last;
+    c.notifyListeners();
+    await tester.pump();
+    c.confirm();
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('점수 계산!'), findsOneWidget);
+
+    expect(find.text('적을 칸을 눌러요'), findsNothing);
+    expect(find.text('건너뛰기'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('yacht-skip')));
+    await tester.pump();
+    int shown(int seat) => int.parse(tester.widget<Text>(find.byKey(ValueKey('yacht-total-$seat'))).data!);
+    expect(find.text('끝!'), findsOneWidget);
+    expect(shown(0), game.cards[0].total);
+    expect(shown(1), game.cards[1].total);
+    expect(find.byKey(const ValueKey('yacht-skip')), findsNothing, reason: '끝나면 원래 단추로 돌아온다');
+    await tester.pump(const Duration(seconds: 15)); // (축하 연출 · 정산 시간 뒤의 예비 타이머까지)
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }

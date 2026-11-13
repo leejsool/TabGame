@@ -110,6 +110,14 @@ class SettingsScreen extends StatelessWidget {
               onChanged: (v) => settings.yachtQuick = v,
             ),
             SwitchListTile(
+              key: const ValueKey('settings-stones-auto'),
+              secondary: const Icon(Icons.circle_outlined),
+              title: const Text('바둑돌 옮기기 자동 진행'),
+              subtitle: const Text('빈칸이 모두 0이 되어 승부가 정해지면 남은 수를 자동으로 둬서 끝내요'),
+              value: settings.stonesAuto,
+              onChanged: (v) => settings.stonesAuto = v,
+            ),
+            SwitchListTile(
               secondary: const Icon(Icons.auto_awesome_rounded),
               title: const Text('스도쿠 자동 완성'),
               subtitle: const Text('남은 칸이 15개 이하이고 바로 보이는 칸뿐이면 자동으로 채워서 끝내요'),
@@ -180,7 +188,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-      child: Text(text, style: TextStyle(fontFamily: 'NanumGothic', fontSize: 13, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
+      child: Text(text, style: TextStyle(fontFamily: 'Pretendard', fontSize: 13, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
     );
   }
 }

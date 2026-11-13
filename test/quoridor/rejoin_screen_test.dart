@@ -41,7 +41,7 @@ void main() {
     await tester.pumpWidget(SettingsScope(
       settings: settings,
       child: MaterialApp(
-        theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+        theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
         builder: (context, child) => LanStallOverlay(decisionAfter: Duration.zero, child: child!),
         home: const QuoridorHostScreen(hostSide: 0, players: 4, gamePort: port, discoveryPort: discovery),
       ),

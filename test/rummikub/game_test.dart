@@ -30,7 +30,7 @@ Future<Widget> app(Widget home) async {
   final settings = await Settings.load();
   return SettingsScope(
     settings: settings,
-    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: home),
   );
 }
 
@@ -77,7 +77,6 @@ Finder tileFinder(int id) => find.byWidgetPredicate((w) => w is RkTile && w.id =
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    RummikubScreen.showFirstHint = false; // (팝업은 아래 시험에서만 켠다)
     RummikubScreen.playSounds = false; // (시험에서는 소리를 내지 않는다)
     await loadAppFonts();
   });
@@ -522,6 +521,44 @@ void main() {
       expect(c.work.length, 1);
     });
 
+    test('타일 윗부분이 닿은 묶음에 붙는다 (가운데가 아랫줄 묶음에 걸쳐 있어도)', () {
+      final c = fixedController(rack: [t(0, 1), t(0, 2), t(0, 3), t(1, 7), t(1, 8), t(1, 9), t(0, 4)]);
+      c.layoutSets(14, 10);
+      c.moveTiles([t(1, 7), t(1, 8), t(1, 9)], at: const Offset(0, 1));
+      c.moveTiles([t(0, 1), t(0, 2), t(0, 3)], at: const Offset(0, 0));
+      // 타일의 위쪽만 윗줄(1-2-3)에 닿고, 나머지 대부분은 아랫줄(7-8-9) 높이에 있다
+      c.dropTiles([t(0, 4)], const Offset(3.2, 0.7));
+      expect(c.work.firstWhere((s) => s.contains(t(0, 4))), contains(t(0, 1)));
+      c.undoStep();
+      // 윗부분까지 아랫줄에 내려와 있으면 아랫줄 묶음에 붙는다
+      c.dropTiles([t(0, 4)], const Offset(3.2, 1.0));
+      expect(c.work.firstWhere((s) => s.contains(t(0, 4))), contains(t(1, 7)));
+    });
+
+    test('처음 내려놓는 차례: 판의 묶음 옆에 내 타일만으로 되는 묶음을 붙여 놓아도 끝낼 수 있다', () {
+      RummikubController withTable(List<int> rack) {
+        final c = fixedController(rack: rack);
+        c.state.table.add([t(0, 10), t(0, 11), t(0, 12)]);
+        c.work = [for (final s in c.state.table) [...s]];
+        c.layoutSets(14, 10);
+        return c;
+      }
+
+      final c = withTable([t(0, 13), t(1, 13), t(2, 13), t(0, 7), t(0, 8), t(0, 9), t(3, 1)]);
+      c.moveTiles([t(0, 13), t(1, 13), t(2, 13)]);
+      c.moveTiles([t(0, 7), t(0, 8), t(0, 9)], to: c.work.firstWhere((s) => s.contains(t(0, 10))));
+      expect(c.endTurn(), isTrue);
+      expect(c.state.table.length, 3, reason: '7-8-9는 10-11-12와 따로 선 묶음으로 올라간다');
+      expect(c.state.table.any((s) => s.length == 3 && s.contains(t(0, 10))), isTrue);
+
+      // 남의 묶음에 기대야만 되는 타일(9 한 장)은 여전히 안 된다
+      final d = withTable([t(0, 13), t(1, 13), t(2, 13), t(0, 9), t(3, 1)]);
+      d.moveTiles([t(0, 13), t(1, 13), t(2, 13)]);
+      d.moveTiles([t(0, 9)], to: d.work.firstWhere((s) => s.contains(t(0, 10))));
+      expect(d.endTurn(), isFalse);
+      expect(d.turn, 0);
+    });
+
     test('여러 장·묶음 통째로 끌 때는 서로 겹칠 때만 붙는다', () {
       final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10), t(0, 5), t(0, 6), t(0, 7)]);
       c.layoutSets(14, 10);
@@ -576,20 +613,15 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('처음 내 차례에는 규칙 팝업이 한 번 뜨고, 그 뒤로는 화면에 긴 안내 글이 없다', (tester) async {
+    testWidgets('판을 시작해도 "처음 내려놓을 때" 안내 팝업은 뜨지 않는다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
-      RummikubScreen.showFirstHint = true;
-      addTearDown(() => RummikubScreen.showFirstHint = false);
       final c = fixedController(rack: [t(0, 10), t(1, 10), t(2, 10)]);
       await tester.pumpWidget(await app(RummikubScreen(controller: c)));
       await settle(tester, rounds: 3);
-      expect(find.text('처음 내려놓을 때'), findsOneWidget);
-      await tester.tap(find.text('알겠어요'));
-      await settle(tester, rounds: 8);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('처음 내려놓을 때'), findsNothing);
-      expect(find.textContaining('끌어다 맞추거나'), findsNothing); // 예전의 긴 안내 문구는 없다
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
@@ -698,7 +730,7 @@ void main() {
       final settings = await Settings.load();
       await tester.pumpWidget(SettingsScope(
         settings: settings,
-        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: const Scaffold(body: RummikubRecordsTab())),
+        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: const Scaffold(body: RummikubRecordsTab())),
       ));
       await settle(tester, rounds: 4);
       expect(find.text('이겼어요 · CPU 보통'), findsOneWidget);
@@ -1040,7 +1072,7 @@ void main() {
         settings: settings,
         child: MaterialApp(
           navigatorKey: navKey,
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: const Scaffold(body: SizedBox()),
         ),
       ));
@@ -1086,7 +1118,7 @@ void main() {
         settings: settings,
         child: MaterialApp(
           navigatorKey: navKey,
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: const Scaffold(body: SizedBox()),
         ),
       ));

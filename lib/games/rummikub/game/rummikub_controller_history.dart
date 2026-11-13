@@ -36,20 +36,30 @@ extension RummikubControllerHistory on RummikubController {
     final starts = layoutSets(layoutWidth, layoutPerRow);
     final want = _groupRect(topLeft, moving.length);
     final magnet = moving.length > 1 ? groupMagnet : singleMagnet;
-    List<int>? near;
-    var nearGap = double.infinity;
-    for (var i = 0; i < work.length; i++) {
-      final set = work[i];
-      // 끌어 온 타일로만 이루어진 묶음은 어차피 비게 되니 붙을 대상이 아니다
-      if (set.every(moving.contains)) continue;
-      final gap = rectGap(want, setRect(starts[i], set.length, layoutPerRow));
-      if (gap < nearGap) {
-        nearGap = gap;
-        near = set;
+    List<int>? nearest(Rect box) {
+      List<int>? near;
+      var nearGap = double.infinity;
+      for (var i = 0; i < work.length; i++) {
+        final set = work[i];
+        // 끌어 온 타일로만 이루어진 묶음은 어차피 비게 되니 붙을 대상이 아니다
+        if (set.every(moving.contains)) continue;
+        final gap = rectGap(box, setRect(starts[i], set.length, layoutPerRow));
+        if (gap < nearGap) {
+          nearGap = gap;
+          near = set;
+        }
       }
+      return near != null && nearGap <= magnet ? near : null;
     }
-    return near != null && nearGap <= magnet ? near : null;
+
+    // 손가락이 타일 가운데를 가려서 눈에는 타일 윗부분만 보인다. 그래서 윗부분(위쪽 20%)이 닿은 묶음을 먼저 고르고,
+    // 윗부분이 아무 묶음에도 안 닿았을 때만 타일 전체로 본다. (윗줄 묶음에 붙이려는데 아랫줄 묶음에 붙는 일을 막는다)
+    final top = Rect.fromLTWH(want.left, want.top, want.width, kDropTopBand);
+    return nearest(top) ?? nearest(want);
   }
+
+  /// 끌어 온 타일에서 "어디에 붙을지"를 먼저 정하는 윗부분의 높이 (타일 한 칸 높이에 대한 비율).
+  static const double kDropTopBand = 0.2;
 
   /// 끌어 온 타일들이 차지하는 상자 (타일 칸 단위). 묶음의 여백은 넣지 않고 타일만 센다.
   Rect _groupRect(Offset topLeft, int count) {

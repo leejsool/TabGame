@@ -95,7 +95,7 @@ void paintCannon(
       text: TextSpan(
         text: label,
         style: TextStyle(
-          fontFamily: 'NanumGothic',
+          fontFamily: 'Pretendard',
           fontSize: d * (big ? 0.34 : 0.4),
           fontWeight: FontWeight.w900,
           color: Colors.white,

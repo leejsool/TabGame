@@ -148,7 +148,7 @@ class WinCelebration {
   late final TextPainter _skipHint = TextPainter(
     text: const TextSpan(
       text: '화면을 누르면 계속해요',
-      style: TextStyle(fontFamily: 'NanumGothic', fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+      style: TextStyle(fontFamily: 'Pretendard', fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
     ),
     textDirection: TextDirection.ltr,
   )..layout();
@@ -207,7 +207,7 @@ class WinCelebration {
           text: TextSpan(
             text: '클리어!',
             style: TextStyle(
-              fontFamily: 'NanumGothic',
+              fontFamily: 'Pretendard',
               fontSize: size,
               fontWeight: FontWeight.w900,
               color: foreground == null ? color : null,

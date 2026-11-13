@@ -446,7 +446,7 @@ class _TimelinePainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text: s,
-        style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: weight, color: color, height: 1.0),
+        style: TextStyle(fontFamily: 'Pretendard', fontSize: size, fontWeight: weight, color: color, height: 1.0),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -505,7 +505,7 @@ class _TimelinePainter extends CustomPainter {
     );
     label.text = TextSpan(
       text: '$flower번째 꽃이 맞는 바람: $n번',
-      style: const TextStyle(fontFamily: 'NanumGothic', fontSize: 13, fontWeight: FontWeight.w800, color: kWindColor, height: 1.0),
+      style: const TextStyle(fontFamily: 'Pretendard', fontSize: 13, fontWeight: FontWeight.w800, color: kWindColor, height: 1.0),
     );
     label.layout();
     final left = ((x0 + x1) / 2 - label.width / 2).clamp(0.0, size.width - label.width);

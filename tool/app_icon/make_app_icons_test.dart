@@ -57,7 +57,7 @@ void _drawIcon(Canvas c, IconDesign d, Offset at, double size, _Mask mask) {
 
 void _text(Canvas c, String s, Offset at, double size, Color color, {FontWeight weight = FontWeight.w700, bool center = false}) {
   final tp = TextPainter(
-    text: TextSpan(text: s, style: TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: weight, color: color, height: 1.2)),
+    text: TextSpan(text: s, style: TextStyle(fontFamily: 'Pretendard', fontSize: size, fontWeight: weight, color: color, height: 1.2)),
     textDirection: TextDirection.ltr,
   )..layout();
   tp.paint(c, center ? at - Offset(tp.width / 2, 0) : at);

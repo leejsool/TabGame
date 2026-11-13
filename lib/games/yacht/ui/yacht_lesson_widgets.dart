@@ -81,7 +81,7 @@ class _TwoDiceExplorerState extends State<TwoDiceExplorer> {
             children: [
               for (var i = 0; i < items.length; i++)
                 ChoiceChip(
-                  label: yachtRich(items[i].label, const TextStyle(fontFamily: 'NanumGothic', fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF222222))),
+                  label: yachtRich(items[i].label, const TextStyle(fontFamily: 'Pretendard', fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF222222))),
                   selected: i == selected,
                   onSelected: (_) => onPick(i),
                 ),

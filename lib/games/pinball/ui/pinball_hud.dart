@@ -17,7 +17,7 @@ String fmtNum(int n) {
   return b.toString();
 }
 
-const TextStyle _base = TextStyle(fontFamily: 'NanumGothic', color: Colors.white);
+const TextStyle _base = TextStyle(fontFamily: 'Pretendard', color: Colors.white);
 
 /// 화면 위(또는 가로 화면의 왼쪽)에 놓이는 점수판: 라운드 · 점수/목표 · 남은 시간 · 콤보 · 틸트.
 class PinballHud extends StatelessWidget {

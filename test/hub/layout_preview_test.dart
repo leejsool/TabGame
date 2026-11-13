@@ -42,7 +42,7 @@ void main() {
             settings: settings,
             child: MaterialApp(
               debugShowCheckedModeBanner: false,
-              theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+              theme: previewTheme(Brightness.light),
               home: child,
             ),
           ),
@@ -63,6 +63,12 @@ void main() {
     final goblet = allGames.firstWhere((g) => g.id == 'goblet_gobblers');
 
     await shoot('hub_phone', const Size(360, 780), HubScreen(settings: settings));
+    // 즐겨찾기 두 개를 올린 모습 (맨 위 묶음)
+    settings.toggleFavorite('rummikub');
+    settings.toggleFavorite('sudoku');
+    await shoot('hub_phone_fav', const Size(400, 860), HubScreen(settings: settings));
+    await shoot('hub_tab_fav', const Size(800, 1280), HubScreen(settings: settings));
+    await shoot('hub_land_fav', const Size(1280, 800), HubScreen(settings: settings));
     await shoot(
       'cards_phone',
       const Size(360, 520),

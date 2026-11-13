@@ -63,8 +63,8 @@ void main() {
   group('날짜 표시', () {
     test('올해는 연도를 생략하고, 다른 해는 연도를 붙인다', () {
       final now = DateTime(2026, 10, 11);
-      expect(formatDate(DateTime(2026, 10, 11, 16, 4).millisecondsSinceEpoch, now: now), '10월 11일 16:04');
-      expect(formatDate(DateTime(2025, 1, 3, 9, 5).millisecondsSinceEpoch, now: now), '2025년 1월 3일 09:05');
+      expect(formatDate(DateTime(2026, 10, 11, 16, 4).millisecondsSinceEpoch, now: now), '10월 11일');
+      expect(formatDate(DateTime(2025, 1, 3, 9, 5).millisecondsSinceEpoch, now: now), '2025년 1월 3일');
     });
   });
 

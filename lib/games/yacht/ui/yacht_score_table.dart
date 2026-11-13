@@ -10,6 +10,7 @@ import 'yacht_clock_bar.dart';
 import 'yacht_help.dart';
 import 'yacht_look.dart';
 import 'yacht_tally.dart';
+import 'yacht_tally_link.dart';
 
 part 'yacht_score_table_split.dart';
 
@@ -19,12 +20,18 @@ part 'yacht_score_table_split.dart';
 /// 합계는 게임이 끝난 뒤에야 나타난다: 맨 윗줄(에이스)부터 차례로 그 줄의 점수가 합계로 내려와 더해지고,
 /// 다 더해지면 이긴 사람이 표시된다 ([YachtTally]). "야추 빠른 진행"이면 정산 중에 점수판을 눌러 끝까지 건너뛸 수 있다.
 class YachtScoreTable extends StatefulWidget {
-  const YachtScoreTable({super.key, required this.c, this.onTallyDone});
+  const YachtScoreTable({super.key, required this.c, this.onTallyDone, this.link, this.onTallyDrop});
 
   final YachtController c;
 
   /// 정산이 끝났을 때 (다 보았거나 눌러서 건너뛰었을 때).
   final VoidCallback? onTallyDone;
+
+  /// 정산 중인지 화면에 알리고, 화면의 "건너뛰기" 단추를 받는 끈.
+  final YachtTallyLink? link;
+
+  /// 정산에서 한 줄의 점수가 합계로 내려가기 시작할 때마다 (효과음용).
+  final VoidCallback? onTallyDrop;
 
   @override
   State<YachtScoreTable> createState() => _YachtScoreTableState();
@@ -48,6 +55,8 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     _wasOver = c.isOver;
     _done = c.isOver;
     c.addListener(_onGame);
+    _ctl.addListener(_onTick);
+    widget.link?.skip = _forceSkip;
   }
 
   @override
@@ -74,6 +83,7 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
       _ctl.stop(); // 한 판 더: 정산을 멈추고 합계를 다시 숨긴다
       _tally = null;
       _done = false;
+      widget.link?.running.value = false;
     }
     _wasOver = over;
   }
@@ -82,6 +92,8 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     final tally = YachtTally(c.game);
     _tally = tally;
     _done = false;
+    _dropped = -1;
+    widget.link?.running.value = true;
     _ctl
       ..duration = tally.duration + YachtTally.holdTime
       ..forward(from: 0).whenComplete(_finishTally);
@@ -90,7 +102,25 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
   void _finishTally() {
     if (!mounted || !c.isOver || _done) return;
     setState(() => _done = true);
+    widget.link?.running.value = false;
     widget.onTallyDone?.call();
+  }
+
+  /// 마지막으로 "내려가는 소리"를 낸 줄 (줄마다 한 번만 내려고).
+  int _dropped = -1;
+
+  void _onTick() {
+    final f = _frame();
+    if (f == null || f.fly == null || f.step == _dropped) return;
+    _dropped = f.step;
+    if (_tally!.steps[f.step].any) widget.onTallyDrop?.call();
+  }
+
+  /// 화면의 "건너뛰기" 단추: 설정과 상관없이 최종 합계로 바로 간다.
+  void _forceSkip() {
+    if (!_tallying) return;
+    _ctl.stop();
+    _finishTally();
   }
 
   /// 정산 중에 누르면 최종 합계로 바로 간다.
@@ -565,9 +595,9 @@ class _Look {
     this.gap = 0,
   }) : scheme = Theme.of(context).colorScheme {
     final size = (rowH * 0.42).clamp(12.0, 21.0);
-    label = TextStyle(fontFamily: 'NanumGothic', fontSize: size, fontWeight: FontWeight.w800, color: scheme.onSurface);
-    number = TextStyle(fontFamily: 'NanumGothic', fontSize: size + 1, color: scheme.onSurface);
-    small = TextStyle(fontFamily: 'NanumGothic', fontSize: (size - 2.5).clamp(10.5, 15.0), color: scheme.onSurfaceVariant);
+    label = TextStyle(fontFamily: 'Pretendard', fontSize: size, fontWeight: FontWeight.w800, color: scheme.onSurface);
+    number = TextStyle(fontFamily: 'Pretendard', fontSize: size + 1, color: scheme.onSurface);
+    small = TextStyle(fontFamily: 'Pretendard', fontSize: (size - 2.5).clamp(10.5, 15.0), color: scheme.onSurfaceVariant);
   }
 
   final BuildContext context;

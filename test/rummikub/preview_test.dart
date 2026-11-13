@@ -39,7 +39,7 @@ void main() {
     Directory(dir!).createSync(recursive: true);
     SharedPreferences.setMockInitialValues({});
     final settings = await Settings.load();
-    final theme = ThemeData(useMaterial3: true, fontFamily: 'NanumGothic');
+    final theme = ThemeData(useMaterial3: true, fontFamily: 'Pretendard');
     final key = GlobalKey();
 
     Future<void> pumpHome(Widget home, {Size size = const Size(412, 890)}) async {

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:tabgame/core/app_fonts.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,14 +15,15 @@ const Map<String, Size> kPreviewSizes = {'phone': Size(400, 860), 'tabP': Size(8
 
 bool _fontsLoaded = false;
 
-/// 앱 글꼴(나눔고딕), 머티리얼 아이콘, Lora(교과학습 수식)를 불러온다. 여러 번 불러도 한 번만 읽는다.
+/// 앱 글꼴(프리텐다드), 머티리얼 아이콘, Lora(교과학습 수식)를 불러온다. 여러 번 불러도 한 번만 읽는다.
 Future<void> loadAppFonts() async {
   if (_fontsLoaded) return;
-  final nanum = FontLoader('NanumGothic');
-  for (final f in ['Regular', 'Bold', 'ExtraBold']) {
-    nanum.addFont(rootBundle.load('assets/fonts/NanumGothic-$f.ttf'));
+  final body = FontLoader('Pretendard');
+  for (final f in ['Regular', 'Bold', 'ExtraBold', 'Black']) {
+    body.addFont(rootBundle.load('assets/fonts/Pretendard-$f.otf'));
   }
-  await nanum.load();
+  await body.load();
+  await (FontLoader('BithumbGothic')..addFont(rootBundle.load('assets/fonts/BithumbGothic-Original.ttf'))).load();
   await (FontLoader('Lora')..addFont(rootBundle.load('assets/fonts/Lora-Variable.ttf'))).load();
   final icons = _materialIconsFile();
   if (icons != null) {
@@ -41,12 +43,12 @@ File? _materialIconsFile() {
 }
 
 /// 앱과 같은 테마 (lib/app.dart와 맞춘다).
-ThemeData previewTheme(Brightness brightness) => ThemeData(
+ThemeData previewTheme(Brightness brightness) => withAppFonts(ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF3F7CAC), brightness: brightness),
       useMaterial3: true,
-      fontFamily: 'NanumGothic',
+      fontFamily: 'Pretendard',
       scaffoldBackgroundColor: brightness == Brightness.light ? const Color(0xFFF6F3EE) : const Color(0xFF15181C),
-    );
+    ));
 
 /// [key]가 달린 `RepaintBoundary`를 그림으로 뜬다.
 Future<ui.Image> captureBoundary(WidgetTester tester, GlobalKey key) async {

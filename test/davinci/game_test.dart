@@ -29,7 +29,7 @@ Future<Widget> app(Widget home) async {
   final settings = await Settings.load();
   return SettingsScope(
     settings: settings,
-    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: home),
+    child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: home),
   );
 }
 
@@ -394,7 +394,7 @@ void main() {
       final settings = await Settings.load();
       await tester.pumpWidget(SettingsScope(
         settings: settings,
-        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'), home: const Scaffold(body: DavinciRecordsTab())),
+        child: MaterialApp(theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'), home: const Scaffold(body: DavinciRecordsTab())),
       ));
       await settle(tester, rounds: 4);
       expect(find.text('이겼어요 · CPU 보통'), findsOneWidget);
@@ -845,7 +845,7 @@ void main() {
         settings: settings,
         child: MaterialApp(
           navigatorKey: navKey,
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: const Scaffold(body: SizedBox()),
         ),
       ));
@@ -891,7 +891,7 @@ void main() {
         settings: settings,
         child: MaterialApp(
           navigatorKey: navKey,
-          theme: ThemeData(useMaterial3: true, fontFamily: 'NanumGothic'),
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Pretendard'),
           home: const Scaffold(body: SizedBox()),
         ),
       ));

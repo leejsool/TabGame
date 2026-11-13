@@ -1,0 +1,7 @@
+Bithumb Gothic (빗썸고딕) — Copyright (c) Bithumb Korea Co., Ltd.
+Official page: https://bithumbcorp.com/ko/promotion/font.php
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+The full license text is in OFL-Pretendard.txt in this folder (same license) and at https://openfontlicense.org
+Permitted: personal and commercial use (print, web, video, apps), modification and redistribution under the same license.
+Not permitted: selling the font file by itself; using the name "Bithumb Gothic" for a modified version.

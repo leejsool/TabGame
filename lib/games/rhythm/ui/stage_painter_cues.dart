@@ -129,7 +129,7 @@ extension _SpCues on StagePainter {
           text: TextSpan(
             text: s,
             style: TextStyle(
-              fontFamily: 'NanumGothic',
+              fontFamily: 'Pretendard',
               fontSize: size,
               fontWeight: FontWeight.w900,
               height: 1.0,

@@ -6,7 +6,7 @@ import '../core/pinball_run.dart';
 import '../game/pinball_controller.dart';
 import 'pinball_hud.dart';
 
-const TextStyle _t = TextStyle(fontFamily: 'NanumGothic', color: Colors.white);
+const TextStyle _t = TextStyle(fontFamily: 'Pretendard', color: Colors.white);
 const Color _panel = Color(0xFF1B2747);
 
 /// 라운드 시작 전 3·2·1과 이번 라운드 목표·제한 시간.
@@ -128,7 +128,7 @@ class PinballUpgradeSheet extends StatelessWidget {
                           backgroundColor: kPinballColor,
                           disabledBackgroundColor: Colors.white12,
                           disabledForegroundColor: Colors.white54,
-                          textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 17, fontWeight: FontWeight.w900),
+                          textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 17, fontWeight: FontWeight.w900),
                         ),
                         onPressed: run.canStartNext ? run.startNextRound : null,
                         icon: const Icon(Icons.play_arrow_rounded),
@@ -283,7 +283,7 @@ class PinballGameOver extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: kPinballColor, textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 17, fontWeight: FontWeight.w800)),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: kPinballColor, textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 17, fontWeight: FontWeight.w800)),
                       onPressed: controller.restart,
                       icon: const Icon(Icons.replay_rounded),
                       label: const Text('다시 도전'),
@@ -294,7 +294,7 @@ class PinballGameOver extends StatelessWidget {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, textStyle: const TextStyle(fontFamily: 'NanumGothic', fontWeight: FontWeight.w700)),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, textStyle: const TextStyle(fontFamily: 'Pretendard', fontWeight: FontWeight.w700)),
                           onPressed: onRecords,
                           child: const Text('내 기록'),
                         ),
@@ -302,7 +302,7 @@ class PinballGameOver extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, textStyle: const TextStyle(fontFamily: 'NanumGothic', fontWeight: FontWeight.w700)),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white, textStyle: const TextStyle(fontFamily: 'Pretendard', fontWeight: FontWeight.w700)),
                           onPressed: onLeave,
                           child: const Text('나가기'),
                         ),
@@ -343,7 +343,7 @@ class PinballPauseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    ButtonStyle outlined() => OutlinedButton.styleFrom(foregroundColor: Colors.white, textStyle: const TextStyle(fontFamily: 'NanumGothic', fontWeight: FontWeight.w700));
+    ButtonStyle outlined() => OutlinedButton.styleFrom(foregroundColor: Colors.white, textStyle: const TextStyle(fontFamily: 'Pretendard', fontWeight: FontWeight.w700));
     return ColoredBox(
       color: Colors.black.withValues(alpha: 0.7),
       child: SafeArea(
@@ -366,7 +366,7 @@ class PinballPauseCard extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: kPinballColor, textStyle: const TextStyle(fontFamily: 'NanumGothic', fontSize: 17, fontWeight: FontWeight.w800)),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: kPinballColor, textStyle: const TextStyle(fontFamily: 'Pretendard', fontSize: 17, fontWeight: FontWeight.w800)),
                       onPressed: onResume,
                       icon: const Icon(Icons.play_arrow_rounded),
                       label: const Text('계속하기'),
