@@ -139879,7 +139879,7 @@ A.bdf.prototype={
 $0(){return this.a.r=this.b},
 $S:0}
 A.z5.prototype={
-Y(){return new A.ags(new A.be(new A.aH($.aP,t.U),t.h),A.je(A.af(["reveal",B.aby,"flag",B.abL,"question0",B.abz,"question1",B.abG,"question2",B.abJ,"unmark",B.fa,"boom",B.abI,"win",B.cx],t.N,t.l6)))}}
+Y(){return new A.ags(new A.be(new A.aH($.aP,t.U),t.h),A.je(A.af(["reveal",B.aby,"flag",B.abM,"question0",B.abz,"question1",B.abG,"question2",B.abJ,"unmark",B.fa,"boom",B.abI,"win",B.cx],t.N,t.l6)))}}
 A.ags.prototype={
 gv(){var s,r,q,p=this,o=p.d
 if(o===$){s=p.a
@@ -160988,7 +160988,7 @@ bo(){this.bJ()
 this.bF()
 this.dR()}}
 A.oc.prototype={
-Y(){return new A.Za(A.a([],t.Hi),A.ap(t.S),A.je(A.af(["roll",B.fa,"land",B.iY,"hold",B.ec,"score",B.fa,"zero",B.hL,"yahtzee",B.abM,"end",B.cx],t.N,t.l6)),A.bV9(),B.Y)}}
+Y(){return new A.Za(A.a([],t.Hi),A.ap(t.S),A.je(A.af(["roll",B.fa,"land",B.iY,"hold",B.ec,"score",B.fa,"zero",B.hL,"yahtzee",B.abK,"end",B.cx],t.N,t.l6)),A.bV9(),B.Y)}}
 A.Za.prototype={
 gv(){var s,r,q,p,o,n,m,l,k,j,i=this,h=i.d
 if(h===$){s=i.a
@@ -170081,8 +170081,8 @@ B.abG=new A.ei(B.fX,"sfx/common/hmm2.wav",0.8,B.T)
 B.iY=new A.ei(B.wy,null,1,B.T)
 B.abI=new A.ei(B.pW,"sfx/common/boom.wav",1,B.T)
 B.abJ=new A.ei(B.fX,"sfx/common/hmm3.wav",0.8,B.T)
-B.abL=new A.ei(B.fX,"sfx/common/thunk.wav",1,B.T)
-B.abM=new A.ei(B.pW,"sfx/yacht/achoo.mp3",0.85,B.T)
+B.abK=new A.ei(B.pW,"sfx/yacht/achoo2.mp3",0.85,B.T)
+B.abM=new A.ei(B.fX,"sfx/common/thunk.wav",1,B.T)
 B.atz=new A.Oc(null)
 B.abN=new A.nm("bgm/med.m4a",B.atz,null)
 B.Gp=new A.ah(63432,"MaterialIcons",!1)
@@ -172201,8 +172201,8 @@ B.asH=new A.cl([0,0,1,1,2,0,3,0,4,1,5,1,6,1,7,0,8,0,40,0],t.KL)
 B.auc={kill:0,die:1,first:2,gulp:3,pop:4}
 B.abH=new A.ei(null,"sfx/common/tada_short.mp3",0.35,B.T)
 B.abE=new A.ei(null,"sfx/common/gulp.wav",0.7,B.pq)
-B.abK=new A.ei(null,"sfx/common/pop.mp3",0.5,B.kl)
-B.asI=new A.c4(B.auc,[B.iY,B.cx,B.abH,B.abE,B.abK],A.ao("c4<z,ei>"))
+B.abL=new A.ei(null,"sfx/common/pop.mp3",0.5,B.kl)
+B.asI=new A.c4(B.auc,[B.iY,B.cx,B.abH,B.abE,B.abL],A.ao("c4<z,ei>"))
 B.art=new A.C(33)
 B.aru=new A.C(34)
 B.arv=new A.C(35)
