@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 /// 테두리를 따라 빛나는 띠가 빙글빙글 도는 틀. 힌트에서 추천하는 족보를 눈에 띄게 할 때 쓴다.
 ///
-/// 은은한 테두리 위로 꼬리가 달린 밝은 빛이 한 바퀴씩 돌고, 그 뒤로 번지는 빛이 따라온다.
+/// 옅게 물든 칸에 또렷한 테두리를 두르고, 그 위로 꼬리가 달린 밝은 빛줄기가 한 바퀴씩 돈다 (흐림 효과 없이 가볍게).
 /// 기기의 "애니메이션 줄이기"가 켜져 있으면 돌지 않고 고정된 테두리만 보인다.
 class YachtGlowBorder extends StatefulWidget {
   const YachtGlowBorder({
@@ -13,7 +13,7 @@ class YachtGlowBorder extends StatefulWidget {
     required this.color,
     this.radius = 10,
     this.width = 3.2,
-    this.period = const Duration(milliseconds: 2400),
+    this.period = const Duration(milliseconds: 3000),
   });
 
   final Widget child;
@@ -63,6 +63,10 @@ class _YachtGlowBorderState extends State<YachtGlowBorder> with SingleTickerProv
   }
 }
 
+/// 그리기: 옅게 물든 바탕 + 또렷한 테두리 + 테두리를 따라 도는 짧은 빛줄기(꼬리가 점점 옅어진다).
+///
+/// 저성능 기기를 위해 흐림 효과(MaskFilter.blur)는 쓰지 않는다: 예전에는 번지는 빛을 매 프레임 흐리게 계산해서
+/// 힌트 창을 여는 동안 계속 무거웠다. 이제 매 프레임 하는 일은 선 몇 개를 긋는 것뿐이다.
 class _GlowPainter extends CustomPainter {
   _GlowPainter(this.turns, this.color, this.radius, this.width) : super(repaint: turns);
 
@@ -75,43 +79,33 @@ class _GlowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect.deflate(width / 2), Radius.circular(radius));
-    // 은은한 바탕 테두리
+    // 옅게 물든 바탕과 또렷한 테두리 (움직이지 않는 부분)
+    canvas.drawRRect(rrect, Paint()..color = color.withValues(alpha: 0.07));
     canvas.drawRRect(
       rrect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = width * 0.6
-        ..color = color.withValues(alpha: 0.55),
+        ..strokeWidth = width * 0.55
+        ..color = color.withValues(alpha: 0.7),
     );
-    // 도는 띠: 꼬리(점점 밝아짐) → 흰빛 머리 → 뚝 끊김
-    // (머리는 흰색이 아니라 밝은 초록 쪽으로: 옅은 바탕 위에서도 또렷하게 보이게)
-    final head = Color.lerp(color, const Color(0xFFB6FFD9), 0.45)!;
+    // 도는 빛줄기: 옅은 꼬리 → 진한 몸통 → 밝은 머리
+    final head = Color.lerp(color, Colors.white, 0.55)!;
     final shader = SweepGradient(
       colors: [
         color.withValues(alpha: 0),
         color.withValues(alpha: 0),
-        color.withValues(alpha: 1),
+        color.withValues(alpha: 0.9),
         head,
         color.withValues(alpha: 0),
       ],
-      stops: const [0.0, 0.42, 0.86, 0.985, 1.0],
+      stops: const [0.0, 0.62, 0.92, 0.985, 1.0],
       transform: GradientRotation(turns.value * 2 * pi),
     ).createShader(rect);
-    // 번지는 빛 (띠 뒤에 흐리게)
-    canvas.drawRRect(
-      rrect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width * 2.6
-        ..shader = shader
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-    );
     canvas.drawRRect(
       rrect,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = width
-        ..strokeCap = StrokeCap.round
         ..shader = shader,
     );
   }

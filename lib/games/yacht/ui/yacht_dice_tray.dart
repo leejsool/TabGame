@@ -166,7 +166,10 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
         return Offset((width - (2 * die + gap)) / 2 + (slot - 3) * (die + gap), die + 22 + 4);
       }
 
-      return SizedBox(
+      // 구르는 동안 매 프레임 다시 그리는 곳을 주사위 줄 안으로 가둔다 (점수판 · 배경 · 단추까지 매번 다시 그리면
+      // 저성능 기기에서 프레임이 떨어진다)
+      return RepaintBoundary(
+        child: SizedBox(
         width: width,
         height: two ? (die + 22) * 2 + 4 : die + 22,
         child: AnimatedBuilder(
@@ -189,6 +192,7 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
                 if (_flying(i)) Positioned(key: ValueKey('fly-$i'), left: place(i).dx, top: place(i).dy, child: _rollingDie(i, die, width, place(i).dx + die / 2)),
             ],
           ),
+        ),
         ),
       );
     });

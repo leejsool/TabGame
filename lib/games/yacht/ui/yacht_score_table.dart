@@ -2,6 +2,7 @@ import 'dart:math' show max;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/game_speed.dart';
 import '../../../core/tablet_scale.dart';
 import '../core/yacht_rules.dart';
 import '../game/yacht_controller.dart';
@@ -15,11 +16,14 @@ part 'yacht_score_table_split.dart';
 ///
 /// 지금 차례인 사람의 빈 칸에는 "지금 적으면 받는 점수"가 흐리게 보이고, 눌러서 고른다.
 /// 합계는 게임이 끝난 뒤에야 나타난다: 맨 윗줄(에이스)부터 차례로 그 줄의 점수가 합계로 내려와 더해지고,
-/// 다 더해지면 이긴 사람이 표시된다 ([YachtTally]).
+/// 다 더해지면 이긴 사람이 표시된다 ([YachtTally]). "야추 빠른 진행"이면 정산 중에 점수판을 눌러 끝까지 건너뛸 수 있다.
 class YachtScoreTable extends StatefulWidget {
-  const YachtScoreTable({super.key, required this.c});
+  const YachtScoreTable({super.key, required this.c, this.onTallyDone});
 
   final YachtController c;
+
+  /// 정산이 끝났을 때 (다 보았거나 눌러서 건너뛰었을 때).
+  final VoidCallback? onTallyDone;
 
   @override
   State<YachtScoreTable> createState() => _YachtScoreTableState();
@@ -79,9 +83,20 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     _done = false;
     _ctl
       ..duration = tally.duration + YachtTally.holdTime
-      ..forward(from: 0).whenComplete(() {
-        if (mounted && c.isOver) setState(() => _done = true);
-      });
+      ..forward(from: 0).whenComplete(_finishTally);
+  }
+
+  void _finishTally() {
+    if (!mounted || !c.isOver || _done) return;
+    setState(() => _done = true);
+    widget.onTallyDone?.call();
+  }
+
+  /// 정산 중에 누르면 최종 합계로 바로 간다.
+  void _skipTally() {
+    if (!_tallying || !GameSpeed.yachtQuick) return;
+    _ctl.stop();
+    _finishTally();
   }
 
   /// 정산 중인가.
@@ -96,8 +111,17 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
+    _rows.clear(); // 판의 모습이 바뀌었을 수 있다 (정산이 끝났거나, 굴렸거나): 담아 둔 줄을 버린다
+    return GestureDetector(
+      key: const ValueKey('yacht-tally-skip'),
+      behavior: HitTestBehavior.translucent,
+      onTap: _skipTally,
+      // 주사위가 구르거나 정산 숫자가 움직이는 매 프레임마다 점수판까지 다시 그리지 않게 따로 떼어 둔다
+      // (저성능 기기에서 프레임이 떨어지던 원인)
+      child: RepaintBoundary(
+      child: LayoutBuilder(
       builder: (context, box) {
+        _rows.clear(); // 판이 바뀌었거나 크기가 바뀌었다: 줄을 새로 만든다
         // 태블릿에서는 줄과 글자를 키운다
         final tablet = MediaQuery.sizeOf(context).shortestSide >= kTabletMinSide;
         final cats = c.game.categories;
@@ -134,7 +158,21 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
           ),
         );
       },
+      ),
+      ),
     );
+  }
+
+  /// 정산 중에 매 프레임 바뀌지 않는 줄들을 담아 둔다: 줄 번호 → (빛나는 줄이었는가, 만든 줄).
+  /// 같은 위젯을 다시 돌려주면 그 줄은 다시 만들지도, 다시 배치하지도 않는다 (정산 내내 점수판 전체를 매 프레임 새로 만들던 것을 줄인다).
+  final Map<int, (bool, Widget)> _rows = {};
+
+  Widget _memo(int key, bool hot, Widget Function() make) {
+    final m = _rows[key];
+    if (m != null && m.$1 == hot) return m.$2;
+    final w = make();
+    _rows[key] = (hot, w);
+    return w;
   }
 
   Widget _table(_Look look, List<YachtCategory> cats, List<int>? counts, YachtTallyFrame? frame) {
@@ -142,23 +180,31 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
     if (look.split) return _splitTable(look, cats, counts, frame);
     final hot = frame?.step ?? -1; // 정산 중에 지금 합계로 내려가는 줄
     var line = 0;
+    Widget row(Widget Function(bool hot) make) {
+      final k = line++;
+      final h = hot == k;
+      return _memo(k, h, () => make(h));
+    }
+
     final rowsList = <Widget>[
-      _header(look),
+      _memo(-1, false, () => _header(look)),
       for (var i = 0; i < cats.length; i++) ...[
-        _categoryRow(look, cats[i], counts, shaded: i.isOdd, hot: hot == line++),
-        if (cats[i] == YachtCategory.sixes) _bonusRow(look, hot: hot == line++), // 숫자 칸 6개 바로 아래 (진짜 점수표처럼)
+        row((h) => _categoryRow(look, cats[i], counts, shaded: i.isOdd, hot: h)),
+        if (cats[i] == YachtCategory.sixes) row((h) => _bonusRow(look, hot: h)), // 숫자 칸 6개 바로 아래 (진짜 점수표처럼)
       ],
-      if (!c.game.daesung) _yahtzeeBonusRow(look, hot: hot == line++), // (대성One Rule에는 야추 보너스가 없다)
-      // 합계는 게임이 끝나야 나타난다
-      AnimatedSize(
-        duration: const Duration(milliseconds: 300),
-        alignment: Alignment.topCenter,
-        child: c.isOver ? _totalRow(look, frame) : const SizedBox.shrink(),
-      ),
+      if (!c.game.daesung) row((h) => _yahtzeeBonusRow(look, hot: h)), // (대성One Rule에는 야추 보너스가 없다)
     ];
     return Stack(
       children: [
-        Column(mainAxisSize: MainAxisSize.min, children: rowsList),
+        Column(mainAxisSize: MainAxisSize.min, children: [
+          RepaintBoundary(child: Column(mainAxisSize: MainAxisSize.min, children: rowsList)),
+          // 합계는 게임이 끝나야 나타난다 (정산 중에 매 프레임 바뀌는 건 이 줄과 내려오는 숫자뿐)
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            alignment: Alignment.topCenter,
+            child: c.isOver ? _totalRow(look, frame) : const SizedBox.shrink(),
+          ),
+        ]),
         if (frame != null && frame.fly != null) ..._flying(look, frame, line),
       ],
     );
@@ -179,16 +225,17 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
           top: y - look.rowH / 2,
           width: look.cellW,
           height: look.rowH,
+          // (Opacity 대신 글자색의 투명도로 흐리게: 매 프레임 따로 그리는 층을 만들지 않는다)
           child: IgnorePointer(
-            child: Opacity(
-              opacity: step.values[seat] == 0 ? fade * 0.5 : fade,
-              child: Center(
-                child: Transform.scale(
-                  scale: 1.15,
-                  child: Text(
-                    step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
-                    key: ValueKey('yacht-fly-$seat'),
-                    style: look.number.copyWith(color: kYachtSeatColors[seat], fontWeight: FontWeight.w900),
+            child: Center(
+              child: Transform.scale(
+                scale: 1.15,
+                child: Text(
+                  step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
+                  key: ValueKey('yacht-fly-$seat'),
+                  style: look.number.copyWith(
+                    color: kYachtSeatColors[seat].withValues(alpha: step.values[seat] == 0 ? fade * 0.5 : fade),
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),

@@ -24,6 +24,15 @@ const int kYachtTurnSeconds = 60;
 /// 주사위가 구르는 시간 (밀리초. "빠른 진행"이면 더 짧아진다).
 const int kYachtRollMs = 950;
 
+/// "야추 빠른 진행"을 켰을 때 주사위가 구르는 시간.
+const int kYachtQuickRollMs = 750;
+
+/// 지금 설정에서 주사위가 구르는 시간 (밀리초).
+int yachtRollMs() => GameSpeed.yachtQuick ? kYachtQuickRollMs : kYachtRollMs;
+
+/// 보통 대기 [normal], "야추 빠른 진행"이면 [quick] (밀리초).
+int _pace(int normal, int quick) => GameSpeed.yachtQuick ? quick : normal;
+
 Future<YachtAdvisor>? _advisor;
 Future<YachtDaesungAdvisor>? _daesungAdvisor;
 
@@ -319,7 +328,7 @@ class YachtController extends ChangeNotifier {
     pick = null;
     onFeedback?.call('roll');
     notifyListeners();
-    final alive = await _wait(kYachtRollMs);
+    final alive = await _wait(yachtRollMs());
     if (_disposed) return false;
     if (identical(_pendingRoll, target)) _settleRoll();
     return alive;
@@ -396,12 +405,12 @@ class YachtController extends ChangeNotifier {
     try {
       while (!game.over && isCpu(game.turn)) {
         if (game.rollsUsed == 0) {
-          if (!await _wait(350) || !await _roll()) return;
+          if (!await _wait(_pace(350, 250)) || !await _roll()) return;
           continue;
         }
         final move = await _cpu.run(
           task: () async => YachtCpu.choose(brain, game, level, _rng),
-          minTime: const Duration(milliseconds: 750),
+          minTime: Duration(milliseconds: _pace(750, 450)),
           onStart: notifyListeners,
         );
         if (move == null || epoch != _epoch) return;
@@ -409,14 +418,14 @@ class YachtController extends ChangeNotifier {
         if (category != null) {
           pick = category;
           notifyListeners();
-          if (!await _wait(800)) return;
+          if (!await _wait(_pace(800, 550))) return;
           _score(category);
         } else {
           game.setHolds(move.holds!);
           _emit({'t': 'hold', 'h': List<bool>.of(game.held)});
           onFeedback?.call('hold');
           notifyListeners();
-          if (!await _wait(650) || !await _roll()) return;
+          if (!await _wait(_pace(650, 400)) || !await _roll()) return;
         }
       }
     } finally {

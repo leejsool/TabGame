@@ -102,6 +102,14 @@ class SettingsScreen extends StatelessWidget {
             ),
             const _SectionTitle('게임별 도우미'),
             SwitchListTile(
+              key: const ValueKey('settings-yacht-quick'),
+              secondary: const Icon(Icons.casino_rounded),
+              title: const Text('야추 빠른 진행'),
+              subtitle: const Text('CPU 차례와 주사위 굴림이 짧아지고, 끝날 때 점수 세기를 점수판을 눌러 건너뛸 수 있어요'),
+              value: settings.yachtQuick,
+              onChanged: (v) => settings.yachtQuick = v,
+            ),
+            SwitchListTile(
               secondary: const Icon(Icons.auto_awesome_rounded),
               title: const Text('스도쿠 자동 완성'),
               subtitle: const Text('남은 칸이 15개 이하이고 바로 보이는 칸뿐이면 자동으로 채워서 끝내요'),

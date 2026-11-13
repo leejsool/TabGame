@@ -53,16 +53,26 @@ extension _YachtSplitTable on _YachtScoreTableState {
   Widget _splitTable(_Look look, List<YachtCategory> cats, List<int>? counts, YachtTallyFrame? frame) {
     final hot = frame?.step ?? -1; // 정산 중에 지금 합계로 내려가는 줄
     var step = 0;
+    // (정산 중에 매 프레임 바뀌지 않는 줄은 한 번 만든 것을 다시 쓴다: [_memo])
+    Widget row(Widget Function(bool hot) make) {
+      final k = step++;
+      final h = hot == k;
+      return _memo(k, h, () => make(h));
+    }
+
     final upper = <Widget>[
-      _header(look),
-      for (var i = 0; i < 6; i++) _categoryRow(look, cats[i], counts, shaded: i.isOdd, hot: hot == step++),
-      _bonusRow(look, hot: hot == step++),
+      _memo(-1, false, () => _header(look)),
+      for (var i = 0; i < 6; i++) row((h) => _categoryRow(look, cats[i], counts, shaded: i.isOdd, hot: h)),
+      row((h) => _bonusRow(look, hot: h)),
     ];
     final lowerCats = cats.sublist(6);
+    final lowerRows = <Widget>[
+      _memo(-2, false, () => _header(look, showTitle: false)),
+      for (var i = 0; i < lowerCats.length; i++) row((h) => _categoryRow(look, lowerCats[i], counts, shaded: i.isOdd, hot: h)),
+      if (!c.game.daesung) row((h) => _yahtzeeBonusRow(look, hot: h)),
+    ];
     final lower = <Widget>[
-      _header(look, showTitle: false),
-      for (var i = 0; i < lowerCats.length; i++) _categoryRow(look, lowerCats[i], counts, shaded: i.isOdd, hot: hot == step++),
-      if (!c.game.daesung) _yahtzeeBonusRow(look, hot: hot == step++),
+      RepaintBoundary(child: Column(mainAxisSize: MainAxisSize.min, children: lowerRows)),
       // 합계는 게임이 끝나야 나타난다
       AnimatedSize(
         duration: const Duration(milliseconds: 300),
@@ -74,7 +84,7 @@ extension _YachtSplitTable on _YachtScoreTableState {
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [_splitCard(look, upper), SizedBox(width: look.gap), _splitCard(look, lower)],
+          children: [RepaintBoundary(child: _splitCard(look, upper)), SizedBox(width: look.gap), _splitCard(look, lower)],
         ),
         if (frame != null && frame.fly != null) ..._splitFlying(look, frame, step),
       ],
@@ -104,15 +114,15 @@ extension _YachtSplitTable on _YachtScoreTableState {
           width: look.cellW,
           height: look.rowH,
           child: IgnorePointer(
-            child: Opacity(
-              opacity: step.values[seat] == 0 ? fade * 0.5 : fade,
-              child: Center(
-                child: Transform.scale(
-                  scale: 1.15,
-                  child: Text(
-                    step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
-                    key: ValueKey('yacht-fly-$seat'),
-                    style: look.number.copyWith(color: kYachtSeatColors[seat], fontWeight: FontWeight.w900),
+            child: Center(
+              child: Transform.scale(
+                scale: 1.15,
+                child: Text(
+                  step.values[seat] == 0 ? '0' : '+${step.values[seat]}',
+                  key: ValueKey('yacht-fly-$seat'),
+                  style: look.number.copyWith(
+                    color: kYachtSeatColors[seat].withValues(alpha: step.values[seat] == 0 ? fade * 0.5 : fade),
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),

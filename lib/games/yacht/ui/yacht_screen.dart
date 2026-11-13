@@ -149,6 +149,10 @@ class _YachtScreenState extends State<YachtScreen> {
   /// 이번에 굴러가는 주사위들이 던져지는 순간(밀리초).
   List<int> _launchDelays = const [];
 
+  /// 판이 끝나 축하를 기다리는 중이면, 정산이 끝났을 때 부를 것.
+  VoidCallback? _celebrate;
+  int _celebrateEpoch = 0;
+
   int get _rollingCount => c.game.rollsUsed == 0 ? kYachtDice : c.game.held.where((h) => !h).length;
 
   @override
@@ -193,10 +197,17 @@ class _YachtScreenState extends State<YachtScreen> {
       final winners = c.game.winners;
       if (c.oneSeat ? winners.contains(c.humanSeat) : winners.any((w) => !c.isCpu(w))) {
         // 점수판이 맨 윗줄부터 합계를 더해 보여 주는 동안은 기다렸다가, 최종 점수가 나온 뒤에 축하한다
-        Future<void>.delayed(YachtTally(c.game).duration + YachtTally.holdTime, () {
-          if (!mounted || !c.isOver) return;
+        // (정산을 눌러 건너뛰면 그때 바로. 혹시 점수판이 알려 주지 못해도 정산 시간이 지나면 축하한다)
+        final title = winners.length > 1 ? '무승부!' : (c.oneSeat ? '승리!' : '${c.name(winners.first)} 승리!');
+        final epoch = ++_celebrateEpoch;
+        _celebrate = () {
+          _celebrate = null;
+          if (!mounted || !c.isOver || epoch != _celebrateEpoch) return;
           WinSound.play(context);
-          showWinCelebration(context, title: winners.length > 1 ? '무승부!' : (c.oneSeat ? '승리!' : '${c.name(winners.first)} 승리!'));
+          showWinCelebration(context, title: title);
+        };
+        Future<void>.delayed(YachtTally(c.game).duration + YachtTally.holdTime + const Duration(milliseconds: 300), () {
+          if (epoch == _celebrateEpoch) _celebrate?.call();
         });
       }
       YachtHistory.add(YachtRecord(
@@ -209,6 +220,8 @@ class _YachtScreenState extends State<YachtScreen> {
         seat: c.oneSeat ? c.humanSeat : 0,
       ));
     } else if (!c.isOver) {
+      _celebrate = null;
+      _celebrateEpoch++;
       if (_resultHandled) _saver.rearm(); // 한 판 더: 새 판은 다시 보관할 수 있다
       _resultHandled = false;
     }
@@ -265,7 +278,7 @@ class _YachtScreenState extends State<YachtScreen> {
             topBar: VsTopBar(title: c.online ? '야추 · 같은 Wi‑Fi' : (c.cpuSeats.isNotEmpty ? '야추 · CPU ${c.level.label}' : '야추'), gameId: 'yacht', onRules: _showRules, onLesson: () => openYachtLesson(context)),
             chips: const SizedBox.shrink(),
             banner: const SizedBox.shrink(),
-            board: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4), child: YachtScoreTable(c: c)),
+            board: Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 4), child: YachtScoreTable(c: c, onTallyDone: () => _celebrate?.call())),
             extras: [_tray(color, compact: phoneLandscape)],
             bottom: VsBottomBar(children: [
               if (game.over)
@@ -343,7 +356,7 @@ class _YachtScreenState extends State<YachtScreen> {
               held: game.held,
               rolling: c.rolling,
               target: c.rollTarget,
-              rollTime: GameSpeed.scale(const Duration(milliseconds: kYachtRollMs)),
+              rollTime: GameSpeed.scale(Duration(milliseconds: yachtRollMs())),
               accent: color,
               maxDie: compact ? 54 : (tablet ? 92 : 64),
               twoRows: compact,

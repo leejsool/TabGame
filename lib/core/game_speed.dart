@@ -11,4 +11,7 @@ class GameSpeed {
   static double factor = 1;
 
   static Duration scale(Duration d) => d * factor;
+
+  /// 설정의 "야추 빠른 진행": CPU 차례 · 주사위 굴림이 짧아지고, 끝날 때 점수 세기를 눌러 건너뛸 수 있다. 기본은 꺼짐.
+  static bool yachtQuick = false;
 }

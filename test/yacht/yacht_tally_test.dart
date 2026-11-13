@@ -173,4 +173,42 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('점수판: "야추 빠른 진행"이면 정산 중에 눌러 바로 최종 점수로 건너뛴다', (tester) async {
+    await loadAppFonts();
+    SharedPreferences.setMockInitialValues({});
+    final settings = await Settings.load();
+    settings.yachtQuick = true;
+    addTearDown(() => settings.yachtQuick = false);
+    tester.view.physicalSize = const Size(400, 860);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final c = YachtController(mode: PlayMode.local2p, players: 2, advisor: advisor, rng: Random(3));
+    final game = playedGame(2, leaveLast: true);
+    c.game = game;
+    c.actions = 1;
+    await tester.pumpWidget(SettingsScope(
+      settings: settings,
+      child: MaterialApp(theme: previewTheme(Brightness.light), home: YachtScreen(mode: c.mode, players: c.players, controller: c)),
+    ));
+    await tester.pump(const Duration(milliseconds: 300));
+    game.applyRoll([3, 3, 3, 4, 5]);
+    c.pick = game.categories.last;
+    c.notifyListeners();
+    await tester.pump();
+    c.confirm();
+    await tester.pump(const Duration(milliseconds: 1500));
+    expect(find.text('점수 계산!'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('yacht-tally-skip')));
+    await tester.pump();
+    int shown(int seat) => int.parse(tester.widget<Text>(find.byKey(ValueKey('yacht-total-$seat'))).data!);
+    expect(find.text('끝!'), findsOneWidget);
+    expect(shown(0), game.cards[0].total);
+    expect(shown(1), game.cards[1].total);
+    await tester.pump(const Duration(seconds: 15)); // (축하 연출 · 정산 시간 뒤의 예비 타이머까지)
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
 }
