@@ -138,7 +138,7 @@ class _YachtScreenState extends State<YachtScreen> {
     'hold': const Fx(haptic: Haptic.select),
     'score': const Fx(haptic: Haptic.light),
     'zero': const Fx(haptic: Haptic.vibrate),
-    'yahtzee': const Fx(haptic: Haptic.heavy, sound: 'sfx/common/tada_short.mp3', volume: 0.85), // 야추 성공 "짜잔"(짧은)
+    'yahtzee': const Fx(haptic: Haptic.heavy, sound: 'sfx/yacht/achoo2.mp3', volume: 0.85), // 야추 성공 "아츄" (노래에서 5.2초를 잘라 다듬었다: 천천히 커지는 시작 · 천천히 꺼지는 끝 · 낮춘 음량)
     'end': const Fx(haptic: Haptic.heavy),
   });
 

@@ -6,6 +6,7 @@ import '../../../core/game_speed.dart';
 import '../../../core/tablet_scale.dart';
 import '../core/yacht_rules.dart';
 import '../game/yacht_controller.dart';
+import 'yacht_clock_bar.dart';
 import 'yacht_help.dart';
 import 'yacht_look.dart';
 import 'yacht_tally.dart';
@@ -300,31 +301,8 @@ class _YachtScoreTableState extends State<YachtScoreTable> with SingleTickerProv
           right: 0,
           bottom: 0,
           height: 5,
-          // 1초마다 이 막대만 다시 그린다 (점수판 전체는 그대로)
-          child: RepaintBoundary(
-            child: ValueListenableBuilder<int?>(
-              valueListenable: c.clock,
-              builder: (context, left, _) {
-                if (left == null) return const SizedBox.shrink();
-                final color = left <= 10 ? const Color(0xFFD1373F) : seat;
-                return TweenAnimationBuilder<double>(
-                  key: const ValueKey('yacht-clock'),
-                  tween: Tween(end: left / total),
-                  duration: const Duration(milliseconds: 1000),
-                  builder: (context, v, _) => Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: v.clamp(0.0, 1.0),
-                      heightFactor: 1,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          // 이 막대만 따로 다시 그린다 (점수판 전체는 그대로)
+          child: RepaintBoundary(child: YachtClockBar(clock: c.clock, total: total, color: seat)),
         ),
       ],
     );

@@ -342,8 +342,9 @@ class YachtController extends ChangeNotifier {
     game.applyRoll(target);
     rolling = false;
     actions++;
-    // 야추 성공: 굴린 주사위 5개가 모두 같은 눈으로 멈췄을 때 (점수를 적는 때가 아니라, 눈이 완성된 그 순간. 누가 굴려도 같다)
-    onFeedback?.call(game.dice.every((d) => d == game.dice.first) ? 'yahtzee' : 'land');
+    // 야추 성공: 굴린 주사위 5개가 모두 같은 눈으로 멈췄을 때 (점수를 적는 때가 아니라, 눈이 완성된 그 순간. 누가 굴려도 같다).
+    // 그 판의 규칙으로 야추인지 본다: 대성One Rule에서는 초록 주사위의 로고가 아무 눈이나 되므로 로고 + 같은 눈 4개도 야추다.
+    onFeedback?.call(game.card.scoreOf(YachtCategory.yacht, game.dice) > 0 ? 'yahtzee' : 'land');
     notifyListeners();
   }
 

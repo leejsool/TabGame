@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import 'yacht_cube.dart';
@@ -166,18 +167,19 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
         return Offset((width - (2 * die + gap)) / 2 + (slot - 3) * (die + gap), die + 22 + 4);
       }
 
-      // 구르는 동안 매 프레임 다시 그리는 곳을 주사위 줄 안으로 가둔다 (점수판 · 배경 · 단추까지 매번 다시 그리면
-      // 저성능 기기에서 프레임이 떨어진다)
+      // 구르는 주사위는 움직임(_anim)이 직접 다시 그리게 하는 그림 한 장으로 그린다: 구르는 동안 매 프레임 위젯을 다시 만들거나
+      // 다시 배치하지 않고, 놓여 있는 주사위 · 점수판 · 배경 · 단추도 다시 그리지 않는다 (저성능 기기에서 프레임이 떨어지던 원인)
+      final flying = [
+        for (var i = 0; i < n; i++)
+          if (_flying(i)) i,
+      ];
       return RepaintBoundary(
         child: SizedBox(
-        width: width,
-        height: two ? (die + 22) * 2 + 4 : die + 22,
-        child: AnimatedBuilder(
-          animation: _anim,
-          builder: (context, _) => Stack(
+          width: width,
+          height: two ? (die + 22) * 2 + 4 : die + 22,
+          child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // (구르는 주사위가 놓인 주사위 위로 지나가게 나중에 그린다)
               for (var i = 0; i < n; i++)
                 if (!_flying(i))
                   AnimatedPositioned(
@@ -188,11 +190,29 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
                     top: place(slots[i]).dy,
                     child: _resting(i, die),
                   ),
-              for (var i = 0; i < n; i++)
-                if (_flying(i)) Positioned(key: ValueKey('fly-$i'), left: place(i).dx, top: place(i).dy, child: _rollingDie(i, die, width, place(i).dx + die / 2)),
+              // (구르는 주사위가 놓인 주사위 위로 지나가게 나중에 그린다)
+              if (flying.isNotEmpty)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        key: const ValueKey('yacht-flying'),
+                        painter: _FlyingDicePainter(
+                          anim: _anim,
+                          throws: _throws,
+                          indices: flying,
+                          slots: [for (final i in flying) place(i)],
+                          targets: [for (final i in flying) widget.target[i]],
+                          die: die,
+                          width: width,
+                          daesungIndex: widget.daesungIndex,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
-        ),
         ),
       );
     });
@@ -230,26 +250,65 @@ class _YachtDiceTrayState extends State<YachtDiceTray> with SingleTickerProvider
       ),
     );
   }
+}
 
-  /// 구르는 주사위: 줄의 아래 가운데에서 던져져, 통통 튀고 빙글빙글 돌면서 제자리로 온다.
-  Widget _rollingDie(int i, double die, double width, double slotX) {
-    final t = _throws[i];
-    if (_anim.value < t.start) return SizedBox.square(dimension: die); // 아직 던지기 전: 보이지 않는다
-    final p = ((_anim.value - t.start) / (t.span - t.start)).clamp(0.0, 1.0);
-    final ease = 1 - pow(1 - p, 3).toDouble(); // 처음엔 빠르고 끝에서 느려진다
-    final left = 1 - ease;
-    final hop = (sin(p * pi * 2.5).abs() * pow(1 - p, 1.5)).toDouble().clamp(0.0, 1.0); // 튀어 오른 높이 (0~1)
-    final from = Offset((width / 2 - slotX) * 0.85 + t.side * die, t.depth * die);
-    final scale = 1 + 0.32 * hop;
-    return Transform.translate(
-      offset: from * left + Offset(0, 8 - hop * die * 0.45),
-      child: Transform.scale(
-        scale: scale,
-        child: CustomPaint(
-          size: Size.square(die),
-          painter: YachtCubePainter(value: widget.target[i], ax: t.spinX * left, ay: t.spinY * left, az: t.spinZ * left, lift: hop, daesung: i == widget.daesungIndex),
-        ),
-      ),
-    );
+/// 구르는 주사위들: 줄의 아래 가운데에서 던져져, 통통 튀고 빙글빙글 돌면서 제자리로 온다.
+/// [anim]이 바뀔 때마다 이 그림만 다시 그린다.
+class _FlyingDicePainter extends CustomPainter {
+  _FlyingDicePainter({
+    required this.anim,
+    required this.throws,
+    required this.indices,
+    required this.slots,
+    required this.targets,
+    required this.die,
+    required this.width,
+    required this.daesungIndex,
+  }) : super(repaint: anim);
+
+  final Animation<double> anim;
+  final List<_Throw> throws;
+
+  /// 구르는 주사위의 번호, 그 주사위가 멈출 자리(왼쪽 위), 멈출 눈.
+  final List<int> indices;
+  final List<Offset> slots;
+  final List<int> targets;
+  final double die;
+  final double width;
+  final int? daesungIndex;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final v = anim.value;
+    for (var j = 0; j < indices.length; j++) {
+      final i = indices[j];
+      final t = throws[i];
+      if (v < t.start) continue; // 아직 던지기 전: 보이지 않는다
+      final p = ((v - t.start) / (t.span - t.start)).clamp(0.0, 1.0);
+      final ease = 1 - pow(1 - p, 3).toDouble(); // 처음엔 빠르고 끝에서 느려진다
+      final left = 1 - ease;
+      final hop = (sin(p * pi * 2.5).abs() * pow(1 - p, 1.5)).toDouble().clamp(0.0, 1.0); // 튀어 오른 높이 (0~1)
+      final slotX = slots[j].dx + die / 2;
+      final fromX = (width / 2 - slotX) * 0.85 + t.side * die, fromY = t.depth * die;
+      final scale = 1 + 0.32 * hop;
+      canvas.save();
+      // 자리 + 날아오는 길, 그리고 주사위 가운데를 중심으로 키운다
+      canvas.translate(slots[j].dx + fromX * left + die / 2, slots[j].dy + fromY * left + 8 - hop * die * 0.45 + die / 2);
+      canvas.scale(scale);
+      canvas.translate(-die / 2, -die / 2);
+      paintYachtCube(canvas, die, value: targets[j], ax: t.spinX * left, ay: t.spinY * left, az: t.spinZ * left, lift: hop, daesung: i == daesungIndex);
+      canvas.restore();
+    }
   }
+
+  @override
+  bool shouldRepaint(_FlyingDicePainter old) =>
+      old.anim != anim ||
+      !identical(old.throws, throws) ||
+      old.die != die ||
+      old.width != width ||
+      old.daesungIndex != daesungIndex ||
+      !listEquals(old.indices, indices) ||
+      !listEquals(old.slots, slots) ||
+      !listEquals(old.targets, targets);
 }
